@@ -1,4 +1,4 @@
-package treecmp.util;
+package treecmp.metrics.util;
 
 import pal.tree.ReadTree;
 import pal.tree.Tree;
