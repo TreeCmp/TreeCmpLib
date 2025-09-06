@@ -15,12 +15,14 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>. */
 
-package treecmp.metrics;
+package treecmp.metrics.topological;
 
 import pal.misc.IdGroup;
 import pal.tree.Tree;
 import pal.tree.TreeUtils;
 import treecmp.common.SplitDist;
+import treecmp.metrics.BaseMetric;
+import treecmp.metrics.Metric;
 
 import java.util.BitSet;
 import java.util.HashSet;
@@ -29,7 +31,7 @@ import java.util.HashSet;
  *
  * @author Damian
  */
-public class RFMetric extends BaseMetric implements Metric{
+public class RFMetric extends BaseMetric implements Metric {
 
     public static double getRFDistance(Tree t1, Tree t2) {
 
