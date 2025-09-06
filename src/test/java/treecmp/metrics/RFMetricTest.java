@@ -17,7 +17,7 @@ class RFMetricTest {
 
     @Test
     void getRFDistance_firstTreeAsNull_returnsException() {
-        var t1 = TestTreeFactory.simpleTreeA();
+        var t1 = TestTreeFactory.fourLeavesTree1();
 
         NullPointerException exception = assertThrows(
                 NullPointerException.class,
@@ -28,7 +28,7 @@ class RFMetricTest {
 
     @Test
     void getRFDistance_secondTreeAsNull_returnsException() {
-        var t1 = TestTreeFactory.simpleTreeA();
+        var t1 = TestTreeFactory.fourLeavesTree1();
 
         NullPointerException exception = assertThrows(
                 NullPointerException.class,
@@ -39,8 +39,8 @@ class RFMetricTest {
 
     @Test
     void getRFDistance_identicalTrees_returnsZero() {
-        var t1 = TestTreeFactory.simpleTreeA();
-        var t2 = TestTreeFactory.simpleTreeA();
+        var t1 = TestTreeFactory.fourLeavesTree1();
+        var t2 = TestTreeFactory.fourLeavesTree1();
 
         double distance = RFMetric.getRFDistance(t1, t2);
 
@@ -49,11 +49,21 @@ class RFMetricTest {
 
     @Test
     void getRFDistance_4leafsTrees_returnsTwo() {
-        var t1 = TestTreeFactory.simpleTreeA();
-        var t2 = TestTreeFactory.simpleTreeB();
+        var t1 = TestTreeFactory.fourLeavesTree1();
+        var t2 = TestTreeFactory.fourLeavesTree2();
 
         double distance = RFMetric.getRFDistance(t1, t2);
 
         assertEquals(2.0, distance);
+    }
+
+    @Test
+    void getRFDistance_10leafsTrees_returnsEight() {
+        var t1 = TestTreeFactory.tenLeavesBinaryRootedTree1();
+        var t2 = TestTreeFactory.tenLeavesBinaryRootedTree2();
+
+        double distance = RFMetric.getRFDistance(t1, t2);
+
+        assertEquals(8.0, distance);
     }
 }

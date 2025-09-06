@@ -7,13 +7,23 @@ import pal.tree.TreeParseException;
 
 public class TestTreeFactory {
 
-    public static Tree simpleTreeA() {
+    public static Tree fourLeavesTree1() {
         String newick = "((A,B),(C,D));";
         return parseNewick(newick);
     }
 
-    public static Tree simpleTreeB() {
+    public static Tree fourLeavesTree2() {
         String newick = "((A,C),(B,D));";
+        return parseNewick(newick);
+    }
+
+    public static Tree tenLeavesBinaryRootedTree1() {
+        String newick = "(((2,5),(3,6)),(4,((1,(7,8)),(9,10))));";
+        return parseNewick(newick);
+    }
+
+    public static Tree tenLeavesBinaryRootedTree2() {
+        String newick = "(((2,3),7),(((4,6),((1,(5,9)),10)),8));";
         return parseNewick(newick);
     }
 
