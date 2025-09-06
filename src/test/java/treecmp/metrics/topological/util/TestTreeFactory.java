@@ -1,4 +1,4 @@
-package treecmp.metrics.util;
+package treecmp.metrics.topological.util;
 
 import pal.tree.ReadTree;
 import pal.tree.Tree;
@@ -24,6 +24,16 @@ public class TestTreeFactory {
 
     public static Tree tenLeavesBinaryRootedTree2() {
         String newick = "(((2,3),7),(((4,6),((1,(5,9)),10)),8));";
+        return parseNewick(newick);
+    }
+
+    public static Tree tenLeavesBinaryUnrootedTree1() {
+        String newick = "(6,(((5,(4,7)),((2,(3,9)),8)),10),1);";
+        return parseNewick(newick);
+    }
+
+    public static Tree tenLeavesBinaryUnrootedTree2() {
+        String newick = "((1,8),(4,10),(2,(5,(3,((6,7),9)))));";
         return parseNewick(newick);
     }
 

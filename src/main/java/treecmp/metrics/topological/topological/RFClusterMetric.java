@@ -15,52 +15,44 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>. */
 
-package treecmp.metrics.topological;
+package treecmp.metrics.topological.topological;
 
 import pal.misc.IdGroup;
 import pal.tree.Tree;
 import pal.tree.TreeUtils;
-import treecmp.common.SplitDist;
-import treecmp.metrics.BaseMetric;
-import treecmp.metrics.Metric;
+import treecmp.common.ClusterDist;
+import treecmp.metrics.topological.BaseMetric;
+import treecmp.metrics.topological.Metric;
 
 import java.util.BitSet;
 import java.util.HashSet;
 
-/**
- *
- * @author Damian
- */
-public class RFMetric extends BaseMetric implements Metric {
+public class RFClusterMetric extends BaseMetric implements Metric {
 
-    public static double getRFDistance(Tree t1, Tree t2) {
-
-        int n = t1.getExternalNodeCount();
-        if (n <= 3)
-            return 0;
+    public static double getRFClusterMetric(Tree t1, Tree t2) {
 
         IdGroup idGroup = TreeUtils.getLeafIdGroup(t1);
-        BitSet[] s_t1=SplitDist.getSplits(t1, idGroup);
-        BitSet[] s_t2=SplitDist.getSplits(t2, idGroup);
-        int N1=s_t1.length;
-        int N2=s_t2.length;
-        int hashSetSize=(4*(N1+1))/3;
 
-        HashSet<BitSet> s_t1_hs=new HashSet<BitSet>(hashSetSize);
+        BitSet[] bs1 = ClusterDist.RootedTree2BitSetArray(t1, idGroup);
+        BitSet[] bs2 = ClusterDist.RootedTree2BitSetArray(t2, idGroup);
 
-        int i;
-        for(i=0;i<N1;i++){
-            s_t1_hs.add(s_t1[i]);
+        int size1 = bs1.length;
+        int size2 = bs2.length;
+        int hashSetSize=(4*(size1+1))/3;
+
+        HashSet<BitSet> hs1=new HashSet<BitSet>(hashSetSize);
+
+        for(int i=0;i<size1;i++){
+            hs1.add(bs1[i]);
         }
 
         int common=0;
-        for(i=0;i<N2;i++){
-             if (s_t1_hs.contains(s_t2[i])){
+        for(int i=0;i<size2;i++){
+            if (hs1.contains(bs2[i]))
                 common++;
-            }
         }
 
-        double dist=((double)N1+(double)N2)*0.5-(double)common;
+        double dist=((double)size1+(double)size2)*0.5-(double)common;
         return dist;
 
     }
@@ -69,7 +61,7 @@ public class RFMetric extends BaseMetric implements Metric {
 
     public double getDistance(Tree t1, Tree t2, int... indexes) {
 
-        return RFMetric.getRFDistance(t1, t2);
+        return RFClusterMetric.getRFClusterMetric(t1, t2);
 
     }
 }

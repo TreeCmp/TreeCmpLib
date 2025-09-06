@@ -17,7 +17,7 @@
 
 package treecmp.config;
 
-import treecmp.metrics.Metric;
+import treecmp.metrics.topological.Metric;
 
 import java.util.ArrayList;
 import java.util.List;
