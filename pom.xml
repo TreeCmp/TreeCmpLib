@@ -5,7 +5,7 @@
     <modelVersion>4.0.0</modelVersion>
 
     <groupId>pl.edu.pg.eti</groupId>
-    <artifactId>TreeCmp.Lib</artifactId>
+    <artifactId>TreeCmpLib</artifactId>
     <version>1.0-SNAPSHOT</version>
 
     <properties>
