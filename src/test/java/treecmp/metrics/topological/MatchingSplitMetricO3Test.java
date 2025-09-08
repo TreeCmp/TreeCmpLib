@@ -5,14 +5,14 @@ import treecmp.metrics.topological.util.TestTreeFactory;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-public class MatchingSplitMetricFreeTest {
+public class MatchingSplitMetricO3Test {
 
     @Test
     void getMatchingSplitDistance_identicalTrees_returnsZero() {
         var t1 = TestTreeFactory.fourLeavesTree1();
         var t2 = TestTreeFactory.fourLeavesTree1();
 
-        var m3m = new MatchingSpliMetricFree();
+        var m3m = new MatchingSplitMetricO3();
 
         double distance = m3m.getDistance(t1, t2);
 
@@ -24,7 +24,7 @@ public class MatchingSplitMetricFreeTest {
         var t1 = TestTreeFactory.fourLeavesTree1();
         var t2 = TestTreeFactory.fourLeavesTree2();
 
-        var m3m = new MatchingSpliMetricFree();
+        var m3m = new MatchingSplitMetricO3();
 
         double distance = m3m.getDistance(t1, t2);
 
@@ -36,7 +36,7 @@ public class MatchingSplitMetricFreeTest {
         var t1 = TestTreeFactory.tenLeavesBinaryUnrootedTree1();
         var t2 = TestTreeFactory.tenLeavesBinaryUnrootedTree2();
 
-        var m3m = new MatchingSpliMetricFree();
+        var m3m = new MatchingSplitMetricO3();
 
         double distance = m3m.getDistance(t1, t2);
 
