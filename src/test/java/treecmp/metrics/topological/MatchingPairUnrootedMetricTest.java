@@ -12,9 +12,9 @@ public class MatchingPairUnrootedMetricTest {
         var t1 = TestTreeFactory.fourLeavesTree1();
         var t2 = TestTreeFactory.fourLeavesTree1();
 
-        var m3m = new MatchingPairMetric();
+        var mpu = new MatchingPairMetric();
 
-        double distance = m3m.getDistance(t1, t2);
+        double distance = mpu.getDistance(t1, t2);
 
         assertEquals(0.0, distance);
     }
@@ -24,11 +24,11 @@ public class MatchingPairUnrootedMetricTest {
         var t1 = TestTreeFactory.fourLeavesTree1();
         var t2 = TestTreeFactory.fourLeavesTree2();
 
-        var m3m = new MatchingPairMetric();
+        var mpu = new MatchingTripletMetric();
 
-        double distance = m3m.getDistance(t1, t2);
+        double distance = mpu.getDistance(t1, t2);
 
-        assertEquals(4.0, distance);
+        assertEquals(2.0, distance);
     }
 
     @Test
@@ -36,11 +36,11 @@ public class MatchingPairUnrootedMetricTest {
         var t1 = TestTreeFactory.tenLeavesBinaryUnrootedTree1();
         var t2 = TestTreeFactory.tenLeavesBinaryUnrootedTree2();
 
-        var m3m = new MatchingPairMetric();
+        var mpu = new MatchingTripletMetric();
 
-        double distance = m3m.getDistance(t1, t2);
+        double distance = mpu.getDistance(t1, t2);
 
-        assertEquals(28.0, distance);
+        assertEquals(84.0, distance);
     }
 
 }
