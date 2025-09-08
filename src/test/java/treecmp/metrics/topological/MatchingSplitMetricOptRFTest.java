@@ -42,4 +42,16 @@ public class MatchingSplitMetricOptRFTest {
         assertEquals(21, distance);
     }
 
+    @Test
+    void getMatchingSplitDistance_100leafsTrees_returnsSeven() {
+        var t1 = TestTreeFactory.hundredLeavesBinaryUnrootedTree1();
+        var t2 = TestTreeFactory.hundredLeavesBinaryUnrootedTree2();
+
+        var ms = new MatchingSplitMetricOptRF();
+
+        double distance = ms.getDistance(t1, t2);
+
+        assertEquals(1392, distance);
+    }
+
 }
