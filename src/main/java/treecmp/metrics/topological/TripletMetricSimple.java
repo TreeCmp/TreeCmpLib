@@ -21,6 +21,7 @@ import pal.misc.IdGroup;
 import pal.tree.Tree;
 import pal.tree.TreeUtils;
 import treecmp.common.TreeCmpUtils;
+import treecmp.metrics.*;
 
 public class TripletMetricSimple extends BaseMetric implements Metric {
   

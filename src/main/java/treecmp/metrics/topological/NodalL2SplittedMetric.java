@@ -20,6 +20,7 @@ import pal.misc.IdGroup;
 import pal.tree.Tree;
 import pal.tree.TreeUtils;
 import treecmp.common.TreeCmpUtils;
+import treecmp.metrics.*;
 
 public class NodalL2SplittedMetric extends BaseMetric implements Metric{
   public double getDistance(Tree t1, Tree t2, int... indexes) {

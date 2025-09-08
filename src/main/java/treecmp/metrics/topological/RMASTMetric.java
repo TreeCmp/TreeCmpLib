@@ -3,6 +3,7 @@ package treecmp.metrics.topological;
 import pal.tree.Node;
 import pal.tree.Tree;
 import treecmp.common.LapSolver;
+import treecmp.metrics.*;
 
 /**
  * RMAST metric.

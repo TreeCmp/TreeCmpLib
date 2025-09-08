@@ -28,6 +28,7 @@ import treecmp.common.IntNodePair;
 import treecmp.common.LapSolver;
 import treecmp.common.TreeCmpUtils;
 import treecmp.config.IOSettings;
+import treecmp.metrics.*;
 
 public class MatchingClusterMetricO3Long extends BaseMetric implements Metric {
 

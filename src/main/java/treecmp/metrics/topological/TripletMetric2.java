@@ -22,6 +22,7 @@ import pal.tree.Tree;
 import pal.tree.TreeUtils;
 import treecmp.common.ClustIntersectInfoMatrix;
 import treecmp.common.TreeCmpUtils;
+import treecmp.metrics.*;
 
 
 public class TripletMetric2 extends BaseMetric implements Metric {

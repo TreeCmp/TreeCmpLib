@@ -21,6 +21,7 @@ import pal.io.OutputTarget;
 import pal.tree.Tree;
 import pal.tree.TreeUtils;
 import qt.*;
+import treecmp.metrics.*;
 
 /**
  *

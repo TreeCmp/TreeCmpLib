@@ -21,6 +21,7 @@ import pal.misc.IdGroup;
 import pal.tree.Tree;
 import pal.tree.TreeUtils;
 import treecmp.common.ClusterDist;
+import treecmp.metrics.*;
 
 import java.util.BitSet;
 import java.util.HashSet;

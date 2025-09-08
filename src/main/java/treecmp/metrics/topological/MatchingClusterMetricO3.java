@@ -26,6 +26,7 @@ import pal.tree.TreeUtils;
 import treecmp.common.*;
 import treecmp.common.ClustIntersectInfoMatrix.ClustPair;
 import treecmp.config.IOSettings;
+import treecmp.metrics.*;
 
 public class MatchingClusterMetricO3 extends BaseMetric implements Metric {
 

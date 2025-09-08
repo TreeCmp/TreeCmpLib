@@ -22,6 +22,7 @@ import pal.tree.Tree;
 import pal.tree.TreeDistanceMatrix;
 import pal.tree.TreeUtils;
 import treecmp.common.TreeCmpUtils;
+import treecmp.metrics.*;
 
 public class NodalL2Metric extends BaseMetric implements Metric {
 
