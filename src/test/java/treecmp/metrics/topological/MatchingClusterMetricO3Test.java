@@ -5,13 +5,13 @@ import treecmp.metrics.topological.util.TestTreeFactory;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
-class MatchingClusterMetricFreeTest {
+class MatchingClusterMetricO3Test {
 
     @Test
     void getMatchingClusterDistance_identicalTrees_returnsZero() {
         var t1 = TestTreeFactory.fourLeavesTree1();
         var t2 = TestTreeFactory.fourLeavesTree1();
-        var mcm = new MatchingClusterMetricFree();
+        var mcm = new MatchingClusterMetricO3();
 
         double distance = mcm.getDistance(t1, t2);
 
@@ -23,7 +23,7 @@ class MatchingClusterMetricFreeTest {
         var t1 = TestTreeFactory.fourLeavesTree1();
         var t2 = TestTreeFactory.fourLeavesTree2();
 
-        var mcm = new MatchingClusterMetricFree();
+        var mcm = new MatchingClusterMetricO3();
 
         double distance = mcm.getDistance(t1, t2);
 
@@ -35,7 +35,7 @@ class MatchingClusterMetricFreeTest {
         var t1 = TestTreeFactory.tenLeavesBinaryRootedTree1();
         var t2 = TestTreeFactory.tenLeavesBinaryRootedTree2();
 
-        var mcm = new MatchingClusterMetricFree();
+        var mcm = new MatchingClusterMetricO3();
 
         double distance = mcm.getDistance(t1, t2);
 
