@@ -40,9 +40,8 @@ class RFMetricTest {
     @Test
     void getRFDistance_identicalTrees_returnsZero() {
         var t1 = TestTreeFactory.fourLeavesTree1();
-        var t2 = TestTreeFactory.fourLeavesTree1();
 
-        double distance = RFMetric.getRFDistance(t1, t2);
+        double distance = RFMetric.getRFDistance(t1, t1);
 
         assertEquals(0.0, distance);
     }

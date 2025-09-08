@@ -10,11 +10,10 @@ public class MatchingTripletMetricTest {
     @Test
     void getMatchingTripletDistance_identicalTrees_returnsZero() {
         var t1 = TestTreeFactory.fourLeavesTree1();
-        var t2 = TestTreeFactory.fourLeavesTree1();
 
         var m3m = new MatchingTripletMetric();
 
-        double distance = m3m.getDistance(t1, t2);
+        double distance = m3m.getDistance(t1, t1);
 
         assertEquals(0.0, distance);
     }

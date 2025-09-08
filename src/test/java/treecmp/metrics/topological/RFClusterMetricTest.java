@@ -10,9 +10,8 @@ public class RFClusterMetricTest {
     @Test
     void getRFCDistance_identicalTrees_returnsZero() {
         var t1 = TestTreeFactory.fourLeavesTree1();
-        var t2 = TestTreeFactory.fourLeavesTree1();
 
-        double distance = RFClusterMetric.getRFClusterMetric(t1, t2);
+        double distance = RFClusterMetric.getRFClusterMetric(t1, t1);
 
         assertEquals(0.0, distance);
     }

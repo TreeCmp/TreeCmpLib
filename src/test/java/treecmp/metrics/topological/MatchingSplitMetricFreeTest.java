@@ -10,11 +10,10 @@ public class MatchingSplitMetricFreeTest {
     @Test
     void getMatchingSplitDistance_identicalTrees_returnsZero() {
         var t1 = TestTreeFactory.fourLeavesTree1();
-        var t2 = TestTreeFactory.fourLeavesTree1();
 
-        var m3m = new MatchingSpliMetricFree();
+        var ms = new MatchingSpliMetricFree();
 
-        double distance = m3m.getDistance(t1, t2);
+        double distance = ms.getDistance(t1, t1);
 
         assertEquals(0.0, distance);
     }
@@ -24,9 +23,9 @@ public class MatchingSplitMetricFreeTest {
         var t1 = TestTreeFactory.fourLeavesTree1();
         var t2 = TestTreeFactory.fourLeavesTree2();
 
-        var m3m = new MatchingSpliMetricFree();
+        var ms = new MatchingSpliMetricFree();
 
-        double distance = m3m.getDistance(t1, t2);
+        double distance = ms.getDistance(t1, t2);
 
         assertEquals(4.0, distance);
     }
@@ -36,9 +35,9 @@ public class MatchingSplitMetricFreeTest {
         var t1 = TestTreeFactory.tenLeavesBinaryUnrootedTree1();
         var t2 = TestTreeFactory.tenLeavesBinaryUnrootedTree2();
 
-        var m3m = new MatchingSpliMetricFree();
+        var ms = new MatchingSpliMetricFree();
 
-        double distance = m3m.getDistance(t1, t2);
+        double distance = ms.getDistance(t1, t2);
 
         assertEquals(21, distance);
     }

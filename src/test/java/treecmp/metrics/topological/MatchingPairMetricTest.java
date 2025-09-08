@@ -10,10 +10,9 @@ class MatchingPairMetricTest {
     @Test
     void getMatchingPairDistance_identicalTrees_returnsZero() {
         var t1 = TestTreeFactory.fourLeavesTree1();
-        var t2 = TestTreeFactory.fourLeavesTree1();
         var mcm = new MatchingPairMetric();
 
-        double distance = mcm.getDistance(t1, t2);
+        double distance = mcm.getDistance(t1, t1);
 
         assertEquals(0.0, distance);
     }

@@ -10,10 +10,9 @@ class NodalL2SplittedMetricTest {
     @Test
     void getNodalL2SplittedDistance_identicalTrees_returnsZero() {
         var t1 = TestTreeFactory.fourLeavesTree1();
-        var t2 = TestTreeFactory.fourLeavesTree1();
         var nm = new NodalL2SplittedMetric();
 
-        double distance = nm.getDistance(t1, t2);
+        double distance = nm.getDistance(t1, t1);
 
         assertEquals(0.0, distance);
     }

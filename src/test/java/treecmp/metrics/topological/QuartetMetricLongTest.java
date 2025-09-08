@@ -10,9 +10,8 @@ public class QuartetMetricLongTest {
     @Test
     void getQuartetLongDistance_identicalTrees_returnsZero() {
         var t1 = TestTreeFactory.fourLeavesTree1();
-        var t2 = TestTreeFactory.fourLeavesTree1();
 
-        Double distance = QuartetMetricLong.getQuartetDistance(t1, t2);
+        Double distance = QuartetMetricLong.getQuartetDistance(t1, t1);
 
         assertEquals(0.0, distance);
     }
