@@ -1,8 +1,6 @@
 package treecmp.metrics.topological;
 
 import org.junit.jupiter.api.Test;
-import treecmp.metrics.topological.topological.NodalL2Metric;
-import treecmp.metrics.topological.topological.NodalL2SplittedMetric;
 import treecmp.metrics.topological.util.TestTreeFactory;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;

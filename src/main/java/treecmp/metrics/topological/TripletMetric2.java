@@ -15,14 +15,13 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>. */
 
-package treecmp.metrics.topological.topological;
+package treecmp.metrics.topological;
 
 import pal.tree.Node;
 import pal.tree.Tree;
 import pal.tree.TreeUtils;
 import treecmp.common.ClustIntersectInfoMatrix;
 import treecmp.common.TreeCmpUtils;
-import treecmp.metrics.topological.*;
 
 
 public class TripletMetric2 extends BaseMetric implements Metric {

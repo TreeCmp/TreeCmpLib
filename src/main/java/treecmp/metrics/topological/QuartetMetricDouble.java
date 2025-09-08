@@ -15,21 +15,20 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>. */
 
-package treecmp.metrics.topological.topological;
+package treecmp.metrics.topological;
 
 import pal.io.OutputTarget;
 import pal.tree.Tree;
 import pal.tree.TreeUtils;
 import qt.*;
-import treecmp.metrics.topological.*;
 
 /**
  *
  * @author Damian
  */
-public class QuartetMetricLong extends BaseMetric implements Metric {
+public class QuartetMetricDouble extends BaseMetric implements Metric {
 
-    public QuartetMetricLong() {
+    public QuartetMetricDouble() {
     }
 
     public static double getQuartetDistance(Tree tree1, Tree tree2) {
@@ -47,7 +46,7 @@ public class QuartetMetricLong extends BaseMetric implements Metric {
         tree1OT.close();
         tree2OT.close();
 
-        Distance d = new GeneralN2DQDistLongShort();
+        Distance d = new GeneralN2DQDistDoubleShort();
         double dist = -1.0;
         try {
             qt.Tree tree_tt1 = new qt.Tree(tree1Newick);
@@ -64,6 +63,6 @@ public class QuartetMetricLong extends BaseMetric implements Metric {
 
     public double getDistance(Tree t1, Tree t2, int... indexes) {
 
-        return QuartetMetricLong.getQuartetDistance(t1, t2);
+        return QuartetMetricDouble.getQuartetDistance(t1, t2);
     }
 }

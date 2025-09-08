@@ -15,14 +15,12 @@
     You should have received a copy of the GNU General Public License
     along with this program.  If not, see <http://www.gnu.org/licenses/>. */
 
-package treecmp.metrics.topological.topological;
+package treecmp.metrics.topological;
 
 import pal.misc.IdGroup;
 import pal.tree.Tree;
 import pal.tree.TreeUtils;
 import treecmp.common.SplitDist;
-import treecmp.metrics.topological.BaseMetric;
-import treecmp.metrics.topological.Metric;
 
 import java.util.BitSet;
 import java.util.HashSet;
