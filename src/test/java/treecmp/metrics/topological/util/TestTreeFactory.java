@@ -17,6 +17,26 @@ public class TestTreeFactory {
         return parseNewick(newick);
     }
 
+    public static Tree fourLeavesWeightedTree1() {
+        String newick = "((2:82,3:91):95,(1:2,4:9):58):45;";
+        return parseNewick(newick);
+    }
+
+    public static Tree fourLeavesWeightedTree2() {
+        String newick = "(2:83,(1:7,(3:33,4:29):12):60):93;";
+        return parseNewick(newick);
+    }
+
+    public static Tree fourLeavesZeroWeightedTree1() {
+        String newick = "((2:0,3:0):0,(1:0,4:0):0):0;";
+        return parseNewick(newick);
+    }
+
+    public static Tree fourLeavesZeroWeightedTree2() {
+        String newick = "((2:0,3:0):0,(1:0,4:0):0):0;";
+        return parseNewick(newick);
+    }
+
     public static Tree tenLeavesBinaryRootedTree1() {
         String newick = "(((2,5),(3,6)),(4,((1,(7,8)),(9,10))));";
         return parseNewick(newick);
@@ -36,6 +56,27 @@ public class TestTreeFactory {
         String newick = "((1,8),(4,10),(2,(5,(3,((6,7),9)))));";
         return parseNewick(newick);
     }
+
+    public static Tree tenLeavesWeightedBinaryRootedTree1() {
+        String newick = "((((3:84,(2:87,4:21):94):46,8:8):50,(6:92,10:20):29):86,(7:80,((1:67,5:93):64,9:93):21):73):67;";
+        return parseNewick(newick);
+    }
+
+    public static Tree tenLeavesWeightedBinaryRootedTree2() {
+        String newick = "(1:49,((2:15,(((3:28,4:77):24,6:76):93,7:67):97):32,((8:86,(5:63,9:31):93):94,10:29):40):69):85;";
+        return parseNewick(newick);
+    }
+
+    public static Tree tenLeavesWeightedBinaryUnrootedTree1() {
+        String newick = "(5:63,((((1:19,4:24):27,(3:53,(7:91,10:8):83):43):70,(6:1,9:10):21):55,8:56):19,2:59):27;";
+        return parseNewick(newick);
+    }
+
+    public static Tree tenLeavesWeightedBinaryUnrootedTree2() {
+        String newick = "((((4:1,(6:34,7:36):92):37,((3:38,(1:23,10:48):42):62,9:58):44):48,5:46):41,8:46,2:61):96;";
+        return parseNewick(newick);
+    }
+
 
     public static Tree hundredLeavesBinaryUnrootedTree1() {
         String newick = "(39,((20,((((36,(((((5,(9,57)),(16,(7,92))),(((14,(19,60)),(25,37)),88)),(63,((2,30),65))),93)),(42,((52,((10,(13,32)),59)),(61,97)))),94),100)),79),((1,(38,66)),((62,((((28,(((41,(((15,69),(((6,(64,((11,(((31,82),((58,(((49,70),((45,(55,85)),80)),73)),90)),56)),76))),(((34,((12,95),98)),48),(78,99))),89)),83)),(54,((18,(26,87)),67))),((40,44),(43,86)))),((27,((22,(((17,(33,(4,(35,96)))),(8,81)),(23,68))),(29,46))),53)),(21,(24,(((51,((47,72),77)),75),((3,74),84))))),71)),(50,91))));";

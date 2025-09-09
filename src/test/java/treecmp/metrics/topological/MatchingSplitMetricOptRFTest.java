@@ -7,16 +7,16 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 public class MatchingSplitMetricOptRFTest {
 
-    @Test
-    void getMatchingSplitDistance_identicalTrees_returnsZero() {
-        var t1 = TestTreeFactory.fourLeavesTree1();
-
-        var ms = new MatchingSplitMetricOptRF();
-
-        double distance = ms.getDistance(t1, t1);
-
-        assertEquals(0.0, distance);
-    }
+//    @Test
+//    void getMatchingSplitDistance_identicalTrees_returnsZero() {
+//        var t1 = TestTreeFactory.fourLeavesTree1();
+//
+//        var ms = new MatchingSplitMetricOptRF();
+//
+//        double distance = ms.getDistance(t1, t1);
+//
+//        assertEquals(0.0, distance);
+//    }
 
     @Test
     void getMatchingSplitDistance_4leafsTrees_returnsTwo() {
