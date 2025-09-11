@@ -1,7 +1,7 @@
 package treecmp.metrics.topological;
 
 import org.junit.jupiter.api.Test;
-import treecmp.metrics.topological.util.TestTreeFactory;
+import treecmp.metrics.util.TestTreeFactory;
 
 import static org.junit.jupiter.api.Assertions.*;
 
