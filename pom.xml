@@ -6,13 +6,54 @@
 
     <groupId>com.github.treecmp</groupId>
     <artifactId>TreeCmpLib</artifactId>
-    <version>1.0-SNAPSHOT</version>
+    <version>1.0.0</version>
+    <name>TreeCmpLib</name>
+    <description>A Java library for comparing phylogenetic trees using various distance metrics.</description>
+    <url>https://github.com/TreeCmp/TreeCmpLib</url>
+
+    <licenses>
+        <license>
+            <name>GNU Lesser General Public License v3.0</name>
+            <url>https://www.gnu.org/licenses/lgpl-3.0.html</url>
+            <distribution>repo</distribution>
+        </license>
+    </licenses>
+
+    <developers>
+        <developer>
+            <id>dbogdanowicz</id>
+            <name>Damian Bogdanowicz</name>
+            <email>damb@o2.pl</email>
+        </developer>
+        <developer>
+            <id>goluch</id>
+            <name>Tomasz Goluch</name>
+            <email>tomgoluc@pg.edu.pl</email>
+        </developer>
+    </developers>
+
+    <scm>
+        <connection>scm:git:git://github.com/TreeCmp/TreeCmpLib.git</connection>
+        <developerConnection>scm:git:ssh://github.com/TreeCmp/TreeCmpLib.git</developerConnection>
+        <url>https://github.com/TreeCmp/TreeCmpLib</url>
+    </scm>
+
+    <distributionManagement>
+        <snapshotRepository>
+            <id>ossrh</id>
+            <url>https://s01.oss.sonatype.org/content/repositories/snapshots</url>
+        </snapshotRepository>
+        <repository>
+            <id>ossrh</id>
+            <url>https://s01.oss.sonatype.org/service/local/staging/deploy/maven2/</url>
+        </repository>
+    </distributionManagement>
 
     <properties>
-        <maven.compiler.source>11</maven.compiler.source>
-        <maven.compiler.target>11</maven.compiler.target>
+        <maven.compiler.release>11</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
     </properties>
+
     <dependencies>
         <dependency>
             <groupId>org.junit.jupiter</groupId>
