@@ -106,17 +106,25 @@ public abstract class Distance {
     }
   }
 
-  
-  /**Prunes the given trees, so that they contain the same leaves, and
-     returns the resulting trees. If leaves are deleted, new trees
-     will be created to preserve the old ones. The two resulting trees
-     are returned in an array of size 2
-     @param t1 the first tree
-     @param t2 the second tree
-     @return the two resulting trees, in an array of size 2
-  */
-  public Tree[] pruneTrees(Tree t1, Tree t2, LinkedList delete1, LinkedList delete2)
-    throws PruneException {
+
+/**
+ * Prunes the given trees, {@code t1} and {@code t2}, so that they contain the exact same set of leaves,
+ * and returns the resulting trees.
+ *
+ * <p>It determines which leaves are unique to each tree by comparing their sorted leaf arrays.
+ * The indices of the leaves to be deleted from {@code t1} and {@code t2} are stored in
+ * {@code delete1} and {@code delete2}, respectively. If leaves are deleted, new trees are
+ * created to preserve the original objects.
+ *
+ * @param t1 The first phylogenetic tree.
+ * @param t2 The second phylogenetic tree.
+ * @param delete1 A {@code LinkedList} to be populated with the integer indices of the leaves to delete from {@code t1}.
+ * @param delete2 A {@code LinkedList} to be populated with the integer indices of the leaves to delete from {@code t2}.
+ * @return An array of size 2 containing the two resulting pruned trees: {@code [pruned_t1, pruned_t2]}.
+ * @throws PruneException If pruning the leaves would result in a tree with fewer than 4 leaves (i.e., no quartets left).
+ */
+public Tree[] pruneTrees(Tree t1, Tree t2, LinkedList delete1, LinkedList delete2)
+        throws PruneException {
     Leaf[] leaves1= t1.getLeaves();
     Leaf[] leaves2= t2.getLeaves();
 
@@ -124,39 +132,38 @@ public abstract class Distance {
     int i = 0, j = 0;
     int comp;
     while(i < leaves1.length && j < leaves2.length) {
-      comp = leaves1[i].compareTo(leaves2[j]);
-      if (comp == 0) { //leaves equal, all ok
-	i++;
-	j++;	
-      }
-      else if (comp < 0) { //the leaf in the first tree is not in the second
-	delete1.add(new Integer(i++));
-      }
-      else { //comp > 0 - ie. the leaf in the second tree is not in the first
-	delete2.add(new Integer(j++));
-      }
+        comp = leaves1[i].compareTo(leaves2[j]);
+        if (comp == 0) { //leaves equal, all ok
+            i++;
+            j++;
+        }
+        else if (comp < 0) { //the leaf in the first tree is not in the second
+            delete1.add(new Integer(i++));
+        }
+        else { //comp > 0 - ie. the leaf in the second tree is not in the first
+            delete2.add(new Integer(j++));
+        }
     }
 
-    
+
     //If any leaves left in one of the arrays, they must be deleted
     while(i < leaves1.length)
-      delete1.add(new Integer(i++));
+        delete1.add(new Integer(i++));
     while(j < leaves2.length)
-      delete2.add(new Integer(j++));
+        delete2.add(new Integer(j++));
 
     if (delete1.size() >= t1.numLeaves()-3 || delete2.size() >= t2.numLeaves()-3)
-      throw new PruneException("One of the trees will have no quartets left.");
+        throw new PruneException("One of the trees will have no quartets left.");
     //delete leaves, if needed
     if (!delete1.isEmpty())
-      t1 = t1.deleteLeaves(delete1);
+        t1 = t1.deleteLeaves(delete1);
 
     if (!delete2.isEmpty())
-      t2 = t2.deleteLeaves(delete2);
+        t2 = t2.deleteLeaves(delete2);
 
-    
+
     return new Tree[] {t1, t2};
-  }
-  
+}
 			  
   /**Calculates the distance between the two given trees
      @param t1 the first tree

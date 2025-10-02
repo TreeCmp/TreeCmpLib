@@ -22,7 +22,7 @@ import java.io.*;
  *
  * @author Korbinian Strimmer
  * @author Alexei Drummond
- * @note This class has it's days numbered... MG
+ * Note: This class has it's days numbered... MG
  */
 
 public abstract class RateDistribution extends PalObjectListener.EventGenerator implements Parameterized, Report, Cloneable, Serializable
@@ -109,10 +109,13 @@ public abstract class RateDistribution extends PalObjectListener.EventGenerator 
 			out.println();
 		}
 	}
-	/**
-	 * The non direct access method
-	 */
-	public final double[] getCategoryProbabilities() { return probability;	}
+    /**
+     * Returns the array of category probabilities.
+     * This is the non-direct access method, providing a copy or the internal array
+     * based on the implementation detail (likely returns the internal array).
+     * @return The array of double values representing the category probabilities.
+     */
+    public final double[] getCategoryProbabilities() { return probability;  }
 	public final double getCategoryProbability(int category) { return probability[category];	}
 	public Object clone() {
 		try {

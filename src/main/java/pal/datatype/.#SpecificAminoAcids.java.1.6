@@ -58,7 +58,7 @@ public class SpecificAminoAcids extends AminoAcids implements MolecularDataType 
 		return nucleotideStates;
 	}
 	/**
-	 * @note use this method with caution as the process of converting an AA to a IUPAC codon and back to an AA may not yield the same end AA as a starting one
+	 * Note: use this method with caution as the process of converting an AA to a IUPAC codon and back to an AA may not yield the same end AA as a starting one
 	 */
 	public final int[] getMolecularStatesFromIUPACNucleotides(int[] nucleotideStates, int startingIndex) {
 		return getMolecularStatesFromSimpleNucleotides(
@@ -84,7 +84,7 @@ public class SpecificAminoAcids extends AminoAcids implements MolecularDataType 
 
 	/**
 	 * @return false
-	 * @note change from true
+	 * Note: change from true
 	 */
 	public boolean isCreatesIUPACNuecleotides() {
 		return false;

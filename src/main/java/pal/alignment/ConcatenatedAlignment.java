@@ -21,63 +21,61 @@ public class ConcatenatedAlignment extends AbstractAlignment
 	//
 	// Public stuff
 	//
-	
-	/**
-	 * concatenate alignments
-	 *
-	 * @param Alignment array with alignment to concatenate
-	 */
-	public ConcatenatedAlignment(Alignment[] list)
-		throws IllegalArgumentException
-	{
-		alignmentList = list;
-		
-		numAlignments = alignmentList.length;
-		if (numAlignments == 0)
-		{
-			throw new IllegalArgumentException("NO ALIGNMENT");
-		} 
-		
-		numSeqs = alignmentList[0].getSequenceCount();
-		idGroup = alignmentList[0];
-		
-		numSites = 0;
-		for (int i = 0; i < numAlignments; i++)
-		{
-			numSites += alignmentList[i].getSiteCount();
-			
-			if (alignmentList[i].getSequenceCount() != numSeqs)
-			{
-				throw new IllegalArgumentException("INCOMPATIBLE ALIGNMENTS");
-			}
-		}
-		
-		// Create indices
-		alignmentIndex = new int[numSites];
-		siteIndex = new int[numSites];
-		
-		int s = 0;
-		for (int i = 0; i < numAlignments; i++)
-		{
-			for (int j = 0; j < alignmentList[i].getSiteCount(); j++)
-			{
-				alignmentIndex[s+j] = i;
-				siteIndex[s+j] = j;
-			}
-			s += alignmentList[i].getSiteCount();
-		}		
-	}
 
-	// Implementation of abstract Alignment method
+    /**
+     * Constructs a concatenated alignment from an array of individual alignments.
+     * All alignments must have the same number of sequences (taxa), otherwise an exception is thrown.
+     * This class maps sites from the concatenated alignment back to their original alignment and site indices.
+     *
+     * @param list an array of Alignment objects to concatenate
+     * @throws IllegalArgumentException if the array is empty or alignments have differing numbers of sequences
+     */
+    public ConcatenatedAlignment(Alignment[] list) throws IllegalArgumentException {
+        alignmentList = list;
 
-	/** sequence alignment at (sequence, site) */
-	public char getData(int seq, int site)
-	{
-		return alignmentList[alignmentIndex[site]].getData(seq, siteIndex[site]);
-	}
-	
+        numAlignments = alignmentList.length;
+        if (numAlignments == 0) {
+            throw new IllegalArgumentException("NO ALIGNMENT");
+        }
 
-	//
+        numSeqs = alignmentList[0].getSequenceCount();
+        idGroup = alignmentList[0];
+
+        numSites = 0;
+        for (int i = 0; i < numAlignments; i++) {
+            numSites += alignmentList[i].getSiteCount();
+
+            if (alignmentList[i].getSequenceCount() != numSeqs) {
+                throw new IllegalArgumentException("INCOMPATIBLE ALIGNMENTS");
+            }
+        }
+
+        // Create indices
+        alignmentIndex = new int[numSites];
+        siteIndex = new int[numSites];
+
+        int s = 0;
+        for (int i = 0; i < numAlignments; i++) {
+            for (int j = 0; j < alignmentList[i].getSiteCount(); j++) {
+                alignmentIndex[s + j] = i;
+                siteIndex[s + j] = j;
+            }
+            s += alignmentList[i].getSiteCount();
+        }
+    }
+
+    /**
+     * Returns the character at a given sequence and site in the concatenated alignment.
+     *
+     * @param seq  the sequence (taxon) index
+     * @param site the site index in the concatenated alignment
+     * @return the character representing the state at the specified sequence and site
+     */
+    public char getData(int seq, int site) {
+        return alignmentList[alignmentIndex[site]].getData(seq, siteIndex[site]);
+    }
+
+    //
 	// Private stuff
 	//
 	

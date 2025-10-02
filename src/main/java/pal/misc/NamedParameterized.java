@@ -19,8 +19,12 @@ import java.io.*;
  * @author Alexei Drummond
  */
 public interface NamedParameterized extends Parameterized {
-	
-	/**
+
+    /**
+     * Returns a short identifier for the i-th parameter of this type.
+     * This identifier should be consistent across all instances of the same class.
+     *
+     * @param i the index of the parameter
 	 * @return a short identifier for this parameter type. Should be the same for 
 	 * all instances of a given class!
 	 */

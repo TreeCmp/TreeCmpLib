@@ -25,27 +25,68 @@ import pal.misc.*;
  */
 public interface AnnotationAlignment extends Alignment, Report {
 
-   /** Return the position along chromosome */
-   float getChromosomePosition(int site);
+    /**
+     * Returns the physical or genetic position of a site along the chromosome.
+     *
+     * @param site the site index.
+     * @return the position along the chromosome as a float.
+     */
+    float getChromosomePosition(int site);
 
-   /** Returns chromosome */
-   int getChromosome(int site);
+    /**
+     * Returns the chromosome number where the given site is located.
+     *
+     * @param site the site index.
+     * @return the chromosome number.
+     */
+    int getChromosome(int site);
 
-   /** Return the weighted position along the locus (handles gaps) */
-   float getWeightedLocusPosition(int site);
+    /**
+     * Returns the weighted position along the locus, taking into account gaps in the alignment.
+     *
+     * @param site the site index.
+     * @return the weighted position along the locus as a float.
+     */
+    float getWeightedLocusPosition(int site);
 
-   /** Return the position along the locus (ignores gaps) */
-   int getLocusPosition(int site);
+    /**
+     * Returns the position of the site along the locus, ignoring any gaps.
+     *
+     * @param site the site index.
+     * @return the position along the locus as an integer.
+     */
+    int getLocusPosition(int site);
 
-   /** Returns position type (eg.  I=intron, E=exon, P=promoter, 1=first, 2=second, 3=third, etc.*/
-   char getPositionType(int site);
+    /**
+     * Returns the type of the site, e.g., I=intron, E=exon, P=promoter, 1=first codon position, 2=second, 3=third, etc.
+     *
+     * @param site the site index.
+     * @return a character representing the site type.
+     */
+    char getPositionType(int site);
 
-   /** Returns the name of the locus */
-   String getLocusName(int site);
+    /**
+     * Returns the name of the locus to which the site belongs.
+     *
+     * @param site the site index.
+     * @return the locus name as a String.
+     */
+    String getLocusName(int site);
 
-    /** Returns the datatype for a specific site, which could differ by site in complex alignments */
-   DataType getDataType(int site);
+    /**
+     * Returns the data type associated with a specific site. This allows for site-specific data types
+     * in complex alignments where different sites may use different data representations.
+     *
+     * @param site the site index.
+     * @return the DataType object for the site.
+     */
+    DataType getDataType(int site);
 
-   /** Returns a report for the alignment */
-   void report(PrintWriter out);
+    /**
+     * Generates a report of the alignment, including sequence and site information.
+     *
+     * @param out a PrintWriter to which the report will be written.
+     */
+    void report(PrintWriter out);
 }
+

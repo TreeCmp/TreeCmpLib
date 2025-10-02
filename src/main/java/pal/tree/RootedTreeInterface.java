@@ -29,21 +29,24 @@ public interface RootedTreeInterface {
 	// == Node ==
 	// ==========
 	public static interface RNode {
-		/**
-		 * Get the parent branch (or null if the root)
-		 * @return
-		 */
-		public RBranch getParentRBranch();
+        /**
+         * Returns the parent branch of this node.
+         *
+         * @return The parent {@code RBranch} object, or {@code null} if this is the root node.
+         */
+        public RBranch getParentRBranch();
 		public void setLabel(String label);
 
 		public void setAnnotation(Object annotation);
 
 		public void resetChildren();
-		/**
-		 * Create a child that is further from the base
-		 * @return
-		 */
-		public RNode createRChild();
+        /**
+         * Creates a new child node that is placed further away from the root/base of the tree
+         * relative to the current node.
+         *
+         * @return The newly created child {@code RNode}.
+         */
+        public RNode createRChild();
 
 	}
 
@@ -79,13 +82,15 @@ public interface RootedTreeInterface {
 				}
 			}
 		}
-		/**
-		 * Build a tree display based on a normal pal node.
-		 * @param root
-		 * @param display
-		 */
-		public static final void instruct(Node palRoot, RootedTreeInterface treeInterface) {
-		  create(palRoot,treeInterface.createRoot());
-		}
+        /**
+         * Instructs a {@code RootedTreeInterface} (which handles tree display/visualization)
+         * to build its structure based on the data contained in a normal PAL (Phylogenetic Analysis Library) node tree.
+         *
+         * @param palRoot The root node of the source PAL tree (containing the data structure).
+         * @param treeInterface The target interface object responsible for displaying or modeling the tree structure.
+         */
+        public static final void instruct(Node palRoot, RootedTreeInterface treeInterface) {
+            create(palRoot,treeInterface.createRoot());
+        }
 	}
 }

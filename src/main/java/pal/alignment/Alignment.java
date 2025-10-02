@@ -21,7 +21,7 @@ import pal.misc.*;
  *
  * @author Alexei Drummond
  * @author Korbinian Strimmer
- * @note Removed setDataType(), setFrequencies(), and getFrequencies() from interface
+ * Note: Removed setDataType(), setFrequencies(), and getFrequencies() from interface
  * As they seem better placed in concrete implementations only and should not be a requirement of an alignment, or in the case of Frequencies, can be
  * found using Alignment.Utils.estimateFrequencies(Alignment)
  */
@@ -44,35 +44,50 @@ public interface Alignment extends Serializable, IdGroup
 	 */
 	static String GAP_TLA = ""+GAP+GAP+GAP;
 
-
 	/** Characters that might be used as gaps */
 	static String GAPS = "_-?.";
 
 	// Abstract method
 
-	/** sequence alignment at (sequence, site) */
-	char getData(int seq, int site);
+    /**
+     * Returns the character at the given sequence and site in the alignment.
+     *
+     * @param seq  the index of the sequence.
+     * @param site the index of the site within the sequence.
+     * @return the character at the specified sequence and site.
+     * @throws IndexOutOfBoundsException if the sequence or site index is out of range.
+     */
+    char getData(int seq, int site);
 
-		/**
-	 * @return number of sites for each sequence in this alignment
-	 */
-	int getSiteCount();
+    /**
+     * Returns the number of sites for each sequence in this alignment.
+     *
+     * @return the number of sites.
+     */
+    int getSiteCount();
 
-	/**
-	 * Return number of sequences in this alignment
-	 */
-	int getSequenceCount();
+    /**
+     * Returns the number of sequences in this alignment.
+     *
+     * @return the number of sequences.
+     */
+    int getSequenceCount();
 
-	/**
-	 * Return DataType of this alignment.
-	 */
-	DataType getDataType();
+    /**
+     * Returns the DataType of this alignment.
+     *
+     * @return the DataType of the alignment.
+     */
+    DataType getDataType();
 
-	/**
-	 * Returns string representation of single sequence in
-	 * alignment with gap characters included.
-	 */
-	String getAlignedSequenceString(int sequence);
-
+    /**
+     * Returns a string representation of a single sequence in the alignment,
+     * including gap characters.
+     *
+     * @param sequence the index of the sequence to return.
+     * @return the aligned sequence as a string.
+     * @throws IndexOutOfBoundsException if the sequence index is out of range.
+     */
+    String getAlignedSequenceString(int sequence);
 
 }

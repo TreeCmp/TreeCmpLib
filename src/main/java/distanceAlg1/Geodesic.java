@@ -143,63 +143,63 @@ public class Geodesic {
 		} */
 		return Math.sqrt(Math.pow(rs.getNonDesRSWithMinDist().getDistance(), 2) + commonEdgeDistSquared + leafContributionSquared);
 	}
-	
-	/** Don't include the contribution of the leaves in computing the geodesic distance.
-	 *  i.e. base it only on the interior edges
-	 * 
-	 * @return
-	 */
-	public double getInteriorEdgesOnlyDist() {
-		double commonEdgeDistSquared = 0;
-		for(int i = 0; i < commonEdges.size(); i++) {
-			commonEdgeDistSquared = commonEdgeDistSquared + Math.pow(commonEdges.get(i).getNorm(),2);
-		}
-		return Math.sqrt(Math.pow(rs.getNonDesRSWithMinDist().getDistance(), 2) + commonEdgeDistSquared);
-	}
-	
-	
-	/**  Displays the geodesic in user-friendly form.
-	 * 
-	 * @return
-	 */
-	public String toStringVerboseOld(PhyloTree t1, PhyloTree t2) {
-		Vector<PhyloTreeEdge> commonEdges = this.getCommonEdges();
-		Boolean cEdge = false;
-		
-		// display T1 only splits
-		String toDisplay = "\nSplits only in T1:\n";
-		for (int i = 0; i < t1.getEdges().size(); i++) {
-			cEdge = false;
-			for (int j = 0; j < commonEdges.size(); j++) {
-				if (commonEdges.get(j).sameBipartition(t1.getEdge(i))) {
-					cEdge = true;
-					break;
-				}
-			}
-			if (!cEdge) {
-				toDisplay = toDisplay + t1.getEdge(i).toStringVerbose(t1.getLeaf2NumMap()) + "\n" + t1.getEdge(i) + "\n";
-			}
-		}
-		
-		//display T2 only splits
-		toDisplay = toDisplay + "\n\nSplits only in T2:\n";
-		for (int i = 0; i < t2.getEdges().size(); i++) {
-			if (! commonEdges.contains(t2.getEdge(i)) ) {
-				// if this is not a common split, display
-//				toDisplay = toDisplay + t2.getEdge(i).toStringVerbose(t2.getLeaf2NumMap()) + "\n";
-				toDisplay = toDisplay + t2.getEdge(i).toStringVerbose(t2.getLeaf2NumMap()) + "\n" + t2.getEdge(i) + "\n";
-			}
-		}
-		
-		// display common splits
-		toDisplay = toDisplay + "\n\nCommon splits:\n";
-		for (int i = 0; i < commonEdges.size(); i++) {
-//			toDisplay = toDisplay + commonEdges.get(i).toStringVerbose(t1.getLeaf2NumMap()) + "\n";
-			toDisplay = toDisplay + commonEdges.get(i).toStringVerbose(t1.getLeaf2NumMap()) + "\n" + commonEdges.get(i) + "\n";
-		}
-		
-		return toDisplay;
-	}
+    /**
+     * Computes the geodesic distance between two trees using only interior edges,
+     * ignoring the contribution of leaf edges.
+     *
+     * @return the geodesic distance based only on interior edges
+     */
+    public double getInteriorEdgesOnlyDist() {
+        double commonEdgeDistSquared = 0;
+        for (int i = 0; i < commonEdges.size(); i++) {
+            commonEdgeDistSquared += Math.pow(commonEdges.get(i).getNorm(), 2);
+        }
+        return Math.sqrt(Math.pow(rs.getNonDesRSWithMinDist().getDistance(), 2) + commonEdgeDistSquared);
+    }
+
+    /**
+     * Returns a verbose string representation of the geodesic between two trees,
+     * showing splits unique to each tree and common splits.
+     *
+     * @param t1 the starting phylogenetic tree
+     * @param t2 the target phylogenetic tree
+     * @return a detailed string describing the geodesic and edge splits
+     */
+    public String toStringVerboseOld(PhyloTree t1, PhyloTree t2) {
+        Vector<PhyloTreeEdge> commonEdges = this.getCommonEdges();
+        boolean cEdge;
+
+        // display T1-only splits
+        String toDisplay = "\nSplits only in T1:\n";
+        for (int i = 0; i < t1.getEdges().size(); i++) {
+            cEdge = false;
+            for (int j = 0; j < commonEdges.size(); j++) {
+                if (commonEdges.get(j).sameBipartition(t1.getEdge(i))) {
+                    cEdge = true;
+                    break;
+                }
+            }
+            if (!cEdge) {
+                toDisplay += t1.getEdge(i).toStringVerbose(t1.getLeaf2NumMap()) + "\n" + t1.getEdge(i) + "\n";
+            }
+        }
+
+        // display T2-only splits
+        toDisplay += "\n\nSplits only in T2:\n";
+        for (int i = 0; i < t2.getEdges().size(); i++) {
+            if (!commonEdges.contains(t2.getEdge(i))) {
+                toDisplay += t2.getEdge(i).toStringVerbose(t2.getLeaf2NumMap()) + "\n" + t2.getEdge(i) + "\n";
+            }
+        }
+
+        // display common splits
+        toDisplay += "\n\nCommon splits:\n";
+        for (int i = 0; i < commonEdges.size(); i++) {
+            toDisplay += commonEdges.get(i).toStringVerbose(t1.getLeaf2NumMap()) + "\n" + commonEdges.get(i) + "\n";
+        }
+
+        return toDisplay;
+    }
 	
 	public Geodesic clone() { 
 		return new Geodesic(rs.clone(), TreeDistance.myVectorClonePhyloTreeEdge(commonEdges));
@@ -221,37 +221,53 @@ public class Geodesic {
 	public int numCommonEdges() {
 		return commonEdges.size();
 	}
-	
-	/** Returns the number of orthants/topologies that the geodesic passes through (not including boundaries between orthants).
-	 *  = # ratios in the strictly ascending ratio sequences + 1
-	 * @return
-	 */
+
+    /**
+     * Returns the number of orthants/topologies that the geodesic passes through.
+     * This does not include boundaries between orthants.
+     * Computed as the number of ratios in the strictly ascending ratio sequences plus 1.
+     *
+     * @return the number of topologies along the geodesic
+     */
 	public int numTopologies() {
 		return rs.getAscRSWithMinDist().size() + 1;
 	}
-	
-	/** Returns the geodesic with the ratio sequence (and ratios) reversed.
-	 * 
-	 * @return
-	 */
+
+    /**
+     * Returns a new Geodesic object with the ratio sequence and ratios reversed.
+     *
+     * @return the reversed geodesic
+     */
 	public Geodesic reverse() {
 		return new Geodesic(rs.reverse(), commonEdges, leafContributionSquared);
 	}
 
+    /**
+     * Returns the squared contribution of leaf edges to the geodesic distance.
+     *
+     * @return the squared leaf contribution
+     */
 	public double getLeafContributionSquared() {
 		return leafContributionSquared;
 	}
 
+    /**
+     * Sets the squared contribution of leaf edges to the geodesic distance.
+     *
+     * @param leafContributionSquared the squared leaf contribution
+     */
 	public void setLeafContributionSquared(double leafContributionSquared) {
 		this.leafContributionSquared = leafContributionSquared;
 	}
-	
-	
-	/** Returns the tree at the given position (as a number between 0 and 1).
-	 * 
-	 * @param position
-	 * @return
-	 */
+
+    /**
+     * Returns the tree at a given position along the geodesic.
+     *
+     * @param position the relative position along the geodesic (0=start, 1=end)
+     * @param leaf2NumMap mapping of leaf names to indices
+     * @param isRooted indicates whether the tree is rooted
+     * @return the interpolated phylogenetic tree at the specified position
+     */
 	public PhyloTree getTreeAt(double position, Vector<String> leaf2NumMap, Boolean isRooted) {
 		int lowerRatioIndex = -2;	// the index of the ratio containing all f edges in the tree we want
 									// i.e. the index of the ratio with time < position, but such that the next ratio has time >= position 
@@ -358,15 +374,14 @@ public class Geodesic {
 		}
 		return tree;
 	}
-	
 
-	/** Returns all common edges in the geodesic, where  
-	 *  we set the length of the returned edges to be (1-position)*e_Attrib_length + position*f_Attrib_length.
-	 *  xxx:  assume the common edges are in the same order in all three vectors
-	 * @param t1
-	 * @param t2
-	 * @return
-	 */
+    /**
+     * Returns all common edges in the geodesic, with edge lengths interpolated
+     * as (1-position)*e_Attrib_length + position*f_Attrib_length.
+     *
+     * @param position the relative position along the geodesic (0=start, 1=end)
+     * @return a vector of interpolated common edges
+     */
  	public Vector<PhyloTreeEdge> getCommonEdges(double position) {	
 		EdgeAttribute commonEdgeAttribute;
 		Bipartition commonSplit;
@@ -411,10 +426,13 @@ public class Geodesic {
 		return commonEdgesToReturn;	
 	}
 
-	/**  Returns a vector of the trees in the intersection of the geodesic with all boundary orthants.
-	 * 
-	 * @return
-	 */
+    /**
+     * Returns a vector of trees at all boundary orthants of the geodesic.
+     *
+     * @param t1 the starting tree
+     * @param t2 the target tree
+     * @return a vector of trees corresponding to boundary orthants
+     */
 	public static Vector<PhyloTree> getBoundaryTrees(PhyloTree t1, PhyloTree t2) {
 		Vector<PhyloTree> boundaryTrees = new Vector<PhyloTree>();
 		
@@ -425,11 +443,16 @@ public class Geodesic {
 		}
 		return boundaryTrees;
 	}
-	
-	/** Returns the 4 angles formed by the geodesic end-points
-	 * 
-	 * @return
-	 */
+
+    /**
+     * Returns the four angles formed between the end-points of two geodesics.
+     *
+     * @param g1 the first geodesic
+     * @param gA the second geodesic
+     * @param leaf2NumMap mapping of leaf names to indices
+     * @param isRooted indicates whether the trees are rooted
+     * @return an array of four angles between the geodesic endpoints
+     */
 	public static double[] getEndpointAngles(Geodesic g1, Geodesic gA, Vector<String> leaf2NumMap, Boolean isRooted) {
 		//Vector Trees for g1 near index 0 and 1
 		 PhyloTree t1 = g1.getEdgeVector(0,leaf2NumMap, isRooted);
@@ -443,12 +466,15 @@ public class Geodesic {
 				 		 t1.angleFormedWith(tB), t2.angleFormedWith(tA)};
 		return out;
 	}
-	
-	/** Returns EdgeVector of the tree on the side specified
-	 * @param Side = 0 or 1
-	 * 
-	 * @return
-	 */
+
+    /**
+     * Returns one side of the geodesic as a tree.
+     *
+     * @param side 0 or 1, indicating which side of the geodesic to return
+     * @param leaf2NumMap mapping of leaf names to indices
+     * @param isRooted indicates whether the tree is rooted
+     * @return the tree at the specified side of the geodesic
+     */
 	public PhyloTree getEdgeVector(int side, Vector<String> leaf2NumMap, Boolean isRooted) {
 		//From Both Sides find nearest Boundary Tree
 		PhyloTree t1 = this.getTreeAt(0, leaf2NumMap, isRooted);
@@ -473,12 +499,14 @@ public class Geodesic {
 		}
 	}
 
-	/** Returns an ArrayList of the trees that are in the middle of each geodesic 
-	 * segment in each othant.  Does not include the starting or ending tree/orthant.
-	 *
-	 * @return
-	 * 
-	 */
+    /**
+     * Returns a list of trees in the middle of each geodesic segment (orthant),
+     * excluding the starting and ending trees/orthants.
+     *
+     * @param leaf2NumMap mapping of leaf names to indices
+     * @param isRooted indicates whether the trees are rooted
+     * @return an ArrayList of trees at midpoints of geodesic orthants
+     */
 	public ArrayList<PhyloTree> getMidOrthantTrees(Vector<String> leaf2NumMap, Boolean isRooted) {
 		ArrayList<PhyloTree> midTrees = new ArrayList<PhyloTree>();
 		RatioSequence minAscRS = this.getRS().getAscRSWithMinDist();

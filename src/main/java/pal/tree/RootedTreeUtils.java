@@ -33,107 +33,126 @@ public class RootedTreeUtils {
 		return (getSubtree(root, node) != null);
 	}
 
-	/**
-	 * @return true if the given tree contains a clade holding all the
-	 * taxa in the given subtree.
-	 *
-	 * @param root the root of the tree in which search for a subtree
-	 * @param taxa the hashtable of taxa.
-	 */
-	public static boolean containsClade(Node root, Node clade) {
-		return (getClade(root, clade) != null);
-	}
+    /**
+     * Checks if the tree rooted at {@code root} contains a clade (subtree) that holds
+     * the **exact same set of tip taxa** as the tree rooted at {@code clade},
+     * regardless of the internal topology.
+     *
+     * @param root The root of the tree to search within.
+     * @param clade The root of the subtree whose taxa set is being searched for.
+     * @return {@code true} if a node exists in {@code root}'s tree that encompasses the exact taxa set of {@code clade}'s tree; otherwise, {@code false}.
+     */
+    public static boolean containsClade(Node root, Node clade) {
+        return (getClade(root, clade) != null);
+    }
 
-	/**
-	 * @return a subtree within the first node with the same
-	 * labelled topology as the second node or null if it doesn't exist.
-	 */
-	public static Node getSubtree(Node root, Node node) {
-		if (equal(root, node)) return root;
-		for (int i =0; i < root.getChildCount(); i++) {
-			Node match = getSubtree(root.getChild(i), node);
-			if (match != null) return match;
-		}
-		return null;
-	}
+    /**
+     * Traverses the tree rooted at {@code root} to find a subtree that has the **same labeled topology**
+     * as the tree rooted at {@code node}. Child order is considered unimportant for non-leaf nodes.
+     *
+     * @param root The root of the tree to search within.
+     * @param node The root of the subtree whose labeled topology is being searched for.
+     * @return The first {@code Node} in {@code root}'s tree that matches the labeled topology of {@code node}'s tree, or {@code null} if no such subtree exists.
+     */
+    public static Node getSubtree(Node root, Node node) {
+        if (equal(root, node)) return root;
+        for (int i =0; i < root.getChildCount(); i++) {
+            Node match = getSubtree(root.getChild(i), node);
+            if (match != null) return match;
+        }
+        return null;
+    }
 
-	/**
-	 * @return a subtree within the first node with the same
-	 * labels as the second node or null if it doesn't exist.
-	 */
-	public static Node getClade(Node root, Node clade) {
-		if (sameTaxa(root, clade)) return root;
-		for (int i =0; i < root.getChildCount(); i++) {
-			Node match = getClade(root.getChild(i), clade);
-			if (match != null) return match;
-		}
-		return null;
-	}
+    /**
+     * Traverses the tree rooted at {@code root} to find a clade (subtree) that contains
+     * the **exact same set of tip labels** as the tree rooted at {@code clade}, regardless of topology.
+     *
+     * @param root The root of the tree to search within.
+     * @param clade The root of the subtree whose set of tip labels is being searched for.
+     * @return The first {@code Node} in {@code root}'s tree that contains the same set of tip labels as {@code clade}'s tree, or {@code null} if no such clade exists.
+     */
+    public static Node getClade(Node root, Node clade) {
+        if (sameTaxa(root, clade)) return root;
+        for (int i =0; i < root.getChildCount(); i++) {
+            Node match = getClade(root.getChild(i), clade);
+            if (match != null) return match;
+        }
+        return null;
+    }
 
 
 
-	/**
-	 * @return true if the trees have the same tip-labelled
-	 * structure. Child order is not important.
-	 */
-	public static boolean equal(Node node1, Node node2) {
-		int nodeCount1 = node1.getChildCount();
-		int nodeCount2 = node2.getChildCount();
+    /**
+     * Checks if two tree structures have the **same tip-labeled topology**.
+     * The order of children for internal nodes is considered arbitrary (not important).
+     *
+     * @param node1 The root node of the first tree (or subtree).
+     * @param node2 The root node of the second tree (or subtree).
+     * @return {@code true} if the trees have an identical labeled topology (allowing for child swapping); otherwise, {@code false}.
+     */
+    public static boolean equal(Node node1, Node node2) {
+        int nodeCount1 = node1.getChildCount();
+        int nodeCount2 = node2.getChildCount();
 
-		// if different childCount not the same
-		if (nodeCount1 != nodeCount2) return false;
+        // if different childCount not the same
+        if (nodeCount1 != nodeCount2) return false;
 
-		if (nodeCount1 == 0) {
-			return (node1.getIdentifier().getName().equals(node2.getIdentifier().getName()));
-		} else {
-			// ASSUMES BIFURCATING TREES
-			// CHILD ORDER DIFFERENCES ARE ALLOWED!
-			if (equal(node1.getChild(0), node2.getChild(0))) {
-				return (equal(node1.getChild(1), node2.getChild(1)));
-			} else if (equal(node1.getChild(0), node2.getChild(1))) {
-				return (equal(node1.getChild(1), node2.getChild(0)));
-			} else return false;
-		}
-	}
+        if (nodeCount1 == 0) {
+            return (node1.getIdentifier().getName().equals(node2.getIdentifier().getName()));
+        } else {
+            // ASSUMES BIFURCATING TREES
+            // CHILD ORDER DIFFERENCES ARE ALLOWED!
+            if (equal(node1.getChild(0), node2.getChild(0))) {
+                return (equal(node1.getChild(1), node2.getChild(1)));
+            } else if (equal(node1.getChild(0), node2.getChild(1))) {
+                return (equal(node1.getChild(1), node2.getChild(0)));
+            } else return false;
+        }
+    }
 
-	/**
-	 * @return true if the trees have the same tip labels. topology unimportant.
-	 */
-	public static boolean sameTaxa(Node node1, Node node2) {
-		int leafCount1 = NodeUtils.getLeafCount(node1);
-		int leafCount2 = NodeUtils.getLeafCount(node2);
+    /**
+     * Checks if two tree structures contain the **exact same set of tip labels (taxa)**, regardless of their internal topology.
+     *
+     * @param node1 The root node of the first tree (or subtree).
+     * @param node2 The root node of the second tree (or subtree).
+     * @return {@code true} if the two trees have the same number of leaves and their tip label sets are identical; otherwise, {@code false}.
+     */
+    public static boolean sameTaxa(Node node1, Node node2) {
+        int leafCount1 = NodeUtils.getLeafCount(node1);
+        int leafCount2 = NodeUtils.getLeafCount(node2);
 
-		if (leafCount1 != leafCount2) return false;
+        if (leafCount1 != leafCount2) return false;
 
-		Hashtable table = new Hashtable(leafCount1+1);
-		collectTaxa(node1, table);
-		return !containsNovelTaxa(node2, table);
-	}
+        Hashtable table = new Hashtable(leafCount1+1);
+        collectTaxa(node1, table);
+        return !containsNovelTaxa(node2, table);
+    }
 
-	/**
-	 * Collects all of the names of the taxa in the tree into a hashtable.
-	 * @return the number of new taxa added to the hashtable from this tree.
-	 * @param root the root node of the tree.
-	 * @param taxa a hashtable to hold the taxa names, may already hold some taxa names.
-	 */
-	public static int collectTaxa(Node root, Hashtable table) {
-		int nc = root.getChildCount();
-		if (nc == 0) {
-			String name = root.getIdentifier().getName();
-			if (table.containsKey(name)) {
-				return 0;
-			} else {
-				table.put(name, name);
-				return 1;
-			}
-		} else {
-			int newTaxaCount = 0;
-			for (int i = 0; i < nc; i++) {
-				newTaxaCount += collectTaxa(root.getChild(i), table);
-			}
-			return newTaxaCount;
-		}
-	}
+    /**
+     * Recursively collects the names of all tip taxa in the tree rooted at {@code root} into a hashtable.
+     *
+     * @param root The root node of the subtree being traversed.
+     * @param table A {@code Hashtable} used to store the taxa names (keys and values are the names).
+     * @return The number of new (previously unencountered) taxa names added to the hashtable from this subtree.
+     */
+    public static int collectTaxa(Node root, Hashtable table) {
+        int nc = root.getChildCount();
+        if (nc == 0) {
+            String name = root.getIdentifier().getName();
+            if (table.containsKey(name)) {
+                return 0;
+            } else {
+                table.put(name, name);
+                return 1;
+            }
+        } else {
+            int newTaxaCount = 0;
+            for (int i = 0; i < nc; i++) {
+                newTaxaCount += collectTaxa(root.getChild(i), table);
+            }
+            return newTaxaCount;
+        }
+    }
 
 	/**
 	 * @return true if the given tree contains taxa not already in the given hashtable.

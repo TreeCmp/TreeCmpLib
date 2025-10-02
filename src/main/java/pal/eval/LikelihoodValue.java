@@ -28,7 +28,7 @@ import pal.tree.*;
  * a general optimisation precedure is used for another
  * ParameterizedTree).
  *
- * @note This is legacy code and should be avoided if at all possible
+ * Note: This is legacy code and should be avoided if at all possible
  *
  * @version $Id: LikelihoodValue.java,v 1.40 2003/09/04 03:22:34 matt Exp $
  *
@@ -65,31 +65,34 @@ public class LikelihoodValue
 		rateAtSite = new int[numPatterns];
 	}
 
-	/**
-	 * Returns the site pattern of this likelihood value
-	 */
-	public SitePattern getSitePattern() {
-		return sitePattern;
-	}
+    /**
+     * Returns the site pattern associated with this likelihood computation.
+     *
+     * @return the current site pattern
+     */
+    public SitePattern getSitePattern() {
+        return sitePattern;
+    }
 
+    /**
+     * Updates the site pattern while keeping the current tree and substitution model.
+     * <p>This method resets internal arrays such as per-pattern log-likelihoods and
+     * rate categories at each site, and re-applies the current model and tree.</p>
+     *
+     * @param sp the new site pattern to use
+     */
+    public void renewSitePattern(SitePattern sp) {
+        sitePattern = sp;
 
-	/**
-	 * Set new site pattern (while keeping tree and model)
-	 */
-	public void renewSitePattern(SitePattern sp)
-	{
-		sitePattern = sp;
+        numPatterns = sp.numPatterns;
+        siteLogL = new double[numPatterns];
+        rateAtSite = new int[numPatterns];
 
-		numPatterns = sp.numPatterns;
-		siteLogL = new double[numPatterns];
-		rateAtSite = new int[numPatterns];
+        setModel(getModel());
+        setTree(getTree());
+    }
 
-		setModel(getModel());
-		setTree(getTree());
-	}
-
-
-	/**
+    /**
 	 * define model
 	 * (a site pattern must have been set before calling this method)
 	 *
@@ -109,13 +112,14 @@ public class LikelihoodValue
 		allocatePartialMemory(maxNodes);
 	}
 
-	/**
-	 * Returns the model of this likelihood value.
-	 */
-	public SubstitutionModel getModel() {
-		return model;
-	}
-
+    /**
+     * Returns the substitution model associated with this likelihood computation.
+     *
+     * @return the current substitution model
+     */
+    public SubstitutionModel getModel() {
+        return model;
+    }
 
 	/**
 	 * define (parameterized) tree
@@ -148,27 +152,27 @@ public class LikelihoodValue
 		}
 	}
 
-	/**
-	 * Returns the (potentially parameterized) tree of this likelihood value.
-	 */
-	public Tree getTree()
-	{
-		return tree;
-	}
+    /**
+     * Returns the phylogenetic tree associated with this likelihood computation.
+     * <p>If the tree has been parameterized (e.g., branch lengths estimated), the returned tree
+     * reflects those parameter values.</p>
+     *
+     * @return the (potentially parameterized) phylogenetic tree
+     */
+    public Tree getTree() {
+        return tree;
+    }
 
-
-	/**
-	 * compute log-likelihood for current tree (fixed branch lengths and model)
-	 *
-	 * return log-likelihood
-	 */
-	public double compute()
-	{
-		treeLikelihood();
-
-		return logL;
-	}
-
+    /**
+     * Computes the log-likelihood of the data for the current tree, using fixed branch lengths
+     * and the current substitution model.
+     *
+     * @return the log-likelihood of the data under the current tree and model
+     */
+    public double compute() {
+        treeLikelihood();
+        return logL;
+    }
 
 	/**
 	 * optimise parameters of tree by maximising its likelihood
@@ -1001,7 +1005,7 @@ class TreeLikelihood implements MultivariateFunction
 	// private stuff
 	private LikelihoodValue lv;
 	/**
-	 * @note Not implemented
+	 * Note: Not implemented
 	 * @return null
 	 */
 	public OrthogonalHints getOrthogonalHints() { return null; }
@@ -1041,7 +1045,7 @@ class ModelLikelihood implements MultivariateFunction
 		return model_.getUpperLimit(n);
 	}
 	/**
-	 * @note Not implemented
+	 * Note: Not implemented
 	 * @return null
 	 */
 	public OrthogonalHints getOrthogonalHints() { return null; }
@@ -1093,7 +1097,7 @@ class CombinedLikelihood implements MultivariateFunction {
 	private LikelihoodValue lv;
 	private MultivariateFunction f1_, f2_; //Cached results
 	/**
-	 * @note Not implemented
+	 * Note: Not implemented
 	 * @return null
 	 */
 	public OrthogonalHints getOrthogonalHints() { return null; }

@@ -30,483 +30,551 @@ import java.util.*;
 public class TreeUtils
 {
 
-	/**
-	 * computes Robinson-Foulds (1981) distance between two trees
-	 *
-	 * @param t1 tree 1
-	 * @param t2 tree 2
-	 *
-	 * Definition: Assuming that t1 is the reference tree, let fn be the
-	 * false negatives, i.e. the number of edges in t1 missing in t2,
-	 * and fp the number of false positives, i.e. the number of edges
-	 * in t2 missing in t1.  The RF distance is then (fn + fp)/2
-	 */
-	public static double getRobinsonFouldsDistance(Tree t1, Tree t2)
-	{
-		SplitSystem s1 = SplitUtils.getSplits(t1);
-
-		return getRobinsonFouldsDistance(s1, t2);
-	}
-
-
-	/**
-	 * computes Robinson-Foulds (1981) distance between two trees
-	 *
-	 * @param s1 tree 1 (as represented by a SplitSystem)
-	 * @param t2 tree 2
-	 */
-	public static double getRobinsonFouldsDistance(SplitSystem s1, Tree t2)
-	{
-		IdGroup idGroup = s1.getIdGroup();
-		SplitSystem s2 = SplitUtils.getSplits(idGroup, t2);
-
-		if (s1.getLabelCount() != s2.getLabelCount())
-			throw new IllegalArgumentException("Number of labels must be the same!");
-
-		int ns1 = s1.getSplitCount();
-		int ns2 = s2.getSplitCount();
-
-		// number of splits in t1 missing in t2
-		int fn = 0;
-		for (int i = 0; i < ns1; i++)
-		{
-			if (!s2.hasSplit(s1.getSplit(i))) fn++;
-		}
-
-		// number of splits in t2 missing in t1
-		int fp = 0;
-		for (int i = 0; i < ns2; i++)
-		{
-			if (!s1.hasSplit(s2.getSplit(i))) fp++;
-		}
-
-
-		return 0.5*((double) fp + (double) fn);
-	}
-
-	/**
-	 * computes Robinson-Foulds (1981) distance between two trees
-	 * rescaled to a number between 0 and 1
-	 *
-	 * @param t1 tree 1
-	 * @param t2 tree 2
-	 */
-	public static double getRobinsonFouldsRescaledDistance(Tree t1, Tree t2)
-	{
-		SplitSystem s1 = SplitUtils.getSplits(t1);
-
-		return getRobinsonFouldsRescaledDistance(s1, t2);
-	}
-
-
-	/**
-	 * computes Robinson-Foulds (1981) distance between two trees
-	 * rescaled to a number between 0 and 1
-	 *
-	 * @param s1 tree 1 (as represented by a SplitSystem)
-	 * @param t2 tree 2
-	 */
-	public static double getRobinsonFouldsRescaledDistance(SplitSystem s1, Tree t2)
-	{
-		return getRobinsonFouldsDistance(s1, t2)/(double) s1.getSplitCount();
-	}
-
-	private static MersenneTwisterFast random = new MersenneTwisterFast();
-
-	/**
-	 * Returns a uniformly distributed random node from the tree, including
-	 * both internal and external nodes.
-	 */
-	public static Node getRandomNode(Tree tree) {
-		int index = random.nextInt(tree.getExternalNodeCount() + tree.getInternalNodeCount());
-		if (index >= tree.getExternalNodeCount()) {
-			return tree.getInternalNode(index - tree.getExternalNodeCount());
-		} else {
-			return tree.getExternalNode(index);
-		}
-	}
-
-	/**
-	 * @return the first found node that has a certain name (as determined by the nodes Identifier)
-	 * in the tree defined by a root node.
-	 * @param tree The Tree supposidly containing such a named node
-	 * @param name The name of the node to find.
-	 * @return The node with the name, or null if no such node exists
-	 * @see Identifier, Node
-	 */
-	 public static final Node getNodeByName(Tree tree, String name) {
-			return getNodeByName(tree.getRoot(),name);
-	 }
-
-	/**
-	 * @return the first found node that has a certain name (as determined by the nodes Identifier)
-	 * in the tree defined by a root node.
-	 * @param root The root node of a tree
-	 * @param name The name of the node to find.
-	 * @return The node with the name, or null if no such node exists
-	 * @see Identifier, Node
-	 */
-	 public static final Node getNodeByName(Node root, String name) {
-			if(root.getIdentifier().getName().equals(name)) {
-				return root;
-			}
-			for(int i = 0 ; i < root.getChildCount() ; i++) {
-				Node result = getNodeByName(root.getChild(i), name);
-				if(result!=null) {
-					return result;
-				}
-			}
-			return null;
-	 }
-
-	/**
-	 * Takes a tree (in mutation units) and returns a scaled version of it (in generation units).
-	 * @param mutationRateModel the mutation rate model used for scaling
-	 * and the desired units are expected substitutions then this scale
-	 * factor should be equal to the mutation rate.
-	 * @param newUnits the new units of the tree.
-	 */
-	public static Tree mutationsToGenerations(Tree mutationTree, MutationRateModel muModel) {
-		return scale(mutationTree,muModel,Units.GENERATIONS);
-	}
-
-	/**
-	 * Takes a tree (in generation units) and returns a scaled version of it (in mutation units).
-	 * @param mutationRateModel the mutation rate model.
-	 * The mutation rate must be in units of mutations per site per generation.
-	 */
-	public static Tree generationsToMutations(Tree generationTree, MutationRateModel muModel) {
-
-		if (muModel.getUnits() != Units.GENERATIONS) {
-			throw new IllegalArgumentException("Mutation rate must be per generation!");
-		}
-
-		return generationsToMutations(generationTree, muModel, 1.0);
-	}
-
-	/**
-	 * Takes a tree (in generation units) and returns a scaled version of it (in mutation units).
-	 * @param mutationRateModel the mutation rate model in calendar units.
-	 * @param generationTime the length of a generation in calendar units.
-	 * If the mutation rate is in mutations per site per year, then the
-	 * generation time will be in generations per year.
-	 */
-	public static Tree generationsToMutations(Tree generationTree, MutationRateModel muModel, double generationTime) {
-
-		if (generationTree.getUnits() != Units.GENERATIONS) {
-			throw new IllegalArgumentException("Tree must be in units of generations!");
-		}
-
-		if (muModel.getMutationRate(0.0) <= 0.0) {
-			throw new IllegalArgumentException("Non-positive mutation rate is not permitted!");
-		}
-
-		SimpleTree tree = new SimpleTree(generationTree);
-
-		for (int i = 0; i < tree.getExternalNodeCount(); i++) {
-			double oldHeight = tree.getExternalNode(i).getNodeHeight();
-			tree.getExternalNode(i).setNodeHeight(muModel.getExpectedSubstitutions(oldHeight) * generationTime);
-		}
-		for (int i = 0; i < tree.getInternalNodeCount(); i++) {
-			double oldHeight = tree.getInternalNode(i).getNodeHeight();
-			tree.getInternalNode(i).setNodeHeight(muModel.getExpectedSubstitutions(oldHeight) * generationTime);
-		}
-		//Don't respect minimum branch lengths
-		NodeUtils.heights2Lengths(tree.getRoot(), false);
-		tree.setUnits(Units.EXPECTED_SUBSTITUTIONS);
-
-		return tree;
-	}
-	/**
-	 * @deprecated use getScaled()
-	 */
-	public static Tree scale(Tree oldTree, double rate, int newUnits) {
-		return getScaled(oldTree,rate,newUnits);
-	}
-	/**
-		 * Takes a tree and returns a scaled version of it.
-		 * Scales a tree keeping old units
-		 * @param rate scale factor.
-		 *
-		 */
-	public static final Tree getScaled(Tree oldTree, double rate) {
-		return getScaled(oldTree,rate,oldTree.getUnits());
-	}
-
-	/**
-	 * Takes a tree and returns a scaled version of it.
-	 * @param rate scale factor. If the original tree is in generations
-	 * and the desired units are expected substitutions then this scale
-	 * factor should be equal to the mutation rate.
-	 * @param newUnits the new units of the tree.
-	 */
-	public static final Tree getScaled(Tree oldTree, double rate, int newUnits) {
-		SimpleTree tree = new SimpleTree(oldTree);
-		for (int i = 0; i < tree.getExternalNodeCount(); i++) {
-			Node n = tree.getExternalNode(i);
-			n.setNodeHeight(rate*n.getNodeHeight());
-		}
-		for (int i = 0; i < tree.getInternalNodeCount(); i++) {
-			Node n = tree.getInternalNode(i);
-			n.setNodeHeight(rate*n.getNodeHeight());
-		}
-		NodeUtils.heights2Lengths(tree.getRoot());
-		tree.setUnits(newUnits);
-		return tree;
-	}
-
-	/**
-		* @deprecated use getScaled()
-		*/
-	public static Tree scale(Tree mutationRateTree, MutationRateModel muModel) {
-		return getScaled(mutationRateTree,muModel);
-	}
-	/**
-	 * Takes a tree and returns a scaled version of it.
-	 * @param rate scale factor. If the original tree is in generations
-	 * and the desired units are expected substitutions then this scale
-	 * factor should be equal to the mutation rate.
-	 * @note resulting units is defined by muModel's units
-	 */
-	public static Tree getScaled(Tree mutationRateTree, MutationRateModel muModel) {
-		return getScaled(mutationRateTree,muModel,muModel.getUnits());
-	}
-	/**
-		* @deprecated use getScaled()
-		*/
-	public static Tree scale(Tree mutationRateTree, MutationRateModel muModel, int newUnits) {
-		return getScaled(mutationRateTree,muModel,newUnits);
-	}
-	/**
-	 * Takes a tree and returns a scaled version of it.
-	 * @param rate scale factor. If the original tree is in generations
-	 * and the desired units are expected substitutions then this scale
-	 * factor should be equal to the mutation rate.
-	 * @param newUnits the new units of the tree. (Such as the mutationTree is measured in expected substitutions/newUnits)
-	 */
-	public static Tree getScaled(Tree mutationRateTree, MutationRateModel muModel, int newUnits) {
-		if (muModel.getMutationRate(0.0) <= 0.0) {
-			throw new IllegalArgumentException("Non-positive mutation rate is not permitted!");
-		}
-
-		SimpleTree tree = new SimpleTree(mutationRateTree);
-		if(newUnits == Units.EXPECTED_SUBSTITUTIONS) {
-			//Changed for what I think is the correct behaviour for converting to Expected Substitutions
-			for (int i = 0; i < tree.getExternalNodeCount(); i++) {
-				double oldHeight = tree.getExternalNode(i).getNodeHeight();
-				tree.getExternalNode(i).setNodeHeight(muModel.getExpectedSubstitutions(oldHeight));
-			}
-			for (int i = 0; i < tree.getInternalNodeCount(); i++) {
-				double oldHeight = tree.getInternalNode(i).getNodeHeight();
-				tree.getInternalNode(i).setNodeHeight(muModel.getExpectedSubstitutions(oldHeight));
-			}
-		} else {
-			for (int i = 0; i < tree.getExternalNodeCount(); i++) {
-				double oldHeight = tree.getExternalNode(i).getNodeHeight();
-				tree.getExternalNode(i).setNodeHeight(muModel.getTime(oldHeight));
-			}
-			for (int i = 0; i < tree.getInternalNodeCount(); i++) {
-				double oldHeight = tree.getInternalNode(i).getNodeHeight();
-				tree.getInternalNode(i).setNodeHeight(muModel.getTime(oldHeight));
-			}
-		}
-		NodeUtils.heights2Lengths(tree.getRoot());
-		tree.setUnits(newUnits);
-		return tree;
-	}
-	/**
-	 * Given a translation table where the keys are the current
-	 * identifier names and the values are the new identifier names,
-	 * this method replaces the current identifiers in the tree with new
-	 * identifiers.
-	 */
-	public static void renameNodes(Tree tree, Hashtable table) {
-
-			tree.createNodeList();
-
-		for (int i = 0; i < tree.getExternalNodeCount(); i++) {
-			String newName =
-				(String)table.get(tree.getExternalNode(i).getIdentifier().getName());
-
-			if (newName != null) {
-				tree.getExternalNode(i).setIdentifier(new Identifier(newName));
-			}
-		}
-		for (int i = 0; i < tree.getInternalNodeCount(); i++) {
-
-
-
-			String newName =
-				(String)table.get(tree.getInternalNode(i).getIdentifier().getName());
-
-			if (newName != null) {
-				tree.getInternalNode(i).setIdentifier(new Identifier(newName));
-			}
-		}
-	}
-
-	/**
-	 * Rotates branches by leaf count.
-	 * WARNING: assumes binary tree!
-	 */
-	public static void rotateByLeafCount(Tree tree) {
-		rotateByLeafCount(tree.getRoot());
-	}
-
-	/**
-	 * get list of the identifiers of the external nodes
-	 *
-	 * @return leaf identifier group
-	 */
-	public static final IdGroup getLeafIdGroup(Tree tree)
-	{
-		tree.createNodeList();
-
-		IdGroup labelList =
-			new SimpleIdGroup(tree.getExternalNodeCount());
-
-		for (int i = 0; i < tree.getExternalNodeCount(); i++)
-		{
-			labelList.setIdentifier(i, tree.getExternalNode(i).getIdentifier());
-		}
-
-		return labelList;
-	}
-
-	/**
-	 * map external identifiers in the tree to a set of given identifiers
-	 * (which can be larger than the set of external identifiers but
-	 * must contain all of them)
-	 * <b> NOTE: </b> for efficiency it is assumed that the node lists of the tree are
-	 * correctly maintained. This should take effect everywhere soon.
-	 * Only methods that actually change a tree need to call createNodeList().
-	 *
-	 * @param idGroup an ordered group of identifiers
-	 *
-	 * @return list of links
-	 */
-	public static final int[] mapExternalIdentifiers(IdGroup idGroup, Tree tree)
-		throws IllegalArgumentException {
-
-		int[] alias = new int[tree.getExternalNodeCount()];
-
-		// Check whether for each label in tree there is
-		// a correspondence in the given set of labels
-		for (int i = 0; i < tree.getExternalNodeCount(); i++)
-		{
-			alias[i] = idGroup.whichIdNumber(tree.getExternalNode(i).getIdentifier() .getName());
-
-			if (alias[i] == -1)
-			{
-				throw new IllegalArgumentException("Tree label "
-					+ tree.getExternalNode(i).getIdentifier() +
-				" not present in given set of labels");
-			}
-		}
-
-		return alias;
-	}
-
-	/**
-	 * Labels the internal nodes of the tree using numbers starting from 0.
-	 * Skips numbers already used by external leaves.
-	 */
-	public static final void labelInternalNodes(Tree tree) {
-
-		int counter = 0;
-		String pos = "0";
-
-		IdGroup ids = getLeafIdGroup(tree);
-
-		for (int i = 0; i < tree.getInternalNodeCount(); i++) {
-
-			//if label already used find a better one
-			while (ids.whichIdNumber(pos) >= 0) {
-				counter += 1;
-				pos = "" + counter;
-			}
-			tree.getInternalNode(i).setIdentifier(new Identifier(pos));
-			counter += 1;
-			pos = "" + counter;
-		}
-	}
-
-	/**
-	 * Extracts a time order character data from a tree.
-	 */
-	public static TimeOrderCharacterData extractTimeOrderCharacterData(Tree tree, int units) {
-
-		tree.createNodeList();
-		IdGroup identifiers = getLeafIdGroup(tree);
-		TimeOrderCharacterData tocd = new TimeOrderCharacterData(identifiers, units);
-		double[] times = new double[tree.getExternalNodeCount()];
-
-		// WARNING: following code assumes that getLeafIdGroup
-		//has same order as external node list.
-		for (int i = 0; i < times.length; i++) {
-			times[i] = tree.getExternalNode(i).getNodeHeight();
-		}
-
-		// this sets the ordinals as well
-		tocd.setTimes(times, units);
-
-		return tocd;
-	}
-
-	/**
-	 * Extracts an alignment from a tree.
-	 */
-	public static Alignment extractAlignment(Tree tree, boolean leaveSeqsInTree) {
-
-		tree.createNodeList();
-		String[] sequences = new String[tree.getExternalNodeCount()];
-		Identifier[] ids = new Identifier[sequences.length];
-
-		for (int i = 0; i < sequences.length; i++) {
-			sequences[i] = new String(tree.getExternalNode(i).getSequence());
-			ids[i] = tree.getExternalNode(i).getIdentifier();
-			if (!leaveSeqsInTree) {
-				tree.getExternalNode(i).setSequence(null);
-			}
-		}
-
-		return new SimpleAlignment(ids, sequences, "-", AlignmentUtils.getSuitableInstance(sequences));
-	}
-
-	/**
-	 * Extracts an alignment from a tree.
-	 */
-	public static Alignment extractAlignment(Tree tree) {
-		return extractAlignment(tree, true);
-	}
-
-
-	/**
-	 * print a this tree in New Hampshire format
-	 * (including distances and internal labels)
-	 *
-	 * @param out output stream
-	 */
-	public static void printNH(Tree tree, PrintWriter out) {
-		printNH(tree, out, true, true);
-	}
-
-	/**
-	 * print this tree in New Hampshire format
-	 *
-	 * @param out output stream
-	 * @param printLengths boolean variable determining whether
-	 *		branch lengths should be included in output
-	 * @param printInternalLabels boolean variable determining whether
-	 *		internal labels should be included in output
-	 */
-	public static void printNH(Tree tree, PrintWriter out,
-		boolean printLengths, boolean printInternalLabels) {
-
-		NodeUtils.printNH(out, tree.getRoot(),
-			printLengths, printInternalLabels);
-		out.println(";");
-	}
+    /**
+     * Computes the Robinson-Foulds (1981) distance between two trees.
+     *
+     * @param t1 The first tree (reference).
+     * @param t2 The second tree.
+     *
+     * Definition: Assuming that t1 is the reference tree, let fn be the
+     * false negatives (the number of non-trivial splits/edges in t1 missing in t2),
+     * and fp the number of false positives (the number of non-trivial splits/edges
+     * in t2 missing in t1). The RF distance is then (fn + fp)/2.
+     * @return The Robinson-Foulds distance as an unscaled count of different splits.
+     * @throws IllegalArgumentException If the trees do not have the same set of labels (taxa).
+     */
+    public static double getRobinsonFouldsDistance(Tree t1, Tree t2)
+    {
+        SplitSystem s1 = SplitUtils.getSplits(t1);
+
+        return getRobinsonFouldsDistance(s1, t2);
+    }
+
+
+    /**
+     * Computes the Robinson-Foulds (1981) distance between two trees, where the first tree is pre-computed as a SplitSystem.
+     *
+     * @param s1 The first tree (reference) represented by its SplitSystem.
+     * @param t2 The second tree.
+     * @return The Robinson-Foulds distance as an unscaled count of different splits.
+     * @throws IllegalArgumentException If the number of labels in s1 and t2 do not match.
+     */
+    public static double getRobinsonFouldsDistance(SplitSystem s1, Tree t2)
+    {
+        IdGroup idGroup = s1.getIdGroup();
+        SplitSystem s2 = SplitUtils.getSplits(idGroup, t2);
+
+        if (s1.getLabelCount() != s2.getLabelCount())
+            throw new IllegalArgumentException("Number of labels must be the same!");
+
+        int ns1 = s1.getSplitCount();
+        int ns2 = s2.getSplitCount();
+
+        // number of splits in t1 missing in t2
+        int fn = 0;
+        for (int i = 0; i < ns1; i++)
+        {
+            if (!s2.hasSplit(s1.getSplit(i))) fn++;
+        }
+
+        // number of splits in t2 missing in t1
+        int fp = 0;
+        for (int i = 0; i < ns2; i++)
+        {
+            if (!s1.hasSplit(s2.getSplit(i))) fp++;
+        }
+
+
+        return 0.5*((double) fp + (double) fn);
+    }
+
+    /**
+     * Computes the Robinson-Foulds (1981) distance between two trees and rescales the result
+     * to a normalized number between 0 (identical) and 1 (maximally different).
+     * The distance is scaled by the number of non-trivial splits in the first tree.
+     *
+     * @param t1 The first tree (reference).
+     * @param t2 The second tree.
+     * @return The rescaled Robinson-Foulds distance (normalized to 0 &lt;= d &lt;= 1).
+     */
+    public static double getRobinsonFouldsRescaledDistance(Tree t1, Tree t2)
+    {
+        SplitSystem s1 = SplitUtils.getSplits(t1);
+
+        return getRobinsonFouldsRescaledDistance(s1, t2);
+    }
+
+
+    /**
+     * Computes the Robinson-Foulds (1981) distance between two trees, rescaled to a number between 0 and 1.
+     * The distance is scaled by the number of non-trivial splits in the first tree.
+     *
+     * @param s1 The first tree (reference) represented by its SplitSystem.
+     * @param t2 The second tree.
+     * @return The rescaled Robinson-Foulds distance (normalized to 0 &lt;= d &lt;= 1).
+     */
+    public static double getRobinsonFouldsRescaledDistance(SplitSystem s1, Tree t2)
+    {
+        return getRobinsonFouldsDistance(s1, t2)/(double) s1.getSplitCount();
+    }
+
+    private static MersenneTwisterFast random = new MersenneTwisterFast();
+
+    /**
+     * Returns a uniformly distributed random node from the tree, including
+     * both internal and external (leaf) nodes.
+     *
+     * @param tree The tree to sample the random node from.
+     * @return A randomly selected Node object.
+     */
+    public static Node getRandomNode(Tree tree) {
+        int index = random.nextInt(tree.getExternalNodeCount() + tree.getInternalNodeCount());
+        if (index >= tree.getExternalNodeCount()) {
+            return tree.getInternalNode(index - tree.getExternalNodeCount());
+        } else {
+            return tree.getExternalNode(index);
+        }
+    }
+
+    /**
+     * Returns the first node found that has a certain name (as determined by the node's Identifier)
+     * in the tree defined by a root node. The search starts from the tree's root.
+     *
+     * @param tree The Tree object supposedly containing such a named node.
+     * @param name The name of the node to find.
+     * @return The Node with the name, or null if no such node exists.
+     * @see Identifier
+     * @see Node
+     */
+    public static final Node getNodeByName(Tree tree, String name) {
+        return getNodeByName(tree.getRoot(),name);
+    }
+
+    /**
+     * Recursively searches for the first node that has a certain name (as determined by the node's Identifier)
+     * in the subtree defined by the given root node.
+     *
+     * @param root The root node of the (sub)tree to search.
+     * @param name The name of the node to find.
+     * @return The Node with the name, or null if no such node exists in the subtree.
+     * @see Identifier
+     * @see Node
+     */
+    public static final Node getNodeByName(Node root, String name) {
+        if(root.getIdentifier().getName().equals(name)) {
+            return root;
+        }
+        for(int i = 0 ; i < root.getChildCount() ; i++) {
+            Node result = getNodeByName(root.getChild(i), name);
+            if(result!=null) {
+                return result;
+            }
+        }
+        return null;
+    }
+
+    /**
+     * Takes a tree (with branch lengths in mutation units, e.g., expected substitutions per site)
+     * and returns a scaled version of it (with branch lengths in generation units).
+     *
+     * @param mutationTree The input tree whose branch lengths are in mutation units.
+     * @param muModel The MutationRateModel used for performing the scaling.
+     * @return A new Tree object with branch lengths scaled to generation units.
+     */
+    public static Tree mutationsToGenerations(Tree mutationTree, MutationRateModel muModel) {
+        return scale(mutationTree,muModel,Units.GENERATIONS);
+    }
+
+    /**
+     * Takes a tree (with branch lengths in generation units) and returns a scaled version of it
+     * (with branch lengths in mutation units, e.g., expected substitutions per site).
+     *
+     * @param generationTree The input tree whose branch lengths are in generation units.
+     * @param muModel The MutationRateModel used for scaling.
+     * @return A new Tree object with branch lengths scaled to mutation units.
+     * @throws IllegalArgumentException If the MutationRateModel units are not Units.GENERATIONS.
+     */
+    public static Tree generationsToMutations(Tree generationTree, MutationRateModel muModel) {
+
+        if (muModel.getUnits() != Units.GENERATIONS) {
+            throw new IllegalArgumentException("Mutation rate must be per generation!");
+        }
+
+        return generationsToMutations(generationTree, muModel, 1.0);
+    }
+
+    /**
+     * Takes a tree (with branch lengths in generation units) and returns a scaled version of it
+     * (with branch lengths in mutation units, e.g., expected substitutions per site),
+     * factoring in a specified generation time.
+     *
+     * @param generationTree The input tree whose branch lengths are in generation units.
+     * @param muModel The MutationRateModel in calendar units used for scaling.
+     * @param generationTime The length of a generation in calendar units. If the mutation rate is in mutations per site per year, then the
+     * generation time will be in generations per year.
+     * @return A new Tree object with branch lengths scaled to mutation units.
+     * @throws IllegalArgumentException If the input tree is not in generation units or if the mutation rate is non-positive.
+     */
+    public static Tree generationsToMutations(Tree generationTree, MutationRateModel muModel, double generationTime) {
+
+        if (generationTree.getUnits() != Units.GENERATIONS) {
+            throw new IllegalArgumentException("Tree must be in units of generations!");
+        }
+
+        if (muModel.getMutationRate(0.0) <= 0.0) {
+            throw new IllegalArgumentException("Non-positive mutation rate is not permitted!");
+        }
+
+        SimpleTree tree = new SimpleTree(generationTree);
+
+        for (int i = 0; i < tree.getExternalNodeCount(); i++) {
+            double oldHeight = tree.getExternalNode(i).getNodeHeight();
+            tree.getExternalNode(i).setNodeHeight(muModel.getExpectedSubstitutions(oldHeight) * generationTime);
+        }
+        for (int i = 0; i < tree.getInternalNodeCount(); i++) {
+            double oldHeight = tree.getInternalNode(i).getNodeHeight();
+            tree.getInternalNode(i).setNodeHeight(muModel.getExpectedSubstitutions(oldHeight) * generationTime);
+        }
+        //Don't respect minimum branch lengths
+        NodeUtils.heights2Lengths(tree.getRoot(), false);
+        tree.setUnits(Units.EXPECTED_SUBSTITUTIONS);
+
+        return tree;
+    }
+    /**
+     * Takes a tree and returns a scaled version of it using a constant scaling factor.
+     *
+     * @deprecated Use getScaled(Tree, double, int) instead.
+     * @param oldTree The input tree.
+     * @param rate The constant scale factor to apply to all branch lengths.
+     * @param newUnits The new units for the branch lengths.
+     * @return A new scaled Tree object.
+     */
+    public static Tree scale(Tree oldTree, double rate, int newUnits) {
+        return getScaled(oldTree,rate,newUnits);
+    }
+    /**
+     * Takes a tree and returns a scaled version of it, keeping the original units.
+     *
+     * @param oldTree The input tree.
+     * @param rate The constant scale factor to apply to all branch lengths/node heights.
+     * @return A new scaled Tree object with the same units as the original.
+     */
+    public static final Tree getScaled(Tree oldTree, double rate) {
+        return getScaled(oldTree,rate,oldTree.getUnits());
+    }
+
+    /**
+     * Takes a tree and returns a scaled version of it. Scaling is applied to node heights, and new branch lengths are calculated.
+     *
+     * @param oldTree The input tree.
+     * @param rate The constant scale factor. If the original tree is in generations
+     * and the desired units are expected substitutions then this scale
+     * factor should be equal to the mutation rate.
+     * @param newUnits The new units for the branch lengths.
+     * @return A new scaled Tree object.
+     */
+    public static final Tree getScaled(Tree oldTree, double rate, int newUnits) {
+        SimpleTree tree = new SimpleTree(oldTree);
+        for (int i = 0; i < tree.getExternalNodeCount(); i++) {
+            Node n = tree.getExternalNode(i);
+            n.setNodeHeight(rate*n.getNodeHeight());
+        }
+        for (int i = 0; i < tree.getInternalNodeCount(); i++) {
+            Node n = tree.getInternalNode(i);
+            n.setNodeHeight(rate*n.getNodeHeight());
+        }
+        NodeUtils.heights2Lengths(tree.getRoot());
+        tree.setUnits(newUnits);
+        return tree;
+    }
+
+    /**
+     * Takes a tree and returns a scaled version of it using a MutationRateModel.
+     *
+     * @deprecated Use getScaled(Tree, MutationRateModel) instead.
+     * @param mutationRateTree The input tree.
+     * @param muModel The MutationRateModel used for scaling.
+     * @return A new scaled Tree object.
+     */
+    public static Tree scale(Tree mutationRateTree, MutationRateModel muModel) {
+        return getScaled(mutationRateTree,muModel);
+    }
+    /**
+     * Takes a tree and returns a scaled version of it, with the resulting units defined by the MutationRateModel's units.
+     * Scaling is performed by transforming node heights using the model.
+     *
+     * @param mutationRateTree The input tree.
+     * @param muModel The MutationRateModel used for transforming branch lengths/node heights.
+     * @return A new scaled Tree object.
+     */
+    public static Tree getScaled(Tree mutationRateTree, MutationRateModel muModel) {
+        return getScaled(mutationRateTree,muModel,muModel.getUnits());
+    }
+    /**
+     * Takes a tree and returns a scaled version of it, specifying the new units.
+     *
+     * @deprecated Use getScaled(Tree, MutationRateModel, int) instead.
+     * @param mutationRateTree The input tree.
+     * @param muModel The MutationRateModel used for scaling.
+     * @param newUnits The new units for the tree.
+     * @return A new scaled Tree object.
+     */
+    public static Tree scale(Tree mutationRateTree, MutationRateModel muModel, int newUnits) {
+        return getScaled(mutationRateTree,muModel,newUnits);
+    }
+    /**
+     * Takes a tree and returns a scaled version of it, with branch lengths transformed by the MutationRateModel and assigned new units.
+     *
+     * @param mutationRateTree The input tree.
+     * @param muModel The MutationRateModel used for transforming branch lengths/node heights.
+     * @param newUnits The new units of the tree. (Such as the mutationTree is measured in expected substitutions/newUnits)
+     * @return A new scaled Tree object.
+     * @throws IllegalArgumentException If the mutation rate is non-positive.
+     */
+    public static Tree getScaled(Tree mutationRateTree, MutationRateModel muModel, int newUnits) {
+        if (muModel.getMutationRate(0.0) <= 0.0) {
+            throw new IllegalArgumentException("Non-positive mutation rate is not permitted!");
+        }
+
+        SimpleTree tree = new SimpleTree(mutationRateTree);
+        if(newUnits == Units.EXPECTED_SUBSTITUTIONS) {
+            //Changed for what I think is the correct behaviour for converting to Expected Substitutions
+            for (int i = 0; i < tree.getExternalNodeCount(); i++) {
+                double oldHeight = tree.getExternalNode(i).getNodeHeight();
+                tree.getExternalNode(i).setNodeHeight(muModel.getExpectedSubstitutions(oldHeight));
+            }
+            for (int i = 0; i < tree.getInternalNodeCount(); i++) {
+                double oldHeight = tree.getInternalNode(i).getNodeHeight();
+                tree.getInternalNode(i).setNodeHeight(muModel.getExpectedSubstitutions(oldHeight));
+            }
+        } else {
+            for (int i = 0; i < tree.getExternalNodeCount(); i++) {
+                double oldHeight = tree.getExternalNode(i).getNodeHeight();
+                tree.getExternalNode(i).setNodeHeight(muModel.getTime(oldHeight));
+            }
+            for (int i = 0; i < tree.getInternalNodeCount(); i++) {
+                double oldHeight = tree.getInternalNode(i).getNodeHeight();
+                tree.getInternalNode(i).setNodeHeight(muModel.getTime(oldHeight));
+            }
+        }
+        NodeUtils.heights2Lengths(tree.getRoot());
+        tree.setUnits(newUnits);
+        return tree;
+    }
+    /**
+     * Given a translation table where the keys are the current
+     * identifier names (Strings) and the values are the new identifier names (Strings),
+     * this method replaces the current identifiers of the external and internal nodes in the tree with the new names where a mapping exists.
+     *
+     * @param tree The tree whose node identifiers are to be renamed.
+     * @param table A Hashtable mapping old node names to new node names.
+     */
+    public static void renameNodes(Tree tree, Hashtable table) {
+
+        tree.createNodeList();
+
+        for (int i = 0; i < tree.getExternalNodeCount(); i++) {
+            String newName =
+                    (String)table.get(tree.getExternalNode(i).getIdentifier().getName());
+
+            if (newName != null) {
+                tree.getExternalNode(i).setIdentifier(new Identifier(newName));
+            }
+        }
+        for (int i = 0; i < tree.getInternalNodeCount(); i++) {
+
+
+
+            String newName =
+                    (String)table.get(tree.getInternalNode(i).getIdentifier().getName());
+
+            if (newName != null) {
+                tree.getInternalNode(i).setIdentifier(new Identifier(newName));
+            }
+        }
+    }
+
+    /**
+     * Rotates the branches of all internal nodes in the tree based on the leaf count of the subtrees,
+     * primarily for visualization purposes to ensure smaller clades are on one side (e.g., left).
+     *
+     * @param tree The tree to be rotated.
+     * Note: Assumes a strictly binary tree structure!
+     */
+    public static void rotateByLeafCount(Tree tree) {
+        rotateByLeafCount(tree.getRoot());
+    }
+
+    /**
+     * Returns an IdGroup containing the identifiers of all external nodes (leaves) in the tree,
+     * in the order defined by the tree's internal list.
+     *
+     * @param tree The tree from which to extract the leaf identifiers.
+     * @return An IdGroup object listing all leaf identifiers.
+     */
+    public static final IdGroup getLeafIdGroup(Tree tree)
+    {
+        tree.createNodeList();
+
+        IdGroup labelList =
+                new SimpleIdGroup(tree.getExternalNodeCount());
+
+        for (int i = 0; i < tree.getExternalNodeCount(); i++)
+        {
+            labelList.setIdentifier(i, tree.getExternalNode(i).getIdentifier());
+        }
+
+        return labelList;
+    }
+
+    /**
+     * Maps the external identifiers in the tree to their corresponding zero-based index numbers within a provided ordered IdGroup.
+     *
+     * @param idGroup An ordered group of identifiers that must contain all identifiers present in the tree's leaves.
+     * @param tree The tree whose external identifiers are to be mapped.
+     * @return An array of integers where the element at index i is the index of the i-th external tree node's identifier within the provided IdGroup.
+     * @throws IllegalArgumentException If any tree label is not present in the given set of labels.
+     */
+    public static final int[] mapExternalIdentifiers(IdGroup idGroup, Tree tree)
+            throws IllegalArgumentException {
+
+        int[] alias = new int[tree.getExternalNodeCount()];
+
+        // Check whether for each label in tree there is
+        // a correspondence in the given set of labels
+        for (int i = 0; i < tree.getExternalNodeCount(); i++)
+        {
+            alias[i] = idGroup.whichIdNumber(tree.getExternalNode(i).getIdentifier() .getName());
+
+            if (alias[i] == -1)
+            {
+                throw new IllegalArgumentException("Tree label "
+                        + tree.getExternalNode(i).getIdentifier() +
+                        " not present in given set of labels");
+            }
+        }
+
+        return alias;
+    }
+
+    /**
+     * Labels the internal nodes of the tree using unique, sequential numbers starting from 0 (as strings),
+     * ensuring that the generated numbers do not conflict with identifiers already used by external leaves.
+     *
+     * @param tree The tree whose internal nodes are to be labeled.
+     */
+    public static final void labelInternalNodes(Tree tree) {
+
+        int counter = 0;
+        String pos = "0";
+
+        IdGroup ids = getLeafIdGroup(tree);
+
+        for (int i = 0; i < tree.getInternalNodeCount(); i++) {
+
+            //if label already used find a better one
+            while (ids.whichIdNumber(pos) >= 0) {
+                counter += 1;
+                pos = "" + counter;
+            }
+            tree.getInternalNode(i).setIdentifier(new Identifier(pos));
+            counter += 1;
+            pos = "" + counter;
+        }
+    }
+
+    /**
+     * Extracts a TimeOrderCharacterData object from the tree, primarily containing
+     * the identifiers of the leaves and their node heights (times from the root).
+     *
+     * @param tree The tree from which to extract the time order data.
+     * @param units The units of time associated with the extracted data (typically the tree's units).
+     * @return A new TimeOrderCharacterData object containing leaf identifiers and their corresponding node heights.
+     */
+    public static TimeOrderCharacterData extractTimeOrderCharacterData(Tree tree, int units) {
+
+        tree.createNodeList();
+        IdGroup identifiers = getLeafIdGroup(tree);
+        TimeOrderCharacterData tocd = new TimeOrderCharacterData(identifiers, units);
+        double[] times = new double[tree.getExternalNodeCount()];
+
+        // WARNING: following code assumes that getLeafIdGroup
+        //has same order as external node list.
+        for (int i = 0; i < times.length; i++) {
+            times[i] = tree.getExternalNode(i).getNodeHeight();
+        }
+
+        // this sets the ordinals as well
+        tocd.setTimes(times, units);
+
+        return tocd;
+    }
+
+    /**
+     * Extracts a sequence alignment (Alignment) from the tree by collecting the sequences
+     * and identifiers stored in the external nodes (leaves).
+     *
+     * @param tree The tree from which to extract the alignment.
+     * @param leaveSeqsInTree If true, the sequences remain attached to the tree nodes; if false, the sequences are set to null on the tree nodes after extraction.
+     * @return A new Alignment object containing the extracted leaf sequences and identifiers.
+     */
+    public static Alignment extractAlignment(Tree tree, boolean leaveSeqsInTree) {
+
+        tree.createNodeList();
+        String[] sequences = new String[tree.getExternalNodeCount()];
+        Identifier[] ids = new Identifier[sequences.length];
+
+        for (int i = 0; i < sequences.length; i++) {
+            sequences[i] = new String(tree.getExternalNode(i).getSequence());
+            ids[i] = tree.getExternalNode(i).getIdentifier();
+            if (!leaveSeqsInTree) {
+                tree.getExternalNode(i).setSequence(null);
+            }
+        }
+
+        return new SimpleAlignment(ids, sequences, "-", AlignmentUtils.getSuitableInstance(sequences));
+    }
+
+    /**
+     * Extracts a sequence alignment (Alignment) from the tree, leaving the original sequences in the tree nodes.
+     * This is a convenience method equivalent to calling extractAlignment(tree, true).
+     *
+     * @param tree The tree from which to extract the alignment.
+     * @return A new Alignment object containing the extracted leaf sequences and identifiers.
+     */
+    public static Alignment extractAlignment(Tree tree) {
+        return extractAlignment(tree, true);
+    }
+
+
+    /**
+     * Prints the tree to an output stream in New Hampshire (Newick) format, including both
+     * branch lengths and internal node labels.
+     *
+     * @param tree The tree to be printed.
+     * @param out The PrintWriter output stream.
+     */
+    public static void printNH(Tree tree, PrintWriter out) {
+        printNH(tree, out, true, true);
+    }
+
+    /**
+     * Prints the tree to an output stream in New Hampshire (Newick) format, with options to include
+     * branch lengths and internal node labels.
+     *
+     * @param tree The tree to be printed.
+     * @param out The PrintWriter output stream.
+     * @param printLengths A boolean variable determining whether branch lengths should be included in output.
+     * @param printInternalLabels A boolean variable determining whether internal labels should be included in output.
+     */
+    public static void printNH(Tree tree, PrintWriter out,
+                               boolean printLengths, boolean printInternalLabels) {
+
+        NodeUtils.printNH(out, tree.getRoot(),
+                printLengths, printInternalLabels);
+        out.println(";");
+    }
 
 	/**
 	 * Roots a tree (that was previously unroot - ie 3 or more children at the
@@ -514,7 +582,7 @@ public class TreeUtils
 	 * @param outgroupMembers the names of the nodes that form the outgroup.
 	 *      Multiple nodes will make the clade covering all outgroup nodes (and
 	 *      any others that fall with in that clade) form the outgroup.
-	 * @note if none of the outgroup members are actually in the tree, or the outgroup clade is
+	 * Note: if none of the outgroup members are actually in the tree, or the outgroup clade is
 	 * the whole tree, the result is just an unrooted clone of the input tree.
 	 */
 //	public static final Tree getRooted(Tree unrooted, String[] outgroupMembers) {
@@ -535,14 +603,17 @@ public class TreeUtils
 //		return t2;
 //	}
 
-	/**
-	 * @return a tree that has been re-rooted at the given
-	 * internal node. The original root of the tree must have had at least 3 children.
-	 */
-	public static void reroot(Tree tree, Node node) {
-		reroot(node);
-		tree.setRoot(node);
-	}
+    /**
+     * Reroots the given tree such that the provided node becomes the new root node.
+     * This operation modifies the tree in place.
+     *
+     * @param tree The Tree object to be re-rooted.
+     * @param node The Node (either internal or external) that should become the new root of the tree.
+     */
+    public static void reroot(Tree tree, Node node) {
+        reroot(node);
+        tree.setRoot(node);
+    }
 
 	/*
 	 * compute distance of external node a to all other leaves
@@ -1122,117 +1193,129 @@ public class TreeUtils
 		node.addChild(parent);
 	}
 
-	/**
-	 * Generates a tree which is identical to baseTree but has attributes (defined by attributeName)
-	 * at all internal nodes excluding the root node signifying (as a value between 0 and 100) the bootstrap
-	 * support by clade (that is the proportion of replicates that produce the sub clade under that node)
-	 * @note assumes all alternative trees have the exact same set of labels
-	 * @deprecated Use getReplicateCladeSupport instead
-	 */
-	public static final Tree getBootstrapSupportByCladeTree(String attributeName, Tree baseTree, Tree[] alternativeTrees) {
-		SimpleTree result = new SimpleTree(baseTree);
-		IdGroup ids = TreeUtils.getLeafIdGroup(baseTree);
-		SplitSystem baseSystem = SplitUtils.getSplits(ids,baseTree);
-		boolean[][] baseVector = baseSystem.getSplitVector();
-		int[] supportCount = new int[baseVector.length];
-		for(int i = 0 ; i < alternativeTrees.length ; i++) {
-			SplitSystem alternativeSystem = SplitUtils.getSplits(ids, alternativeTrees[i]);
-			for(int j = 0 ; j < baseVector.length ; j++) {
-				if(alternativeSystem.hasSplit(baseVector[j])) {
-					supportCount[j]++;
-				}
-			}
-		}
-		for(int i = 0 ; i < supportCount.length ; i++) {
-			int support = (int)(supportCount[i]*100/(double)alternativeTrees.length);
-			result.setAttribute(
-				result.getInternalNode(i),
-				attributeName,
-				new Integer(support)
-			);
-		}
-		return result;
-	}
-	/**
-	 * Generates a tree which is identical to baseTree but has attributes (defined by attributeName)
-	 * at all internal nodes excluding the root node signifying (as a value between 0 and 100) the replicate
-	 * support by clade (that is the proportion of replicates that produce the sub clade under that node)
-	 * @param attributeName the name attached to the attribute which holds the clade support value
-	 * @param baseTree the baseTree
-	 * @param treeGenerator the source of the replicates. This approach is used of supplying an
-	 * array of trees as it can save memory! For bootstrap analysis, create an iterator that builds new trees based on bootstrap alignment.
-	 * @param numberOfReplicates the number of replicates to extract from the TreeGenerator for
-	 * use in calculating clade support (does not include base tree)
-	 * @param callback An AlgorithmCallback object for monitoring progress
-	 * @see pal.gui.TreePainter.BOOTSTRAP_ATTRIBUTE_NAME
-	 * @note if algorithm callback requrests early stop this methods will return input baseTree with no annotation
-	 */
-	public static final Tree getReplicateCladeSupport(final String attributeName, final Tree baseTree, final TreeGenerator treeGenerator, final int numberOfReplicates, final AlgorithmCallback callback) {
-		SimpleTree result = new SimpleTree(baseTree);
-		IdGroup ids = TreeUtils.getLeafIdGroup(baseTree);
-		SplitSystem baseSystem = SplitUtils.getSplits(ids,baseTree);
-		boolean[][] baseVector = baseSystem.getSplitVector();
-		int[] supportCount = new int[baseVector.length];
-		for(int i = 0 ; i < numberOfReplicates ; i++) {
-			Tree replicateTree = treeGenerator.getNextTree(
-				AlgorithmCallback.Utils.getSubCallback(callback,"Replicate:"+i,i/(double)(numberOfReplicates+1),(i+1)/(double)(numberOfReplicates+1))
-			);
-			if(callback.isPleaseStop()) {
-				return baseTree;
-			}
-			SplitSystem alternativeSystem =	SplitUtils.getSplits(ids,replicateTree);
-			for(int j = 0 ; j < baseVector.length ; j++) {
-				if(alternativeSystem.hasSplit(baseVector[j])) {		supportCount[j]++;			}
-			}
-		}
-		for(int i = 0 ; i < supportCount.length ; i++) {
-			int support = (int)(supportCount[i]*100/(double)numberOfReplicates);
-			result.setAttribute(
-				result.getInternalNode(i),
-				attributeName,
-				new Integer(support)
-			);
-		}
-		return result;
-	}
-	/**
-	 * Create a new tree such that the labels are redifined from a base tree in such a manner:
-	 *  For each leaf label
-	 * <ol>
-	 *  <li> If the base label is not a number the new label is just the original label </i>
-	 *  <li> If the base label is a number the new label appropriately index label from a set identifiers </i>
-	 * </ol>
-	 * @param baseTree The base tree
-	 * @param ids The set of identifiers
-	 * @return A relabelled tree, or the input tree if no numbered leaves.
-	 */
-	public static final Tree getNumberRelabelledTree(Tree baseTree, IdGroup ids) {
-	  LabelMapping lm = new LabelMapping();
-		int minIndex = Integer.MAX_VALUE;
-		for(int i = 0 ; i < baseTree.getIdCount() ; i++) {
-		  String treeLabel = baseTree.getIdentifier(i).getName();
-			try {
-				int number = Integer.parseInt(treeLabel);
-				if(number<minIndex) {
-				  minIndex = number;
-				}
-			}catch(NumberFormatException e) {	}
-		}
-		int changes = 0;
-		for(int i = 0 ; i < baseTree.getIdCount() ; i++) {
-		  String treeLabel = baseTree.getIdentifier(i).getName();
-			try {
-				int number = Integer.parseInt(treeLabel)-minIndex;
-				if(number<ids.getIdCount()) {
-				  lm.addMapping(treeLabel,ids.getIdentifier(number).getName());
-					changes++;
-				}
-			}catch(NumberFormatException e) {
+    /**
+     * Generates a tree which is identical to baseTree but has attributes (defined by attributeName)
+     * at all internal nodes excluding the root node signifying (as a value between 0 and 100) the bootstrap
+     * support by clade (that is the proportion of replicates that produce the sub clade under that node).
+     *
+     * <p>Note: This method assumes all alternative trees have the exact same set of labels (taxa) as the baseTree.</p>
+     *
+     * @param attributeName The name of the attribute to store the bootstrap support value (0-100).
+     * @param baseTree The reference tree whose topology is to be analyzed.
+     * @param alternativeTrees An array of bootstrap replicate trees used to calculate support.
+     * @return A new Tree object identical to baseTree but with bootstrap support attributes added to internal nodes.
+     * @deprecated Use {@link #getReplicateCladeSupport(String, Tree, TreeGenerator, int, AlgorithmCallback)} instead.
+     */
+    public static final Tree getBootstrapSupportByCladeTree(String attributeName, Tree baseTree, Tree[] alternativeTrees) {
+        SimpleTree result = new SimpleTree(baseTree);
+        IdGroup ids = TreeUtils.getLeafIdGroup(baseTree);
+        SplitSystem baseSystem = SplitUtils.getSplits(ids,baseTree);
+        boolean[][] baseVector = baseSystem.getSplitVector();
+        int[] supportCount = new int[baseVector.length];
+        for(int i = 0 ; i < alternativeTrees.length ; i++) {
+            SplitSystem alternativeSystem = SplitUtils.getSplits(ids, alternativeTrees[i]);
+            for(int j = 0 ; j < baseVector.length ; j++) {
+                if(alternativeSystem.hasSplit(baseVector[j])) {
+                    supportCount[j]++;
+                }
+            }
+        }
+        for(int i = 0 ; i < supportCount.length ; i++) {
+            int support = (int)(supportCount[i]*100/(double)alternativeTrees.length);
+            result.setAttribute(
+                    result.getInternalNode(i),
+                    attributeName,
+                    new Integer(support)
+            );
+        }
+        return result;
+    }
 
-			}
-		}
-		if(changes==0) { return baseTree; }
-		return new SimpleTree(baseTree,lm);
-	}
+    /**
+     * Generates a tree which is identical to baseTree but has attributes (defined by attributeName)
+     * at all internal nodes excluding the root node signifying (as a value between 0 and 100) the replicate
+     * support by clade (that is the proportion of replicates that produce the sub clade under that node).
+     * This method uses a {@code TreeGenerator} to process replicates sequentially, which can save memory
+     * compared to loading all replicate trees into an array.
+     *
+     * @param attributeName The name attached to the attribute which holds the clade support value.
+     * @param baseTree The base tree whose splits are checked for support.
+     * @param treeGenerator The source of the replicate trees. For bootstrap analysis, this would typically be an iterator that builds trees based on bootstrap alignments.
+     * @param numberOfReplicates The total number of replicates to extract from the TreeGenerator for
+     * use in calculating clade support (excluding the base tree).
+     * @param callback An AlgorithmCallback object for monitoring progress and allowing early stopping.
+     * @return A new Tree object identical to baseTree but with replicate support attributes added to internal nodes. Returns the original baseTree with no annotation if the callback requests an early stop.
+     * @see pal.gui.TreePainter#BOOTSTRAP_ATTRIBUTE_NAME
+     */
+    public static final Tree getReplicateCladeSupport(final String attributeName, final Tree baseTree, final TreeGenerator treeGenerator, final int numberOfReplicates, final AlgorithmCallback callback) {
+        SimpleTree result = new SimpleTree(baseTree);
+        IdGroup ids = TreeUtils.getLeafIdGroup(baseTree);
+        SplitSystem baseSystem = SplitUtils.getSplits(ids,baseTree);
+        boolean[][] baseVector = baseSystem.getSplitVector();
+        int[] supportCount = new int[baseVector.length];
+        for(int i = 0 ; i < numberOfReplicates ; i++) {
+            Tree replicateTree = treeGenerator.getNextTree(
+                    AlgorithmCallback.Utils.getSubCallback(callback,"Replicate:"+i,i/(double)(numberOfReplicates+1),(i+1)/(double)(numberOfReplicates+1))
+            );
+            if(callback.isPleaseStop()) {
+                return baseTree;
+            }
+            SplitSystem alternativeSystem =    SplitUtils.getSplits(ids,replicateTree);
+            for(int j = 0 ; j < baseVector.length ; j++) {
+                if(alternativeSystem.hasSplit(baseVector[j])) {       supportCount[j]++;       }
+            }
+        }
+        for(int i = 0 ; i < supportCount.length ; i++) {
+            int support = (int)(supportCount[i]*100/(double)numberOfReplicates);
+            result.setAttribute(
+                    result.getInternalNode(i),
+                    attributeName,
+                    new Integer(support)
+            );
+        }
+        return result;
+    }
 
+    /**
+     * Creates a new tree where the leaf labels are redefined (re-indexed) based on a mapping,
+     * assuming that the base tree's labels are numbered integers.
+     *
+     * <ol>
+     * <li> If the base label is not a parseable number, the new label is the original label.</li>
+     * <li> If the base label is a number, it is treated as an index (offset by the minimum index found)
+     * to look up the new label in the provided set of identifiers ({@code ids}).</li>
+     * </ol>
+     *
+     * @param baseTree The base tree to be relabelled.
+     * @param ids The set of identifiers used for relabeling the numbered leaves.
+     * @return A new relabelled Tree object, or the input baseTree if no numbered leaves were found or changed.
+     */
+    public static final Tree getNumberRelabelledTree(Tree baseTree, IdGroup ids) {
+        LabelMapping lm = new LabelMapping();
+        int minIndex = Integer.MAX_VALUE;
+        for(int i = 0 ; i < baseTree.getIdCount() ; i++) {
+            String treeLabel = baseTree.getIdentifier(i).getName();
+            try {
+                int number = Integer.parseInt(treeLabel);
+                if(number<minIndex) {
+                    minIndex = number;
+                }
+            }catch(NumberFormatException e) {  }
+        }
+        int changes = 0;
+        for(int i = 0 ; i < baseTree.getIdCount() ; i++) {
+            String treeLabel = baseTree.getIdentifier(i).getName();
+            try {
+                int number = Integer.parseInt(treeLabel)-minIndex;
+                if(number<ids.getIdCount()) {
+                    lm.addMapping(treeLabel,ids.getIdentifier(number).getName());
+                    changes++;
+                }
+            }catch(NumberFormatException e) {
+
+            }
+        }
+        if(changes==0) { return baseTree; }
+        return new SimpleTree(baseTree,lm);
+    }
 }

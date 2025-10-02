@@ -42,53 +42,60 @@ public class GeneralConstructionTool {
 
 	private final UnconstrainedLikelihoodModel.External freeCalcExternal_;
 
-	/**
-	 * The constructor
-	 * @param alignment the base alignment
-	 * @param numberOfStates the number of states
-	 * @param numberOfCategories the number of model classes
-	 * @param freeCalculatorGenerator The generator for free calculation (may be null if no free components)
-	 * @param constrainedCalcGenerator The generator for constrained calculation (assuming a Molecular Clock, and may be null if no constrained components)
-	 */
-	public GeneralConstructionTool(ConstraintModel constraints, Alignment alignment) {
-		this.constraints_ = constraints;
-		this.dataType_ = alignment.getDataType();
+    /**
+     * Constructs a new {@code GeneralConstructionTool}, initializing it with the provided constraints and sequence data.
+     * This tool is responsible for managing the structure and data required for phylogenetic calculations
+     * under various constraint models (e.g., molecular clock).
+     *
+     * @param constraints The {@code ConstraintModel} defining the topological, branch length, and rate constraints for the analysis.
+     * @param alignment The base {@code Alignment} containing the sequence data, from which the number of sites, states, and sequences are extracted.
+     */
+    public GeneralConstructionTool(ConstraintModel constraints, Alignment alignment) {
+        this.constraints_ = constraints;
+        this.dataType_ = alignment.getDataType();
 
-		this.numberOfSites_ = alignment.getSiteCount();
-		this.numberOfStates_ = dataType_.getNumStates();
+        this.numberOfSites_ = alignment.getSiteCount();
+        this.numberOfStates_ = dataType_.getNumStates();
 
-		this.names_ = Identifier.getNames(alignment);
-		this.sequences_ = pal.alignment.AlignmentUtils.getAlignedStates( alignment,numberOfStates_ );
+        this.names_ = Identifier.getNames(alignment);
+        this.sequences_ = pal.alignment.AlignmentUtils.getAlignedStates( alignment,numberOfStates_ );
 
-		freeCalcExternal_ = constraints_.createNewFreeExternal();
-	} //End of constructor
+        freeCalcExternal_ = constraints_.createNewFreeExternal();
+    } //End of constructor
 
-	/**
-	 * Create an appropriate free node given a peer, and it's parent branch
-	 * @param peer The normal PAL node peer
-	 * @param parent The parent branch
-	 * @return A FreeNode
-	 */
-	public FreeNode createFreeNode(Node peer, FreeBranch parent, GeneralConstraintGroupManager.Store store) {
-		if(peer.isLeaf()) {
-			String name = peer.getIdentifier().getName();
-			int[] sequence = getSequence(name);
-			final String[] leafLabelSet = new String[] { name };
-			if(constraints_.getGlobalClockConstraintGrouping(leafLabelSet)!=null) {
-			  //Could make this a warning...
-				throw new IllegalArgumentException("Being forced to treat node '"+name+"' as unconstrained when constrained (probably a result of incorrectly structured topology");
-			}
-			return new FreeLeafNode(parent, name,this);
-		} else {
-			String[] leafLabelSet = getLeafLabelSet(peer);
-		  ConstraintModel.GroupManager grouping = constraints_.getGlobalClockConstraintGrouping(leafLabelSet);
-		  if(grouping==null) {
-				return new FreeInternalNode(peer,parent,this,store);
-			} else {
-				return new PivotNode(peer,parent,this,store.getConstraintGroupManager(grouping),store);
-			}
-		}
-	}
+    /**
+     * Creates and returns an appropriate {@code FreeNode} (either a leaf or an internal node)
+     * based on the characteristics of the normal PAL node peer.
+     *
+     * This method determines whether to create a standard {@code FreeInternalNode} or a specialized
+     * {@code PivotNode} based on whether the node's associated clade is under a global clock constraint.
+     *
+     * @param peer The normal PAL Node structure acting as the blueprint for the new FreeNode.
+     * @param parent The {@code FreeBranch} that connects to this new node (the branch toward the base/root).
+     * @param store The constraint manager store, used to retrieve specific constraint groups for PivotNodes.
+     * @return A concrete implementation of {@code FreeNode} (either a leaf, standard internal, or pivot node).
+     * @throws IllegalArgumentException If a leaf node is found to be incorrectly constrained, suggesting a mismatch between topology and the constraint model.
+     */
+    public FreeNode createFreeNode(Node peer, FreeBranch parent, GeneralConstraintGroupManager.Store store) {
+        if(peer.isLeaf()) {
+            String name = peer.getIdentifier().getName();
+            int[] sequence = getSequence(name);
+            final String[] leafLabelSet = new String[] { name };
+            if(constraints_.getGlobalClockConstraintGrouping(leafLabelSet)!=null) {
+                //Could make this a warning...
+                throw new IllegalArgumentException("Being forced to treat node '"+name+"' as unconstrained when constrained (probably a result of incorrectly structured topology");
+            }
+            return new FreeLeafNode(parent, name,this);
+        } else {
+            String[] leafLabelSet = getLeafLabelSet(peer);
+            ConstraintModel.GroupManager grouping = constraints_.getGlobalClockConstraintGrouping(leafLabelSet);
+            if(grouping==null) {
+                return new FreeInternalNode(peer,parent,this,store);
+            } else {
+                return new PivotNode(peer,parent,this,store.getConstraintGroupManager(grouping),store);
+            }
+        }
+    }
 
 	public RootAccess createRootAccess(Node baseTree, GeneralConstraintGroupManager.Store store) {
 		String[] allLeaves = getLeafLabelSet(baseTree);
@@ -100,34 +107,43 @@ public class GeneralConstructionTool {
 		}
 	}
 
-	/**
-	 * Create an appropriate constrained node given a peer, and it's parent node
-	 * @param peer The normal PAL node peer
-	 * @param parent The parent node
-	 * @return A ConstrainedNode
-	 */
-	public ConstrainedNode createConstrainedNode(Node peer, ParentableConstrainedNode parent, GeneralConstraintGroupManager.Store store, GeneralConstraintGroupManager groupManager) {
-		ConstraintModel.GroupManager parentGroup = groupManager.getRelatedGroup();
-		if(peer.isLeaf()) {
-			String name = peer.getIdentifier().getName();
-			int[] sequence = getSequence(name);
-		  String[] leafLabelSet = new String[] { name };
-			ConstraintModel.GroupManager grouping = constraints_.getGlobalClockConstraintGrouping(leafLabelSet);
-			if(grouping==null) {
-			  //Could make this a warning...
-				throw new IllegalArgumentException("Being forced to treat node '"+name+"' as constrained when unconstrained (probably a result of incorrectly structured topology");
-			}
-			return new ConstrainedLeafNode(parent,peer,parentGroup.getLeafBaseHeight(name), this, parentGroup);
-		} else {
-		  String[] leafLabelSet = getLeafLabelSet(peer);
-			ConstraintModel.GroupManager grouping = constraints_.getGlobalClockConstraintGrouping(leafLabelSet);
-			if(grouping==null) {
-				throw new RuntimeException("Not implemented - cannont handle the constrained moving to unconstrained case yet!");
-			} else {
-				return new ConstrainedInternalNode(peer, parent,this,store,groupManager);
-			}
-		}
-	}
+    /**
+     * Creates and returns an appropriate {@code ConstrainedNode} (either a leaf or an internal node)
+     * based on the characteristics of the normal PAL node peer and the applied constraint model.
+     *
+     * This method ensures that the created node is correctly initialized within the constraints
+     * defined by the {@code GeneralConstraintGroupManager}.
+     *
+     * @param peer The normal PAL Node structure acting as the blueprint for the new ConstrainedNode.
+     * @param parent The {@code ParentableConstrainedNode} that serves as the parent in the constrained structure.
+     * @param store The store managing general constraint groups.
+     * @param groupManager The constraint group manager specific to the current part of the tree being built.
+     * @return A concrete implementation of {@code ConstrainedNode} (either a leaf or an internal node).
+     * @throws IllegalArgumentException If a leaf node is found to be unconstrained when it should be constrained, suggesting an incorrectly structured topology for the constraint model.
+     * @throws RuntimeException If the implementation encounters an unsupported scenario, such as moving from a constrained structure to an unconstrained one.
+     */
+    public ConstrainedNode createConstrainedNode(Node peer, ParentableConstrainedNode parent, GeneralConstraintGroupManager.Store store, GeneralConstraintGroupManager groupManager) {
+        ConstraintModel.GroupManager parentGroup = groupManager.getRelatedGroup();
+        if(peer.isLeaf()) {
+            String name = peer.getIdentifier().getName();
+            int[] sequence = getSequence(name);
+            String[] leafLabelSet = new String[] { name };
+            ConstraintModel.GroupManager grouping = constraints_.getGlobalClockConstraintGrouping(leafLabelSet);
+            if(grouping==null) {
+                //Could make this a warning...
+                throw new IllegalArgumentException("Being forced to treat node '"+name+"' as constrained when unconstrained (probably a result of incorrectly structured topology");
+            }
+            return new ConstrainedLeafNode(parent,peer,parentGroup.getLeafBaseHeight(name), this, parentGroup);
+        } else {
+            String[] leafLabelSet = getLeafLabelSet(peer);
+            ConstraintModel.GroupManager grouping = constraints_.getGlobalClockConstraintGrouping(leafLabelSet);
+            if(grouping==null) {
+                throw new RuntimeException("Not implemented - cannont handle the constrained moving to unconstrained case yet!");
+            } else {
+                return new ConstrainedInternalNode(peer, parent,this,store,groupManager);
+            }
+        }
+    }
 
 // ================================================================================================================
 	// - - - - -
@@ -190,7 +206,7 @@ public class GeneralConstructionTool {
 	 * defined by the PAL node. Returns -1 if more than one index.
 	 * @param peer the root of the sub tree
 	 * @return the common leaf index, of -1 if no common leaf index
-	 * @note assumes bificating tree
+	 * Note: assumes bificating tree
 	 */
 	public String[] getLeafLabelSet(Node peer) {
 		ArrayList al = new ArrayList();

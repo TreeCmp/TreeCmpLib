@@ -46,7 +46,10 @@ public class SimpleLikelihoodCalculator implements LikelihoodCalculator {
 	private double[] siteLogL_;
 
 	/**
-		Need to use setTree(), and setModel() before using compute() if you use this constructor */
+     * Need to use setTree(), and setModel() before using compute() if you use this constructor
+     *
+     * @param pattern the site pattern to be analyzed
+     */
 	public SimpleLikelihoodCalculator(SitePattern pattern) {
 		setPattern(pattern);
 	}
@@ -168,114 +171,153 @@ public class SimpleLikelihoodCalculator implements LikelihoodCalculator {
 	}
 
 
-	/** get partial likelihood of a branch */
-	protected double[][] getPartial(Node branch) {
-		return partials_[getKey(branch)];
-	}
+    /**
+     * Returns the partial likelihood matrix associated with a given branch.
+     *
+     * @param branch the branch (node) for which to retrieve partial likelihoods
+     * @return a 2D array of partial likelihood values for the specified branch
+     */
+    protected double[][] getPartial(Node branch) {
+        return partials_[getKey(branch)];
+    }
 
+    /**
+     * Returns the next branch around a center node in traversal order.
+     * <p>
+     * If the given branch is a child of {@code center}, this method returns
+     * the next child in order, or the center itself if the branch is the last child.
+     * If the branch is the center itself, the first child is returned (or the center
+     * itself again if it has no children).
+     * </p>
+     *
+     * @param branch the current branch (or the center itself)
+     * @param center the center node around which to search
+     * @return the next branch around {@code center}, or {@code center} itself
+     */
+    private Node getNextBranchOrRoot(Node branch, Node center) {
+        int numChilds = center.getChildCount();
 
-	/** get next branch around a center node
-		 (center may be root, and root may also be returned) */
-	private Node getNextBranchOrRoot(Node branch, Node center) {
-		int numChilds = center.getChildCount();
+        int num;
+        for (num = 0; num < numChilds; num++) {
+            if (center.getChild(num) == branch) {
+                break;
+            }
+        }
+        // num is now child number (if num = numChilds then branch == center)
 
-		int num;
-		for (num = 0; num < numChilds; num++)	{
-			if (center.getChild(num) == branch)	{
-				break;
-			}
-		}
-		// num is now child number (if num = numChilds then branch == center)
-		// next node
-		num++;
+        num++; // move to next
 
-		if (num > numChilds) {
-			num = 0;
-		}
-		if (num == numChilds)	{
-			return center;
-		}	else {
-			return center.getChild(num);
-		}
-	}
+        if (num > numChilds) {
+            num = 0;
+        }
+        if (num == numChilds) {
+            return center;
+        } else {
+            return center.getChild(num);
+        }
+    }
 
+    /**
+     * Get the next branch around a center node, skipping the root.
+     * <p>
+     * The returned branch will never be the root; if the next branch would
+     * be the root, the first child is returned instead.
+     * </p>
+     *
+     * @param branch the current branch
+     * @param center the node around which to traverse
+     * @return the next branch around {@code center}, never the root
+     */
+    protected Node getNextBranch(Node branch, Node center) {
+        Node b = getNextBranchOrRoot(branch, center);
+        if (b.isRoot()) {
+            b = b.getChild(0);
+        }
+        return b;
+    }
 
-	/** get next branch around a center node
-		 (center may be root, but root is never returned) */
-	protected Node getNextBranch(Node branch, Node center) {
-		Node b = getNextBranchOrRoot(branch, center);
-		if (b.isRoot())	{
-			b = b.getChild(0);
-		}
-		return b;
-	}
+    /**
+     * Multiply partial likelihoods of all child branches into the first child of the center node.
+     * <p>
+     * Used in the upward likelihood calculation of unrooted trees.
+     * </p>
+     *
+     * @param center the node whose child partials are multiplied
+     */
+    protected void productPartials(Node center) {
+        Node nextBranch = center.getChild(0);
+        double[][] partial = getPartial(nextBranch);
 
-	/** multiply partials into the neighbour of branch */
-	protected void productPartials( Node center) {
-		int numBranches = NodeUtils.getUnrootedBranchCount(center);
-		Node nextBranch = center.getChild(0);
-		double[][] partial = getPartial(nextBranch);
+        for (int i = 1; i < center.getChildCount(); i++) {
+            nextBranch = center.getChild(i);
+            double[][] partial2 = getPartial(nextBranch);
 
-		for (int i = 1; i < center.getChildCount(); i++) {
-			nextBranch = center.getChild(i);
-			double[][] partial2 = getPartial(nextBranch);
+            for (int patternIndex = 0; patternIndex < numberOfPatterns_; patternIndex++) {
+                double[] p = partial[patternIndex];
+                double[] p2 = partial2[patternIndex];
 
-			for (int patternIndex = 0; patternIndex < numberOfPatterns_; patternIndex++)	{
-				double[] p = partial[patternIndex];
-				double[] p2 = partial2[patternIndex];
+                for (int state = 0; state < numberOfStates_; state++) {
+                    p[state] *= p2[state];
+                }
+            }
+        }
+    }
 
-				for (int state = 0; state < numberOfStates_; state++)	{
-					p[state] *= p2[state];
-				}
-			}
-		}
-	}
+    /**
+     * Compute partial likelihoods for an internal branch.
+     * <p>
+     * Assumes that the multiplied partials of neighboring branches are already available.
+     * </p>
+     *
+     * @param center the internal node for which partials are computed
+     */
+    protected void partialsInternal(Node center) {
+        double[][] partial = getPartial(center);
+        double[][] multPartial = getPartial(center.getChild(0));
 
+        model_.setDistance(center.getBranchLength());
 
-	/** compute partials for branch around center node
-			(it is assumed that multiplied partials are available in
-			the neighbor branch) */
-	protected void partialsInternal( Node center) {
-		double[][] partial = getPartial(center);
-		double[][] multPartial = getPartial(center.getChild(0));
+        for (int l = 0; l < numberOfPatterns_; l++) {
+            double[] p = partial[l];
+            double[] mp = multPartial[l];
 
-		model_.setDistance(center.getBranchLength());
-		for (int l = 0; l < numberOfPatterns_; l++)	{
-			double[] p = partial[l];
-			double[] mp = multPartial[l];
+            for (int d = 0; d < numberOfStates_; d++) {
+                double sum = 0;
+                for (int j = 0; j < numberOfStates_; j++) {
+                    sum += model_.getTransitionProbability(d, j) * mp[j];
+                }
+                p[d] = sum;
+            }
+        }
+    }
 
-			for (int d = 0; d < numberOfStates_; d++)	{
-				double sum = 0;
-				for (int j = 0; j < numberOfStates_; j++)					{
-					sum += model_.getTransitionProbability(d, j)*mp[j];
-				}
-				p[d] = sum;
-			}
-		}
-	}
+    /**
+     * Compute partial likelihoods for a leaf/external branch.
+     *
+     * @param branch the leaf node for which partials are computed
+     */
+    protected void partialsExternal(Node branch) {
+        double[][] partial = getPartial(branch);
+        byte[] seq = branch.getSequence();
 
-	/** compute partials for external branch */
-	protected void partialsExternal(Node branch)	{
-		double[][] partial = getPartial(branch);
-		byte[] seq = branch.getSequence();
+        model_.setDistance(branch.getBranchLength());
 
-		model_.setDistance(branch.getBranchLength());
+        for (int patternIndex = 0; patternIndex < numberOfPatterns_; patternIndex++) {
+            double[] p = partial[patternIndex];
+            int endState = seq[patternIndex];
 
-		for (int patternIndex = 0; patternIndex < numberOfPatterns_; patternIndex++)	{
-			double[] p = partial[patternIndex];
-			int endState = seq[patternIndex];
-			if(patternDatatype_.isUnknownState(endState)) { //A neater way of writing things but it may slow things down...
-			//if (endState == numberOfStates_) { //Is this an gap? (A gap should be registered as unknown!)
-				for (int startState = 0; startState < numberOfStates_; startState++)	{
-					p[startState] = 1;
-				}
-			}	else {
-				for (int startState = 0; startState < numberOfStates_; startState++)	{
-					p[startState] = model_.getTransitionProbability( startState, endState);
-				}
-			}
-		}
-	}
+            if (patternDatatype_.isUnknownState(endState)) {
+                // unknown/gap state: set all probabilities to 1
+                for (int startState = 0; startState < numberOfStates_; startState++) {
+                    p[startState] = 1;
+                }
+            } else {
+                for (int startState = 0; startState < numberOfStates_; startState++) {
+                    p[startState] = model_.getTransitionProbability(startState, endState);
+                }
+            }
+        }
+    }
 
 	private void traverseTree(Node currentNode){
 		if(currentNode.isLeaf()){
@@ -291,7 +333,11 @@ public class SimpleLikelihoodCalculator implements LikelihoodCalculator {
 		}
 	}
 
-	/** returns number of branches centered around an internal node */
+	/** returns number of branches centered around an internal node
+     *
+     * @param center the internal node
+     * @return the number of branches connected to {@code center}
+     */
 	private int getBranchCount(Node center) {
 		if (center.isRoot()) 	{
 			return center.getChildCount();
@@ -301,10 +347,10 @@ public class SimpleLikelihoodCalculator implements LikelihoodCalculator {
 		}
 	}
 
-
-
-
-	/** calculate likelihood of any tree and infer MAP estimates of rates at a site */
+	/** calculate likelihood of any tree and infer MAP estimates of rates at a site
+     *
+     * @return the total log-likelihood of the tree given the current model and site pattern
+     */
 	private double treeLikelihood()
 	{
 		//initPartials();

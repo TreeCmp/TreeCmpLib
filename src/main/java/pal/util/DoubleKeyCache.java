@@ -15,9 +15,9 @@ import java.io.*;
  */
 public interface DoubleKeyCache {
 
-	/**
-	 * retrieves the object with the key nearest to given value
-	 */
+//	/**
+//	 * retrieves the object with the key nearest to given value
+//	 */
 	//DoubleKey getNearest(DoubleKey d, double tolerance);
 	Object getNearest(double targetKey, double tolerance);
 

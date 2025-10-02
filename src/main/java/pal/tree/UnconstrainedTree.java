@@ -26,27 +26,31 @@ public class UnconstrainedTree extends ParameterizedTree.ParameterizedTreeBase  
 	// Public stuff
 	//
 
-	/**
-	 * take any tree and afford it with an interface
-	 * suitable for an unconstrained tree (parameters
-	 * are all available branch lengths)
-	 */
-	public UnconstrainedTree(Tree t)
-	{
-		setBaseTree(t);
+    /**
+     * Constructs a new {@code UnconstrainedTree} object by wrapping an existing {@code Tree} object.
+     * This new object provides an interface suitable for working with the tree's parameters (all branch lengths)
+     * in an unconstrained manner, typically used in optimization contexts.
+     *
+     * @param t The source {@code Tree} object whose topology and branch lengths will be used as the base.
+     * @throws IllegalArgumentException If the root node of the input tree has fewer than three children.
+     * This is required for representing a correctly unrooted tree or an unconstrained optimization problem.
+     */
+    public UnconstrainedTree(Tree t)
+    {
+        setBaseTree(t);
 
-		if (getRoot().getChildCount() < 3)
-		{
-			throw new IllegalArgumentException(
-			"The root node must have at least three childs!");
-		}
+        if (getRoot().getChildCount() < 3)
+        {
+            throw new IllegalArgumentException(
+                    "The root node must have at least three childs!");
+        }
 
-		// set default values
-		for (int i = 0; i < getNumParameters(); i++)
-		{
-			setParameter(getDefaultValue(i), i);
-		}
-	}
+        // set default values
+        for (int i = 0; i < getNumParameters(); i++)
+        {
+            setParameter(getDefaultValue(i), i);
+        }
+    }
 
 	protected UnconstrainedTree(UnconstrainedTree toCopy) {
 		super(toCopy);
@@ -117,13 +121,20 @@ public class UnconstrainedTree extends ParameterizedTree.ParameterizedTreeBase  
 // ===========================================================================
 // ===== Static stuff =======
 
-	/**
-	 * Obtain a ParameterizedTree.Factory for generating Unconstrained trees
-	 * @note Factory automatically converts "rooted" trees (bificating root) to "unrooted" trees (trificating...)
-	 */
-	public static final ParameterizedTree.Factory getParameterizedTreeFactory() {
-		return TreeFactory.DEFAULT_INSTANCE;
-	}
+    /**
+     * Obtains a {@code ParameterizedTree.Factory} instance specifically configured
+     * for generating {@code UnconstrainedTree} objects.
+     *
+     * <p>Note: This Factory implementation automatically processes input trees
+     * by converting standard "rooted" topologies (with a bifurcating root)
+     * into "unrooted" representations (with a multifurcating root, typically a trifurcation),
+     * making them suitable for unconstrained parameter optimization.</p>
+     *
+     * @return A {@code ParameterizedTree.Factory} instance capable of creating {@code UnconstrainedTree} objects.
+     */
+    public static final ParameterizedTree.Factory getParameterizedTreeFactory() {
+        return TreeFactory.DEFAULT_INSTANCE;
+    }
 
 	private static class TreeFactory implements ParameterizedTree.Factory {
 		public static final ParameterizedTree.Factory DEFAULT_INSTANCE = new TreeFactory();

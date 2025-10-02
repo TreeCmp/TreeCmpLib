@@ -74,20 +74,31 @@ public class GeneralizedDEOptimizer extends MultivariateMinimum {
 		}
 		optimiser_.optimize(f,xvec,tolfx, tolx,monitor);
 	}
+
 	//============ Static Methods ====================
-	/**
-	 * Generate a MultivariateMinimum.Factory for an GeneralizedDEOptimiser with a set population size
-	 * @param populationSize The set population size
-	 */
-	public static final Factory generateFactory(int populationSize) {	return new SearchFactory(populationSize);	}
 
+    /**
+     * Generate a MultivariateMinimum.Factory for a GeneralizedDEOptimiser
+     * with a specified population size.
+     *
+     * @param populationSize the population size to use in the optimizer
+     * @return a new Factory configured with the specified population size
+     */
+    public static final Factory generateFactory(int populationSize) {
+        return new SearchFactory(populationSize);
+    }
 
-	/**
-	 * Generate a MultivariateMinimum.Factory for an GeneralizedDEOptimiser with a population size proportional to the size of the problem
-	 */
-	public static final Factory generateFactory() {	return new SearchFactory();	}
+    /**
+     * Generate a MultivariateMinimum.Factory for a GeneralizedDEOptimiser
+     * with a population size proportional to the problem size.
+     *
+     * @return a new Factory with default population sizing
+     */
+    public static final Factory generateFactory() {
+        return new SearchFactory();
+    }
 
-	// ============ The Factory Class for Orthogonal Searches ===================
+    // ============ The Factory Class for Orthogonal Searches ===================
 	private static final class SearchFactory implements Factory {
 		private final int populationSize_;
 		private SearchFactory() {	this(-1);	}

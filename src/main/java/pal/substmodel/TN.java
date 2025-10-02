@@ -17,13 +17,11 @@ import java.io.*;
 /**
  * Tamura-Nei model of nucleotide evolution
  * <i>Tamura, K. and M. Nei. (1993). Estimation of the number of nucleotide substitutions in the control region of mitochondrial DNA in humans and chimpanzees. Mol. Bio. Evol. 10:512-526.</i>
- * <p>
  * <em>Parameters</em>
  * <ol>
  *  <li> Kappa </li> <!-- 0 -->
  *  <li> r </li> <!-- 1 -->
  * </ol>
- * </p>
  * @version $Id: TN.java,v 1.8 2003/11/13 04:05:39 matt Exp $
  * @author Korbinian Strimmer
  * @author Alexei Drummond

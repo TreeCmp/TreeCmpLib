@@ -19,7 +19,6 @@ import java.io.*;
  * <i>Lanave, C., G. Preparata, C. Saccone, and G. Serio. 1984. A new method for calculating evolutionary substitution rates. J Mol Evol 20: 86-93. </i>
  *
  * @version $Id: GTR.java,v 1.13 2003/11/30 05:29:22 matt Exp $
- * <p>
  * <em>Parameters</em>
  * <ol>
  *  <li> A </li> <!-- 0 -->
@@ -28,7 +27,6 @@ import java.io.*;
  *  <li> D </li> <!-- 3 -->
  *  <li> E </li> <!-- 4 -->
  * </ol>
- * </p>
  *
  * @author Korbinian Strimmer
  */

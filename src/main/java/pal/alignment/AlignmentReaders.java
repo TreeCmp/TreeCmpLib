@@ -25,9 +25,14 @@ import pal.misc.*;
 public final class AlignmentReaders {
 
 	private static final String WHITESPACE = " \r\n\t";
-	/**
-	 * Read an a set of unaligned Fasta sequences
-	 */
+    /**
+     * Reads a set of unaligned Fasta sequences from the provided Reader.
+     *
+     * @param r  the Reader to read sequences from.
+     * @param dt the DataType to use for the sequences.
+     * @return an Alignment containing the read sequences.
+     * @throws IOException if an I/O error occurs.
+     */
 	public static final Alignment readFastaSequences(Reader r, DataType dt) throws IOException {
 		String sequenceName = "Unnamed";
 		Vector sequences = new Vector();
@@ -76,9 +81,15 @@ public final class AlignmentReaders {
 		}
 		return line;
 	}
-	/**
-	 * Read an a set of unaligned Fasta sequences
-	 */
+
+    /**
+     * Reads a set of newline-separated sequences from the provided Reader.
+     *
+     * @param r  the Reader to read sequences from.
+     * @param dt the DataType to use for the sequences.
+     * @return an Alignment containing the read sequences.
+     * @throws IOException if an I/O error occurs.
+     */
 	public static final Alignment readNewLineSeperatedSequences(Reader r, DataType dt) throws IOException {
 		String sequenceName = "Unnamed";
 		ArrayList sequences = new ArrayList();
@@ -104,10 +115,17 @@ public final class AlignmentReaders {
 				dt
 			);
 	}
+
 	/**
 	 * Read an alignment in phylip/clustal/simple format. Handles interleaved/sequential - with the name repeated, or with the name only given once for each sequence
 	 * Aims to be as general as possible (possibly causeing problems with some formats).
-	 */
+     *
+     * @param r  the Reader to read from.
+     * @param dt the DataType to use for the sequences.
+     * @return the parsed Alignment.
+     * @throws AlignmentParseException if the alignment cannot be parsed.
+     * @throws IOException if an I/O error occurs.
+     */
 	public static final Alignment readPhylipClustalAlignment(Reader r, DataType dt) throws AlignmentParseException, IOException {
 		AlignmentReceiver.SingleReceiver sr = new AlignmentReceiver.SingleReceiver();
 		readPhylipClustalAlignment(r,dt,sr);
@@ -116,13 +134,26 @@ public final class AlignmentReaders {
 	/**
 	 * Read an alignment in phylip/clustal/simple format. Handles interleaved/sequential - with the name repeated, or with the name only given once for each sequence
 	 * Aims to be as general as possible (possibly causeing problems with some formats).
-	 */
+     *
+     * @param r  the Reader to read from.
+     * @param dt the DataType to use for the sequences.
+     * @return an array of parsed Alignments.
+     * @throws AlignmentParseException if an alignment cannot be parsed.
+     * @throws IOException if an I/O error occurs.
+     */
 	public static final Alignment[] readAllPhylipClustalAlignments(Reader r, DataType dt) throws AlignmentParseException, IOException {
 		AlignmentReceiver.BucketReceiver br = new AlignmentReceiver.BucketReceiver();
 		readPhylipClustalAlignment(r,dt,br);
 		return br.getReceivedAlignments();
 	}
 
+    /**
+     * Processes a line starting with whitespace to determine sequence data or size information.
+     *
+     * @param line    the line to process.
+     * @param builder the AlignmentBuilder being used.
+     * @return true if the line is a delimiter, false otherwise.
+     */
 	private static final boolean processWhiteSpaceStartingLine(String line, AlignmentBuilder builder) {
 		String[] components = toWords(line);
 		if((builder.hasSequences())&&(!Character.isDigit(components[0].charAt(0)))&&
@@ -143,9 +174,13 @@ public final class AlignmentReaders {
 		}
 		return false;
 	}
+
 	/**
-	 * @return true if a delimiter line
-	 */
+     * @param line    the line to process.
+     * @param builder the AlignmentBuilder being used.
+     * @return true if the line is a delimiter, false otherwise.
+     * @throws AlignmentParseException if the sequence cannot be appended correctly.
+     */
 	private static final boolean processNormalLine(String line, AlignmentBuilder builder) throws AlignmentParseException {
 		//First character is not a space
 		String[] components = toWords(line);
@@ -185,9 +220,14 @@ public final class AlignmentReaders {
 //				}
 //			}
 	}
-	/**
-	 * @ return true if a delimiter
-	 */
+    /**
+     * Determines if a line is a delimiter and processes it accordingly.
+     *
+     * @param line    the line to process.
+     * @param builder the AlignmentBuilder being used.
+     * @return true if the line is a delimiter, false otherwise.
+     * @throws AlignmentParseException if the sequence cannot be processed.
+     */
 	private static final boolean processLine(String line, AlignmentBuilder builder) throws AlignmentParseException {
 		if(Character.isWhitespace(line.charAt(0))) {
 			return processWhiteSpaceStartingLine(line,builder);
@@ -198,7 +238,13 @@ public final class AlignmentReaders {
 	/**
 	 * Read an alignment in phylip/clustal/simple format. Handles interleaved/sequential - with the name repeated, or with the name only given once for each sequence
 	 * Aims to be as general as possible (possibly causeing problems with some formats).
-	 */
+     *
+     * @param r        the Reader to read from.
+     * @param dt       the DataType to use for the sequences.
+     * @param receiver the AlignmentReceiver to receive the parsed alignment(s).
+     * @throws AlignmentParseException if an alignment cannot be parsed.
+     * @throws IOException if an I/O error occurs.
+     */
 	public static final void readPhylipClustalAlignment(Reader r, DataType dt, AlignmentReceiver receiver) throws AlignmentParseException, IOException {
 		BufferedReader br = new BufferedReader(r);
 		String line = nextNonEmptyLine(br);

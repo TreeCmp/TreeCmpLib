@@ -80,8 +80,9 @@ public class TreeDistance {
 	
 	/** Changes all 1's in column col in the 01-vector representation of the Bipartitions in m to 0's,
 	 * and returns the resulting version of m.
-	 * @param col
-	 * @return
+     * @param col the index of the column to be zeroed
+     * @param m the vector of Bipartitions whose column will be modified
+     * @return the modified vector of Bipartitions with column `col` zeroed
 	 */
 	public static Vector<Bipartition> zeroCol(int col, Vector<Bipartition> m) {
 		Iterator<Bipartition> fEdgesIter = m.iterator();
@@ -95,6 +96,9 @@ public class TreeDistance {
 	} 
 	
 	/** Checks for duplicate split in a vector of edges  (doesn't worry about split lengths)
+     *
+     * @param edges the vector of PhyloTreeEdge objects to check
+     * @return true if there is at least one duplicate edge, false otherwise
 	 * */
 	public static boolean checkForDuplicateEdges(Vector<PhyloTreeEdge> edges) {
 		boolean duplicate = false;
@@ -116,7 +120,12 @@ public class TreeDistance {
 	 *  reset is true if this is the first call to 
 	 *  resets hash table for divide and conquer
 	 *  XXX: how to deal with multifurcating trees
-	 * 
+	 *
+     * @param t1 the starting phylogenetic tree
+     * @param t2 the target phylogenetic tree
+     * @param algorithm the algorithm identifier used for computing the geodesic
+     * @param geoFile the file path to write verbose output of the computation
+     * @return a Geodesic object representing the distance and ratio sequence between t1 and t2
 	 */
 	public static Geodesic getGeodesic2(PhyloTree t1, PhyloTree t2, String algorithm, String geoFile) {
 		double leafContributionSquared = 0;
@@ -268,11 +277,12 @@ public class TreeDistance {
 		return geo;
 	}
 
-	
-
 	/** Stores subtrees with no common edges in the global variables aTreesNoCommonEdges (from t1)
 	 * and in bTreesNoCommonEdges (from t2).  Also returns a vector containing pairs of tree with no common edges.
-	 * 
+	 *
+     * @param t1 the first phylogenetic tree to split
+     * @param t2 the second phylogenetic tree to split
+     * @return a vector of PhyloTree objects representing all pairs of subtrees with no common edges
 	 */
 	public static Vector<PhyloTree> splitOnCommonEdge(PhyloTree t1, PhyloTree t2) {
 		Vector<PhyloTree> disjointTreePairs = new Vector<PhyloTree>();
@@ -413,15 +423,18 @@ public class TreeDistance {
 		
 		return disjointTreePairs;
 	}
-	
-	
-	
+
 	/** Returns the distance between t1 and t2, accounting for any common edges, but not leaf edges.
 	 *  Called recursively.
 	 *  Does not assume t1 and t2 have the same number of edges.
 	 *  reset is true if this is the first call to 
 	 *  XXX: how to deal with multifurcating trees
-	 * 
+	 *
+     * @param t1 the first phylogenetic tree
+     * @param t2 the second phylogenetic tree
+     * @param algorithm the algorithm to use for computing geodesic; valid options:
+     *                  "divide", "DivideAndConquerRS", or "dynamic"
+     * @return a Geodesic object representing the distance and ratio sequence between t1 and t2
 	 */
 	public static Geodesic getGeodesicRecursive(PhyloTree t1, PhyloTree t2, String algorithm) {
 		resetTreeDistanceState();  // reset the static variables in tree distance
@@ -612,10 +625,13 @@ public class TreeDistance {
 	/** Computes all the inter-tree distances between the trees in trees using algorithm, and returns them in a 
 	 * matrix.  Prints the average time on the screen.  If doubleCheck is true, computes each distance both ways,
 	 * and displays a message if they differ.
-	 * @param trees
-	 * @param numTrees
-	 * @param algorithm
-	 * @return
+     *
+     * @param trees an array of PhyloTree objects for which pairwise geodesic distances are computed
+     * @param numTrees the number of trees in the array
+     * @param algorithm the algorithm to use for computing geodesics; valid options:
+     *                  "divide", "DivideAndConquerRS", "ConjBothEnds", or "dynamic"
+     * @param doubleCheck if true, computes each distance both ways and prints a warning if they differ
+     * @return a 2D array of Geodesic objects representing all pairwise geodesic distances
 	 */
 	public static Geodesic[][] getAllInterTreeGeodesics(PhyloTree[] trees, int numTrees, String algorithm, boolean doubleCheck) {
 		Date startTime;
@@ -704,9 +720,12 @@ public class TreeDistance {
 	/** Returns the geodesic between t1 and t2 corresponding to the shortest distance, assuming that the two trees do not have any
 	 * edges in common.  Does a depth first search up the paths, choosing outgoing split with the lower ratio not
 	 * yet explored at each node.  Prunes by comparing distance so far along that path with the min distance found so far.
-	 * 
-	 * @return
-	 */
+	 *
+     * @param t1 the first phylogenetic tree
+     * @param t2 the second phylogenetic tree
+     * @return a Geodesic object representing the minimal geodesic distance and corresponding ratio sequence
+
+     */
 	public static Geodesic getPruned1GeodesicNoCommonEdges(PhyloTree t1, PhyloTree t2) {
 		resetTreeDistanceState();
 		numMaxPaths = 0;
@@ -753,8 +772,11 @@ public class TreeDistance {
 	 * yet explored at each node.  Prunes by comparing the distance to the current node with the shortest distance
 	 * to that node found so far.  Stores the nodes in a hash table.
 	 * Doesn't assume t1 and t2 have the same number of edges.
-	 * @return
-	 */
+     *
+     * @param t1 the first phylogenetic tree
+     * @param t2 the second phylogenetic tree
+     * @return a Geodesic object representing the minimal geodesic distance and corresponding ratio sequence
+     */
 	public static Geodesic getPruned2GeodesicNoCommonEdges(PhyloTree t1, PhyloTree t2) {
 		resetTreeDistanceState();
 		numMaxPaths = 0;
@@ -815,8 +837,11 @@ public class TreeDistance {
 	/** Once an split has been brought in, uses the fact that the tree now has a common split.
 	 * Doesn't assume the two trees contain the same number of edges.
 	 * XXX: edges in ratio sequences will be a bit wonky - might not be original edges
-	 * @return
-	 */ 
+     *
+     * @param t1 the first phylogenetic tree
+     * @param t2 the second phylogenetic tree
+     * @return a Geodesic object representing the minimal geodesic distance and corresponding ratio sequence
+     */
 	public static Geodesic getDivideAndConquerGeodesicNoCommonEdges(PhyloTree t1,PhyloTree t2) {
 		Bipartition minEl;
 		PhyloTree newT1 = null;
@@ -910,7 +935,11 @@ public class TreeDistance {
 	/** Once an split has been brought in, uses the fact that the tree now has a common split.
 	 * Doesn't assume the two trees contain the same number of edges.
 	 * XXX: edges in ratio sequences will be a bit wonky - might not be original edges
-	 * @return
+     *
+     * @param t1 the first phylogenetic tree
+     * @param t2 the second phylogenetic tree
+     * @return a RatioSequence object representing the minimal sequence of ratios
+     *         along the geodesic between t1 and t2
 	 */ 
 	public static RatioSequence getDivideAndConquerRSNoCommonEdges(PhyloTree t1,PhyloTree t2) {
 		Bipartition minEl;
@@ -1029,10 +1058,12 @@ public class TreeDistance {
 	
 	/** Calculates the ratio if we remove the minimum element minEl from tree with partition poset given by m.
 	 * XXX:  fix description
-	 * 
-	 * @param minEl
-	 * @param m
-	 * @return
+	 *
+     * @param minEl the minimal bipartition element to remove
+     * @param m the vector of bipartitions representing tree crossings
+     * @param eEdges the vector of edges from the first tree
+     * @param fEdges the vector of edges from the second tree
+     * @return a Ratio object representing the ratio for this minimal element
 	 */
 	public static Ratio calculateRatio(Bipartition minEl, Vector<Bipartition> m, Vector<PhyloTreeEdge> eEdges, Vector<PhyloTreeEdge> fEdges) {
 		Ratio ratio = new Ratio(); 
@@ -1138,9 +1169,11 @@ public class TreeDistance {
 	}*/
 	
 	/** Recursive method for finding all the ratio sequences.
-	 * 
-	 * @param m
-	 * @param ratioSeq
+	 *
+     * @param m the vector of bipartitions representing tree crossings
+     * @param ratioSeq the current ratio sequence being built
+     * @param eEdges the vector of edges from the first tree
+     * @param fEdges the vector of edges from the second tree
 	 */
 	public static void getMaxPathSpacesAsRatioSeqs(Vector<Bipartition> m, RatioSequence ratioSeq, Vector<PhyloTreeEdge> eEdges, Vector<PhyloTreeEdge> fEdges) {
 		// returns vector containing each minimal e-set.
@@ -1239,9 +1272,11 @@ public class TreeDistance {
 	} 
 	
 	/** Recursive method for finding all the ratio sequences.
-	 * 
-	 * @param m
-	 * @param ratioSeq
+	 *
+     * @param m the vector of bipartitions representing tree crossings
+     * @param ratioSeq the current ratio sequence being built
+     * @param eEdges the vector of edges from the first tree
+     * @param fEdges the vector of edges from the second tree
 	 */
 	public static void getPruned2MaxPathSpacesAsRatioSeqs(Vector<Bipartition> m, RatioSequence ratioSeq, Vector<PhyloTreeEdge> eEdges, Vector<PhyloTreeEdge> fEdges) {
 //		stepForDebugging++;
@@ -1375,9 +1410,9 @@ public class TreeDistance {
 	
 	/** Converts a BitSet representing a 0-1 vector into a Vector containing the integers which 
 	 * correspond to the posititions of the 1's in bin.
-	 * 
-	 * @param bin
-	 * @return
+	 *
+     * @param bin the BitSet to convert
+     * @return a Vector containing the indices of all set bits in bin
 	 */
 	public static Vector<Integer> binaryToVector(BitSet bin) {
 		Vector<Integer> v = new Vector<Integer>();
@@ -1395,8 +1430,9 @@ public class TreeDistance {
 	 * set of some other vector's one's.
 	 * If two bipartitions are the same, just returns one of them.
 	 * Precondition: m is not null, but some elements may be null and should be skipped
-	 * @param m
-	 * @return
+     *
+     * @param m the vector of Bipartitions
+     * @return a Vector containing only minimal bipartitions
 	 */
 	public static Vector<Bipartition> getMinElements(Vector<Bipartition> m) {
 //		System.out.println("m is " + m);
@@ -1490,9 +1526,9 @@ public class TreeDistance {
 
 	
 	/** Removes all the PhyloTreeEdge with split = 0 from the vector v.
-	 * 
-	 * @param v
-	 * @return
+     *
+     * @param v the vector of PhyloTreeEdges
+     * @return a Vector containing only non-zero edges
 	 */
 	public static Vector<PhyloTreeEdge> deleteZeroEdges(Vector<PhyloTreeEdge> v) {
 		int k = 0; 
@@ -1507,7 +1543,13 @@ public class TreeDistance {
 		}
 		return v;
 	}
-	
+
+    /**
+     * Deep clones a vector of PhyloTreeEdge objects.
+     *
+     * @param v the vector of PhyloTreeEdge objects to clone
+     * @return a new Vector with cloned edges
+     */
 	public static Vector<PhyloTreeEdge> myVectorClonePhyloTreeEdge(Vector<PhyloTreeEdge> v) { 
 		if (v == null) {
 			return null;
@@ -1524,7 +1566,13 @@ public class TreeDistance {
 		}
 		return newV;
 	}
-	
+
+    /**
+     * Deep clones a vector of RatioSequence objects.
+     *
+     * @param v the vector of RatioSequence objects to clone
+     * @return a new Vector with cloned objects
+     */
 	public static Vector<RatioSequence> myVectorCloneRatioSequence(Vector<RatioSequence> v) {
 		if (v == null) {
 			return null;
@@ -1566,11 +1614,11 @@ public class TreeDistance {
 		}
 		*/
 		
-		/** Returns a new Vector<Bipartition> equal to m, but with minEl removed.
-		 * 
-		 * @param m
-		 * @param minEl
-		 * @return
+		/** Returns a new Vector equal to m, but with minEl removed.
+		 *
+         * @param m the original vector of bipartitions
+         * @param minEl the bipartition to remove
+         * @return a new Vector with minEl removed and columns zeroed
 		 */
 		public static Vector<Bipartition> removeMinElFrom(Vector<Bipartition> m, Bipartition minEl) {
 			
@@ -1592,6 +1640,12 @@ public class TreeDistance {
 			return newM;
 		}
 
+    /**
+     * Deep clones a vector of strings.
+     *
+     * @param v the vector of strings to clone
+     * @return a new Vector with cloned strings
+     */
 	public static Vector<String> myVectorCloneString(Vector<String> v) {
 		if (v == null) {
 			return null;
@@ -1608,13 +1662,13 @@ public class TreeDistance {
 		}
 		return newV;
 	}
-	
+
 	/** Truncates the number d by p places.
-	 * 
-	 * @param d
-	 * @param p
-	 * @return
-	 */
+	 *
+     * @param d the value to truncate
+     * @param p the number of decimal places
+     * @return the truncated value
+     */
 	public static double truncate (double d, int p) {
 		return Math.floor(d * Math.pow(10,p)) / Math.pow(10,p);
 	}
@@ -1626,9 +1680,10 @@ public class TreeDistance {
 	/** Reads in all the phylogenetic trees from the file inFileName.
 	 *  The trees should be one per line, in the Newick format.
 	 *  There can also be a ";" at the end of each line.
-	 * @param inFileName
-	 * @return
-	 */
+     *
+     * @param inFileName the path to the input file containing trees
+     * @return an array of PhyloTree objects read from the file
+     */
 	public static PhyloTree[] readInTreesFromFile (String inFileName) {
 		int numTrees =0;  // count the number of trees read in
 		Vector<String> stringTrees = new Vector<String>();
@@ -1677,6 +1732,10 @@ public class TreeDistance {
 	/** Open file fileName, reads in the trees, and outputs the distances computed by algorithm.
 	 *  Assumes first line of file is number of trees, and then one tree per line.
 	 *
+     * @param inFileName  path to the input tree file
+     * @param outFileName path to the output file for distances
+     * @param algorithm   the algorithm to use for geodesic computation
+     * @param doubleCheck whether to double-check distances (compute in both directions)
 	 */
 	public static void computeAllInterTreeGeodesicsFromFile(String inFileName, String outFileName, String algorithm, boolean doubleCheck){
 
@@ -1727,11 +1786,11 @@ public class TreeDistance {
 	/**
 	 *  Compares algorithms alg1 and alg2 by checking that they give the same inter-distances for the input trees,
 	 *  and by displaying the average time to compute these distances for each algorithm.
-	 *  
-	 * @param trees
-	 * @param numTrees
-	 * @param alg1
-	 * @param alg2
+	 *
+     * @param trees    array of PhyloTree objects
+     * @param numTrees number of trees
+     * @param alg1     first algorithm to compare
+     * @param alg2     second algorithm to compare
 	 */
 	public static void compareAlgorithms(PhyloTree[] trees, int numTrees, String alg1, String alg2) {
 
@@ -1802,11 +1861,13 @@ public class TreeDistance {
 		System.out.println("\t -u \t unrooted trees (default is rooted trees)");
 		System.out.println("\t -v || --verbose \t verbose output");
 	}
-	
-	
-	/**
-	 * @param args
-	 */
+
+
+    /**
+     * Main entry point for the program. Parses command-line arguments and computes inter-tree geodesic distances.
+     *
+     * @param args the command-line arguments
+     */
 	public static void main(String[] args) {
 		
 		// variables maybe changed by program arguments

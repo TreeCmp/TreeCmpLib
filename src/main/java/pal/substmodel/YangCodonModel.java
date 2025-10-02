@@ -312,19 +312,23 @@ public class YangCodonModel extends CodonModel implements Serializable, XMLConst
 	 */
 	public static final class Utils {
 
-		/**
-		 * Probably of no use to anyone else (is used by internal code though)
-		 */
-		public static final YangCodonModel[] getCopy( YangCodonModel[] toCopy ) {
-			if( toCopy==null ) {
-				return null;
-			}
-			YangCodonModel[] copy = new YangCodonModel[toCopy.length];
-			for( int i = 0; i<copy.length; i++ ) {
-				copy[i] = ( YangCodonModel )toCopy[i].clone();
-			}
-			return copy;
-		}
+        /**
+         * Creates a deep copy of an array of YangCodonModel objects.
+         * This utility method is primarily intended for internal use within the library.
+         *
+         * @param toCopy The array of YangCodonModel objects to be copied.
+         * @return A new array containing clones of the original models, or {@code null} if the input array is {@code null}.
+         */
+        public static final YangCodonModel[] getCopy( YangCodonModel[] toCopy ) {
+            if( toCopy==null ) {
+                return null;
+            }
+            YangCodonModel[] copy = new YangCodonModel[toCopy.length];
+            for( int i = 0; i<copy.length; i++ ) {
+                copy[i] = ( YangCodonModel )toCopy[i].clone();
+            }
+            return copy;
+        }
 	}
 
 // -==--=-=-=-=-=-=-==--=-==--=-=-=-==-=--=-=-==--=-=-==--=-=-=-=-=-=-=-=-==-=--==-=-=-=--=-=-=-==--==-
@@ -506,15 +510,18 @@ public class YangCodonModel extends CodonModel implements Serializable, XMLConst
 			baseMatrixes_[category].setDistanceTranspose( branchLength );
 			baseMatrixes_[category].getTransitionProbabilities( tableStore );
 		}
-		/**
-		 * We use three parameters instead of two to make opimisation easier (there are effectively only *two* parameters though)
-		 * @param p0
-		 * @param p1
-		 * @param p2
-		 */
-		public final void setTransitionCategoryProbabilities( double p0, double p1, double p2 ) {
-			this.p0_ = p0;	this.p1_ = p1;	this.p2_ = p2;	scheduleRebuild();
-		}
+        /**
+         * Sets the probabilities for the three transition categories.
+         * Although three parameters are used, this is typically done to simplify optimization,
+         * as there are effectively only two independent parameters (the probabilities must sum to 1).
+         *
+         * @param p0 The probability for the first transition category.
+         * @param p1 The probability for the second transition category.
+         * @param p2 The probability for the third transition category.
+         */
+        public final void setTransitionCategoryProbabilities( double p0, double p1, double p2 ) {
+            this.p0_ = p0; this.p1_ = p1; this.p2_ = p2; scheduleRebuild();
+        }
 
 		/**
 		 * Five parameters, three proportions, kappa, omega.

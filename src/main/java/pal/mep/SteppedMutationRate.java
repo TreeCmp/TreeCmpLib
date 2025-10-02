@@ -46,69 +46,78 @@ public class SteppedMutationRate extends MutationRateModel implements Report, Su
 
 	String[] summaryTypes = null;
 
-	/**
-	 * Construct demographic model with default settings
-	 */
-	public SteppedMutationRate(double[] muChanges, int units, double maximumMutationRate) {
-		super(units, maximumMutationRate);
-		this.muChanges = muChanges;
-		mus = new double[muChanges.length + 1];
-		muSEs = new double[muChanges.length + 1];
-		for (int i = 0; i < mus.length; i++) {
-			mus[i] = getDefaultValue(0);
-		}
-	}
+    /**
+     * Constructs a stepped mutation rate model with default initial rates.
+     *
+     * @param muChanges an array of times at which the mutation rate can change
+     * @param units the time units in which the mutation rate is measured
+     * @param maximumMutationRate the maximum mutation rate (e.g., 1.0 is a reasonable default)
+     */
+    public SteppedMutationRate(double[] muChanges, int units, double maximumMutationRate) {
+        super(units, maximumMutationRate);
+        this.muChanges = muChanges;
+        mus = new double[muChanges.length + 1];
+        muSEs = new double[muChanges.length + 1];
+        for (int i = 0; i < mus.length; i++) {
+            mus[i] = getDefaultValue(0);
+        }
+    }
 
-	/**
-	 * Construct mutation rate model of a give rate in given units.
-	 * @param rates The initial values of the rates (this array is used for storing the rates)
-	 * @param muChanges The times for when the mutation rate can change
-	 * @param maximumMutationRate The maximum mutation rate (1 is a good value...)
+    /**
+     * Constructs a stepped mutation rate model with specified initial rates.
+     *
+     * @param rates an array of initial mutation rates; this array is used for storing the rates
+     * @param muChanges an array of times at which the mutation rate can change
+     * @param units the time units in which the mutation rate is measured
+     * @param maximumMutationRate the maximum mutation rate (e.g., 1.0 is a reasonable default)
+     */
+    public SteppedMutationRate(double[] rates, double[] muChanges, int units, double maximumMutationRate) {
+        this(rates, muChanges, units, false, maximumMutationRate);
+    }
 
-	 */
-	public SteppedMutationRate(double[] rates, double[] muChanges, int units, double maximumMutationRate) {
-		this(rates, muChanges, units, false,maximumMutationRate);
-	}
+    /**
+     * Constructs a mutation rate model with a given set of rates and change points.
+     *
+     * @param rates The initial values of the mutation rates (this array is used for storing the rates)
+     * @param muChanges The times at which the mutation rate can change
+     * @param units The units of the mutation rates
+     * @param fixed If true, the mutation rates are fixed and not treated as parameters
+     * @param maximumMutationRate The maximum allowable mutation rate
+     */
+    public SteppedMutationRate(double[] rates, double[] muChanges, int units, boolean fixed, double maximumMutationRate) {
+        super(units, maximumMutationRate);
+        fixedMus = fixed;
+        mus = rates;
+        muSEs = new double[rates.length];
+        this.muChanges = muChanges;
+    }
 
-	/**
-	 * Construct mutation rate model of a give rate in given units.
-	 * @param fixed if true the mutation rates are set and are not parameters
-	 * @param rates The initial values of the rates (this array is used for storing the rates)
-	 * @param muChanges The times for when the mutation rate can change
-	 * @param maximumMutationRate The maximum mutation rate (related to how much difference there is between samples, max mu*time diff ~= 1 is a good estimate...)
-	 */
-	public SteppedMutationRate(double[] rates, double[] muChanges, int units, boolean fixed, double maximumMutationRate) {
-		super(units,maximumMutationRate);
-		fixedMus = fixed;
-		mus = rates;
-		muSEs = new double[rates.length];
-		this.muChanges = muChanges;
+    /**
+     * Constructs a mutation rate model using sample information to determine mutation rate changes.
+     *
+     * @param rates The initial values of the mutation rates (this array is used for storing the rates)
+     * @param timeInfo The sample information object relating times to sequences. Mutation rates will change at each sample point.
+     *                 Note: it is expected that the rates array is of the correct length and setup properly.
+     */
+    public SteppedMutationRate(double[] rates, TimeOrderCharacterData timeInfo) {
+        this(rates, timeInfo, false);
+    }
 
-	}
-	/**
-	 * Construct mutation rate model of a give rate in given units.
-	 * @param rates The initial values of the rates (this array is used for storing the rates)
-	 * @param timeInfo the sample information object that relates times to sequences. Will extract the mu change information from this input, such that the mutation rate changes at each sample point
-	 * @note is excpected the rates array is the right length and setup correctly
-	 */
-	public SteppedMutationRate(double[] rates, TimeOrderCharacterData timeInfo) {
-		this(rates,timeInfo,false);
-	}
-	/**
-	 * Construct mutation rate model of a give rate in given units.
-	 * @param fixed if true the mutation rates are set and are not parameters
-	 * @param rates The initial values of the rates (this array is used for storing the rates)
-	 * @param timeInfo the sample information object that relates times to sequences. Will extract the mu change information from this input, such that the mutation rate changes at each sample point
-	 * @note is excpected the rates array is the right length and setup correctly
-	 */
-	public SteppedMutationRate(double[] rates, TimeOrderCharacterData timeInfo, boolean fixed) {
-		super(timeInfo.getUnits(),timeInfo.getSuggestedMaximumMutationRate());
-		fixedMus = fixed;
-		mus = rates;
-		muSEs = new double[rates.length];
-		this.muChanges = timeInfo.getUniqueTimeArray();
-
-	}
+    /**
+     * Constructs a mutation rate model using sample information to determine mutation rate changes.
+     *
+     * @param rates The initial values of the mutation rates (this array is used for storing the rates)
+     * @param timeInfo The sample information object relating times to sequences. Mutation rates will change at each sample point.
+     * @param fixed If true, the mutation rates are fixed and not treated as parameters
+     *                 Note: it is expected that the rates array is of the correct length and setup properly.
+     */
+    public SteppedMutationRate(double[] rates, TimeOrderCharacterData timeInfo, boolean fixed) {
+        super(timeInfo.getUnits(), timeInfo.getSuggestedMaximumMutationRate());
+        fixedMus = fixed;
+        mus = rates;
+        muSEs = new double[rates.length];
+        this.muChanges = timeInfo.getUniqueTimeArray();
+    }
 	private SteppedMutationRate(SteppedMutationRate toCopy) {
 		super(toCopy);
 		this.mus = pal.misc.Utils.getCopy(toCopy.mus);
@@ -142,9 +151,11 @@ public class SteppedMutationRate extends MutationRateModel implements Report, Su
 		throw new RuntimeException("Assertion error: unknown summary type :"+summaryType);
 	}
 
-	/**
-	 * returns current day mutation rate.
-	 */
+    /**
+     * Returns the current mutation rate for the first step in the stepped model.
+     *
+     * @return the mutation rate for the first interval
+     */
 	public double getMu(){	return mus[0];	}
 
 	public void setMu(double m) {	mus[0] = m;	}
@@ -397,29 +408,46 @@ public class SteppedMutationRate extends MutationRateModel implements Report, Su
 
 	// ===========================================================================
 	// Static stuff
-	/**
-	 * Generate a MutationRateModel.Factory class for a SteppedMutationRate
-	 */
+    /**
+     * Generate a {@link MutationRateModel.Factory} for a {@link SteppedMutationRate}
+     * with the given change times.
+     *
+     * @param muChanges array of times at which the mutation rate can change
+     * @param units the time units
+     * @param maximumMutationRate the maximum allowed mutation rate
+     * @return a factory producing SteppedMutationRate instances
+     */
 	public static final Factory getFactory(double[] muChanges, int units, double maximumMutationRate) {
 		return new RateFactory(muChanges,units,maximumMutationRate);
 	}
-		/**
-	 * Generate a MutationRateModel.Factory class for a SteppedMutationRate
-	 */
+    /**
+     * Generate a {@link MutationRateModel.Factory} for a {@link SteppedMutationRate}
+     * with specified initial rates and change times.
+     *
+     * @param rates initial mutation rates
+     * @param muChanges array of times at which the mutation rate can change
+     * @param units the time units
+     * @param maximumMutationRate the maximum allowed mutation rate
+     * @return a factory producing SteppedMutationRate instances
+     */
 	public static final Factory getFactory(double[] rates, double[] muChanges, int units, double maximumMutationRate) {
 		return new GivenMURateFactory(rates, muChanges,units,maximumMutationRate);
 	}
 //	/**
 //	 * Generate a MutationRateModel.Factory class for a SteppedMutationRate
-//	 * @note maximumMutation rate will be 100
+//	 * Note: maximumMutation rate will be 100
 //	 */
 //	public static final Factory getFactory(double[] muChanges, int units) {
 //		return new RateFactory(muChanges,units,100);
 //	}
-	/**
-	 * Generate a MutationRateModel.Factory class for a SteppedMutationRate
-	 * @note maximumMutation rate will be 100
-	 */
+    /**
+     * Generate a {@link MutationRateModel.Factory} for a {@link SteppedMutationRate}
+     * using a {@link TimeOrderCharacterData} object to determine units and maximum mutation rate.
+     *
+     * @param muChanges array of times at which the mutation rate can change
+     * @param tocd the {@link TimeOrderCharacterData} object providing units and suggested maximum mutation rate
+     * @return a factory producing SteppedMutationRate instances
+     */
 	public static final Factory getFactory(double[] muChanges, TimeOrderCharacterData tocd) {
 		return new RateFactory(muChanges,tocd.getUnits(),tocd.getSuggestedMaximumMutationRate());
 	}
@@ -429,8 +457,14 @@ public class SteppedMutationRate extends MutationRateModel implements Report, Su
 	public static final String MAX_TIME_IS_TEXT = "Max time is ";
 	public static final String ZERO_TIME_TEXT = "Zero time";
 	public static final String INVALID_INTERVALS_TEXT = "Incompatible intervals";
-	/**
-	 * Checks if mu changes are valid for a particular set of sample times.
+    /**
+     * Checks if the mu change times are valid given sample times.
+     *
+     * @param allowEstimationOutsideSamplingTimes if true, allows muChanges beyond last sample time
+     * @param muChanges array of times at which mutation rates change
+     * @param sortMuChanges if true, sorts muChanges before checking
+     * @param sampleTimes array of sample times
+     * @param sortSampleTimes if true, sorts sampleTimes before checking
 	 * @return null if muChanges okay, or a message describing what is wrong.
 	 * The things that may be a problem are
 	 * <ul>

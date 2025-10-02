@@ -26,7 +26,7 @@ import pal.misc.*;
  *
  * 2 state estimates of D' and r^2 can be found reviewed and discussed in Weir 1996
  *
- * multi-state loci (>=3) require an averaging approach.  These should not be used for
+ * multi-state loci (&gt;=3) require an averaging approach.  These should not be used for
  * popgen parameter estimates, unless you know specifically that it works for multistate loci.
  * The estimate of D' is the approach used by Farnir 2000 Genome Research 10:220-227
  * that follows Hedrick 1987.  r^2 was estimated in a similar way.
@@ -330,29 +330,44 @@ public class LinkageDisequilibrium extends Thread implements Serializable, Table
     else return diseq[c][r];
   }
 
-  /**
-   * Returns the counts of the sites in the alignment
-   */
-  public int getSiteCount() {
-    return theAlignment.getSiteCount();
-  }
+    /**
+     * Returns the count of sites (columns) in the underlying alignment.
+     *
+     * @return The total number of sites in the alignment.
+     */
+    public int getSiteCount() {
+        return theAlignment.getSiteCount();
+    }
 
-  /**
-   * Returns an annotated aligment if one was used for this LD
-   * this could be used to access information of locus position
-   */
-  public AnnotationAlignment getAnnotatedAlignment() {
-    return theAnnotationAlignment;
-  }
+    /**
+     * Returns the annotated alignment used for this Linkage Disequilibrium (LD) calculation, if one was provided.
+     * This can be used to access information such as locus position.
+     *
+     * @return The AnnotationAlignment object, or {@code null} if none was used.
+     */
+    public AnnotationAlignment getAnnotatedAlignment() {
+        return theAnnotationAlignment;
+    }
 
-  /** returns representation of the LD results as a string */
-  public String toString() {
-    StringWriter sw = new StringWriter();
-    print(this, new PrintWriter(sw));
-    return sw.toString();
-  }
+    /**
+     * Returns a string representation of the Linkage Disequilibrium (LD) results.
+     * The output includes a formatted table of pairwise LD statistics (R^2, D', p-value, N).
+     *
+     * @return A string containing the formatted LD results.
+     */
+    public String toString() {
+        StringWriter sw = new StringWriter();
+        print(this, new PrintWriter(sw));
+        return sw.toString();
+    }
 
-  /** print the LD to the PrintWrite */
+    /**
+     * Prints the Linkage Disequilibrium (LD) results to the specified PrintWriter.
+     * The output format depends on whether an annotated alignment was used.
+     *
+     * @param ld The LinkageDisequilibrium object containing the results to print.
+     * @param out The PrintWriter to which the results will be written.
+     */
   public void print(LinkageDisequilibrium ld, PrintWriter out) {
       if(annotated)
         {out.print("LocusName1\t Chromosome1\t ChromoPosition1\t ");

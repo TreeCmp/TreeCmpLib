@@ -42,34 +42,53 @@ public interface DeltaModel extends Serializable {
 
 	}
 	public static final class Utils {
-		/**
-		 * For interfacing with time based mutation rate models
-		 */
-		public static final DeltaModel getMutationRateModelBased(MutationRateModel.Factory mepFactory) {
-			return new MutationRateDeltaModel(mepFactory);
-		}
-		/**
-		 * For serial sampled analysis when no time information is available.
-		 */
-		public static final DeltaModel getUntimedBased() {
-			return UntimedDeltaModel.DEFAULT_INSTNACE;
-		}
-		/**
-		 * For serial sampled analysis when no time information is available.
-		 * @param initialDeltas, if not of required length (for given tocd) uses subset (or sets remainder to zero)
-		 */
-		public static final DeltaModel getUntimedBased(double[] initalDeltas) {
-			return new UntimedDeltaModel(initalDeltas);
-		}
-		public static final DeltaModel getDisjointBased(
-			DeltaModel primaryModel,
-			DeltaModel subgroupModel,
-			TimeOrderCharacterData subgroupTOCD
-			) {
-			return new DisjointDeltaModel(primaryModel,subgroupModel,subgroupTOCD);
-		}
+        /**
+         * For interfacing with time-based mutation rate models.
+         *
+         * @param mepFactory a factory producing {@link MutationRateModel} instances
+         * @return a {@link DeltaModel} backed by a {@link MutationRateDeltaModel}
+         */
+        public static final DeltaModel getMutationRateModelBased(MutationRateModel.Factory mepFactory) {
+            return new MutationRateDeltaModel(mepFactory);
+        }
 
-	// --------------------------------------------------------------------------
+        /**
+         * For serial sampled analysis when no time information is available.
+         *
+         * @return the default {@link UntimedDeltaModel} instance
+         */
+        public static final DeltaModel getUntimedBased() {
+            return UntimedDeltaModel.DEFAULT_INSTNACE;
+        }
+
+        /**
+         * For serial sampled analysis when no time information is available.
+         *
+         * @param initialDeltas an array of initial delta values; if the length is not sufficient
+         *                      for the given {@code TOCD}, a subset is used or the remainder
+         *                      is set to zero
+         * @return a new {@link UntimedDeltaModel} with the given initial deltas
+         */
+        public static final DeltaModel getUntimedBased(double[] initialDeltas) {
+            return new UntimedDeltaModel(initialDeltas);
+        }
+
+        /**
+         * For disjoint subgroup analysis, where a subgroup of the data is modeled separately.
+         *
+         * @param primaryModel   the primary delta model
+         * @param subgroupModel  the delta model applied to the subgroup
+         * @param subgroupTOCD   the {@link TimeOrderCharacterData} describing the subgroup
+         * @return a {@link DisjointDeltaModel} combining the primary and subgroup models
+         */
+        public static final DeltaModel getDisjointBased(
+                DeltaModel primaryModel,
+                DeltaModel subgroupModel,
+                TimeOrderCharacterData subgroupTOCD) {
+            return new DisjointDeltaModel(primaryModel, subgroupModel, subgroupTOCD);
+        }
+
+        // --------------------------------------------------------------------------
 		private static final class MutationRateDeltaModel implements DeltaModel {
 			private final MutationRateModel.Factory mepFactory_;
 			public MutationRateDeltaModel(MutationRateModel.Factory mepFactory) {

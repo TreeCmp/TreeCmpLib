@@ -88,6 +88,11 @@ public class LinkageDisequilibriumComponent extends Component implements Printab
   /**
    * This determines what is displayed in the lower left corner.
    * Options are: P_VALUE, DPRIME, and RSQUARE
+   *
+   * @param ldMeasure Determines which LD measure to display. Options are:
+   *                  P_VALUE, DPRIME, RSQUARE.
+   *                  The corresponding values are used to fill the 'diseq' array,
+   *                  and the label is updated accordingly.
    */
   public void setLowerCorner(int ldMeasure) {
     for(int r=0; r<theLD.getSiteCount(); r++)
@@ -105,6 +110,11 @@ public class LinkageDisequilibriumComponent extends Component implements Printab
   /**
    * This determines what is displayed in the upper right corner.
    * Options are: P_VALUE, DPRIME, and RSQUARE
+   *
+   * @param ldMeasure Determines which LD measure to display. Options are:
+   *                  P_VALUE, DPRIME, RSQUARE.
+   *                  The corresponding values are used to fill the 'diseq' array,
+   *                  and the label is updated accordingly.
    */
   public void setUpperCorner(int ldMeasure) {
     for(int c=0; c<theLD.getSiteCount(); c++)
@@ -122,6 +132,9 @@ public class LinkageDisequilibriumComponent extends Component implements Printab
   /**
    * This sets the scale of the LD view, either sites are organized by chromosomes if
    * chromosomalScale is true, otherwise they are organized by genes
+   *
+   * @param chromosomalScale If true, sites are organized by chromosomes;
+   *                         otherwise they are organized by genes/loci.
    */
   public void setScaleOfView(boolean chromosomalScale) {
     this.chromosomalScale=chromosomalScale;
@@ -132,6 +145,8 @@ public class LinkageDisequilibriumComponent extends Component implements Printab
   /**
    * This sets whether a schematic is displayed.  If true a schematic of genes or
    * chromosomes is displayed, otherwise no schematic is displayed
+   *
+   * @param includeBlockSchematic If true, a schematic is drawn; otherwise, no schematic.
    */
   public void setShowSchematic(boolean includeBlockSchematic) {
     if(theAA==null) return;  //if there is no annotation don't produce the schematic
@@ -191,7 +206,6 @@ public class LinkageDisequilibriumComponent extends Component implements Printab
 
    /**
    * this determines to relative positions of the sites and cartoons (everything ranges from 0..1)
-   *
    */
   void calculateStartAndEndPositions() {
     //This will determine were all the relative positions of the sites go

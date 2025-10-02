@@ -30,13 +30,18 @@ public class TripletMetricSimple extends BaseMetric implements Metric {
         return getDistForArbitrary(t1, t2);
     }
 
-   
+
     /**
-     * Calculate triplet distance using simple O(n^3) algorithm
-     * enumeration all possible triplets
-     * @param t1
-     * @param t2
-     * @return
+     * Calculates the **triplet distance** between two trees, {@code t1} and {@code t2}, using
+     * a simple $O(n^3)$ algorithm that enumerates all possible triplets (subsets of three leaves).
+     *
+     * <p>The distance is computed by finding the total number of triplets where the resolution
+     * (topology) differs between the two trees, or where one or both trees leave the triplet
+     * unresolved. The trees must share the same set of leaves for a meaningful comparison.
+     *
+     * @param t1 The first phylogenetic tree.
+     * @param t2 The second phylogenetic tree.
+     * @return The triplet distance between {@code t1} and {@code t2}, returned as a {@code double}.
      */
     public double getDistForArbitrary(Tree t1, Tree t2) {
 
@@ -78,12 +83,25 @@ public class TripletMetricSimple extends BaseMetric implements Metric {
         return (double) dist;
     }
 
-    /* Retruns the type of a triplet, i.e. the index for which LCA with the others is
-     * the closest to the root. Returns -1 if the triplet is unresolved. For example:
-     * - type for (i,(j,k)) = i,
-     * - type for (j,(i,k)) = j,
-     * - type for (k,(i,j)) = k,
-     * - type for (i,j,k) = -1.
+    /**
+     * Returns the **type** of a triplet of leaves (i, j, k), which is the index of the leaf
+     * whose **Least Common Ancestor (LCA)** with the other two leaves is closest to the root.
+     *
+     * <p>The method uses the Nodal Splitted Matrix (`nsMatrix`), where `nsMatrix[x][y]` typically
+     * represents the depth (distance from the root) of the LCA of leaves `x` and `y`.
+     *
+     * <ul>
+     * <li>Returns **i** for a topology like (i, (j, k)) where LCA(j, k) is deeper than LCA(i, j) or LCA(i, k).</li>
+     * <li>Returns **j** for a topology like (j, (i, k)).</li>
+     * <li>Returns **k** for a topology like (k, (i, j)).</li>
+     * <li>Returns **-1** if the triplet is **unresolved** (i.e., all three leaves share the same LCA, as in (i, j, k)).</li>
+     * </ul>
+     *
+     * @param i The index of the first leaf.
+     * @param j The index of the second leaf.
+     * @param k The index of the third leaf.
+     * @param nsMatrix The Nodal Splitted Matrix where `nsMatrix[x][y]` gives the depth of LCA(x, y).
+     * @return The index (i, j, or k) of the leaf defining the deepest split, or -1 if the triplet is unresolved.
      */
     private int getTripletType(int i, int j, int k, int nsMatrix[][]) {
 

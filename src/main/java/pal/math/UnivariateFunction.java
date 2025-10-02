@@ -16,14 +16,13 @@ package pal.math;
  */
 public interface UnivariateFunction
 {
-	/**
-	 * compute function value
-	 *
-	 * @param function argument
-	 * 
-	 * @return function value
-	 */
-	double evaluate(double argument);
+    /**
+     * Computes the value of the function for a given argument.
+     *
+     * @param argument the input value at which to evaluate the function
+     * @return the value of the function at the specified argument
+     */
+    double evaluate(double argument);
 	
 	/**
 	 * get lower bound of argument

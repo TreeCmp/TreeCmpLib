@@ -123,9 +123,9 @@ public class PairwiseDistance implements java.io.Serializable
 
 	/**
 	 * update model of substitution
-	 *
-	 * @param model of substitution
-	 */
+     *
+     * @param m the substitution model to update or set
+     */
 	public void updateModel(SubstitutionModel m)
 	{
 		if(of==null) {
@@ -140,9 +140,9 @@ public class PairwiseDistance implements java.io.Serializable
 
 	/**
 	 * update site pattern
-	 *
-	 * @param site pattern
-	 */
+     *
+     * @param sp the new site pattern to use
+     */
 	public void updateSitePattern(SitePattern sp)
 	{
 		sitePattern = sp;

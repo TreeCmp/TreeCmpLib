@@ -12,7 +12,7 @@ package pal.gui;
  * Description:  A means for mapping names to colours
  * @author      Matthew Goode
  * @version 1.0
- * @note
+ * Note:
  *     <ul>
  *       <li> 14 August 2003 - Changed to use Label Displayers. Will need a name change at a later point
  *     </ul>
@@ -57,7 +57,7 @@ public final class NameColouriser implements java.io.Serializable {
 	/**
 	 * @param names Names
 	 * @param colours associated colours
-	 * @note assumes parallel arrays
+	 * Note: assumes parallel arrays
 	 */
 	public void addMappings(String[] names, Color[] colours) {
 		for(int i = 0 ; i < names.length ; i++) {

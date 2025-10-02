@@ -52,19 +52,28 @@ public abstract class DemographicModel implements Units,
 
 	/**
 	 * Gets the value of the demographic function N(t) at time t.
-	 */
+     *
+     * @param t time at which to evaluate the demographic function
+     * @return the value of the demographic function N(t) at time t
+     */
 	public abstract double getDemographic(double t);
 
 	/**
 	 * Returns value of demographic intensity function at time t
 	 * (= integral 1/N(x) dx from 0 to t).
-	 */
+     *
+     * @param t time up to which the intensity is computed
+     * @return the demographic intensity from 0 to t
+     */
 	public abstract double getIntensity(double t);
 
 	/**
 	 * Returns value of inverse demographic intensity function 
 	 * (returns time, needed for simulation of coalescent intervals).
-	 */
+     *
+     * @param x the value of the demographic intensity
+     * @return the corresponding time t such that intensity(t) = x
+     */
 	public abstract double getInverseIntensity(double x);
 
 	// Parameterized and Report interface is also left for subclass
@@ -74,7 +83,11 @@ public abstract class DemographicModel implements Units,
 
 	/**
 	 * Returns an random interval size selected from the Kingman prior of the demographic model.
-	 */
+     *
+     * @param numLin the number of lineages present at the start of the interval
+     * @param timeOfLastCoal the time of the previous coalescent event
+     * @return the simulated interval length until the next coalescent
+     */
 	public double getSimulatedInterval (int numLin, double timeOfLastCoal)
 	{
 		double U = rng.nextDouble(); // create unit uniform random variate				
@@ -89,7 +102,11 @@ public abstract class DemographicModel implements Units,
 
 	/**
 	 * Calculates the integral 1/N(x) dx between start and finish.
-	 */
+     *
+     * @param start start time
+     * @param finish end time
+     * @return the integral of 1/N(x) from start to finish
+     */
 	public double getIntegral(double start, double finish)
 	{
 		return getIntensity(finish) - getIntensity(start);
@@ -98,7 +115,12 @@ public abstract class DemographicModel implements Units,
 	
 	/**
 	 * Returns the likelihood of a given *coalescent* interval
-	 */
+     *
+     * @param width length of the interval
+     * @param timeOfPrevCoal time of the previous coalescent event
+     * @param numLineages number of lineages in the interval
+     * @return log-likelihood of observing this coalescent interval
+     */
 	public double computeLogLikelihood(double width, double timeOfPrevCoal, int numLineages)
 	{
 		
@@ -108,7 +130,13 @@ public abstract class DemographicModel implements Units,
 	
 	/**
 	 * Returns the likelihood of a given interval,coalescent or otherwise.
-	 */
+     *
+     * @param width length of the interval
+     * @param timeOfPrevCoal time of the previous coalescent event
+     * @param numLineages number of lineages in the interval
+     * @param type type of interval (e.g., CoalescentIntervals.COALESCENT or CoalescentIntervals.NEW_SAMPLE)
+     * @return log-likelihood of observing this interval
+     */
 	public double computeLogLikelihood(double width, 
 		double timeOfPrevCoal, int numLineages, int type)
 	{
@@ -149,7 +177,9 @@ public abstract class DemographicModel implements Units,
 
 	/**
 	 * returns units of measurement.
-	 */
+     *
+     * @return units of measurement
+     */
 	public int getUnits()
 	{
 		return units;
@@ -169,7 +199,9 @@ public abstract class DemographicModel implements Units,
 
 	/**
 	 * returns log-likelihood.
-	 */
+     *
+     * @return current log-likelihood
+     */
 	public double getLogL()
 	{
 		return logL;
@@ -180,7 +212,7 @@ public abstract class DemographicModel implements Units,
 	 * getIntensity and getInverseIntensity methods
 	 * of this demographic model. If the model is
 	 * inconsistent then a RuntimeException will be thrown.
-	 * @param model the demographic model to test.
+     *
 	 * @param steps the number of steps between 0.0 and maxTime to test.
 	 * @param maxTime the maximum time to test.
 	 */

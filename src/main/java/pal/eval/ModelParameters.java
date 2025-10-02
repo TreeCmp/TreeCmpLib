@@ -130,8 +130,10 @@ public class ModelParameters implements MultivariateFunction
 	/**
 	 * estimate (approximate) values for the model parameters
 	 * from the data using a given (parameterized) tree
-	 * @return parameter estimates
-	 */
+     *
+     * @param t the parameterized tree used as a fixed topology for parameter estimation
+     * @return an array of estimated parameter values
+     */
 	public double[] estimateFromTree(ParameterizedTree t)
 	{
 		// there is a horrible amount of code duplication
@@ -184,8 +186,6 @@ public class ModelParameters implements MultivariateFunction
 		}
 		return p;
 	}
-
-
 
 	// interface MultivariateFunction
 

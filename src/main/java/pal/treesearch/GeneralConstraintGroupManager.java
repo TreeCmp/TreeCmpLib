@@ -115,7 +115,7 @@ public class GeneralConstraintGroupManager {
 	 * @param fxFracDigits Accuracy for the likelihood
 	 * @param xFracDigits Accruracy for the parameters
 	 * @param rateMonitor A monitor for our progress
-	 * @return the optimised log likelihood or >0 if cannot do any optimisation
+	 * @return the optimised log likelihood or &gt;0 if cannot do any optimisation
 	 */
 	public final double optimiseAllGlobalClockConstraints(MultivariateMinimum minimiser, LikelihoodScoreAccess scoreAccess, int fxFracDigits, int xFracDigits,  MinimiserMonitor rateMonitor) {
 		return optimiseGlobalClockConstraintsImpl(allOptimisationFunction_,minimiser,scoreAccess,fxFracDigits,xFracDigits,rateMonitor);
@@ -127,7 +127,7 @@ public class GeneralConstraintGroupManager {
 	 * @param fxFracDigits Accuracy for the likelihood
 	 * @param xFracDigits Accruracy for the parameters
 	 * @param rateMonitor A monitor for our progress
-	 * @return the optimised log likelihood or >0 if cannot do any optimisation
+	 * @return the optimised log likelihood or &gt;0 if cannot do any optimisation
 	 */
 	public final double optimisePrimaryGlobalClockConstraints(MultivariateMinimum minimiser, LikelihoodScoreAccess scoreAccess, int fxFracDigits, int xFracDigits,  MinimiserMonitor rateMonitor) {
 		return optimiseGlobalClockConstraintsImpl(primaryOptimisationFunction_,minimiser,scoreAccess,fxFracDigits,xFracDigits,rateMonitor);
@@ -139,7 +139,7 @@ public class GeneralConstraintGroupManager {
 	 * @param fxFracDigits Accuracy for the likelihood
 	 * @param xFracDigits Accruracy for the parameters
 	 * @param rateMonitor A monitor for our progress
-	 * @return the optimised log likelihood or >0 if cannot do any optimisation
+	 * @return the optimised log likelihood or &gt;0 if cannot do any optimisation
 	 */
 	public final double optimiseSecondaryGlobalClockConstraints(MultivariateMinimum minimiser, LikelihoodScoreAccess scoreAccess, int fxFracDigits, int xFracDigits,  MinimiserMonitor rateMonitor) {
 		return optimiseGlobalClockConstraintsImpl(primaryOptimisationFunction_,minimiser,scoreAccess,fxFracDigits,xFracDigits,rateMonitor);

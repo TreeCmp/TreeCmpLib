@@ -45,9 +45,12 @@ public class TwoStates extends SimpleDataType
 		}
 	}
 
-	/**
-		* @retrun true if this state is an unknown state
-		*/
+    /**
+     * Checks whether the given state is considered an unknown state.
+     *
+     * @param state the state index to check
+     * @return true if this state is an unknown state
+     */
 	protected final boolean isUnknownStateImpl(final int state) {
 		return(state>=2);
 	}

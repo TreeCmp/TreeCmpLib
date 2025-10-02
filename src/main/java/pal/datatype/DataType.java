@@ -108,14 +108,17 @@ public interface DataType extends Serializable
 	 *
 	 * @param state state
 	 *
-	 * return corresponding character
+	 * @return the corresponding character
 	 */
 	char getChar(int state);
 
 	/**
-	 * get the preferred version of a particular character (eg a -> A)
+	 * get the preferred version of a particular character (eg a -&gt; A)
 	 * Should not always assume that a DataType only uses Upper case characters!
-	 */
+     *
+     * @param c the character to convert
+     * @return the preferred representation of the character
+     */
 	char getPreferredChar(char c);
 
 	/**
@@ -132,15 +135,23 @@ public interface DataType extends Serializable
 	 */
 	int getTypeID();
 
-	/**
-	 * @return true if this state is an unknown state
-	 * (the same as check if a state is >= the number of states... but neater)
-	 */
-	boolean isUnknownState(int state);
-	/**
-	 * @return true if this character is a gap
-	 */
-	boolean isUnknownChar(char c);
+    /**
+     * Checks if a given state is unknown.
+     * This is equivalent to checking if the state index is greater than or equal
+     * to the number of defined states, but provides a cleaner interface.
+     *
+     * @param state the state index to check
+     * @return true if the state is considered unknown, false otherwise
+     */
+    boolean isUnknownState(int state);
+
+    /**
+     * Checks if a given character represents an unknown character or gap.
+     *
+     * @param c the character to check
+     * @return true if the character is considered a gap or unknown, false otherwise
+     */
+    boolean isUnknownChar(char c);
 
 	int getRecommendedUnknownState();
 
@@ -148,16 +159,24 @@ public interface DataType extends Serializable
 	 * @return true if this data type supports having a gap character
 	 */
 	boolean hasGap();
-	/**
+
+    /**
+     * Checks whether the given character should be interpreted as a gap.
+     *
+     * @param c the character to check
 	 * @return true if this data type interprets c as a gap
 	 */
 	boolean isGapChar(char c);
 
-	/**
+    /**
+     * Checks whether the given state should be interpreted as a gap state.
+     *
+     * @param state the state value to check
 	 * @return true if this data type interprets state as a gap state
 	 */
 	boolean isGapState(int state);
-	/**
+
+    /**
 	 * @return the recommended state to use as a gap
 	 */
 	int getRecommendedGapState();
@@ -171,11 +190,15 @@ public interface DataType extends Serializable
 	 * Some useful methods for implmenting classes and for DataType users
 	 */
 	public static final class Utils {
+
 		/**
 		 * Useful for implementing classes to check if a character is a suggest gap character
 		 * Users of datatypes should query the datatype to see if a character is a gap - not
 		 * use this method.
-		 */
+         *
+         * @param c the character to check
+         * @return {@code true} if the character is a suggested gap, {@code false} otherwise
+         */
 		public static final boolean isSuggestedGap(char c) {
 			for(int i = 0 ; i < SUGGESTED_GAP_CHARACTERS.length ; i++) {
 				if(c==SUGGESTED_GAP_CHARACTERS[i]) { return true; }
@@ -187,7 +210,6 @@ public interface DataType extends Serializable
 		 * create object according to this code
 		 *
 		 * @param typeID selected data type
-		 *
 		 * @return DataType object
 		 */
 		public static DataType getInstance(int typeID)
@@ -206,25 +228,38 @@ public interface DataType extends Serializable
 			}
 		}
 
-		/**
+        /**
+         * Checks if the given character represents a gap in the sequence.
+         *
+         * @param d the {@link DataType} to query
+         * @param c the character to check
 		 * @return true if the character represents a gap in the sequence.
 		 * @deprecated use DataType.isGapChar()
 		 */
 		public final static boolean isGap(DataType d, char c) {
 			return d.isGapChar(c);
 		}
-		/**
+
+        /**
 		 * Converts a sequence of characters to the preferred form for a data type
-		 * @note does not treat the dot '.' specially
-		 */
+		 * Note: does not treat the dot '.' specially
+         *
+         * @param sequence the input character sequence
+         * @param dt the {@link DataType} used for conversion
+         * @return a new char array containing the preferred characters
+         */
 		public final static char[] getPreferredChars(final char[] sequence, final DataType dt) {
 			return getPreferredChars(sequence,dt,false);
 		}
 
 		/**
 		 * Converts a sequence of characters to the preferred form for a data type
+         *
+         * @param sequence the input character sequence
+         * @param dt the {@link DataType} used for conversion
 		 * @param specialDots if true then the dot (period) '.' is used even if it is not the prefered character by the data type
-		 */
+         * @return a new char array containing the preferred characters
+         */
 		public final static char[] getPreferredChars(final char[] sequence, final DataType dt, boolean specialDots) {
 			final char[] result = new char[sequence.length];
 			for(int i = 0 ; i < result.length ; i++) {
@@ -236,30 +271,48 @@ public interface DataType extends Serializable
 			}
 			return result;
 		}
+
 		/**
 		 * Converts a sequence of characters to the preferred form for a data type (using Strings)
-		 */
+         *
+         * @param sequence the sequence of characters to convert
+         * @param dt the {@link DataType} used to interpret and convert the characters
+         * @return the converted sequence in preferred form
+         */
 		public final static String getPreferredChars(final String sequence, final DataType dt) {
 			return new String(getPreferredChars(sequence.toCharArray(),dt));
 		}
+
 		/**
 		 * Converts a sequence of characters to the preferred form for a data type (using Strings)	 * @param specialDots if true then the dot (period) '.' is used even if it is not the prefered character by the data type
-		 * @param specialDots if true then the dot (period) '.' is used even if it is not the prefered character by the data type
-		 */
+         *
+         * @param sequence the sequence of characters to convert
+         * @param dt the {@link DataType} used to interpret and convert the characters
+         * @param specialDots if true, then the dot (period) '.' is used even if it is not the preferred character by the data type
+         * @return the converted sequence in preferred form
+         */
 		public final static String getPreferredChars(final String sequence, final DataType dt, boolean specialDots) {
 			return new String(getPreferredChars(sequence.toCharArray(),dt,specialDots));
 		}
 
 		/** For converting a sequence to an array of bytes where each byte represents the
 		 *		state of the corresponding character in sequence
-		 */
+         *
+         * @param sequence the sequence of characters
+         * @param dt the {@link DataType} used to obtain character states
+         * @return array of byte states corresponding to the sequence
+         */
 		public final static byte[] getByteStates(final String sequence , final DataType dt) {
 			return getByteStates(sequence.toCharArray(),dt);
 		}
 
 		/** For converting a sequence to an array of bytes where each byte represents the
 		 *		state of the corresponding character in sequence
-		 */
+         *
+         * @param sequence the sequence of characters
+         * @param dt the {@link DataType} used to obtain character states
+         * @return array of byte states corresponding to the sequence
+         */
 		public final static byte[] getByteStates(final char[] sequence , final DataType dt) {
 			final byte[] bs = new byte[sequence.length];
 			for(int i = 0 ; i < bs.length ; i++) {
@@ -268,12 +321,15 @@ public interface DataType extends Serializable
 			return bs;
 		}
 
-
-
 		/** For converting an array of sequence to arrays of ints where each int represents the
 		 *		state of the corresponding character in sequence
-		 *    @param unknownState ensures that the state representation is set to this value (like -1)
-		 */
+         *
+         * @param sequences array of character sequences
+         * @param unknownState the state value to assign for unknown characters (e.g., -1)
+         * @param gapState the state value to assign for gap characters
+         * @param dt the {@link DataType} used to obtain states
+         * @return 2D array of integer states corresponding to the sequences
+         */
 		public final static int[][] getStates(final char[][] sequences, final int unknownState, final int gapState, final DataType dt) {
 			final int[][] statesSeqs = new int[sequences.length][];
 			for(int i = 0  ; i < statesSeqs.length ; i++) {
@@ -281,10 +337,17 @@ public interface DataType extends Serializable
 			}
 			return statesSeqs;
 		}
+
 		/** For converting a sequence to an array of ints where each int represents the
 		 *		state of the corresponding character in sequence
 		 *  Allows user selection of unknown and gap states
-		 */
+         *
+         * @param sequence the sequence of characters
+         * @param unknownState the state value to assign for unknown characters
+         * @param gapState the state value to assign for gap characters
+         * @param dt the {@link DataType} used to obtain states
+         * @return array of integer states corresponding to the sequence
+         */
 		public final static int[] getStates(final char[] sequence, final int unknownState, int gapState, DataType dt) {
 			int[] states= new int[sequence.length];
 			for(int i = 0 ; i < states.length ; i++) {
@@ -299,10 +362,15 @@ public interface DataType extends Serializable
 			}
 			return states;
 		}
+
 		/** For converting an array of sequence to arrays of ints where each int represents the
 		 *		state of the corresponding character in sequence
-		 *   @note, used suggested gap and unknown states (from dt)
-		 */
+		 *   Note:, used suggested gap and unknown states (from dt)
+         *
+         * @param sequences array of character sequences
+         * @param dt the {@link DataType} used to obtain states
+         * @return 2D array of integer states corresponding to the sequences
+         */
 		public final static int[][] getStates(final char[][] sequences, final DataType dt) {
 			final int[][] statesSeqs = new int[sequences.length][];
 			for(int i = 0  ; i < statesSeqs.length ; i++) {
@@ -310,10 +378,15 @@ public interface DataType extends Serializable
 			}
 			return statesSeqs;
 		}
+
 		/** For converting a sequence to an array of ints where each int represents the
 		 *		state of the corresponding character in sequence
-		 *   @note, used suggested gap and unknown states (from dt)
-		 */
+		 *   Note:, used suggested gap and unknown states (from dt)
+         *
+         * @param sequence the sequence of characters
+         * @param dt the {@link DataType} used to obtain states
+         * @return array of integer states corresponding to the sequence
+         */
 		public final static int[] getStates(final char[] sequence, final DataType dt) {
 			int[] states= new int[sequence.length];
 			for(int i = 0 ; i < states.length ; i++) {
@@ -321,11 +394,16 @@ public interface DataType extends Serializable
 			}
 			return states;
 		}
+
 		/** For converting an array of sequence to arrays of ints where each int represents the
 		 *		state of the corresponding character in sequence
-		 *    @param unknownChar The character uses for unknown states
-		 *    @param gapChar the character to use for gap states (may be the same as the unknownChar)
-		 */
+         *
+         * @param sequences array of state sequences
+         * @param unknownChar the character used for unknown states
+         * @param gapChar the character used for gap states (may be the same as unknownChar)
+         * @param dt the {@link DataType} used to obtain characters
+         * @return 2D array of characters corresponding to the sequences
+         */
 		public final static char[][] getChars(final int[][] sequences, final char unknownChar, final char gapChar, final DataType dt) {
 			final char[][] charSeqs = new char[sequences.length][];
 			for(int i = 0  ; i < charSeqs.length ; i++) {
@@ -333,10 +411,15 @@ public interface DataType extends Serializable
 			}
 			return charSeqs;
 		}
+
 		/** For converting a sequence of ints representing states to an array of chars
-		 *  @param unknownChar The character uses for unknown states
-		 *  @param gapChar the character to use for gap states (may be the same as the unknownChar)
-		 */
+         *
+         * @param sequence the sequence of states
+         * @param unknownChar the character used for unknown states
+         * @param gapChar the character used for gap states (may be the same as unknownChar)
+         * @param dt the {@link DataType} used to obtain characters
+         * @return array of characters corresponding to the sequence
+         */
 		public final static char[] getChars(final int[] sequence, final char unknownChar, final char gapChar, final DataType dt) {
 			final char[] chars= new char[sequence.length];
 			for(int i = 0 ; i < chars.length ; i++) {
@@ -351,9 +434,14 @@ public interface DataType extends Serializable
 			}
 			return chars;
 		}
+
 		/** For converting a sequence of ints representing states to an array of chars
-		 * @note uses suggested characters, from dt
-		 */
+		 * Note: uses suggested characters, from dt
+         *
+         * @param sequence the sequence of states
+         * @param dt the {@link DataType} used to obtain characters
+         * @return array of characters corresponding to the sequence
+         */
 		public final static char[] getChars(final int[] sequence, final DataType dt) {
 			final char[] chars= new char[sequence.length];
 			for(int i = 0 ; i < chars.length ; i++) {
@@ -365,7 +453,11 @@ public interface DataType extends Serializable
 		/**
 		 * For converting an array of states into a String of characters, based on a
 		 * DataType
-		 */
+         *
+         * @param dt the {@link DataType} used to obtain characters
+         * @param states the sequence of states
+         * @return a String representation of the states
+         */
 		public final static String toString(DataType dt, int[] states) {
 			char[] chars = new char[states.length];
 			for(int i = 0 ; i < states.length ; i++) {
@@ -373,10 +465,12 @@ public interface DataType extends Serializable
 			}
 			return new String(chars);
 		}
+
 		/**
 		 * Reverses an array of states
-		 * @param sequence the sequence of states
-		 */
+         *
+         * @param sequence the sequence of states
+         */
 		public static final void reverseSequence(int[] sequence) {
 			final int midPoint = sequence.length/2;
 			for(int i = 0 ; i < midPoint ; i++) {
@@ -384,9 +478,11 @@ public interface DataType extends Serializable
 				sequence[i] = sequence[j];	sequence[j] = temp;
 			}
 		}
+
 		/**
 		 * Realigns a sequence of states so that there are no gaps at the beggining (shifts to the left if necessary)
-		 * @param sequence the base sequence
+		 *
+         * @param sequence the base sequence
 		 * @param dt the datatype of the sequence states
 		 */
 		public static final void leftAlignSequence(int[] sequence, DataType dt) {

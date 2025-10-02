@@ -19,7 +19,7 @@ import java.io.*;
  * exponentially from an inital population size alpha N0 to a present-day size N0.
  * (Parameters: N0=present-day population size; r=growth rate; alpha: ratio of
  * population sizes).
- * This model is nested with the exponential-growth model (alpha -> 0).
+ * This model is nested with the exponential-growth model (alpha -&gt; 0).
  * 
  *
  * @version $Id: ExpandingPopulation.java,v 1.6 2001/07/12 12:17:43 korbinian Exp $
@@ -43,7 +43,10 @@ public class ExpandingPopulation extends ExponentialGrowth implements Report, Pa
 
 	/**
 	 * Construct demographic model with default settings
-	 */
+     *
+     * @param units the units of time measurement (e.g., generations
+     *              or expected substitutions)
+     */
 	public ExpandingPopulation(int units) {
 	
 		super(units);
@@ -55,7 +58,11 @@ public class ExpandingPopulation extends ExponentialGrowth implements Report, Pa
 	/**
 	 * Construct demographic model of an expanding population
 	 *
-	 */
+     * @param size   the present-day population size (N0)
+     * @param growth the growth rate (r)
+     * @param ratio  the ratio of ancestral to present-day population size (alpha)
+     * @param units  the units of time (e.g., GENERATIONS or expected substitutions)
+     */
 	public ExpandingPopulation(double size, double growth, double ratio, int units) {
 	
 		super(size, growth, units);
@@ -69,7 +76,9 @@ public class ExpandingPopulation extends ExponentialGrowth implements Report, Pa
 		
 	/**
 	 * returns ratio of population sizes
-	 */
+     *
+     * @return the ratio of population sizes (alpha)
+     */
 	public double getRatio()
 	{
 		return alpha;

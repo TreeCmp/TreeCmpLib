@@ -58,17 +58,17 @@ public class ChiSquareDistribution extends GammaDistribution
 
 
 	/**
-	 * quantile (inverse cumulative density function) of the chi-square distribution
-	 * 
-	 * @param x argument
-	 * @param n degrees of freedom
-	 *
-	 * @return icdf value
-	 */
-	public static double quantile(double y, double n)
-	{
-		return quantile(y, n/2.0, 2.0);
-	}
+ * quantile (inverse cumulative density function) of the chi-square distribution
+ *
+ * @param y argument
+ * @param n degrees of freedom
+ *
+ * @return icdf value
+ */
+public static double quantile(double y, double n)
+{
+    return quantile(y, n/2.0, 2.0);
+}
 	
 	/**
 	 * mean of the chi-square distribution

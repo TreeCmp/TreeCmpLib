@@ -15,11 +15,14 @@ package pal.treesearch;
  */
 
 public interface SearchMonitor {
-	/**
-	 * When this method is called, it should be safe to access the tree search methods (for example, to build a pal tree)
-			* @param logLikelihood
-			*/
-	public void searchStepComplete(double logLikelihood);
+    /**
+     * Notifies the listener that a single step or iteration of the tree search algorithm has been completed.
+     * This is a critical callback used to report progress, monitor convergence, and potentially trigger subsequent actions.
+     *
+     * @param logLikelihood The log likelihood value achieved by the tree topology and parameters at the completion of this step.
+     * Note: When this method returns, the state of the tree object should be stable, making it safe to access tree search methods (e.g., for exporting or building a PAL tree representation).
+     */
+    public void searchStepComplete(double logLikelihood);
 	public static final class Utils {
 	  public static final SearchMonitor createNullMonitor() {
 		  return Null.INSTANCE;

@@ -10,7 +10,7 @@ package pal.io;
  *  Exception class for the NexusParser.
  *
  * @author    Alex Moore, a.d.moore@ex.ac.uk
- * @version
+ * @version 1.0
  */
 public class NexusParseException extends Exception {
 

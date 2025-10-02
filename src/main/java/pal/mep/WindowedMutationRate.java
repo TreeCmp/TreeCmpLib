@@ -55,59 +55,77 @@ public class WindowedMutationRate extends MutationRateModel implements Report, S
 		this.windowCenter = toCopy.windowCenter;
 		this.windowWidth = toCopy.windowWidth;
 	}
-	/**
-	 * Construct mutation model with default settings
-	 */
-	public WindowedMutationRate(double windowCenter, double windowWidth, int units, double maximumMutationRate) {
-		super(units,maximumMutationRate);
+    /**
+     * Constructs a windowed mutation rate model with default mutation rates.
+     *
+     * @param windowCenter the central position of the window
+     * @param windowWidth the width of the window
+     * @param units the time units for the mutation rate
+     * @param maximumMutationRate the maximum allowed mutation rate
+     */
+    public WindowedMutationRate(double windowCenter, double windowWidth, int units, double maximumMutationRate) {
+        super(units, maximumMutationRate);
+        this.windowCenter = windowCenter;
+        this.windowWidth = windowWidth;
+        muBackground = getDefaultValue(0);
+        muWindow = getDefaultValue(0);
+    }
 
-		this.windowCenter = windowCenter;
-		this.windowWidth = windowWidth;
+    /**
+     * Constructs a windowed mutation rate model with a specified background mutation rate.
+     *
+     * @param muBackground the background mutation rate
+     * @param windowCenter the central position of the window
+     * @param windowWidth the width of the window
+     * @param units the time units for the mutation rate
+     * @param maximumMutationRate the maximum allowed mutation rate
+     */
+    public WindowedMutationRate(double muBackground,
+                                double windowCenter, double windowWidth, int units, double maximumMutationRate) {
+        super(units, maximumMutationRate);
+        this.muBackground = muBackground;
+        backgroundFixed = true;
+        this.windowCenter = windowCenter;
+        this.windowWidth = windowWidth;
+        muWindow = getDefaultValue(0);
+    }
 
-		muBackground = getDefaultValue(0);
-		muWindow = getDefaultValue(0);
-	}
+    /**
+     * Constructs a windowed mutation rate model with specified window and background mutation rates.
+     *
+     * @param muWindow the mutation rate in the window
+     * @param muBackground the background mutation rate
+     * @param windowCenter the central position of the window
+     * @param windowWidth the width of the window
+     * @param units the time units for the mutation rate
+     * @param fixedb if true, the background mutation rate is fixed
+     * @param maximumMutationRate the maximum allowed mutation rate
+     */
+    public WindowedMutationRate(double muWindow, double muBackground,
+                                double windowCenter, double windowWidth, int units, boolean fixedb, double maximumMutationRate) {
+        super(units, maximumMutationRate);
+        this.muWindow = muWindow;
+        this.muBackground = muBackground;
+        backgroundFixed = fixedb;
+        this.windowCenter = windowCenter;
+        this.windowWidth = windowWidth;
+    }
 
-
-	/**
-	 * Construct mutation rate model of a give rate in given units.
-	 */
-	public WindowedMutationRate(double muBackground,
-		double windowCenter, double windowWidth, int units, double maximumMutationRate) {
-
-		super(units,maximumMutationRate);
-		this.muBackground = muBackground;
-		backgroundFixed = true;
-		this.windowCenter = windowCenter;
-		this.windowWidth = windowWidth;
-		muWindow = getDefaultValue(0);
-	}
-
-	/**
-	 * Construct mutation rate model of a give rate in given units.
-	 */
-	public WindowedMutationRate(double muWindow, double muBackground,
-		double windowCenter, double windowWidth, int units, boolean fixedb, double maximumMutationRate) {
-
-		super(units,maximumMutationRate);
-
-		this.muWindow = muWindow;
-		this.muBackground = muBackground;
-		backgroundFixed = fixedb;
-
-		this.windowCenter = windowCenter;
-		this.windowWidth = windowWidth;
-
-	}
-
-	/**
-	 * Construct mutation rate model of a give rate in given units.
-	 */
-	public WindowedMutationRate(double muWindow, double muBackground,
-		double windowCenter, double windowWidth, int units, double maximumMutationRate) {
-
-		this(muWindow, muBackground, windowCenter, windowWidth, units, false,maximumMutationRate);
-	}
+    /**
+     * Constructs a windowed mutation rate model with specified window and background rates.
+     * Background rate is not fixed by default.
+     *
+     * @param muWindow the mutation rate in the window
+     * @param muBackground the background mutation rate
+     * @param windowCenter the central position of the window
+     * @param windowWidth the width of the window
+     * @param units the time units for the mutation rate
+     * @param maximumMutationRate the maximum allowed mutation rate
+     */
+    public WindowedMutationRate(double muWindow, double muBackground,
+                                double windowCenter, double windowWidth, int units, double maximumMutationRate) {
+        this(muWindow, muBackground, windowCenter, windowWidth, units, false, maximumMutationRate);
+    }
 
 
 	public Object clone() {
@@ -141,12 +159,13 @@ public class WindowedMutationRate extends MutationRateModel implements Report, S
 
 	/**
 	 * returns current day mutation rate.
-	 */
+     *
+     * @return the mutation rate at time 0
+     */
 	public double getMu()
 	{
 		return getMutationRate(0.0);
 	}
-
 
 	// Implementation of abstract methods
 
@@ -339,9 +358,17 @@ public class WindowedMutationRate extends MutationRateModel implements Report, S
 	}
 // ===========================================================================
 // Static stuff
-	/**
-	 * Generate a MutationRateModel.Factory class for a WindowedMutationRate
-	 */
+    /**
+     * Generates a {@link MutationRateModel.Factory} for a {@link WindowedMutationRate}.
+     *
+     * @param muWindow the mutation rate in the window
+     * @param muBackground the background mutation rate
+     * @param windowCenter the central position of the window
+     * @param windowWidth the width of the window
+     * @param units the time units for the mutation rate
+     * @param maximumMutationRate the maximum allowed mutation rate
+     * @return a factory producing {@link WindowedMutationRate} instances
+     */
 	public static final Factory getFactory(double muWindow, double muBackground,
 			double windowCenter, double windowWidth, int units, double maximumMutationRate) {
 		return new RateFactory(muWindow,muBackground,windowCenter,windowWidth,units, maximumMutationRate);

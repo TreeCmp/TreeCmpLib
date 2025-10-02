@@ -36,9 +36,9 @@ public class SequencePairLikelihood implements UnivariateFunction, java.io.Seria
 
 	/**
 	 * update model of substitution
-	 *
-	 * @param model of substitution
-	 */
+     *
+     * @param m the substitution model to use
+     */
 	public void updateModel(SubstitutionModel m)
 	{
 		model = m;
@@ -56,9 +56,9 @@ public class SequencePairLikelihood implements UnivariateFunction, java.io.Seria
 
 	/**
 	 * update site pattern
-	 *
-	 * @param site pattern
-	 */
+     *
+     * @param sp the new site pattern to use
+     */
 	public void updateSitePattern(SitePattern sp)
 	{
 		sitePattern = sp;
@@ -71,7 +71,6 @@ public class SequencePairLikelihood implements UnivariateFunction, java.io.Seria
 		weight = sp.weight;
 
 	}
-
 
 	/**
 	 * specification of two sequences in the given alignment

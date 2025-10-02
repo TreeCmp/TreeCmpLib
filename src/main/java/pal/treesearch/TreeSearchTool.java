@@ -33,7 +33,7 @@ public final class TreeSearchTool {
 	 * @param sm The related substitution model. The data type of the model should match that of the alignment. The parameters of this model may change if the optimise model is choosen.
 	 * @param optimiseModel If true the substitution model will be optimised concurrently with the tree. This will change in the input model.
 	 * @return The optimised tree (the original tree is *not* altered)
-	 * @note If the alignment uses IUPACNucleotides and the model uses Nucleotides see getMatchingDataType()
+	 * Note: If the alignment uses IUPACNucleotides and the model uses Nucleotides see getMatchingDataType()
 	 */
 	public Tree basicUnrootedTreeMLSearch(Tree baseTree, Alignment a, SubstitutionModel sm, boolean optimiseModel) {
 	  return basicUnrootedTreeMLSearch(baseTree,a,sm,optimiseModel,AlgorithmCallback.Utils.getNullCallback());
@@ -46,7 +46,7 @@ public final class TreeSearchTool {
 	 * @param optimiseModel If true the substitution model will be optimised concurrently with the tree. This will change in the input model.
 	 * @param callback An AlgorithmCallback object used to control and monitor the search progress
 	 * @return The optimised tree (the original tree is *not* altered)
-	 * @note If the alignment uses IUPACNucleotides and the model uses Nucleotides see getMatchingDataType()
+	 * Note: If the alignment uses IUPACNucleotides and the model uses Nucleotides see getMatchingDataType()
 	 */
 	public Tree basicUnrootedTreeMLSearch(Tree baseTree, Alignment a, SubstitutionModel sm, boolean optimiseModel, AlgorithmCallback callback) {
 		UnrootedMLSearcher ut =
@@ -60,7 +60,7 @@ public final class TreeSearchTool {
 	 * @param sm The related substitution model. The data type of the model should match that of the alignment. The parameters of this model may change if the optimise model is choosen.
 	 * @param optimiseModel If true the substitution model will be optimised concurrently with the tree. This will change in the input model.
 	 * @return The optimised tree
-	 * @note If the alignment uses IUPACNucleotides and the model uses Nucleotides see getMatchingDataType()
+	 * Note: If the alignment uses IUPACNucleotides and the model uses Nucleotides see getMatchingDataType()
 	 */
 	public Tree basicUnrootedTreeMLSearch(Alignment a, SubstitutionModel sm, boolean optimiseModel) {
 	  return basicUnrootedTreeMLSearch(a,sm,optimiseModel,AlgorithmCallback.Utils.getNullCallback());
@@ -72,7 +72,7 @@ public final class TreeSearchTool {
 	 * @param optimiseModel If true the substitution model will be optimised concurrently with the tree. This will change in the input model.
 	 * @param callback An AlgorithmCallback object used to control and monitor the search progress
 	 * @return The optimised tree
-	 * @note If the alignment uses IUPACNucleotides and the model uses Nucleotides see getMatchingDataType()
+	 * Note: If the alignment uses IUPACNucleotides and the model uses Nucleotides see getMatchingDataType()
 	 */
 	public Tree basicUnrootedTreeMLSearch(Alignment a, SubstitutionModel sm, boolean optimiseModel, AlgorithmCallback callback) {
 			UnrootedMLSearcher ut =
@@ -87,8 +87,8 @@ public final class TreeSearchTool {
 	 * @param model The substitution model to use (is changed if optimisation of the model is choosen)
 	 * @param optimiseModel if true the model is also optimised, otherwise just the tree
 	 * @return The optimised tree
-	 * @note this performs the same operation as LikelihoodTool.optimiseUnrooted(), but potentially uses alternative and faster code
-	 * @note If the alignment uses IUPACNucleotides and the model uses Nucleotides see getMatchingDataType()
+	 * Note: this performs the same operation as LikelihoodTool.optimiseUnrooted(), but potentially uses alternative and faster code
+	 * Note: If the alignment uses IUPACNucleotides and the model uses Nucleotides see getMatchingDataType()
 	 */
 	public final static Tree optimiseUnrootedFixed(Tree tree, Alignment alignment, SubstitutionModel model, boolean optimiseModel) {
 	  return optimiseUnrootedFixed(tree,alignment,model,optimiseModel,AlgorithmCallback.Utils.getNullCallback());
@@ -102,8 +102,8 @@ public final class TreeSearchTool {
 	 * @param optimiseModel if true the model is also optimised, otherwise just the tree
 	 * @param callback An algorithm callback object for monitoring process of search algorithm
 	 * @return The optimised tree
-	 * @note this performs the same operation as LikelihoodTool.optimiseUnrooted(), but potentially uses alternative and faster code
-	 * @note If the alignment uses IUPACNucleotides and the model uses Nucleotides see getMatchingDataType()
+	 * Note: this performs the same operation as LikelihoodTool.optimiseUnrooted(), but potentially uses alternative and faster code
+	 * Note: If the alignment uses IUPACNucleotides and the model uses Nucleotides see getMatchingDataType()
 	 */
 	public final static Tree optimiseUnrootedFixed(Tree tree, Alignment alignment, SubstitutionModel model, boolean optimiseModel, AlgorithmCallback callback) {
 		UnrootedMLSearcher ut =
@@ -139,8 +139,8 @@ public final class TreeSearchTool {
 	 * @param optimiseModel if true the model is also optimised, otherwise just the tree
 	 * @param callback An algorithm callback object for monitoring process of search algorithm
 	 * @return The optimised tree
-	 * @note this performs the same operation as LikelihoodTool.optimiseClockConstrained(), but potentially uses alternative and faster code
-	 * @note If the alignment uses IUPACNucleotides and the model uses Nucleotides see getMatchingDataType()
+	 * Note: this performs the same operation as LikelihoodTool.optimiseClockConstrained(), but potentially uses alternative and faster code
+	 * Note: If the alignment uses IUPACNucleotides and the model uses Nucleotides see getMatchingDataType()
 	 */
 	public final static Tree optimiseClockConstrainedFixed(Tree tree, Alignment alignment, SubstitutionModel model, boolean optimiseModel, AlgorithmCallback callback) {
 		GeneralLikelihoodSearcher gls =
@@ -215,7 +215,7 @@ public final class TreeSearchTool {
 	 * @param alignment The base alignment
 	 * @param model The substitution model that will be used with the alignment data
 	 * @return An appropriately converted alignment
-	 * @note this is also neccessary if the alignment uses IUPACNucleotides and the model is Nucleotides. This code also appears in pal.eval.LikelihoodTool
+	 * Note: this is also neccessary if the alignment uses IUPACNucleotides and the model is Nucleotides. This code also appears in pal.eval.LikelihoodTool
 	 */
 	public static final Alignment getMatchingDataType(Alignment alignment, SubstitutionModel model) {
 	  DataTranslator dt = new DataTranslator(alignment);
@@ -228,7 +228,7 @@ public final class TreeSearchTool {
 	 * @param alignment The alignment (sequence names must match tree)
 	 * @param model The substitution model to use
 	 * @return The log likelihood
-	 * @note If the alignment uses IUPACNucleotides and the model uses Nucleotides see getMatchingDataType()
+	 * Note: If the alignment uses IUPACNucleotides and the model uses Nucleotides see getMatchingDataType()
 	 */
 	public final static double calculateLogLikelihood(Tree tree, Alignment alignment, SubstitutionModel model) {
 		UnrootedMLSearcher uml = new UnrootedMLSearcher(tree,alignment,model);

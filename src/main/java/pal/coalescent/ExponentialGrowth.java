@@ -35,18 +35,17 @@ public class ExponentialGrowth extends ConstantPopulation implements Report, Par
 
 	private static final String[] EG_SUMMARY_TYPES = {"N0","N0SE", "R", "RSE"}; //This is dependent on ConstantPopulation!
 
-
 	/** growth rate r */
 	public double r;
-
 
 	/** standard error of growth rate r  */
 	public double rSE;
 
-
 	/**
 	 * Construct demographic model with default settings
-	 */
+     *
+     * @param units the units of time for the model (e.g., generations, years)
+     */
 	public ExponentialGrowth(int units) {
 
 		super(units);
@@ -54,10 +53,13 @@ public class ExponentialGrowth extends ConstantPopulation implements Report, Par
 		r = getDefaultValue(1);
 	}
 
-
 	/**
 	 * Construct demographic model of an exponentially growing population
-	 */
+     *
+     * @param size the initial population size (at time zero)
+     * @param growth the exponential growth rate
+     * @param units the units of time for the model (e.g., generations, years)
+     */
 	public ExponentialGrowth(double size, double growth, int units) {
 
 		super(size, units);
@@ -90,7 +92,9 @@ public class ExponentialGrowth extends ConstantPopulation implements Report, Par
 
 	/**
 	 * returns growth rate.
-	 */
+     *
+     * @return the growth rate (r) of the population
+     */
 	public double getGrowthRate() {
 		return r;
 	}

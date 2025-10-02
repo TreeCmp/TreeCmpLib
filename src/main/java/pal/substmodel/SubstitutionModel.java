@@ -31,40 +31,76 @@ public interface SubstitutionModel extends Parameterized, Report, java.io.Serial
 	public double getTransitionCategoryProbability(int category);
 	/**
 	 * @return all the category probabilites for each category respectively.
-	 * @note Applications should not alter the returned array in
+	 * Note: Applications should not alter the returned array in
 	 * any way!
 	 */
 	public double[] getTransitionCategoryProbabilities();
-	/**
-	 * Table is organized as [transition_group][from][to]
-	 */
-	public void getTransitionProbabilities(double branchLength, double[][][] tableStore);
-	/**
-	 * Table is organized as [transition_group][to][from]
-	 */
-	public void getTransitionProbabilitiesTranspose(double branchLength, double[][][] tableStore);
+    /**
+     * Calculates and stores the transition probabilities for all transition groups at the specified branch length.
+     * The resulting table is organized as [transition_group][from][to].
+     *
+     * @param branchLength The evolutionary distance (time or branch length) over which to calculate probabilities.
+     * @param tableStore The 3D array where the probabilities will be stored, organized as [transition_group][from][to].
+     */
+    public void getTransitionProbabilities(double branchLength, double[][][] tableStore);
 
-	/**
-	 * Table is organized as [transition_group][from][to]
-	 */
-	public void getTransitionProbabilities(double branchLength, int category, double[][] tableStore);
-	/**
-	 * Table is organized as [transition_group][to][from]
-	 */
-	public void getTransitionProbabilitiesTranspose(double branchLength, int category, double[][] tableStore);
+    /**
+     * Calculates and stores the transposed transition probabilities for all transition groups at the specified branch length.
+     * The resulting table is organized as [transition_group][to][from].
+     *
+     * @param branchLength The evolutionary distance (time or branch length) over which to calculate probabilities.
+     * @param tableStore The 3D array where the probabilities will be stored, organized as [transition_group][to][from].
+     */
+    public void getTransitionProbabilitiesTranspose(double branchLength, double[][][] tableStore);
 
-	/**
-	 * Should return a double[] array of the related equilibrium frequencies. As a rule, callers should not alter the returned array (it may be used internally)
-	 */
-	public double[] getEquilibriumFrequencies();
+    /**
+     * Calculates and stores the transition probabilities for a single category and all transition groups at the specified branch length.
+     * The resulting table is organized as [transition_group][from][to].
+     *
+     * @param branchLength The evolutionary distance (time or branch length) over which to calculate probabilities.
+     * @param category The specific category index for which to calculate probabilities.
+     * @param tableStore The 2D array where the probabilities will be stored. Note: The organization is [from][to] for the selected category.
+     */
+    public void getTransitionProbabilities(double branchLength, int category, double[][] tableStore);
 
-	public void addPalObjectListener(PalObjectListener l);
-	public void removePalObjectListener(PalObjectListener l);
+    /**
+     * Calculates and stores the transposed transition probabilities for a single category and all transition groups at the specified branch length.
+     * The resulting table is organized as [transition_group][to][from].
+     *
+     * @param branchLength The evolutionary distance (time or branch length) over which to calculate probabilities.
+     * @param category The specific category index for which to calculate probabilities.
+     * @param tableStore The 2D array where the probabilities will be stored. Note: The organization is [to][from] for the selected category.
+     */
+    public void getTransitionProbabilitiesTranspose(double branchLength, int category, double[][] tableStore);
 
-	/**
-	 * May return null
-	 */
-	public OrthogonalHints getOrthogonalHints();
+    /**
+     * Returns a double array of the related equilibrium frequencies for all states.
+     * Callers should not alter the returned array as it may be used internally by the model.
+     *
+     * @return A double array containing the equilibrium frequencies.
+     */
+    public double[] getEquilibriumFrequencies();
+
+    /**
+     * Adds a PalObjectListener to be notified of changes to the model's parameters or structure.
+     *
+     * @param l The PalObjectListener to add.
+     */
+    public void addPalObjectListener(PalObjectListener l);
+
+    /**
+     * Removes a PalObjectListener so it is no longer notified of changes.
+     *
+     * @param l The PalObjectListener to remove.
+     */
+    public void removePalObjectListener(PalObjectListener l);
+
+    /**
+     * Returns hints used for orthogonalization or specific optimizations, if available.
+     *
+     * @return An OrthogonalHints object, or {@code null} if no hints are available.
+     */
+    public OrthogonalHints getOrthogonalHints();
 
 	public Object clone();
 
@@ -80,39 +116,57 @@ public interface SubstitutionModel extends Parameterized, Report, java.io.Serial
 			return new double[model.getNumberOfTransitionCategories()][numberOfStates][numberOfStates];
 		}
 
-		/**
-		 * @return a substitution model base on a rate matrix. There is only one transition category.
-		 * There is no independent distribution access (as not distribution across one transition category)
-		 */
-		public static final SubstitutionModel createSubstitutionModel(RateMatrix rm) {
-			return new SimpleSubstitutionModel(rm);
-		}
-		/**
-		 * @return a substitution model base on a rate matrix. There is only one transition category.
-		 * There is no independent distribution access (as not distribution across one transition category)
-		 */
-		public static final SubstitutionModel createSubstitutionModel(NeoRateMatrix rm, DataType dt, double[] equilibriumFrequencies) {
-			return new SingleClassSubstitutionModel(rm,dt, equilibriumFrequencies);
-		}
+        /**
+         * Creates a substitution model based on a single rate matrix.
+         * This model has only one transition category, and thus no independent distribution access
+         * (as there is no distribution across transition categories).
+         *
+         * @param rm The underlying rate matrix (RateMatrix) for the single transition category.
+         * @return A new SubstitutionModel object with a single rate category.
+         */
+        public static final SubstitutionModel createSubstitutionModel(RateMatrix rm) {
+            return new SimpleSubstitutionModel(rm);
+        }
 
-		/**
-		 * @return a substitution model base on a rate matrix, and a rate distribution. There are as many transition categories as there are rate categories in the rate distribution.
-		 * There is no independent distribution access (as rate distributions don't normally allow changing of probabilities for a category without changing the rate of a category - at least none in pal do)
-		 */
-		public static final SubstitutionModel createSubstitutionModel(RateMatrix rm, RateDistribution rd) {
-			return new RateDistributionSubstitutionModel(rm,rd);
-		}
+        /**
+         * Creates a substitution model based on a specified rate matrix, data type, and equilibrium frequencies.
+         * This model has only one transition category.
+         *
+         * @param rm The underlying rate matrix (NeoRateMatrix).
+         * @param dt The data type (DataType) handled by the model.
+         * @param equilibriumFrequencies An array of equilibrium frequencies for the states.
+         * @return A new SingleClassSubstitutionModel object.
+         */
+        public static final SubstitutionModel createSubstitutionModel(NeoRateMatrix rm, DataType dt, double[] equilibriumFrequencies) {
+            return new SingleClassSubstitutionModel(rm,dt, equilibriumFrequencies);
+        }
 
-		/**
-		 * @param parameteriseDistribution If true will include the distribution parameters as part of the
-		 * substitution modle parameters, if false then the distribution parameters are set from the
-		 * point of view of the substitution model.
-		 * @return a substitution model base on a rate matrix, and a rate distribution. There are as many transition categories as there are rate categories in the rate distribution.
-		 * There is no independent distribution access (as rate distributions don't normally allow changing of probabilities for a category without changing the rate of a category - at least none in pal do)
-		 */
-		public static final SubstitutionModel createSubstitutionModel(RateMatrix rm, RateDistribution rd, boolean parameteriseDistribution) {
-			return new RateDistributionSubstitutionModel(rm,rd,parameteriseDistribution);
-		}
+        /**
+         * Creates a substitution model based on a rate matrix and a rate distribution.
+         * The model will have as many transition categories as there are rate categories in the rate distribution.
+         * There is no independent distribution access (as rate distributions typically link rate and probability).
+         *
+         * @param rm The underlying rate matrix (RateMatrix).
+         * @param rd The rate distribution (RateDistribution) which defines the categories and their probabilities.
+         * @return A new RateDistributionSubstitutionModel object.
+         */
+        public static final SubstitutionModel createSubstitutionModel(RateMatrix rm, RateDistribution rd) {
+            return new RateDistributionSubstitutionModel(rm,rd);
+        }
+
+        /**
+         * Creates a substitution model based on a rate matrix and a rate distribution, with an option to parameterize the distribution.
+         * The model will have as many transition categories as there are rate categories in the rate distribution.
+         * There is no independent distribution access (as rate distributions typically link rate and probability).
+         *
+         * @param rm The underlying rate matrix (RateMatrix).
+         * @param rd The rate distribution (RateDistribution) which defines the categories and their probabilities.
+         * @param parameteriseDistribution If {@code true}, the distribution parameters are included as part of the substitution model parameters. If {@code false}, the distribution parameters are set from the substitution model's point of view.
+         * @return A new RateDistributionSubstitutionModel object.
+         */
+        public static final SubstitutionModel createSubstitutionModel(RateMatrix rm, RateDistribution rd, boolean parameteriseDistribution) {
+            return new RateDistributionSubstitutionModel(rm,rd,parameteriseDistribution);
+        }
 
 
 

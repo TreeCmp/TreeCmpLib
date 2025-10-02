@@ -102,7 +102,7 @@ public final class SubstitutionTool {
 	 * @param e entry in rate matrix
 	 * @param baseFrequencies The equilibrium frequencies of the four nucleotide bases (ordered A, G, C, T)
 	 * @return The related substitution model
-	 * @note matrix organised
+	 * Note: matrix organised
 	 *  <code>
 	 *      . a b c
 	 *      - . d e
@@ -122,7 +122,7 @@ public final class SubstitutionTool {
 	 * @param e entry in rate matrix
 	 * @param baseFrequencies The equilibrium frequencies of the four nucleotide bases (ordered A, G, C, T)
 	 * @return The related ratematrix
-	 * @note matrix organised
+	 * Note: matrix organised
 	 *  <code>
 	 *      . a b c
 	 *      - . d e
@@ -140,7 +140,7 @@ public final class SubstitutionTool {
 	 * @param omega non-synonymous/synonymous rate ratio
 	 * @param baseFrequencies The equilibrium frequencies of the 64 codon bases (zero for stop codons please)
 	 * @return The related substitution model
-	 * @note using universal codon table
+	 * Note: using universal codon table
 	 */
 	public static final SubstitutionModel createM0YangCodonModel(double kappa, double omega, double[] baseFrequencies) {
 		return SubstitutionModel.Utils.createSubstitutionModel(new YangCodonModel(omega, kappa, baseFrequencies));
@@ -151,7 +151,7 @@ public final class SubstitutionTool {
 	 * @param p0 The proporition under purifying selection
 	 * @param baseFrequencies The equilibrium frequencies of the 64 codon bases (zero for stop codons please)
 	 * @return The related substitution model
-	 * @note using universal codon table
+	 * Note: using universal codon table
 	 */
 	public static final SubstitutionModel createM1YangCodonModel(double kappa, double p0, double[] baseFrequencies) {
 		return new YangCodonModel.SimpleNeutralSelection( CodonTableFactory.createUniversalTranslator(), baseFrequencies, kappa, p0 );
@@ -164,7 +164,7 @@ public final class SubstitutionTool {
 	 * @param omega The free omega
 	 * @param baseFrequencies The equilibrium frequencies of the 64 codon bases (zero for stop codons please)
 	 * @return The related substitution model
-	 * @note using universal codon table
+	 * Note: using universal codon table
 	 */
 	public static final SubstitutionModel createM2YangCodonModel(double kappa, double p0, double p1, double omega, double[] baseFrequencies) {
 		return new YangCodonModel.SimplePositiveSelection( CodonTableFactory.createUniversalTranslator(), baseFrequencies, kappa, omega, p0, p1  );

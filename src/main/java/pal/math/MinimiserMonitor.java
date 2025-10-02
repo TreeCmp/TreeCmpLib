@@ -16,7 +16,10 @@ import java.io.*;
 public interface MinimiserMonitor {
 	/**
 	 * Inform monitor of current progress (as a number between 0 and 1), or -1 to reset
-	 */
+     *
+     * @param progress a number between {@code 0.0} and {@code 1.0} representing progress,
+     *                 or {@code -1.0} to reset the progress indicator
+     */
 	public void updateProgress(double progress);
 
 	/**
@@ -24,7 +27,11 @@ public interface MinimiserMonitor {
 	 * change the supplied array of parameterValues!
 	 * This should be called in the same thread as the minimisation so that beingOptimized may be accessed
 	 * within this call with out worry of conflicting with the optimisation process!
-	 */
+     *
+     * @param value the minimum value found
+     * @param parameterValues the argument values corresponding to this minimum
+     * @param beingOptimized the function being optimized
+     */
 	public void newMinimum(double value, double[] parameterValues, MultivariateFunction beingOptimized);
 //=====================================================================
 //=====================================================================
@@ -33,42 +40,56 @@ public interface MinimiserMonitor {
 
 		/**
 		 * Creates a MinimiserMonitor that outputs current minimum to a print stream
-		 */
+         *
+         * @param output the print writer to which results will be written
+         * @return a monitor that writes progress and results to {@code output}
+         */
 		public static final MinimiserMonitor createSimpleMonitor(PrintWriter output) {
 			return new Simple(output);
 		}
 		/**
-		 * @create a monitor such that all information sent to monitor is based on two sub monitors
-		 */
+		 * Creates a monitor such that all information sent to monitor is based on two sub monitors
+         *
+         * @param a the first monitor
+         * @param b the second monitor
+         * @return a monitor that sends updates to both {@code a} and {@code b}
+         */
 		public static final MinimiserMonitor createSplitMonitor(MinimiserMonitor a, MinimiserMonitor b) {
 			return new Split(a,b);
 		}
 
 		/**
 		 * Creates a MinimiserMonitor that outputs current minimum to a System.out
-		 */
+         *
+         * @return a monitor writing results to standard output
+         */
 		public static final MinimiserMonitor createSystemOuptutMonitor() {
 			return SystemOutput.INSTANCE;
 		}
 		/**
 		 * Creates a MinimiserMonitor that outputs current minimum to a System.err
-		 */
+         *
+         * @return a monitor writing results to standard error
+         */
 		public static final MinimiserMonitor createSystemErrorMonitor() {
 			return SystemError.INSTANCE;
 		}
 		/**
 		 * Creates a MinimiserMonitor that Stores output (use toString() to access current results)
-		 */
+         *
+         * @return a monitor storing results as a string
+         */
 		public static final MinimiserMonitor createStringMonitor() {
 			return new StringMonitor();
 		}
 		/**
 		 * Creates a MinimiserMonitor that looses all output
-		 */
+         *
+         * @return a monitor that discards all information
+         */
 		public static final MinimiserMonitor createNullMonitor() {
 			return NullMonitor.INSTANCE;
 		}
-
 
 		//=============================================================
 		private static final class StringMonitor implements MinimiserMonitor {

@@ -91,8 +91,12 @@ public class Codons extends SimpleDataType implements MolecularDataType
 		return CODON_DESCRIPTION;
 	}
 
-	/**
-	 * @retrun true if this state is an unknown state
+    /**
+     * Determines whether the given state is considered unknown.
+     * This implementation considers states less than 0 or greater than or equal to 64 as unknown.
+     *
+     * @param state the state to check
+     * @return true if this state is an unknown state
 	 */
 	protected final boolean isUnknownStateImpl(final int state) {
 		return(state>=64)||(state<0);
@@ -108,8 +112,10 @@ public class Codons extends SimpleDataType implements MolecularDataType
 //================ MoleuclarDataType stuff ===================
 //==========================================================
 
-	/**
-	 * @param residue states an array of states corresponding to states of <emph>this</emph> datatype
+    /**
+     * Converts an array of residue states to the corresponding IUPAC nucleotide states.
+     *
+     * @param residueStates states an array of states corresponding to states of <em>this</em> datatype
 	 * @return the corresponding IUPAC states
 	 */
 	public int[] getNucleotideStates(int[] residueStates) {
@@ -128,19 +134,28 @@ public class Codons extends SimpleDataType implements MolecularDataType
 			base+=3;
 		}
 		return result;
-
 	}
 
-	/**
-	 */
+    /**
+     * Converts the given IUPAC nucleotide states to states of this data type.
+     *
+     * @param nucleotideStates an array of IUPAC nucleotide states
+     * @param startingIndex the starting index in the array to begin conversion
+     * @return an array of molecular states corresponding to the input nucleotide states
+     */
 	public final int[] getMolecularStatesFromIUPACNucleotides(int[] nucleotideStates, int startingIndex) {
 		return getMolecularStatesFromSimpleNucleotides(
 			nucleotideStates,	startingIndex
 		);
 	}
-	/**
-	 * @return
-	 */
+
+    /**
+     * Converts the given simple nucleotide states (e.g., 0,1,2,3 or A,C,G,T) to states of this data type.
+     *
+     * @param nucleotideStates an array of simple nucleotide states
+     * @param startingIndex the starting index in the array to begin conversion
+     * @return an array of molecular states; invalid triplets result in -1
+     */
 	public final int[] getMolecularStatesFromSimpleNucleotides(int[] nucleotideStates, int startingIndex) {
 		int[] result = new int[(nucleotideStates.length-startingIndex)/3];
 		int base = startingIndex;
@@ -161,15 +176,20 @@ public class Codons extends SimpleDataType implements MolecularDataType
 		return result;
 	}
 
-	/**
-	 * @return false
-	 */
+    /**
+     * Indicates whether this data type can create IUPAC nucleotides.
+     *
+     * @return {@code false} as this data type does not create IUPAC nucleotides
+     */
 	public boolean isCreatesIUPACNuecleotides() {
 		return false;
 	}
-	/**
-	 * @return 3
-	 */
+
+    /**
+     * Returns the length of the nucleotide representation in this data type.
+     *
+     * @return the nucleotide length, which is 3
+     */
 	public final int getNucleotideLength() {
 		return 3;
 	}
@@ -177,7 +197,10 @@ public class Codons extends SimpleDataType implements MolecularDataType
 	//========================= Static Utility Methods =====================
 	//======================================================================
 
-	/**
+    /**
+     * Returns a three-letter acronym (TLA) for an amino acid, based on its state.
+     *
+     * @param state the state representing an amino acid
 	 * @return a three letter acronym for an AminoAcid, according to state
 	 */
 	public static final String getTLA(final int state) {
@@ -186,6 +209,7 @@ public class Codons extends SimpleDataType implements MolecularDataType
 		}
 		return TLA_NAMES_BY_STATE[state];
 	}
+
 	/**
 	 * The codon index is a number between 0 and 64 assigned to each different codon type
 	 * @param codon a 3 element array of characters which contain Nucleotide characters
@@ -234,15 +258,16 @@ public class Codons extends SimpleDataType implements MolecularDataType
 		}
 		return index;
 	}
+
 	/**
 	 * The codon index is a number between 0 and 64 assigned to each different codon type
 	 * @param codon a 3 element array of characters which contain Nucleotide states
-	 * @param startingPosition an offset into the array to start examining
 	 * @return -1 if the codon has unknowns, or gaps in it, or is length is less than 3
 	 */
 	public static final int getCodonIndexFromIUPACNucleotideStates(int[] codon) {
 		return getCodonIndexFromIUPACNucleotideStates(codon,0);
 	}
+
 	/**
 	 * The codon index is a number between 0 and 64 assigned to each different codon type
 	 * @param codon a 3 element array of characters which contain Nucleotide states
@@ -282,9 +307,11 @@ public class Codons extends SimpleDataType implements MolecularDataType
 		}
 		return cs;
 	}
-	/**
-	 * Translates an index into a codon
-	 * @param index the codon index
+
+    /**
+     * Translates a codon index into the corresponding nucleotide states.
+     *
+     * @param codonIndex the codon index (0–63)
 	 * @return an int array contain 3 nucleotide states
 	 */
 	public static final int[] getNucleotideStatesFromCodonIndex(int codonIndex) {
@@ -302,6 +329,7 @@ public class Codons extends SimpleDataType implements MolecularDataType
 		}
 		return cs;
 	}
+
 	public final static double[] getF1X4CodonFrequencies(double[] nucleotideFrequencies) {
 		final double[] cfs = new double[64];
 		for(int i = 0  ;  i < 64 ; i++) {

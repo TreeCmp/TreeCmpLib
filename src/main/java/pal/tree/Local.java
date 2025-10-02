@@ -17,122 +17,129 @@ public class Local {
 	public static Tree local(Tree tree) {
 		return local(tree, 1.0);
 	}
-	
-	/**
-	 * This method does a local interchange on
-	 * the given tree: <b>Note</b> the original tree <b>is</b> modified. 
-	 * If this behaviour is inappropriate then pass new SimpleTree(tree) 
-	 * to this method.
-	 * <pre>
-	 * Actual		 Logical
-	 *     2                 1            4
-	 *    /|\                 \          /
-	 *   / | \                 \        /
-	 *  /  |  \                 \      /       
-	 * 1   A   3                 2----3
-	 *        / \               /      \
-	 *       /   \             /        \
-	 *      /     \           /          \
-	 *     B       4         A            B
-	 *
-	 * </pre>
-	 * A random internal edge (2,3) is selected and extended in both directions
-	 * to create a back bone (1,2,3,4). One of the two internal nodes (2,3) is moved
-	 * to a new random position on backbone and the backbone is scale in size.
-	 * @param scale determines whether or not the backbone is scaled
-	 * @return a perturbation of given tree. 
-	 */
-	public static Tree local(Tree tree, double scaleFactor) {
-		
-		if (tree.getRoot().getChildCount() != 3) {
-			throw new RuntimeException("Root must have trifurcation!");
-		}
 
-		// (node1, node2, node3, node4) is the backbone
-		
-		//-------------------------------------------------------------
-		// select an internal edge (i.e. one not connected to a tip) 
-		// uniformly and randomly.
-		//-------------------------------------------------------------
-		
-		// assumes root is last internal node and avoids it
-		int pos = random.nextInt(tree.getInternalNodeCount()-1);
-		Node node3 = tree.getInternalNode(pos);
-		Node node2 = node3.getParent();
-		
-		//-------------------------------------------------------------
-		
-		// reroot so that top of edge is root
-		TreeUtils.reroot(tree, node2);
-		
-		int k = random.nextInt(node2.getChildCount());
-		
-		//System.out.println("getting node1...");
-		while (node2.getChild(k) == node3) {
-			k = random.nextInt(node2.getChildCount());
-		}
-		Node node1 = node2.getChild(k);
-		Node nodeA = null;
-		for (int i =0; i < node2.getChildCount(); i++) {
-			if ((node2.getChild(i) != node1) && (node2.getChild(i) != node3)) {
-				nodeA = node2.getChild(i);
-			}
-		}
-		
-		//System.out.println("getting node4...");
-		Node node4, nodeB;
-		
-		node4 = node3.getChild(0);
-		nodeB = node3.getChild(1);
-		if (random.nextBoolean()) {
-			nodeB = node3.getChild(0);
-			node4 = node3.getChild(1);
-		}
-	
-		double backBoneLength = node1.getBranchLength() + node3.getBranchLength() + node4.getBranchLength();
-			
-		// modify backbone length
-		double newLength = backBoneLength * scaleFactor;
-		node1.setBranchLength(node1.getBranchLength() * scaleFactor);
-		node3.setBranchLength(node3.getBranchLength() * scaleFactor);
-		node4.setBranchLength(node4.getBranchLength() * scaleFactor);
-		double newpos = random.nextDouble() * newLength;
-			
-		if (random.nextBoolean()) {
-			// detach and reattach A
+    /**
+     * This method performs a local interchange (Topological/Branch Length Perturbation)
+     * on the given tree, similar to a Subtree Pruning and Regrafting (SPR) move, but localized.
+     *
+     * <p><b>Note:</b> The original tree **is** modified in place. If this behavior
+     * is inappropriate, pass a copy (e.g., {@code new SimpleTree(tree)}) to this method.</p>
+     *
+     * <p>The operation selects a random internal edge (2,3) and extends it to a four-node backbone (1, 2, 3, 4).
+     * It then randomly moves one of the side branches (A or B) to a new random position on the backbone,
+     * potentially changing the topology, and scales the backbone length.</p>
+     *
+     * <pre>
+     * Actual Topology (Before)    Logical Backbone (for reference)
+     *
+     * 2                             1            4
+     * /|\                             \          /
+     * / | \                             \        /
+     * /  |  \                             \      /
+     * 1   A   3                             2----3
+     * / \                           /      \
+     * /   \                         /        \
+     * /     \                       /          \
+     * B       4                     A            B
+     *
+     * </pre>
+     *
+     * @param tree The {@code Tree} object on which the local interchange is performed. This tree is modified directly.
+     * @param scaleFactor The factor by which the length of the selected backbone edge will be scaled. A value of 1.0 means no length scaling.
+     * @return The modified {@code Tree} object (the perturbation of the given tree).
+     * @throws RuntimeException if the root of the input tree does not have exactly three children (must be a trifurcation).
+     */
+    public static Tree local(Tree tree, double scaleFactor) {
 
-			double easyLength = node1.getBranchLength() + node3.getBranchLength();
-			if (newpos < easyLength) {
-				//no topology change
-				node1.setBranchLength(newpos);
-				node3.setBranchLength(easyLength-newpos);
-			} else {
-				swapNodes(nodeA, nodeB);
-				node1.setBranchLength(easyLength);
-				node3.setBranchLength(newpos - easyLength);
-				node4.setBranchLength(newLength - newpos);
-			}
-		} else {
-			// detach and reattach B
-			double easyLength = node3.getBranchLength() + node4.getBranchLength();
-			double hardLength = node1.getBranchLength();
-			if (newpos > hardLength) {
-				// no topology change
-				node3.setBranchLength(newpos - hardLength);
-				node4.setBranchLength(newLength - newpos);
-			} else {
-				swapNodes(node1, node4);
-				node1.setBranchLength(newpos);
-				node3.setBranchLength(hardLength - newpos);
-				node4.setBranchLength(easyLength);
-			}
-		}
-	
-		tree.createNodeList();
-		NodeUtils.lengths2Heights(tree.getRoot());
+        if (tree.getRoot().getChildCount() != 3) {
+            throw new RuntimeException("Root must have trifurcation!");
+        }
 
-		return tree;
-	}
+        // (node1, node2, node3, node4) is the backbone
+
+        //-------------------------------------------------------------
+        // select an internal edge (i.e. one not connected to a tip)
+        // uniformly and randomly.
+        //-------------------------------------------------------------
+
+        // assumes root is last internal node and avoids it
+        int pos = random.nextInt(tree.getInternalNodeCount()-1);
+        Node node3 = tree.getInternalNode(pos);
+        Node node2 = node3.getParent();
+
+        //-------------------------------------------------------------
+
+        // reroot so that top of edge is root
+        TreeUtils.reroot(tree, node2);
+
+        int k = random.nextInt(node2.getChildCount());
+
+        //System.out.println("getting node1...");
+        while (node2.getChild(k) == node3) {
+            k = random.nextInt(node2.getChildCount());
+        }
+        Node node1 = node2.getChild(k);
+        Node nodeA = null;
+        for (int i =0; i < node2.getChildCount(); i++) {
+            if ((node2.getChild(i) != node1) && (node2.getChild(i) != node3)) {
+                nodeA = node2.getChild(i);
+            }
+        }
+
+        //System.out.println("getting node4...");
+        Node node4, nodeB;
+
+        node4 = node3.getChild(0);
+        nodeB = node3.getChild(1);
+        if (random.nextBoolean()) {
+            nodeB = node3.getChild(0);
+            node4 = node3.getChild(1);
+        }
+
+        double backBoneLength = node1.getBranchLength() + node3.getBranchLength() + node4.getBranchLength();
+
+        // modify backbone length
+        double newLength = backBoneLength * scaleFactor;
+        node1.setBranchLength(node1.getBranchLength() * scaleFactor);
+        node3.setBranchLength(node3.getBranchLength() * scaleFactor);
+        node4.setBranchLength(node4.getBranchLength() * scaleFactor);
+        double newpos = random.nextDouble() * newLength;
+
+        if (random.nextBoolean()) {
+            // detach and reattach A
+
+            double easyLength = node1.getBranchLength() + node3.getBranchLength();
+            if (newpos < easyLength) {
+                //no topology change
+                node1.setBranchLength(newpos);
+                node3.setBranchLength(easyLength-newpos);
+            } else {
+                swapNodes(nodeA, nodeB);
+                node1.setBranchLength(easyLength);
+                node3.setBranchLength(newpos - easyLength);
+                node4.setBranchLength(newLength - newpos);
+            }
+        } else {
+            // detach and reattach B
+            double easyLength = node3.getBranchLength() + node4.getBranchLength();
+            double hardLength = node1.getBranchLength();
+            if (newpos > hardLength) {
+                // no topology change
+                node3.setBranchLength(newpos - hardLength);
+                node4.setBranchLength(newLength - newpos);
+            } else {
+                swapNodes(node1, node4);
+                node1.setBranchLength(newpos);
+                node3.setBranchLength(hardLength - newpos);
+                node4.setBranchLength(easyLength);
+            }
+        }
+
+        tree.createNodeList();
+        NodeUtils.lengths2Heights(tree.getRoot());
+
+        return tree;
+    }
 
 	public static Tree stochasticNNI(Tree tree) {
 	
@@ -239,50 +246,51 @@ public class Local {
 		out.println();
 	}
 
-	/**
-	 * print label with a prespecified length
-	 * (label will be shortened or spaces will introduced, if necessary)
-	 *
-	 * @param out output stream
-	 * @param label label to be printed
-	 * @param width desired length
-	 */
-	public static void displayLabel(java.io.PrintWriter out, String label, int width, boolean center)
-	{
-		int len = label.length();
+    /**
+     * Prints a label to the output stream with a prespecified width by either padding with spaces
+     * or truncating the label.
+     *
+     * @param out The {@code java.io.PrintWriter} output stream to which the label will be printed.
+     * @param label The string label to be formatted and printed.
+     * @param width The desired fixed length (width) for the output string.
+     * @param center If {@code true}, the label is centered within the specified width by introducing spaces before and after; if {@code false}, it is left-aligned.
+     */
+    public static void displayLabel(java.io.PrintWriter out, String label, int width, boolean center)
+    {
+        int len = label.length();
 
-		if (len == width)
-		{
-			// Print as is
-			out.print(label);
-		}
-		else if (len < width)
-		{
-			int first = width-len;
-			int second = 0;
-		
-			if (center) {
-				first = first / 2;
-				second = first - (width-len);
-			}
-			// fill rest with spaces
-			for (int i = 0; i < first; i++) {
-				out.print(' ');
-			}
-			out.print(label);
-			for (int i = 0; i < second; i++) {
-				out.print(' ');
-			}
-		}
-		else
-		{
-			// Print first width characters
-			for (int i = 0; i < width; i++)
-			{
-				out.print(label.charAt(i));
-			}			
-		}		
-	}
+        if (len == width)
+        {
+            // Print as is
+            out.print(label);
+        }
+        else if (len < width)
+        {
+            int first = width-len;
+            int second = 0;
+
+            if (center) {
+                first = first / 2;
+                second = first - (width-len);
+            }
+            // fill rest with spaces
+            for (int i = 0; i < first; i++) {
+                out.print(' ');
+            }
+            out.print(label);
+            for (int i = 0; i < second; i++) {
+                out.print(' ');
+            }
+        }
+        else
+        {
+            // Print first width characters (truncation)
+            for (int i = 0; i < width; i++)
+            {
+                out.print(label.charAt(i));
+            }
+        }
+    }
 
 	public static final void main(String[] args) {
 		

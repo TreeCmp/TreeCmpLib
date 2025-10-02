@@ -30,41 +30,45 @@ public class ReadTree extends SimpleTree
 	// Public stuff
 	//
 
-	/**
-	 * read tree from input stream
-	 *
-	 * @param input input stream
-	 */
-	public ReadTree(PushbackReader input) throws TreeParseException
-	{
-		super();
+    /**
+     * Reads a phylogenetic tree from a {@code PushbackReader} input stream in Newick format.
+     * After reading, the method calculates node heights from branch lengths and initializes the node list.
+     *
+     * @param input The {@code PushbackReader} input stream containing the Newick tree string.
+     * @throws TreeParseException If the tree string is malformed or cannot be parsed.
+     */
+    public ReadTree(PushbackReader input) throws TreeParseException
+    {
+        super();
 
-		readNH(input);
+        readNH(input);
 
-		// node heights should be populated as well - AD
-		NodeUtils.lengths2Heights(getRoot());
+        // node heights should be populated as well - AD
+        NodeUtils.lengths2Heights(getRoot());
 
-		createNodeList();
-	}
+        createNodeList();
+    }
 
-	/**
-	 * read tree from file
-	 *
-	 * @param file name of file
-	 */
-	public ReadTree(String file) throws TreeParseException, IOException
-	{
-		super();
+    /**
+     * Reads a phylogenetic tree from a file specified by its path in Newick format.
+     * After reading, the method calculates node heights from branch lengths and initializes the node list.
+     *
+     * @param file The path and name of the file containing the Newick tree string.
+     * @throws TreeParseException If the tree string in the file is malformed or cannot be parsed.
+     * @throws IOException If an I/O error occurs while opening or reading the file.
+     */
+    public ReadTree(String file) throws TreeParseException, IOException
+    {
+        super();
 
-		PushbackReader input = InputSource.openFile(file);
-		readNH(input);
-		input.close();
+        PushbackReader input = InputSource.openFile(file);
+        readNH(input);
+        input.close();
 
-		// node heights should be populated as well - AD
-		NodeUtils.lengths2Heights(getRoot());
-		createNodeList();
-	}
-
+        // node heights should be populated as well - AD
+        NodeUtils.lengths2Heights(getRoot());
+        createNodeList();
+    }
 
 	//
 	// Private stuff

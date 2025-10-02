@@ -20,9 +20,7 @@ import pal.coalescent.*;
  * a specific demographic model as a prior on coalescent intervals.
  *
  * <em>Must be used in conjunction with DemographicClockTree! </em>
- *
  * @version $Id: DemographicLikelihoodValue.java,v 1.2 2001/07/13 14:39:13 korbinian Exp $
- *
  * @author Alexei Drummond
  */
 public class DemographicLikelihoodValue extends LikelihoodValue
@@ -33,17 +31,18 @@ public class DemographicLikelihoodValue extends LikelihoodValue
 
 	/**
 	 * Parameter taking a site pattern.
-	 */
+     *
+     * @param sp the site pattern to be used for likelihood computation
+     */
 	public DemographicLikelihoodValue(SitePattern sp) {
 		super(sp);
 	}
-
 
 	/**
 	 * compute log-likelihood
 	 * for current branch lengths and model
 	 *
-	 * return negative log-likelihood
+	 * @return negative log-likelihood
 	 */
 	public double compute()
 	{

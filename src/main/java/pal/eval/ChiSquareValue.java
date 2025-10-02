@@ -68,21 +68,21 @@ public class ChiSquareValue implements MultivariateFunction
 		}
 	}
 
-
 	/**
 	 * Returns the (parameterized) tree of this likelihood value.
-	 */
+     *
+     * @return the (parameterized) phylogenetic tree
+     */
 	public Tree getTree()
 	{
 		return tree;
 	}
 
-
 	/**
 	 * compute (weighted) least-square value
 	 * for current tree (fixed branch lengths)
 	 *
-	 * return chi-square value
+	 * @return chi-square value
 	 */
 	public double compute()
 	{

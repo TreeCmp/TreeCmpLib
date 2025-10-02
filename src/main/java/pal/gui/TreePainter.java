@@ -19,7 +19,7 @@ import java.awt.*;
  * @version $Id: TreePainter.java,v 1.24 2003/08/16 23:48:26 matt Exp $
  *
  * @author Alexei Drummond
- * @note
+ * Note:
  *     <ul>
  *       <li> 14 August 2003 - Changed to reflect NameColouriser changes
  *     </ul>
@@ -94,7 +94,6 @@ abstract public class TreePainter implements Painter {
 	 * @param toDisplay the tree being painted.
 	 * @param title the title of the tree.
 	 * @param showTitle true if a title is being displayed.
-	 * @param nc A name colouriser, may be null.
 	 */
 	public TreePainter(Tree toDisplay, String title, boolean showTitle) {
 
@@ -106,48 +105,53 @@ abstract public class TreePainter implements Painter {
 //		}
 		standardTreePrep();
 	}
-	/**
-	 * Returns -1 if no
-	 * trap value available
-	 */
-	protected int getBootstrapValue(PositionedNode node){
-		Object o = tree.getAttribute(node.getPeer(),BOOTSTRAP_ATTRIBUTE_NAME);
-		if(o==null) {
-			return -1;
-		}
-		return ((Integer)o).intValue();
-	}
 
-	/**
-	 * Rotates the tree by leaf count, creates a positioned node version of the
-	 * trees root and calculates postions and width and height information.
-	 */
-	protected void standardTreePrep() {
-		TreeUtils.rotateByLeafCount(tree);
-		treeNode = new PositionedNode(tree.getRoot());
-		treeNode.calculatePositions();
+    /**
+     * Returns the bootstrap support value associated with a node.
+     *
+     * @param node the PositionedNode whose bootstrap value is requested
+     * @return the bootstrap value, or -1 if no bootstrap value is available
+     */
+    protected int getBootstrapValue(PositionedNode node){
+        Object o = tree.getAttribute(node.getPeer(), BOOTSTRAP_ATTRIBUTE_NAME);
+        if(o == null) {
+            return -1;
+        }
+        return ((Integer)o).intValue();
+    }
 
-		width = NodeUtils.getLeafCount(treeNode);
-		height = treeNode.getNodeHeight();
+    /**
+     * Prepares the tree for drawing by rotating it based on leaf count,
+     * creating a PositionedNode version of the root, and calculating
+     * positions, width, and height information.
+     */
+    protected void standardTreePrep() {
+        TreeUtils.rotateByLeafCount(tree);
+        treeNode = new PositionedNode(tree.getRoot());
+        treeNode.calculatePositions();
 
-		maxLeafTime = 0.0;
-		maxLeafTime = getMaxLeafTime(treeNode);
-		maxLeafTime *= 1.5;
+        width = NodeUtils.getLeafCount(treeNode);
+        height = treeNode.getNodeHeight();
 
-		sizeOfScale = getSizeOfScale( height / 5.0);
-	}
+        maxLeafTime = getMaxLeafTime(treeNode);
+        maxLeafTime *= 1.5;
 
-	/**
-	 * sets the maximum height of plot.
-	 * if this height is smaller than root height then
-	 * only a proportion of tree is drawn.
-	 */
-	public final void setMaxHeight(double maxHeight) {
-		this.maxHeight = maxHeight;
-		sizeOfScale = getSizeOfScale( maxHeight / 5.0);
-	}
+        sizeOfScale = getSizeOfScale(height / 5.0);
+    }
 
-	public final void setAttributeName(String name) {
+    /**
+     * Sets the maximum height of the plot.
+     * If this value is smaller than the tree root height, only a proportion
+     * of the tree will be drawn.
+     *
+     * @param maxHeight the maximum height of the tree plot
+     */
+    public final void setMaxHeight(double maxHeight) {
+        this.maxHeight = maxHeight;
+        sizeOfScale = getSizeOfScale(maxHeight / 5.0);
+    }
+
+    public final void setAttributeName(String name) {
 		attName = name;
 	}
 
@@ -167,8 +171,11 @@ abstract public class TreePainter implements Painter {
 
 	/**
 	 * may be implemented by sub classes
-	 */
+     *
+     * @param tree the Tree object to set
+     */
 	public void setTreeImpl(Tree tree) { }
+
 	public final void setUsingColor(boolean use) {
 		usingColor = use;
 	}
@@ -205,15 +212,19 @@ abstract public class TreePainter implements Painter {
 	/**
 	 * Sets whether the tree is painted with symbols. This can
 	 * only be set to true of a TimeOrderCharacterData has been set.
-	 */
+     *
+     * @param use true to enable symbol-based painting, false to disable
+     */
 	public final void setUsingSymbols(boolean use) {
 		usingSymbols = use;
 		if (tocd == null) usingSymbols = false;
 	}
+
 	protected final Tree getTree() {
 		return tree;
 	}
-	protected final double getSizeOfScale(double target) {
+
+    protected final double getSizeOfScale(double target) {
 
 		double sos = 0.1;
 		boolean accept = false;
@@ -231,7 +242,6 @@ abstract public class TreePainter implements Painter {
 
 		return sos;
 	}
-
 
 	protected static final double getMaxLeafTime(Node node) {
 
@@ -336,16 +346,25 @@ abstract public class TreePainter implements Painter {
 	protected final int getLongestIdentifierPixelWidth(FontMetrics fm) {
 		return getLongestIdentifierPixelWidth(fm,treeNode);
 	}
-// ============================================================================
-// == Font Stuff
-/**
- * Set the font used to display labels
- */
-	public final void setLabelFont(Font f) { this.labelFont_ = f; }
-	/**
-	 * Set the font used to display labels
-	 */
-	public final void setLabelFontSize(int size) { this.labelFont_ = new Font(labelFont_.getFontName(),size,labelFont_.getSize()); }
-	protected final Font getLabelFont() {	return labelFont_;	}
+    // ============================================================================
+    // == Font Stuff
+    /**
+     * Sets the font used to display labels in the tree view.
+     *
+     * @param f the {@link Font} to use for labels
+     */
+    public final void setLabelFont(Font f) {
+        this.labelFont_ = f;
+    }
+
+    /**
+     * Sets the font size for labels while keeping the current font family and style.
+     *
+     * @param size the new font size in points
+     */
+    public final void setLabelFontSize(int size) {
+        this.labelFont_ = new Font(labelFont_.getFontName(), labelFont_.getStyle(), size);
+    }
+    protected final Font getLabelFont() {	return labelFont_;	}
 
 }

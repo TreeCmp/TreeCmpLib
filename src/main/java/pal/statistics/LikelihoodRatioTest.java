@@ -23,12 +23,12 @@ public class LikelihoodRatioTest
 	//
 	// Public stuff
 	//
-	
+
 	/**
 	 * compute significance level for the differences
 	 * in log-likelihood (based on chi-square distribution)
 	 *
-	 * @param deltaL  difference of Log Likelihood values (>=0)
+	 * @param deltaL  difference of Log Likelihood values ($gt;=0)
 	 * @param df      degrees of freedom
 	 *
 	 * @return        significance level

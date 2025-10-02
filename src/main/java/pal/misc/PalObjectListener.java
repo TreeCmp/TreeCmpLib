@@ -15,16 +15,21 @@ package pal.misc;
  * @author Matthew Goode
  */
 
-
 public interface PalObjectListener {
+
 	/** Signifies that parametric valued governing the state of this Object have changed.
 	 *  Parameters don't have to be visible ones
 	 *  For example, in trees the branch lengths have changed.
-	 */
+     *
+     * @param pe the {@link PalObjectEvent} describing the parameter change
+     */
 	void parametersChanged(PalObjectEvent pe);
+
 	/** Signifies that the structure of the object has changed (for example in trees to topology
 	 *  has changed)
-	 */
+     *
+     * @param pe the {@link PalObjectEvent} describing the structural change
+     */
 	void structureChanged(PalObjectEvent pe);
 
 	/**
@@ -54,32 +59,40 @@ public interface PalObjectListener {
 			}
 		}
 
-		/**
-		 * Called by subclasses to fire a specific PalObjectEvent on all listeners
-		 */
-		protected void fireParametersChangedEvent(PalObjectEvent pe) {
-			if(listeners_!=null) {
-				listeners_.parametersChanged(pe);
-			}
-		}
-		/**
-		 * Called by subclasses to fire the default Event on all listeners
-		 */
-		protected void fireStructureChangedEvent() {
-			if(listeners_!=null) {
-				if(defaultPalEvent_==null) {
-					defaultPalEvent_ = new PalObjectEvent(this);
-				}
-				listeners_.structureChanged(defaultPalEvent_);
-			}
-		}
-		/**
-		 * Called by subclasses to fire a specific PalObjectEvent on all listeners
-		 */
-		protected void fireStructureChangedEvent(PalObjectEvent pe) {
-			if(listeners_!=null) {
-				listeners_.structureChanged(pe);
-			}
-		}
-	}
+        /**
+         * Called by subclasses to fire a specific {@link PalObjectEvent} to all registered listeners.
+         *
+         * @param pe the event to fire
+         */
+        protected void fireParametersChangedEvent(PalObjectEvent pe) {
+            if (listeners_ != null) {
+                listeners_.parametersChanged(pe);
+            }
+        }
+
+        /**
+         * Called by subclasses to fire the default structure changed event to all registered listeners.
+         * <p>
+         * If no default event exists, a new {@link PalObjectEvent} for this object is created.
+         */
+        protected void fireStructureChangedEvent() {
+            if (listeners_ != null) {
+                if (defaultPalEvent_ == null) {
+                    defaultPalEvent_ = new PalObjectEvent(this);
+                }
+                listeners_.structureChanged(defaultPalEvent_);
+            }
+        }
+
+        /**
+         * Called by subclasses to fire a specific structure changed {@link PalObjectEvent} to all registered listeners.
+         *
+         * @param pe the event to fire
+         */
+        protected void fireStructureChangedEvent(PalObjectEvent pe) {
+            if (listeners_ != null) {
+                listeners_.structureChanged(pe);
+            }
+        }
+    }
 }

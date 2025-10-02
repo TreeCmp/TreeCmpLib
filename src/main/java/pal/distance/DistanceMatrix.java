@@ -30,7 +30,6 @@ import pal.misc.*;
 public class DistanceMatrix implements Serializable, IdGroup
 {
 
-
 	//
 	// Private stuff
 	//
@@ -43,7 +42,16 @@ public class DistanceMatrix implements Serializable, IdGroup
 
 	static final long serialVersionUID = 4725925229860707633L;
 
-	/** I like doing things my self! */
+    /** I like doing things my self!
+     * Custom serialization method used when writing this object to an
+     * {@code ObjectOutputStream}.
+     *
+     * <p>This implementation manually writes a version number and then delegates
+     * the serialization of the critical fields (`idGroup` and `distance`) to the stream.
+     *
+     * @param out The stream to write the object to.
+     * @throws java.io.IOException If an I/O error occurs during writing to the stream.
+     */
 	private void writeObject(java.io.ObjectOutputStream out) throws java.io.IOException {
 		out.writeByte(1); //Version number
 		out.writeObject(idGroup);
@@ -61,187 +69,208 @@ public class DistanceMatrix implements Serializable, IdGroup
 
 
 
-	/** constructor */
-	public DistanceMatrix() { }
+    /**
+     * Default constructor.
+     */
+    public DistanceMatrix() { }
 
-	/** constructor taking distances array and IdGroup */
-	public DistanceMatrix(double[][] distance, IdGroup idGroup)
-	{
-		super();
-		this.distance = distance;
-		this.idGroup = idGroup;
-	}
+    /**
+     * Constructs a DistanceMatrix with the given distances and identifiers.
+     *
+     * @param distance a 2D array of distances
+     * @param idGroup the group of identifiers corresponding to the distances
+     */
+    public DistanceMatrix(double[][] distance, IdGroup idGroup) {
+        super();
+        this.distance = distance;
+        this.idGroup = idGroup;
+    }
 
-	/**
-	 * constructor that takes a distance matrix and clones the distances
-	 * but uses the same idGroup.
-	 */
-	public DistanceMatrix(DistanceMatrix dm) {
-		distance = pal.misc.Utils.getCopy(dm.distance);
-		idGroup = dm.getIdGroup();
-	}
+    /**
+     * Constructs a DistanceMatrix by cloning the distances of another DistanceMatrix,
+     * but using the same IdGroup.
+     *
+     * @param dm the DistanceMatrix to copy
+     */
+    public DistanceMatrix(DistanceMatrix dm) {
+        distance = pal.misc.Utils.getCopy(dm.distance);
+        idGroup = dm.getIdGroup();
+    }
 
-	/**
-	 * constructor that takes a distance matrix and clones the distances,
-	 * of a the identifiers in idGroup.
-	 */
-	public DistanceMatrix(DistanceMatrix dm, IdGroup subset) {
+    /**
+     * Constructs a DistanceMatrix by cloning distances from another DistanceMatrix
+     * but only for the identifiers in the given subset.
+     *
+     * @param dm the DistanceMatrix to copy from
+     * @param subset the subset of identifiers to include in the new matrix
+     */
+    public DistanceMatrix(DistanceMatrix dm, IdGroup subset) {
+        int index1, index2;
 
-		int index1, index2;
+        distance = new double[subset.getIdCount()][subset.getIdCount()];
+        for (int i = 0; i < distance.length; i++) {
+            index1 = dm.whichIdNumber(subset.getIdentifier(i).getName());
 
-		distance = new double[subset.getIdCount()][subset.getIdCount()];
-		for (int i = 0; i < distance.length; i++) {
-			index1 = dm.whichIdNumber(subset.getIdentifier(i).getName());
+            for (int j = 0; j < i; j++) {
+                index2 = dm.whichIdNumber(subset.getIdentifier(j).getName());
+                distance[i][j] = dm.distance[index1][index2];
+                distance[j][i] = distance[i][j];
+            }
+        }
+        idGroup = subset;
+    }
 
-			for (int j = 0; j < i; j++) {
-				index2 = dm.whichIdNumber(subset.getIdentifier(j).getName());
-				distance[i][j] = dm.distance[index1][index2];
-				distance[j][i] = distance[i][j];
-			}
-		}
-		idGroup = subset;
-	}
+    /**
+     * Prints the distance matrix in PHYLIP format to the given PrintWriter.
+     *
+     * @param out the PrintWriter to write the output to
+     */
+    public void printPHYLIP(PrintWriter out) {
+        // PHYLIP header line
+        out.println("  " + distance.length);
+        FormattedOutput format = FormattedOutput.getInstance();
 
-	/** print alignment (PHYLIP format) */
-	public void printPHYLIP(PrintWriter out)
-	{
-		// PHYLIP header line
-		out.println("  " + distance.length);
-		FormattedOutput format = FormattedOutput.getInstance();
+        for (int i = 0; i < distance.length; i++) {
+            format.displayLabel(out, idGroup.getIdentifier(i).getName(), 10);
+            out.print("      ");
 
-		for (int i = 0; i < distance.length; i++)
-		{
-			format.displayLabel(out,
-				idGroup.getIdentifier(i).getName(), 10);
-			out.print("      ");
+            for (int j = 0; j < distance.length; j++) {
+                if (j % 6 == 0 && j != 0) {
+                    out.println();
+                    out.print("                ");
+                }
+                out.print("  ");
+                format.displayDecimal(out, distance[i][j], 5);
+            }
+            out.println();
+        }
+    }
 
-			for (int j = 0; j < distance.length; j++)
-			{
-				// Chunks of 6 blocks each
-				if (j % 6 == 0 && j != 0)
-				{
-					out.println();
-					out.print("                ");
-				}
+    /**
+     * Returns a string representation of the distance matrix in PHYLIP format.
+     *
+     * @return a String containing the distance matrix
+     */
+    public String toString() {
+        StringWriter sw = new StringWriter();
+        printPHYLIP(new PrintWriter(sw));
+        return sw.toString();
+    }
 
-				out.print("  ");
-				format.displayDecimal(out, distance[i][j], 5);
-			}
-			out.println();
-		}
-	}
+    /**
+     * Computes the weighted or unweighted squared distance to another distance matrix.
+     *
+     * @param mat the other DistanceMatrix to compare to
+     * @param weighted if true, use Fitch-Margoliash weighting; if false, use Cavalli-Sforza-Edwards weighting
+     * @return the squared distance between this matrix and the given matrix
+     */
+    public double squaredDistance(DistanceMatrix mat, boolean weighted) {
+        double sum = 0;
+        for (int i = 0; i < distance.length - 1; i++) {
+            for (int j = i + 1; j < distance.length; j++) {
+                double diff = distance[i][j] - mat.distance[i][j];
+                double weight = weighted ? 1.0 / (distance[i][j] * distance[i][j]) : 1.0;
+                sum += weight * diff * diff;
+            }
+        }
+        return 2.0 * sum; // only half the matrix counted
+    }
 
-	/** returns representation of this alignment as a string */
-	public String toString() {
+    /**
+     * Computes the absolute distance to another distance matrix.
+     *
+     * @param mat the other DistanceMatrix to compare to
+     * @return the sum of absolute differences between this matrix and the given matrix
+     */
+    public double absoluteDistance(DistanceMatrix mat) {
+        double sum = 0;
+        for (int i = 0; i < distance.length - 1; i++) {
+            for (int j = i + 1; j < distance.length; j++) {
+                sum += Math.abs(distance[i][j] - mat.distance[i][j]);
+            }
+        }
+        return 2.0 * sum; // only half the matrix counted
+    }
 
-		StringWriter sw = new StringWriter();
-		printPHYLIP(new PrintWriter(sw));
+    /**
+     * Returns the number of rows (or columns) of the distance matrix.
+     *
+     * @return the size of the distance matrix
+     */
+    public int getSize() {
+        return distance.length;
+    }
 
-		return sw.toString();
-	}
+    /**
+     * Returns a cloned 2D array of distances. The returned array can be modified freely.
+     *
+     * @return a cloned 2D array of distances
+     */
+    public final double[][] getClonedDistances() {
+        return pal.misc.Utils.getCopy(distance);
+    }
 
-	/** compute squared distance to second distance matrix */
-	public double squaredDistance(DistanceMatrix mat, boolean weighted)
-	{
-		double sum = 0;
-		for (int i = 0; i < distance.length-1; i++)
-		{
-			for (int j = i+1; j < distance.length ; j++)
-			{
-				double diff = distance[i][j] - mat.distance[i][j];
-				double weight;
-				if (weighted)
-				{
-					// Fitch-Margoliash weight
-					// (variances proportional to distances)
-					weight = 1.0/(distance[i][j]*distance[i][j]);
-				}
-				else
-				{
-					// Cavalli-Sforza-Edwards weight
-					// (homogeneity of variances)
-					weight = 1.0;
-				}
-				sum += weight*diff*diff;
-			}
-		}
+    /**
+     * Returns the 2D array of distances as currently stored.
+     *
+     * @return a copy of the distances array
+     */
+    protected final double[][] getDistances() {
+        return pal.misc.Utils.getCopy(distance);
+    }
 
-		return 2.0*sum; // we counted only half the matrix
-	}
+    /**
+     * Returns the distance between two elements in the matrix.
+     *
+     * @param row the row index
+     * @param col the column index
+     * @return the distance between row and column
+     */
+    public final double getDistance(final int row, final int col) {
+        return distance[row][col];
+    }
 
-	/** compute absolute distance to second distance matrix */
-	public double absoluteDistance(DistanceMatrix mat)
-	{
-		double sum = 0;
-		for (int i = 0; i < distance.length-1; i++)
-		{
-			for (int j = i+1; j < distance.length; j++)
-			{
-				double diff =
-					Math.abs(distance[i][j] - mat.distance[i][j]);
+    /**
+     * Sets the distance between two elements, updating both upper and lower triangles.
+     *
+     * @param i the first index
+     * @param j the second index
+     * @param dist the distance to set
+     */
+    public void setDistance(int i, int j, double dist) {
+        distance[i][j] = distance[j][i] = dist;
+    }
 
-				sum += diff;
-			}
-		}
+    /**
+     * Adds a delta to the distance between two elements, updating both upper and lower triangles.
+     *
+     * @param i the first index
+     * @param j the second index
+     * @param delta the value to add to the distance
+     */
+    public void addDistance(int i, int j, double delta) {
+        distance[i][j] += delta;
+        distance[j][i] += delta;
+    }
 
-		return 2.0*sum; // we counted only half the matrix
-	}
-
-	/**
-	 * Returns the number of rows and columns that the distance matrix has.
-	 */
-	public int getSize() {
-		return distance.length;
-	}
-
-	/**
-	 * Returns the distances as a 2-dimensional array of doubles. Matrix is cloned first so it can be altered freely.
-	 */
-	public final double[][] getClonedDistances() {
-		return pal.misc.Utils.getCopy(distance);
-	}
-	/**
-	 * Returns the distances as a 2-dimensional array of doubles (in the actual array used to store the distances)
-	 */
-	protected final double[][] getDistances() {
-		return pal.misc.Utils.getCopy(distance);
-	}
-	public final double getDistance(final int row, final int col) {
-		return distance[row][col];
-	}
-
-
-	/**
-	 * Sets both upper and lower triangles.
-	 */
-	public void setDistance(int i, int j, double dist) {
-		distance[i][j] = distance[j][i] = dist;
-	}
-
-	/**
-	 * Adds a delta to both upper and lower triangle distances.
-	 */
-	public void addDistance(int i, int j, double delta) {
-		distance[i][j] += delta;
-		distance[j][i] += delta;
-	}
-
-	/**
-	 * Returns the mean pairwise distance of this matrix
-	 */
-	public double meanDistance() {
-		double dist = 0.0;
-		int count = 0;
-		for (int i = 0; i < distance.length; i++) {
-			for (int j = 0; j < distance[i].length; j++) {
-				if (i != j) {
-					dist += distance[i][j];
-					count += 1;
-				}
-			}
-		}
-		return dist / (double)count;
-	}
+    /**
+     * Computes the mean pairwise distance of this matrix (excluding diagonal elements).
+     *
+     * @return the mean of all pairwise distances
+     */
+    public double meanDistance() {
+        double dist = 0.0;
+        int count = 0;
+        for (int i = 0; i < distance.length; i++) {
+            for (int j = 0; j < distance[i].length; j++) {
+                if (i != j) {
+                    dist += distance[i][j];
+                    count++;
+                }
+            }
+        }
+        return dist / (double) count;
+    }
 
 	//IdGroup interface
 	public Identifier getIdentifier(int i) {return idGroup.getIdentifier(i);}
@@ -249,78 +278,93 @@ public class DistanceMatrix implements Serializable, IdGroup
 	public int getIdCount() { return idGroup.getIdCount(); }
 	public int whichIdNumber(String name) { return idGroup.whichIdNumber(name); }
 
-	/**
-	 * Return id group of this alignment.
-	 * @deprecated distance matrix now implements IdGroup
-	 */
-	public IdGroup getIdGroup() { return idGroup; }
+    /**
+     * Returns the IdGroup of this distance matrix.
+     *
+     * @deprecated distance matrix now implements IdGroup directly
+     * @return the IdGroup associated with this matrix
+     */
+    public IdGroup getIdGroup() {
+        return idGroup;
+    }
 
+    /**
+     * Tests whether this distance matrix is symmetric.
+     * <p>A matrix is symmetric if distance[i][i] == 0 and distance[i][j] == distance[j][i] for all i, j.</p>
+     *
+     * @return true if the matrix is symmetric, false otherwise
+     */
+    public boolean isSymmetric() {
+        for (int i = 0; i < distance.length; i++) {
+            if (distance[i][i] != 0) return false;
+        }
+        for (int i = 0; i < distance.length - 1; i++) {
+            for (int j = i + 1; j < distance.length; j++) {
+                if (distance[i][j] != distance[j][i]) return false;
+            }
+        }
+        return true;
+    }
 
-	/**
-	 * test whether this matrix is a symmetric distance matrix
-	 *
-	 */
-	public boolean isSymmetric()
-	{
-		for (int i = 0; i < distance.length; i++)
-		{
-			if (distance[i][i] != 0) return false;
-		}
-		for (int i = 0; i < distance.length-1; i++)
-		{
-			for (int j = i+1; j < distance.length; j++)
-			{
-				if (distance[i][j] != distance[j][i]) return false;
-			}
-		}
-		return true;
-	}
-	/**
-	 * @param fromID the thing (taxa,sequence) from which we want to find the closest (excluding self)
-	 * @param exlcusion indexes of things that should not be considered, may be null
-	 * @return the index of the thing closest to the specified
-	 * @note if fromID not a valid name then return -1
-	 */
-	public int getClosestIndex(String fromID, String[] exclusion) {
-		int index = whichIdNumber(fromID);
-		if(index<0) { return -1; }
-		int[] exclusionIndexes;
-		if(exclusion==null) {
-			exclusionIndexes = null;
-		} else {
-			exclusionIndexes = new int[exclusion.length];
-			for(int i = 0 ; i < exclusion.length ; i++) {
-				exclusionIndexes[i] = whichIdNumber(exclusion[i]);
-			}
-		}
-		return getClosestIndex(index,exclusionIndexes);
-	}
-	private final boolean isIn(int value, int[] set) {
-		if(set==null) { return false; }
-		for(int i = 0 ; i < set.length ; i++) {
-			if(set[i]==value) { return true; }
-		}
-		return false;
-	}
-	/**
-	 * @param fromIndex the index of the thing (taxa,sequence) from which we want to find the closest (excluding self)
-	 * @param exlcusion indexes of things that should not be considered, may be null
-	 * @return the index of the member closes to the specified
-	 */
-	public int getClosestIndex(int fromIndex, int[] exclusion) {
-		double min = Double.POSITIVE_INFINITY;
-		int index = -1;
-		for(int i = 0 ; i < distance.length ; i++) {
-			if(i!=fromIndex&&!isIn(i,exclusion)) {
-				double d = distance[fromIndex][i];
-				if(d<min) {
-					min = d; index = i;
-				}
-			}
-		}
-		return index;
-	}
+    /**
+     * Returns the index of the element closest to the specified element, excluding any specified elements.
+     *
+     * @param fromID the name of the element from which to find the closest
+     * @param exclusion array of names to exclude from consideration; may be null
+     * @return the index of the closest element, or -1 if fromID is not a valid name
+     */
+    public int getClosestIndex(String fromID, String[] exclusion) {
+        int index = whichIdNumber(fromID);
+        if (index < 0) { return -1; }
 
+        int[] exclusionIndexes;
+        if (exclusion == null) {
+            exclusionIndexes = null;
+        } else {
+            exclusionIndexes = new int[exclusion.length];
+            for (int i = 0; i < exclusion.length; i++) {
+                exclusionIndexes[i] = whichIdNumber(exclusion[i]);
+            }
+        }
+        return getClosestIndex(index, exclusionIndexes);
+    }
+
+    /**
+     * Checks whether a value is contained in a set of integers.
+     *
+     * @param value the value to check
+     * @param set the array of integers; may be null
+     * @return true if value is in set, false otherwise
+     */
+    private final boolean isIn(int value, int[] set) {
+        if (set == null) { return false; }
+        for (int i = 0; i < set.length; i++) {
+            if (set[i] == value) { return true; }
+        }
+        return false;
+    }
+
+    /**
+     * Returns the index of the element closest to the specified element, excluding any specified indexes.
+     *
+     * @param fromIndex the index of the element from which to find the closest
+     * @param exclusion array of indexes to exclude from consideration; may be null
+     * @return the index of the closest element, or -1 if none found
+     */
+    public int getClosestIndex(int fromIndex, int[] exclusion) {
+        double min = Double.POSITIVE_INFINITY;
+        int index = -1;
+        for (int i = 0; i < distance.length; i++) {
+            if (i != fromIndex && !isIn(i, exclusion)) {
+                double d = distance[fromIndex][i];
+                if (d < min) {
+                    min = d;
+                    index = i;
+                }
+            }
+        }
+        return index;
+    }
 
 	protected final void setIdGroup(IdGroup base) {
 		this.idGroup = new SimpleIdGroup(base);

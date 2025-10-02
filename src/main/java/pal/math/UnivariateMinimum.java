@@ -166,7 +166,7 @@ public class UnivariateMinimum
 	 * @param x initial guess
 	 * @param f univariate function
 	 * @param tol absolute tolerance of each parameter
-	 * @note bounded by the given bounds of the function f
+	 * Note: bounded by the given bounds of the function f
 	 *
 	 * @return  position of minimum
 	 */

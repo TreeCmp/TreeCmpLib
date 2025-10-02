@@ -33,54 +33,60 @@ public class SUPGMATree extends ClusterTree
 	//
 	private TimeOrderCharacterData tocd;
 
-	/**
-	 * constructor SUPGMA tree
-	 *
-	 * @param m *uncorrected* distance matrix
-	 */
-	public SUPGMATree(DistanceMatrix m, TimeOrderCharacterData tocd, double rate, ClusterTree.ClusteringMethod cm) {
-		this(
-			m,tocd,
-			DeltaModel.
-				Utils.
-					getMutationRateModelBased(
-						ConstantMutationRate.getFixedFactory(
-							rate, tocd.getUnits()
-						)
-					),true,cm
-				);
-	}
+    /**
+     * Constructs a SUPGMA tree using a fixed, constant evolutionary rate to correct the distances.
+     *
+     * @param m The *uncorrected* distance matrix containing raw pairwise distances.
+     * @param tocd The TimeOrderCharacterData providing temporal information (sampling times or ordinals).
+     * @param rate The fixed, constant evolutionary rate to be used for time correction.
+     * @param cm The clustering method (e.g., UPGMA, NJ) used to build the tree topology.
+     */
+    public SUPGMATree(DistanceMatrix m, TimeOrderCharacterData tocd, double rate, ClusterTree.ClusteringMethod cm) {
+        this(
+                m,tocd,
+                DeltaModel.
+                        Utils.
+                        getMutationRateModelBased(
+                                ConstantMutationRate.getFixedFactory(
+                                        rate, tocd.getUnits()
+                                )
+                        ),true,cm
+        );
+    }
 
 
-	/**
-	 * constructor SUPGMA tree
-	 *
-	 * @param m *uncorrected* distance matrix
-	 */
-	public SUPGMATree(DistanceMatrix m, TimeOrderCharacterData tocd, DeltaModel deltaModel, boolean allowNegatives, ClusteringMethod cm) {
-		super(new SUPGMADistanceMatrix(m, tocd, deltaModel), cm);
-		this.tocd = tocd;
+    /**
+     * Constructs a SUPGMA tree using a specified DeltaModel for distance correction.
+     * This is the primary constructor that applies time-based corrections before clustering.
+     *
+     * @param m The *uncorrected* distance matrix containing raw pairwise distances.
+     * @param tocd The TimeOrderCharacterData providing temporal information (sampling times or ordinals).
+     * @param deltaModel The DeltaModel used to calculate the expected substitutions (time correction offsets).
+     * @param allowNegatives If {@code true}, negative branch lengths resulting from the correction are permitted. If {@code false}, heights are adjusted to eliminate negative branches.
+     * @param cm The clustering method (e.g., UPGMA, NJ) used to build the tree topology.
+     */
+    public SUPGMATree(DistanceMatrix m, TimeOrderCharacterData tocd, DeltaModel deltaModel, boolean allowNegatives, ClusteringMethod cm) {
+        super(new SUPGMADistanceMatrix(m, tocd, deltaModel), cm);
+        this.tocd = tocd;
 
-		IdGroup idgroup = tocd;
+        IdGroup idgroup = tocd;
 
-		createNodeList();
-		DeltaModel.Instance deltaModelInstance = deltaModel.generateInstance(tocd);
-		Node node = null;
-		// go through and set heights.
-		for (int i = 0; i < getExternalNodeCount(); i++) {
-			node = getExternalNode(i);
-			int index = idgroup.whichIdNumber(node.getIdentifier().getName());
-			node.setNodeHeight(deltaModelInstance.getExpectedSubstitutions(index));
-			if (!allowNegatives) {
-				if (node.getParent().getNodeHeight() < node.getNodeHeight()) {
-					fixHeight(node.getParent(), node.getNodeHeight());
-				}
-			}
-		}
-		NodeUtils.heights2Lengths(getRoot());
-	}
-
-
+        createNodeList();
+        DeltaModel.Instance deltaModelInstance = deltaModel.generateInstance(tocd);
+        Node node = null;
+        // go through and set heights.
+        for (int i = 0; i < getExternalNodeCount(); i++) {
+            node = getExternalNode(i);
+            int index = idgroup.whichIdNumber(node.getIdentifier().getName());
+            node.setNodeHeight(deltaModelInstance.getExpectedSubstitutions(index));
+            if (!allowNegatives) {
+                if (node.getParent().getNodeHeight() < node.getNodeHeight()) {
+                    fixHeight(node.getParent(), node.getNodeHeight());
+                }
+            }
+        }
+        NodeUtils.heights2Lengths(getRoot());
+    }
 
 	private void fixHeight(Node node, double height) {
 		node.setNodeHeight(height);

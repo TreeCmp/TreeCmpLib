@@ -174,40 +174,52 @@ public abstract class AbstractParentableConstrainedNode implements ParentableCon
 		leftChild_.recursivelySetParentPivot( parentPivot);
 		rightChild_.recursivelySetParentPivot(parentPivot);
 	}
-	/**
-	 * Obtain conditionals by extended left child conditionals to height of this node
-	 * @param tool The construction tool
-	 * @return the extended conditionals
-	 */
-	protected final ConditionalProbabilityStore getLeftDescendentExtendedConditionals(GeneralConstructionTool tool, boolean allowCaching) {
-		return leftChild_.getDescendentExtendedConditionals(getNodeHeight(),tool,allowCaching);
-	}
-	/**
-	 * Obtain conditionals by extended left child conditionals to a particular height
-	 * @param specifiedHeight The desired height of extension
-	 * @param tool The construction tool
-	 * @return the extended conditionals
-	 */
-	protected final ConditionalProbabilityStore getLeftDescendentExtendedConditionals(double specifiedHeight, GeneralConstructionTool tool,boolean allowCaching) {
-		return leftChild_.getDescendentExtendedConditionals(specifiedHeight,tool,allowCaching);
-	}
-	/**
-	 * Obtain conditionals by extended right child conditionals to height of this node
-	 * @param tool The construction tool
-	 * @return the extended conditionals
-	 */
-	protected final ConditionalProbabilityStore getRightDescendentExtendedConditionals(GeneralConstructionTool tool,boolean allowCaching) {
-		return rightChild_.getDescendentExtendedConditionals(getNodeHeight(),tool,allowCaching);
-	}
-	/**
-	 * Obtain conditionals by extended left child conditionals to a particular height
-	 * @param specifiedHeight The desired height of extension
-	 * @param tool The construction tool
-	 * @return the extended conditionals
-	 */
-	protected final ConditionalProbabilityStore getRightDescendentExtendedConditionals(double specifiedHeight, GeneralConstructionTool tool, boolean allowCaching) {
-		return rightChild_.getDescendentExtendedConditionals(specifiedHeight,tool,allowCaching);
-	}
+    /**
+     * Obtains the conditional probability store for the left descendant clade,
+     * extended up to the height of the current node.
+     *
+     * @param tool The construction tool used to build or retrieve the conditional probabilities.
+     * @param allowCaching If true, results may be retrieved from an internal cache.
+     * @return The ConditionalProbabilityStore for the left descendant, extended to this node's height.
+     */
+    protected final ConditionalProbabilityStore getLeftDescendentExtendedConditionals(GeneralConstructionTool tool, boolean allowCaching) {
+        return leftChild_.getDescendentExtendedConditionals(getNodeHeight(),tool,allowCaching);
+    }
+    /**
+     * Obtains the conditional probability store for the left descendant clade,
+     * extended up to a specified height.
+     *
+     * @param specifiedHeight The desired height of extension (time from root or time to present).
+     * @param tool The construction tool used to build or retrieve the conditional probabilities.
+     * @param allowCaching If true, results may be retrieved from an internal cache.
+     * @return The ConditionalProbabilityStore for the left descendant, extended to the specified height.
+     */
+    protected final ConditionalProbabilityStore getLeftDescendentExtendedConditionals(double specifiedHeight, GeneralConstructionTool tool,boolean allowCaching) {
+        return leftChild_.getDescendentExtendedConditionals(specifiedHeight,tool,allowCaching);
+    }
+    /**
+     * Obtains the conditional probability store for the right descendant clade,
+     * extended up to the height of the current node.
+     *
+     * @param tool The construction tool used to build or retrieve the conditional probabilities.
+     * @param allowCaching If true, results may be retrieved from an internal cache.
+     * @return The ConditionalProbabilityStore for the right descendant, extended to this node's height.
+     */
+    protected final ConditionalProbabilityStore getRightDescendentExtendedConditionals(GeneralConstructionTool tool,boolean allowCaching) {
+        return rightChild_.getDescendentExtendedConditionals(getNodeHeight(),tool,allowCaching);
+    }
+    /**
+     * Obtains the conditional probability store for the right descendant clade,
+     * extended up to a specified height.
+     *
+     * @param specifiedHeight The desired height of extension (time from root or time to present).
+     * @param tool The construction tool used to build or retrieve the conditional probabilities.
+     * @param allowCaching If true, results may be retrieved from an internal cache.
+     * @return The ConditionalProbabilityStore for the right descendant, extended to the specified height.
+     */
+    protected final ConditionalProbabilityStore getRightDescendentExtendedConditionals(double specifiedHeight, GeneralConstructionTool tool, boolean allowCaching) {
+        return rightChild_.getDescendentExtendedConditionals(specifiedHeight,tool,allowCaching);
+    }
 
 	protected final MolecularClockLikelihoodModel.Internal getConstrainedInternal() { return constrainedInternal_; }
 

@@ -101,7 +101,8 @@ public class PhyloTree {
 	 * Assumes that the string starts with (
 	 * TODO:  insert check for same vertex (so can't have two of the same vertices)
 	 * TODO:  Do we want to keep the length of any root vertex?
-	 * @param t representation of a tree in Newick standard.
+     * @param t      the tree represented as a Newick string
+     * @param rooted true if the tree is rooted, false if unrooted
 	 */
 	public PhyloTree(String t, boolean rooted) {
 		int leafNum = 0;
@@ -225,19 +226,21 @@ try{  // for stringIndexOutOfBoundsException
 
 	/** Returns the split at position i in the split vector
 	 * 
-	 * @param i
-	 * @return
+	 * @param i the index of the edge to retrieve
+	 * @return the edge at position i
 	 */
 	public PhyloTreeEdge getEdge(int i) {
 		return edges.get(i);
 	}
-	
-	
-	/**  Checks the Newick syntax.  
-	 *   Exits with message if problem.
-	 *   TODO:  nice error if missing leaf edge
-	 *   
-	 */
+
+
+    /**
+     * Checks the Newick syntax of a tree string.
+     * Prints an error message if a problem is found.
+     *
+     * @param t the tree represented as a Newick string
+     * @return true if there is a syntax error, false otherwise
+     */
 	public static boolean errorInSyntax(String t) {
 		boolean error = false;
 		int numCommas = 0;
@@ -307,16 +310,31 @@ try{  // for stringIndexOutOfBoundsException
 		}
 		return error;
 	}
-	
+
+    /**
+     * Sets the edges of this tree.
+     *
+     * @param edges a vector of PhyloTreeEdge objects representing the edges of the tree
+     */
 	public void setEdges(Vector<PhyloTreeEdge> edges) {
 		this.edges = edges;
 	}
 
-
+    /**
+     * Returns the mapping from leaf names to numbers.
+     *
+     * @return a vector of strings representing the mapping of leaf names to indices
+     */
 	public Vector<String> getLeaf2NumMap() {
 		return leaf2NumMap;
 	}
 
+    /**
+     * Returns the attribute of a given split (edge) in the tree.
+     *
+     * @param edge the bipartition representing the split
+     * @return the EdgeAttribute of the split, or null if not found
+     */
 	public EdgeAttribute getAttribOfSplit(Bipartition edge) {
 		Iterator<PhyloTreeEdge> edgesIter = edges.iterator();
 		while (edgesIter.hasNext()){
@@ -327,11 +345,12 @@ try{  // for stringIndexOutOfBoundsException
 		}
 		return null;
 	}
-	
-	/** Returns a vector containing the splits (as Bipartitions) corresponding to the edges of this tree.
-	 * 
-	 * @return
-	 */
+
+    /**
+     * Returns a vector containing the splits (as Bipartitions) corresponding to the edges of this tree.
+     *
+     * @return a vector of Bipartition objects representing all splits of this tree
+     */
 	public Vector<Bipartition> getSplits() {
 		Vector<Bipartition> splits = new Vector<Bipartition>();
 		
@@ -341,16 +360,21 @@ try{  // for stringIndexOutOfBoundsException
 		
 		return splits;
 	}
-	
-	
+
+    /**
+     * Returns true if this tree is rooted.
+     *
+     * @return true if the tree is rooted, false otherwise
+     */
 	public Boolean isRooted() {
 		return rooted;
 	}
-	
-	/** Returns true if this tree is binary.
-	 * 
-	 * @return
-	 */
+
+    /**
+     * Returns true if this tree is binary.
+     *
+     * @return true if the tree is binary, false otherwise
+     */
 	public Boolean isBinary() {
 		if (isRooted()) {
 			if (numEdges() < numLeaves() - 2) {
@@ -364,15 +388,14 @@ try{  // for stringIndexOutOfBoundsException
 		}
 		return true;
 	}
-	
-	/**  Returns true if the two trees have the same edges.
-	 * 	 If the parameter allowZeroEdges is true, then the topologies are
-	 *   compared allowing for 0 length edges.
-	 * 
-	 * @param t
-	 * @param allowZeroEdges
-	 * @return
-	 */
+
+    /**
+     * Returns true if this tree has the same topology as another tree.
+     *
+     * @param t the tree to compare with
+     * @param allowZeroEdges if true, zero-length edges are ignored in the comparison
+     * @return true if the topologies are the same, false otherwise
+     */
 	public Boolean hasSameTopology(PhyloTree t, Boolean allowZeroEdges) {
 		// Check the leaves are the same in both trees
 		for (int i = 0; i < this.leaf2NumMap.size(); i++) {
@@ -397,22 +420,25 @@ try{  // for stringIndexOutOfBoundsException
 			return splitSet1.containsAll(splitSet2) && splitSet2.containsAll(splitSet1); 
 		}
 	}
-	
-	
-	/** Overlaod hasSameTopology to only consider non-zero edges in both trees.
-	 * 
-	 * @param t
-	 * @return
-	 */
+
+
+    /**
+     * Returns true if this tree has the same topology as another tree,
+     * considering only non-zero edges.
+     *
+     * @param t the tree to compare with
+     * @return true if the topologies are the same, false otherwise
+     */
 	public Boolean hasSameTopology(PhyloTree t) {
 		return hasSameTopology(t,false);
 	}
-	
-	
-	/** Returns sum of product of the common edges
-	 * 
-	 * @return
-	 **/
+
+    /**
+     * Returns the sum of the products of the attributes of common edges between this tree and another tree.
+     *
+     * @param tree the other tree to compute the dot product with
+     * @return the sum of products of common edge attributes
+     */
 	public double dotProduct(PhyloTree tree) {
 		// if the two trees do not have the same leaf2NumMap
 		if (!(this.getLeaf2NumMap().equals(tree.getLeaf2NumMap()))){
@@ -432,17 +458,20 @@ try{  // for stringIndexOutOfBoundsException
 		
 		return sumOfProducts;
 	}
-	/** Returns the angle (likely in radians) of the trees
-	 * 
-	 * @return
-	 * */
+
+    /**
+     * Returns the angle (in radians) formed between this tree and another tree.
+     *
+     * @param tree the other tree
+     * @return the angle in radians
+     */
 	public double angleFormedWith(PhyloTree tree) {
 		return Math.acos(this.dotProduct(tree) / (this.getDistanceFromOrigin(false)*tree.getDistanceFromOrigin(false))); 
-	} 	
-	
-	/* * Normalizes so that the vector of all edges (both internal and ones ending in leaves) has length 1.
-	 * 
-	 */
+	}
+
+    /**
+     * Normalizes the tree so that the vector of all edges (internal and leaf edges) has length 1.
+     */
 	public void normalize() {
 		double vecLength = getDistanceFromOrigin(true);
 		
@@ -457,19 +486,30 @@ try{  // for stringIndexOutOfBoundsException
 		newick = null;
 	}
 
+    /**
+     * Returns the number of leaves in the tree.
+     *
+     * @return the number of leaves
+     */
 	public int numLeaves() {
 		return leaf2NumMap.size();
 	}
-	
+
+    /**
+     * Sets the mapping from leaf names to numbers.
+     *
+     * @param leaf2NumMap a vector of leaf names in the order of their indices
+     */
 	public void setLeaf2NumMap(Vector<String> leaf2NumMap) {
 		this.leaf2NumMap = leaf2NumMap;
 	}
-	
 
-	/**  Returns the distance from this tree to the origin of tree space (i.e. includes leaf edges).
-	 * 
-	 * @return
-	 */
+    /**
+     * Returns the distance from this tree to the origin of tree space.
+     *
+     * @param includeLeaves if true, include leaf edges in the distance computation
+     * @return the Euclidean distance from the origin
+     */
 	public double getDistanceFromOrigin(boolean includeLeaves) {
 		double dist = 0;
 		for (int i = 0; i< edges.size(); i++) {
@@ -484,19 +524,20 @@ try{  // for stringIndexOutOfBoundsException
 		
 		return Math.sqrt(dist);
 	}
-	
-	
-	/** Returns a vector containing edges with the same partition in t1 and t2.  
+
+
+	/** Returns a vector containing edges with the same partition in t1 and t2.
 	 *  If t1 and t2 do not have the same leaf2NumMap, then returns null.
-	 *  If t1 and t2 have no common edges, then returns a vector of size 0. 
-	 *  We set the length of the returned edges to be the 
+	 *  If t1 and t2 have no common edges, then returns a vector of size 0.
+	 *  We set the length of the returned edges to be the
 	 *  attribute of the split in t1 minus the attribute of the split in t2.
-	 *  Edges from one tree that are compatible with all edges of the other tree are returned as common edges. 
+	 *  Edges from one tree that are compatible with all edges of the other tree are returned as common edges.
 	 *  By convention, no tree contains 0 length common edges.
-	 * @param t1
-	 * @param t2
-	 * @return
-	 */
+     *
+     * @param t1 the first tree
+     * @param t2 the second tree
+     * @return a vector of PhyloTreeEdge representing common edges
+     */
 	public static Vector<PhyloTreeEdge> getCommonEdges(PhyloTree t1, PhyloTree t2) {	
 		Vector<PhyloTreeEdge> commonEdges = new Vector<PhyloTreeEdge>();
 		
@@ -529,12 +570,14 @@ try{  // for stringIndexOutOfBoundsException
 		}		
 		return commonEdges;
 	}
-	
-	/**  Returns the edges that are not in common with edges in t, excluding edges of length 0.
-	 * 
-	 * @param t
-	 * @return
-	 */
+
+    /**
+     * Returns the edges of this tree that are incompatible with another tree,
+     * excluding edges of length 0.
+     *
+     * @param t the tree to compare with
+     * @return a vector of PhyloTreeEdge objects representing incompatible edges
+     */
 	public Vector<PhyloTreeEdge> getEdgesIncompatibleWith(PhyloTree t) {
 		Vector<PhyloTreeEdge> incompEdges = new Vector<PhyloTreeEdge>();
 				
@@ -553,13 +596,14 @@ try{  // for stringIndexOutOfBoundsException
 		}
 		return incompEdges;
 	}
-	
-	/** Returns edges in t that are compatible with but not in this tree.
-	 *  Any edge of length 0 is considered not in t.
-	 * 
-	 * @param t
-	 * @return
-	 */
+
+    /**
+     * Returns edges in another tree that are compatible with this tree but missing from it.
+     * Edges of length 0 are considered not present.
+     *
+     * @param t the tree to check for compatible but missing edges
+     * @return an ArrayList of PhyloTreeEdge objects representing compatible but missing edges
+     */
 	public ArrayList<PhyloTreeEdge> getMissingButCompatibleEdgesIn(PhyloTree t) {
 		ArrayList<PhyloTreeEdge> compEdges = new ArrayList<PhyloTreeEdge>();
 		
@@ -579,9 +623,10 @@ try{  // for stringIndexOutOfBoundsException
 		
 		return compEdges;
 	}
-	
-	
-	
+
+    /**
+     * Randomly permutes the leaves of this tree.
+     */
 	public void permuteLeaves() {
 		int numLeaves = leaf2NumMap.size();
 		ArrayList<Integer> permutation = new ArrayList<Integer>();
@@ -594,11 +639,13 @@ try{  // for stringIndexOutOfBoundsException
 		
 		this.permuteLeaves(permutation.toArray(new Integer[numLeaves]));
 	}
-	
-	/** Permutes the leaves of this tree, as specified by the permutation array.
-	 * Specicially leaf i is changed to be in position permutation(i).
-	 * @param permutation
-	 */
+
+    /**
+     * Permutes the leaves of this tree according to a specified permutation array.
+     * Leaf i is moved to position permutation[i].
+     *
+     * @param permutation an array specifying the new positions of leaves
+     */
 	public void permuteLeaves(Integer[] permutation) {
 		if (permutation.length != leaf2NumMap.size()) {
 			System.err.println("Error: size of permutation map does not match the number of leaves");
@@ -644,6 +691,12 @@ try{  // for stringIndexOutOfBoundsException
 	}
 	
 	// XXX:  need to swap the edge lengths too
+    /**
+     * Swaps two leaves in the tree, including their edge partitions.
+     *
+     * @param l1 the index of the first leaf
+     * @param l2 the index of the second leaf
+     */
 	public void swapleaves(int l1,int l2) {
 		Vector<PhyloTreeEdge> v = this.edges;
 		int numEdges = v.size();
@@ -672,12 +725,13 @@ try{  // for stringIndexOutOfBoundsException
 			}
 		}
 	}
-	
-	
-	/** Deletes the split corresponding to bipartition e from the tree.
-	 * 
-	 * @param e
-	 */
+
+    /**
+     * Deletes the split corresponding to a bipartition from the tree.
+     *
+     * @param e the bipartition to remove
+     * @return true if the split was removed, false if not found
+     */
 	public boolean removeSplit(Bipartition e){
 		boolean removed = false;
 		
@@ -690,20 +744,23 @@ try{  // for stringIndexOutOfBoundsException
 		}
 		return removed;
 	}
-	
-	/** Remove the edges with bipartitions corresponding to those in Vector<Bipartitions>
-	 * 
-	 */
+
+    /**
+     * Removes all splits corresponding to the bipartitions in the given vector.
+     *
+     * @param splits a vector of bipartitions to remove
+     */
 	public void removeSplits(Vector<Bipartition> splits) {
 		for (int i = 0; i < splits.size(); i++) {
 			this.removeSplit(splits.get(i));
 		}
 	}
 
-	/**  Removes the edges corresponding to the ones in v.
-	 * 
-	 * @param v
-	 */
+    /**
+     * Removes edges indicated by ones in a bipartition vector.
+     *
+     * @param v the bipartition vector indicating which edges to remove
+     */
 	public void removeEdgesIndicatedByOnes(Bipartition v) {
 		int numRemovedSoFar = 0;
 		for (int i = 0; i < leaf2NumMap.size() -2; i++) {
@@ -713,21 +770,24 @@ try{  // for stringIndexOutOfBoundsException
 			}
 		}
 	}
-	
-	/** Adds the split e to the tree
-	 * 
-	 * @param e
-	 */
+
+    /**
+     * Adds a split (edge) to the tree.
+     *
+     * @param e the edge to add
+     */
 	public void addEdge(PhyloTreeEdge e) {
 		edges.add(e);
 	}
-	
-	/** Returns the smallest index in a string t after position i, at which one of the characters in s is located.
-	 * 
-	 * @param i
-	 * @param s
-	 * @return t.length() if no character in s is located after position i in t; otherwise return the min index
-	 */
+
+    /**
+     * Returns the smallest index in string t after position i at which one of the characters in s occurs.
+     *
+     * @param t the string to search in
+     * @param i the starting position for the search
+     * @param s the string containing characters to search for
+     * @return the smallest index of a character in s after position i, or t.length() if none found
+     */
 	private static int nextIndex(String t, int i, String s) {
 		int minIndex = t.length();
 		int tempIndex = -1;
@@ -740,16 +800,15 @@ try{  // for stringIndexOutOfBoundsException
 		}
 		return minIndex;
 	}
-	
-	
+
 	/** Returns a vector containing representations of 0-1 vectors which
-	 * have a 1 in coordinate i if split i of tree t crosses the split of this tree, which this 0-1 
+	 * have a 1 in coordinate i if split i of tree t crosses the split of this tree, which this 0-1
 	 * vector represents.  The entries of this vector correspond to the edges of this tree.
 	 * Doesn't assume the trees have the same number of edges.
 	 * XXX maybe should move exiting if trees don't have same leaf2numMap to this method??
-	 * @param t
-	 * @return
-	 */
+     * @param t the tree to compare with
+     * @return a vector of bipartitions representing crossings, or null if trees have different leaf2NumMap
+     */
 	public Vector<Bipartition> getCrossingsWith(PhyloTree t) {
 		// if the two trees do not have the same leaf2NumMap
 		if (!(this.getLeaf2NumMap().equals(t.getLeaf2NumMap()))){
@@ -800,14 +859,24 @@ try{  // for stringIndexOutOfBoundsException
 //		System.out.println("in getCrossingsWith returning " + edges);
 		return edges;
 	}
-	
+
+    /**
+     * Returns a string representation of this tree including leaves, internal edges, and leaf edges.
+     *
+     * @return a string representation of the tree
+     */
 	public String toString() {
 		return "Leaves: " + leaf2NumMap + "; edges: " + edges + "; leaf edges: " + Arrays.toString(leafEdgeAttribs); 
 	}
 
 
 	// TODO:  not actually overriding the object clone method.  Also, clone should not call constructors.
-	public PhyloTree clone() {
+    /**
+     * Returns a clone of this tree.
+     *
+     * @return a new PhyloTree object with the same structure and attributes
+     */
+    public PhyloTree clone() {
 		return new PhyloTree(TreeDistance.myVectorClonePhyloTreeEdge(edges), TreeDistance.myVectorCloneString(leaf2NumMap), leafEdgeAttribs.clone(), rooted);
 	}
 	
@@ -816,7 +885,9 @@ try{  // for stringIndexOutOfBoundsException
 	 * leaf edge attributes, and the same set of internal edges (including attributes),
 	 * where order doesn't matter.
 	 * @see java.lang.Object#equals(java.lang.Object)
-	 */
+     * @param t the object to compare with
+     * @return true if the trees are equal, false otherwise
+     */
   	@Override public boolean equals(Object t) {
 		if (t == null) {
 			return false;
@@ -835,10 +906,20 @@ try{  // for stringIndexOutOfBoundsException
 					((PhyloTree) t).edges.containsAll(edges);
 	}
 
+    /**
+     * Returns the array of leaf edge attributes.
+     *
+     * @return an array of EdgeAttribute objects for leaf edges
+     */
 	public EdgeAttribute[] getLeafEdgeAttribs() {
 		return leafEdgeAttribs;
 	}
-	
+
+    /**
+     * Returns a copy of the array of leaf edge attributes.
+     *
+     * @return a new array containing cloned EdgeAttribute objects
+     */
 	public EdgeAttribute[] getCopyLeafEdgeAttribs() {
 		if (leafEdgeAttribs == null) {
 			return null;
@@ -854,9 +935,9 @@ try{  // for stringIndexOutOfBoundsException
 	}
 	
 	/** Returns vector with the weights of the edges in the Vector of interior edges.
-	 * 
-	 * @return
-	 */
+	 *
+     * @return an array of doubles representing the norm of each internal edge
+     */
 	public double[] getIntEdgeAttribNorms() {
 		double[] norms = new double[edges.size()];
 			
@@ -866,15 +947,20 @@ try{  // for stringIndexOutOfBoundsException
 		return norms;
 	}
 
+    /**
+     * Sets the array of leaf edge attributes.
+     *
+     * @param leafEdgeAttribs an array of EdgeAttribute objects
+     */
 	public void setLeafEdgeAttribs(EdgeAttribute[] leafEdgeAttribs) {
 		this.leafEdgeAttribs = leafEdgeAttribs;
 	}
 
 	/** Returns the tree in Newick format, either with or without branch lengths.
 	 *  If the tree was constructed using branch lengths, then 
-	 * @param branchLengths
-	 * @return
-	 */
+     * @param branchLengths if true, include branch lengths in the Newick string
+     * @return a string representing the tree in Newick format
+     */
 	public String getNewick(Boolean branchLengths) {
 		String newNewick = "";
 		Vector<String> strPieces = new Vector<String>();	// stores the pieces of the Newick format constructed so far
@@ -1003,27 +1089,31 @@ try{  // for stringIndexOutOfBoundsException
 		return newickString;
 	}
 
+    /**
+     * Sets the cached Newick representation of this tree.
+     *
+     * @param newick the Newick string to set
+     */
 	public void setNewick(String newick) {
 		this.newick = newick;
 	}
 	
 	/** Returns number of interior edges in this tree, including any 0 length ones.
-	 * 
-	 * @return
-	 */
+	 *
+     * @return the number of interior edges
+     */
 	public int numEdges() {
 		return edges.size();
 	}
-	
-	
-	
+
 	/**  Projects this tree onto the geodesic between trees t1 and t2;
 	 * i.e. returns the index (between 0 and 1) of the tree on the geodesic
 	 *  that is closest (= has min geo distance) to this tree.
-	 * Algorithm ends when distance between left and right is < epsilon
-	 * @param geo
-	 * @return
-	 */
+     * Algorithm ends when distance between left and right is &lt; epsilon.
+     * @param geo the geodesic to project onto
+     * @param epsilon the precision threshold for the algorithm
+     * @return the index on the geodesic closest to this tree
+     */
 	public double projectToGeoIndex(Geodesic geo, double epsilon) {
 		PhyloTree t1 = geo.getTreeAt(0,leaf2NumMap,rooted);
 		PhyloTree t2 = geo.getTreeAt(1,leaf2NumMap,rooted);
@@ -1094,10 +1184,11 @@ try{  // for stringIndexOutOfBoundsException
 	
 	/**  Projects this tree onto the geodesic between trees t1 and t2;
 	 * i.e. returns the tree on the geodesic that is closest (= has min geo distance) to this tree.
-	 * Algorithm ends when distance between left and right is < epsilon
-	 * @param geo
-	 * @return
-	 */
+     * Algorithm ends when distance between left and right is &lt; epsilon.
+     * @param geo the geodesic to project onto
+     * @param epsilon the precision threshold for the algorithm
+     * @return the PhyloTree on the geodesic closest to this tree
+     */
 	public PhyloTree projectToGeo(Geodesic geo, double epsilon) {
 		return geo.getTreeAt(this.projectToGeoIndex(geo,epsilon), leaf2NumMap, rooted);
 	}
@@ -1105,9 +1196,11 @@ try{  // for stringIndexOutOfBoundsException
 	
 	
 	/** Resamples with replacement n trees from an input sample of trees.
-	 *  
-	 * @return
-	 */
+	 *
+     * @param trees the array of trees to sample from
+     * @param n the number of trees to resample
+     * @return an array of resampled trees
+     */
 	public static PhyloTree[] resample(PhyloTree[] trees, int n) {
 		if (trees.length == 0) {
 			return trees;
@@ -1131,9 +1224,9 @@ try{  // for stringIndexOutOfBoundsException
 	 *	2) internal edges in t (or the first boundary tree) not in base tree
 	 *	3) all leaf edges
 	 *   TODO:  This is not normalized.
-	 * @param t
-	 * @return
-	 */
+     * @param t the target tree
+     * @return a double array representing the direction vector
+     */
 	public double[] getDirectionTo(PhyloTree t) {
 		// if tree t doesn't share an orthant with this tree
 		if (!this.hasSameTopology(t, true)) {
@@ -1198,9 +1291,14 @@ try{  // for stringIndexOutOfBoundsException
 		
 		return coords;
 	}
-	
-	// Returns an array of the non-leaf edges in the order they appear in the log map coordinates.
-	public PhyloTreeEdge[] getLogMapCoordOrder(PhyloTree t) {
+
+    /**
+     * Returns an array of internal (non-leaf) edges in the order used by log map coordinates.
+     *
+     * @param t the target tree
+     * @return an array of PhyloTreeEdge objects in log map coordinate order
+     */
+    public PhyloTreeEdge[] getLogMapCoordOrder(PhyloTree t) {
 		// if tree t doesn't share an orthant with this tree
 		if (!this.hasSameTopology(t, true)) {
 			t = Geodesic.getBoundaryTrees(this,t).get(0);
@@ -1237,11 +1335,10 @@ try{  // for stringIndexOutOfBoundsException
 	 *    
 	 *    Sets the Newick string to be null, since the branch lengths have been updated.
 	 *
-	 * 
-	 * @param coords  logmap coords
-	 * @param negate changes all negative coordinates to be positive and all positive coordinates to be negative
-	 * @return
-	 */
+	 *
+     * @param coords the coordinates to add
+     * @param negate whether to negate the coordinates
+     */
 	public void addToEdgeAttributes(double [] coords, boolean negate) {
 		int dimAttrib = this.getDimAttribs();
 		
@@ -1287,9 +1384,9 @@ try{  // for stringIndexOutOfBoundsException
 	
 	
 	/**  Get the dimension of an edge attribute in this trees.
-	 * 
-	 * @return
-	 */
+	 *
+     * @return the dimension of edge attributes
+     */
 	public int getDimAttribs() {
 		return getLeafEdgeAttribs()[0].size();
 	}
@@ -1297,10 +1394,10 @@ try{  // for stringIndexOutOfBoundsException
 	/** Returns the coordinates of tree t in the log map centred at this tree.
 	 *  Note:  If need to speed this up, could check if t has the same topology, 
 	 *  and then just return getDirectionTo(t)
-	 * 
-	 * @param t
-	 * @return
-	 */
+     *
+     * @param t the tree to compute log map coordinates for
+     * @return an array of doubles representing the log map coordinates
+     */
 	public double[] getLogMap(PhyloTree t) {
 		// get the geodesic distance between the trees
 		double geoDist = calcGeoDist(this,t);

@@ -22,7 +22,7 @@ import java.io.*;
  * @version $Id: SimpleAlignment.java,v 1.26 2003/08/16 23:48:26 matt Exp $
  *
  * @author Alexei Drummond
- * @note
+ * Note:
  *     <ul>
  *       <li> 14 August 2003 - Removed estimate frequencies stuff (removed a constructor with pointless boolean)
  *     </ul>
@@ -62,15 +62,21 @@ public class SimpleAlignment extends AbstractAlignment
 	 */
 	public SimpleAlignment() {}
 
-	/**
-	 * Clone constructor.
-	 */
+    /**
+     * Clone constructor.
+     *
+     * @param a the alignment to clone
+     */
 	public SimpleAlignment(Alignment a) {
 		this(a,(LabelMapping)null);
 	}
-	/**
-	 * Clone constructor.
-	 */
+
+    /**
+     * Clone constructor with optional label mapping.
+     *
+     * @param a the alignment to clone
+     * @param lm label mapping to use (can be null)
+     */
 	public SimpleAlignment(Alignment a, LabelMapping lm) {
 
 		String[] sequences = new String[a.getIdCount()];
@@ -85,8 +91,10 @@ public class SimpleAlignment extends AbstractAlignment
 			init(lm.getMapped(a), sequences, GAPS);
 		}
 	}
-	/**
-	 * Clone constructor.
+    /**
+     * Clone constructor ignoring a specified sequence.
+     *
+     * @param a the alignment to clone
 	 * @param sequenceToIgnore Will not copy across specified sequence
 	 */
 	public SimpleAlignment(Alignment a, int sequenceToIgnore) {
@@ -108,38 +116,83 @@ public class SimpleAlignment extends AbstractAlignment
 		init(new SimpleIdGroup(a,sequenceToIgnore), sequences, GAPS);
 	}
 
+    /**
+     * Constructor with identifiers and sequences.
+     *
+     * @param ids array of identifiers
+     * @param sequences array of sequence strings
+     * @param gaps characters representing gaps
+     * @param dt the data type of the sequences
+     */
 	public SimpleAlignment(Identifier[] ids, String[] sequences, String gaps, DataType dt) {
 		setDataType(dt);
 		init(new SimpleIdGroup(ids), sequences, gaps);
 	}
+
+    /**
+     * Constructor with IdGroup and sequences.
+     *
+     * @param ids the IdGroup
+     * @param sequences array of sequences
+     * @param dt the data type
+     */
 	public SimpleAlignment(IdGroup ids, String[] sequences, DataType dt) {
 		this(ids,sequences,null,dt);
 	}
 
+    /**
+     * Constructor with IdGroup, sequences and gaps.
+     *
+     * @param ids the IdGroup
+     * @param sequences array of sequences
+     * @param gaps string representing gap characters
+     * @param dt the data type
+     */
 	public SimpleAlignment(IdGroup ids, String[] sequences, String gaps, DataType dt) {
 		setDataType(dt);
 		init(new SimpleIdGroup(ids), sequences, gaps);
 	}
 
+    /**
+     * Constructor with identifiers and sequences.
+     *
+     * @param ids array of identifiers
+     * @param sequences array of sequences
+     * @param dt the data type
+     */
 	public SimpleAlignment(Identifier[] ids, String[] sequences,DataType dt) {
 		this(ids,sequences,null,dt);
 	}
 
-	/**
+    /**
+     * Constructor from IdGroup and character matrix.
+     *
+     * @param group the IdGroup
 	 * @param cSequences sequences as character matrix (assumes rectangular), laid out as cSequences[sequence][site]
-	 */
+     * @param dt the data type
+     */
 	public SimpleAlignment(IdGroup group, char[][] cSequences, DataType dt) {
 		this(group,cSequences,GAPS,dt);
 	}
-	/**
-	 * @param cSequences sequences as character matrix (assumes rectangular), laid out as cSequences[sequence][site]
+
+    /**
+     * Constructor from IdGroup and numeric state sequences.
+     *
+     * @param group the IdGroup
+     * @param dt the data type
+	 * @param sSequences sequences as character matrix (assumes rectangular), laid out as cSequences[sequence][site]
 	 */
 	public SimpleAlignment(IdGroup group, DataType dt, int[][] sSequences) {
 		this(group,DataType.Utils.getChars(sSequences,Alignment.UNKNOWN, Alignment.GAP,dt),""+Alignment.GAP,dt);
 	}
-	/**
+    /**
+     * Constructor from IdGroup and character matrix with custom gaps.
+     *
+     * @param group the IdGroup
 	 * @param cSequences sequences as character matrix (assumes rectangular), laid out as cSequences[sequence][site]
-	 */
+     * @param gaps string representing gap characters
+     * @param dt the data type
+     */
 	public SimpleAlignment(IdGroup group, char[][] cSequences, String gaps, DataType dt) {
 		setDataType(dt);
 		String[] sequences = new String[cSequences.length];
@@ -162,9 +215,13 @@ public class SimpleAlignment extends AbstractAlignment
 		}
 	}
 
-	/**
-	 * Constructor taking single identifier and sequence.
-	 */
+    /**
+     * Constructor taking a single identifier and sequence.
+     *
+     * @param id the identifier
+     * @param sequence the sequence string
+     * @param dataType the data type
+     */
 	public SimpleAlignment(Identifier id, String sequence, DataType dataType) {
 
 		setDataType(dataType);
@@ -179,9 +236,15 @@ public class SimpleAlignment extends AbstractAlignment
 		idGroup = new SimpleIdGroup(ids);
 	}
 
-	/**
-	 * This constructor combines to alignments given two guide strings.
-	 */
+    /**
+     * Constructor combining two alignments using guide strings.
+     *
+     * @param a first alignment
+     * @param b second alignment
+     * @param guide1 guide string for first alignment
+     * @param guide2 guide string for second alignment
+     * @param gap character used for gaps
+     */
 	public SimpleAlignment(Alignment a, Alignment b,
 		String guide1, String guide2, char gap) {
 
@@ -200,7 +263,13 @@ public class SimpleAlignment extends AbstractAlignment
 		idGroup = new SimpleIdGroup(a, b);
 	}
 
-	/** sequence alignment at (sequence, site) */
+    /**
+     * Returns the character at a specific sequence and site.
+     *
+     * @param seq the sequence index
+     * @param site the site index
+     * @return the character at the given position
+     */
 	public char getData(int seq, int site) {
 		return sequences[seq].charAt(site);
 	}
@@ -208,7 +277,10 @@ public class SimpleAlignment extends AbstractAlignment
 	/**
 	 * Returns a string representing a single sequence (including gaps)
 	 * from this alignment.
-	 */
+     *
+     * @param seq the sequence index
+     * @return the aligned sequence string
+     */
 	public String getAlignedSequenceString(int seq) {
 		return sequences[seq];
 	}
@@ -252,7 +324,9 @@ public class SimpleAlignment extends AbstractAlignment
 	}
 	/**
 	 * Converts all gap characters to Alignment.GAP
-	 */
+     *
+     * @param gaps a string containing all characters that should be treated as gaps
+     */
 	private void convertGaps(String gaps) {
 		for (int i = 0; i < sequences.length; i++) {
 			for (int j = 0; j < gaps.length(); j++) {

@@ -79,13 +79,20 @@ public abstract class Node {
      @return the edge-iterator
   */
   public abstract ListIterator getEdges();
-  
-  /**Returns a copy of the tree this node belongs to. The calling node
-     is given, to build the new tree. caller should be null in the initial call.
-     @param caller the calling node, null if it is the initial call
-  */
-  protected abstract Node copy(Node caller);
-  
+
+    /**
+     * Returns a deep copy of the entire tree to which this node belongs.
+     *
+     * <p>This method should be implemented by concrete subclasses to recursively
+     * construct a new tree structure. The {@code caller} argument is used during
+     * recursion to avoid creating cycles and duplicating edges when navigating back
+     * towards the parent.
+     *
+     * @param caller The node from which the current call originated. This should be set to {@code null}
+     * in the initial, non-recursive call to begin the copying process from the root or starting point.
+     * @return A new {@code Node} object that is the root (or entry point) of the deep copy of the tree.
+     */
+    protected abstract Node copy(Node caller);
   /**Returns the number of edges leading from this node
      @return the number of edges
   */

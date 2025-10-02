@@ -29,6 +29,9 @@ public interface OrthogonalHints {
 	 * higher than the boundary are better treated as two separate functions (IE, they
 	 * are only piecewise connected), and minimisation should be performed over both ranges
 	 * individually (and then the true minimum taken as the minimuma of the ranges)
+     *
+     * @param parameter the index of the parameter for which boundaries are requested
+     * @param storage an array in which the boundary values will be stored
 	 * @return the number of boundary locations stored in storage, or -1 if not enough
 	 * room, or 0 if there are no boundaries (other than the normal parameter range)
 	 */
@@ -39,7 +42,14 @@ public interface OrthogonalHints {
 //=====================================================================================================
 
 	public static class Utils {
-		/**
+        /**
+         * Returns a new OrthogonalHints object based on {@code toAdjust} that works with parameters
+         * offset by {@code adjustmentFactor}. That is, if the value {@code x} is passed as a parameter,
+         * it will be adjusted by subtracting {@code adjustmentFactor} before being passed to {@code toAdjust},
+         * and the returned hints will apply the adjustment factor before returning values to the sub-object.
+         *
+         * @param toAdjust the base OrthogonalHints object to adjust
+         * @param adjustmentFactor the amount to adjust parameters by
 		 * @return a new OrthogonalHints object base on toAdjust that works with parameters from adjustmentFactor + what toAdjust worked with
 		 * That is if the value x is the parameter will be passed toAdjust as x-adjustmentFactor, and
 		 * the suggested OrderEnumerator adjusts input x by adding adjustment factor before returning to
@@ -48,11 +58,20 @@ public interface OrthogonalHints {
 		public final static OrthogonalHints getAdjusted(OrthogonalHints toAdjust, int adjustmentFactor) {
 			return new Adjusted(toAdjust,adjustmentFactor);
 		}
-		/**
+        /**
+         * Returns a new OrthogonalHints object that combines two sub OrthogonalHints objects.
+         * Parameters in the range [0, {@code numberOfFirstParameters}) are handled by {@code first},
+         * and the remaining parameters are handled by {@code second}. Note that {@code second} is automatically
+         * adjusted so that it correctly interprets its parameter indices (do not pre-adjust {@code second} manually).
+         *
+         * @param first the first OrthogonalHints object handling the first subset of parameters
+         * @param numberOfFirstParameters the number of parameters handled by {@code first}
+         * @param second the second OrthogonalHints object handling the remaining parameters
+         * @param numberOfSecondParameters the number of parameters handled by {@code second}
 		 * @return a new OrthogonalHints object that combines two sub OrthogonalHints objects so that
 		 * all parameter information between 0 upto (but not including) numberOfFirstParameters is
 		 * passed to first, and everything else is passed to second
-		 * @note automatically adjusts second so assumes both first and second handle parameters in
+		 * Note: automatically adjusts second so assumes both first and second handle parameters in
 		 * range 0..whatever (do not do preadjusment on second!)
 		 */
 		public final static OrthogonalHints getCombined(OrthogonalHints first, int numberOfFirstParameters, OrthogonalHints second, int numberOfSecondParameters) {

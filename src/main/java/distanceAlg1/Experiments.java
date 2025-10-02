@@ -23,7 +23,9 @@ public class Experiments {
 	}
 	
 	/**
-	 * @param args
+     * Main entry point of the program.
+     *
+	 * @param args command-line arguments
 	 */
 	public static void main(String[] args) {
 		
@@ -134,145 +136,118 @@ public class Experiments {
 		System.exit(0);
 
 	}
-	
-/** Computes the combinatorial type of all path space geodesics.
- * 
- */
-public static void pathSpaceGeoCompare(PhyloTree[] trees, String outFile) {
-	// Can only handle 2 trees.  Ignore the rest.
-	if (trees.length <2) {
-		System.out.println("Need at least 2 trees");
-		System.exit(1);
-	}
 
-	PhyloTree t1 = trees[0];
-	PhyloTree t2 = trees[1];
-		
-	// Ensure trees don't have any common edges
-	Vector<PhyloTreeEdge> commonEdges =PhyloTree.getCommonEdges(t1, t2);
-		
-	if (commonEdges.size() > 0) {
-		System.out.println("Trees have common split: cannot run pathSpaceGeoCompare");
-		System.exit(1);
-	}
-		
-	System.out.println("Starting tree: " + t1.getNewick(true));
-	System.out.println("Target tree: " + t2.getNewick(true));
-	
-	System.out.println("\nStarting tree edges:");
-    PhyloTreeEdge.printEdgesVerbose(t1.getEdges(), t1.getLeaf2NumMap(), true);
-	
-	System.out.println("\nTarget tree edges:");
-	PhyloTreeEdge.printEdgesVerbose(t2.getEdges(), t2.getLeaf2NumMap(), true);
+    /**
+     * Computes the combinatorial type of all path space geodesics between two phylogenetic trees.
+     * <p>
+     * Only the first two trees in the array are used; any additional trees are ignored.
+     * The method prints information about the trees, edges, and resulting ratio sequences.
+     *
+     * @param trees   an array of PhyloTree objects (must contain at least two trees)
+     * @param outFile the output file name (currently used for experiment output)
+     */
+    public static void pathSpaceGeoCompare(PhyloTree[] trees, String outFile) {
+        if (trees.length < 2) {
+            System.out.println("Need at least 2 trees");
+            System.exit(1);
+        }
 
-	System.out.println("Ignoring leaf split lengths in following.  Below is the ratio sequence for each max path space, the combinatorial type of its path space geodesic, and the length of this path space geodesic.");
-	
-	Vector<Bipartition> m = t2.getCrossingsWith(t1);
-	
-//	System.out.println("In getPruned2GeodesicNoCommonEdge() crossings are: " + m);
-	
-	if (m == null) {
-		System.out.println("The trees " + t1 + " and " + t2+ " do not have the same leaf labels.");
-		System.exit(0);
-	}
-	
-//	 the base case is when m contains all the same element
-//	System.out.println("m is " + m);
-	Bipartition mEl = m.get(0);
-	Boolean inBaseCase = true;
-	for (int i = 1; i < m.size(); i++) {
-		if (!(m.get(i).equals(mEl))) {
-			inBaseCase = false;
-			break;
-		}
-	}
-	if (inBaseCase) {
-	   
-		RatioSequence rs = new RatioSequence();
-		rs.add(new Ratio(TreeDistance.myVectorClonePhyloTreeEdge(t1.getEdges()), TreeDistance.myVectorClonePhyloTreeEdge(t2.getEdges()) ));
-//		System.out.println("in base case: returning geo " + new Geodesic(rs));
-//		System.out.println("trees were: " + t1 + " and " + t2);
-		System.out.println(rs.toStringCombTypeAndValue());
-		System.out.println(rs.toStringCombTypeAndValue());
-		System.out.println(rs.getDistance() + "\n");
-	}
-	
-	getCombTypeOfPathSpaceGeos(m, new RatioSequence(), t1.getEdges(), t2.getEdges());
-	
-}
+        PhyloTree t1 = trees[0];
+        PhyloTree t2 = trees[1];
 
-/** Recursive method for finding all the ratio sequences.
- * 
- * @param m
- * @param ratioSeq
- */
-public static void getCombTypeOfPathSpaceGeos(Vector<Bipartition> m, RatioSequence ratioSeq, Vector<PhyloTreeEdge> eEdges, Vector<PhyloTreeEdge> fEdges) {
-	
-	// returns vector containing each minimal e-set.
-	Vector<Bipartition> minEls = TreeDistance.getMinElements(m);
-	
-//	System.out.println("m is " + m);
-//	System.out.println("minEls is " + minEls);
-	
-	Bipartition minEl;
-	Ratio ratio;
-			
-//lll	System.out.println("at start of getMaxPathSpacesAsRatioSeqsmin, minTreeDist is " + minTreeDist + " and minTreeDistRatioSeq is " + minTreeDistRatioSeq);	
-	
-	if (minEls.size() == 0) {
-		// base case: we are at the end of the chain, so add to final ratioSeq
-		// first case to avoid memory overflow
-		
-		System.out.println(ratioSeq.toStringCombTypeAndValue());
-		System.out.println(ratioSeq.getNonDesRSWithMinDist().toStringCombTypeAndValue());
-		System.out.println(ratioSeq.getNonDesRSWithMinDist().getDistance() + "\n");
-		return;
-	}
-	
-	Vector<Bipartition> sortedMinEls = new Vector<Bipartition>();
-	Vector<Ratio> sortedMinElRatios = new Vector<Ratio>();
-			
-	// order the min elements by their ratios
-	Iterator<Bipartition> minElsIter = minEls.iterator();
-	while (minElsIter.hasNext()) {
-		minEl = minElsIter.next(); 
-			
-		ratio = TreeDistance.calculateRatio(minEl, m, eEdges, fEdges );
-		
-		Boolean inserted = false;
-		// store both in sortedMinEls in order of ascending ratios
-		for (int k = 0; k < sortedMinElRatios.size();k++ ) {
-			if (sortedMinElRatios.get(k).getRatio() > ratio.getRatio()) {
-				sortedMinElRatios.add(k, ratio.clone());
-				sortedMinEls.add(k,minEl.clone());
-				inserted = true;
-				break;
-			}
-		}
-		if (!inserted) {
-			// else bigger than all ratios currently in the vector 
-			sortedMinElRatios.add(ratio.clone());
-			sortedMinEls.add(minEl.clone());
-		}
-		
-	}
-	
-	for (int j = 0; j < sortedMinElRatios.size(); j ++) {
-		minEl = sortedMinEls.get(j);
-		ratio = sortedMinElRatios.get(j);
-//		System.out.println("minEl is " + minEl);
-//		System.out.println("ratio is " + ratio);
+        Vector<PhyloTreeEdge> commonEdges = PhyloTree.getCommonEdges(t1, t2);
+        if (commonEdges.size() > 0) {
+            System.out.println("Trees have common split: cannot run pathSpaceGeoCompare");
+            System.exit(1);
+        }
 
-		Vector<Bipartition> newM = TreeDistance.removeMinElFrom(m, minEl);	
-	    
-//		 add this ratio to the ratio sequence, and calculate the distance
-		ratioSeq.add(ratio);
-				
-		getCombTypeOfPathSpaceGeos(newM,ratioSeq, eEdges, fEdges);
+        System.out.println("Starting tree: " + t1.getNewick(true));
+        System.out.println("Target tree: " + t2.getNewick(true));
 
-		ratioSeq.remove(ratio);
-	}
-	minEls = null; 
-} 	
+        System.out.println("\nStarting tree edges:");
+        PhyloTreeEdge.printEdgesVerbose(t1.getEdges(), t1.getLeaf2NumMap(), true);
 
+        System.out.println("\nTarget tree edges:");
+        PhyloTreeEdge.printEdgesVerbose(t2.getEdges(), t2.getLeaf2NumMap(), true);
+
+        System.out.println("Ignoring leaf split lengths. Displaying ratio sequence, combinatorial type, and length of path space geodesic.");
+
+        Vector<Bipartition> m = t2.getCrossingsWith(t1);
+        if (m == null) {
+            System.out.println("The trees " + t1 + " and " + t2 + " do not have the same leaf labels.");
+            System.exit(0);
+        }
+
+        Bipartition mEl = m.get(0);
+        boolean inBaseCase = true;
+        for (int i = 1; i < m.size(); i++) {
+            if (!m.get(i).equals(mEl)) {
+                inBaseCase = false;
+                break;
+            }
+        }
+
+        if (inBaseCase) {
+            RatioSequence rs = new RatioSequence();
+            rs.add(new Ratio(TreeDistance.myVectorClonePhyloTreeEdge(t1.getEdges()), TreeDistance.myVectorClonePhyloTreeEdge(t2.getEdges())));
+            System.out.println(rs.toStringCombTypeAndValue());
+            System.out.println(rs.getDistance() + "\n");
+        }
+
+        getCombTypeOfPathSpaceGeos(m, new RatioSequence(), t1.getEdges(), t2.getEdges());
+    }
+
+    /**
+     * Recursive method to compute all ratio sequences for path space geodesics.
+     *
+     * @param m        the set of Bipartitions to process
+     * @param ratioSeq the current RatioSequence being built
+     * @param eEdges   the edges of the starting tree
+     * @param fEdges   the edges of the target tree
+     */
+    public static void getCombTypeOfPathSpaceGeos(Vector<Bipartition> m, RatioSequence ratioSeq,
+                                                  Vector<PhyloTreeEdge> eEdges, Vector<PhyloTreeEdge> fEdges) {
+
+        Vector<Bipartition> minEls = TreeDistance.getMinElements(m);
+
+        if (minEls.size() == 0) {
+            // Base case: no more elements to process
+            System.out.println(ratioSeq.toStringCombTypeAndValue());
+            System.out.println(ratioSeq.getNonDesRSWithMinDist().toStringCombTypeAndValue());
+            System.out.println(ratioSeq.getNonDesRSWithMinDist().getDistance() + "\n");
+            return;
+        }
+
+        Vector<Bipartition> sortedMinEls = new Vector<>();
+        Vector<Ratio> sortedMinElRatios = new Vector<>();
+
+        for (Bipartition minEl : minEls) {
+            Ratio ratio = TreeDistance.calculateRatio(minEl, m, eEdges, fEdges);
+
+            boolean inserted = false;
+            for (int k = 0; k < sortedMinElRatios.size(); k++) {
+                if (sortedMinElRatios.get(k).getRatio() > ratio.getRatio()) {
+                    sortedMinElRatios.add(k, ratio.clone());
+                    sortedMinEls.add(k, minEl.clone());
+                    inserted = true;
+                    break;
+                }
+            }
+            if (!inserted) {
+                sortedMinElRatios.add(ratio.clone());
+                sortedMinEls.add(minEl.clone());
+            }
+        }
+
+        for (int j = 0; j < sortedMinElRatios.size(); j++) {
+            Bipartition minEl = sortedMinEls.get(j);
+            Ratio ratio = sortedMinElRatios.get(j);
+
+            Vector<Bipartition> newM = TreeDistance.removeMinElFrom(m, minEl);
+
+            ratioSeq.add(ratio);
+            getCombTypeOfPathSpaceGeos(newM, ratioSeq, eEdges, fEdges);
+            ratioSeq.remove(ratio);
+        }
+    }
 }

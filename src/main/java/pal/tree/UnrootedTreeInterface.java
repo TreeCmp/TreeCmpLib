@@ -29,24 +29,24 @@ public interface UnrootedTreeInterface {
 	// == Node ==
 	// ==========
 	public static interface UNode {
-		/**
-		 * Get the branch closest to the base (or maybe even the base)
-		 * @return
-		 */
-		public UBranch getParentUBranch();
+        /**
+         * Retrieves the upstream branch connected to the current branch, which is typically the branch
+         * closer to the tree's root or base.
+         *
+         * @return The parent {@code UBranch} object, which represents the branch connecting this node's parent (or the base of the tree).
+         */
+        public UBranch getParentUBranch();
 		public void setLabel(String label);
-
-
 		public void setAnnotation(Object annotation);
-
-
 		public void resetChildren();
 
-		/**
-		 * Create a child that is further from the base
-		 * @return
-		 */
-		public UNode createUChild();
+        /**
+         * Creates a new child node ({@code UNode}) and attaches it to the current node,
+         * effectively extending the branch further away from the base (root) of the tree structure.
+         *
+         * @return The newly created child {@code UNode} object.
+         */
+        public UNode createUChild();
 
 	}
 	// ====================
@@ -74,43 +74,48 @@ public interface UnrootedTreeInterface {
 	}
 
 	public static final class Utils {
-		/**
-		 * Recursively build tree
-		 * @param palNode
-		 * @param displayNode
-		 */
-		private final static void create(Node palNode, UNode uNode) {
+        /**
+         * Recursively builds the structure of the display tree (represented by UNode objects)
+         * based on the topology and branch lengths of the standard PAL tree nodes.
+         *
+         * @param palNode The current node from the source PAL tree being processed.
+         * @param uNode The corresponding UNode in the display tree structure being built.
+         */
+        private final static void create(Node palNode, UNode uNode) {
 
-			int numberOfChildren = palNode.getChildCount();
-			uNode.resetChildren();
-			if(numberOfChildren==0) {
-			  uNode.setLabel(palNode.getIdentifier().getName());
-			} else {
-				for( int i = 0; i<numberOfChildren; i++ ) {
-					Node palChild = palNode.getChild( i );
-					UNode displayChild = uNode.createUChild();
-					UBranch b = displayChild.getParentUBranch();
-					b.setLength( palChild.getBranchLength() );
-					create( palChild, displayChild );
-				}
-			}
-		}
-		/**
-		 * Build a tree display based on a normal pal node.
-		 * @param root
-		 * @param display
-		 */
-		public static final void instruct(Node root, UnrootedTreeInterface treeInterface) {
-		  if(root.getChildCount()!=2) {
-				root = new TreeManipulator(root).getMidPointRooted();
-			}
-			BaseBranch b = treeInterface.createBase();
-		  Node palLeft = root.getChild(0);
-			Node palRight = root.getChild(1);
-			b.setLength(palLeft.getBranchLength()+palRight.getBranchLength());
-			create(palLeft, b.getLeftNode());
-			create(palRight, b.getRightNode());
+            int numberOfChildren = palNode.getChildCount();
+            uNode.resetChildren();
+            if(numberOfChildren==0) {
+                uNode.setLabel(palNode.getIdentifier().getName());
+            } else {
+                for( int i = 0; i<numberOfChildren; i++ ) {
+                    Node palChild = palNode.getChild( i );
+                    UNode displayChild = uNode.createUChild();
+                    UBranch b = displayChild.getParentUBranch();
+                    b.setLength( palChild.getBranchLength() );
+                    create( palChild, displayChild );
+                }
+            }
+        }
+        /**
+         * Builds the {@code UnrootedTreeInterface} display structure based on a normal PAL tree's root node.
+         * This method ensures the input node is effectively unrooted (trifurcating root) before conversion.
+         *
+         * @param root The root node of the source PAL tree.
+         * @param treeInterface The {@code UnrootedTreeInterface} object that will receive the new tree structure.
+         * Note: If the provided root has only two children (rooted), it is first converted to a midpoint-rooted, three-child structure.
+         */
+        public static final void instruct(Node root, UnrootedTreeInterface treeInterface) {
+            if(root.getChildCount()!=2) {
+                root = new TreeManipulator(root).getMidPointRooted();
+            }
+            BaseBranch b = treeInterface.createBase();
+            Node palLeft = root.getChild(0);
+            Node palRight = root.getChild(1);
+            b.setLength(palLeft.getBranchLength()+palRight.getBranchLength());
+            create(palLeft, b.getLeftNode());
+            create(palRight, b.getRightNode());
 
-		}
+        }
 	}
 }

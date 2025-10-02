@@ -59,59 +59,77 @@ public final class Matrix {
 	public final int getWidth() {  return width_; }
 	public final int getHeight() { return height_; }
 
-	/**
-	 * @return a new Matrix that is this matrix with other appended on the end (eg [this | other ])
-	 */
-	public Matrix getAppendedHorizontally(Matrix other) {
-		if(other.height_!=this.height_) {
-			throw new IllegalArgumentException("Height not same!");
-		}
-		double[][] otherData = other.data_;
-		double[][] newData = new double[height_][width_+other.width_];
-		for(int y = 0 ; y < height_ ; y++) {
-			for(int x = 0 ; x < width_ ; x++) {
-				newData[y][x] = data_[y][x];
-			}
-			for(int x = 0 ; x < other.width_ ; x++) {
-				newData[y][x+width_] = otherData[y][x];
-			}
-		}
-		return new Matrix(newData);
-	}
-	/**
-	 * @return a new Matrix that is this matrix with other appended on the bottom (eg [this / other ]
-	 */
-	public Matrix getAppendedVertically(Matrix other) {
-		if(other.width_!=this.width_) {
-			throw new IllegalArgumentException("Width not same!");
-		}
-		double[][] otherData = other.data_;
-		double[][] newData = new double[height_+other.height_][width_];
-		for(int x = 0 ; x < width_ ; x++) {
-			for(int y = 0 ; y < height_ ; y++) {
-				newData[y][x] = data_[y][x];
-			}
-			for(int y = 0 ; y < other.height_ ; y++) {
-				newData[y+height_][x] = otherData[y][x];
-			}
-		}
-		return new Matrix(newData);
-	}
+    /**
+     * Returns a new Matrix that is this matrix with the specified matrix appended horizontally.
+     * That is, the new matrix will have this matrix on the left and the other matrix on the right.
+     *
+     * @param other the matrix to append horizontally
+     * @return a new Matrix representing [this | other]
+     * @throws IllegalArgumentException if the heights of the matrices are not equal
+     */
+    public Matrix getAppendedHorizontally(Matrix other) {
+        if(other.height_ != this.height_) {
+            throw new IllegalArgumentException("Height not same!");
+        }
+        double[][] otherData = other.data_;
+        double[][] newData = new double[height_][width_ + other.width_];
+        for(int y = 0; y < height_; y++) {
+            for(int x = 0; x < width_; x++) {
+                newData[y][x] = data_[y][x];
+            }
+            for(int x = 0; x < other.width_; x++) {
+                newData[y][x + width_] = otherData[y][x];
+            }
+        }
+        return new Matrix(newData);
+    }
 
-	/**
-	 * Returns a new Matrix that is formed from a subset of the colums of this matrix
-	 * @param startColumn the first column to include in new Matrix
-	 * @param numberToKeep the number of columns to keep
-	 */
-	public Matrix getSubsetColumns(int startColumn, int numberToKeep) {
-		double[][] newData = new double[height_][numberToKeep];
-		for(int row = 0 ; row < height_ ; row++) {
-			for(int i = 0 ; i < numberToKeep ; i ++) {
-				newData[row][i] = data_[row][i+startColumn];
-			}
-		}
-		return new Matrix(newData);
-	}
+    /**
+     * Returns a new Matrix that is this matrix with the specified matrix appended vertically.
+     * That is, the new matrix will have this matrix on top and the other matrix on the bottom.
+     *
+     * @param other the matrix to append vertically
+     * @return a new Matrix representing [this / other]
+     * @throws IllegalArgumentException if the widths of the matrices are not equal
+     */
+    public Matrix getAppendedVertically(Matrix other) {
+        if(other.width_ != this.width_) {
+            throw new IllegalArgumentException("Width not same!");
+        }
+        double[][] otherData = other.data_;
+        double[][] newData = new double[height_ + other.height_][width_];
+        for(int x = 0; x < width_; x++) {
+            for(int y = 0; y < height_; y++) {
+                newData[y][x] = data_[y][x];
+            }
+            for(int y = 0; y < other.height_; y++) {
+                newData[y + height_][x] = otherData[y][x];
+            }
+        }
+        return new Matrix(newData);
+    }
+
+    /**
+     * Returns a new Matrix that is formed from a subset of the columns of this matrix.
+     *
+     * @param startColumn the index of the first column to include in the new matrix
+     * @param numberToKeep the number of consecutive columns to include
+     * @return a new Matrix containing the specified subset of columns
+     * @throws IllegalArgumentException if startColumn or numberToKeep are out of bounds
+     */
+    public Matrix getSubsetColumns(int startColumn, int numberToKeep) {
+        if (startColumn < 0 || startColumn + numberToKeep > width_) {
+            throw new IllegalArgumentException("Column range out of bounds");
+        }
+        double[][] newData = new double[height_][numberToKeep];
+        for (int row = 0; row < height_; row++) {
+            for (int i = 0; i < numberToKeep; i++) {
+                newData[row][i] = data_[row][i + startColumn];
+            }
+        }
+        return new Matrix(newData);
+    }
+
 
 	public final void transpose() {
 		if(!isSquare()) { throw new RuntimeException("Cannot transpose no square matrix!");  }
@@ -141,30 +159,44 @@ public final class Matrix {
 		}
 	}
 
-	/**
-	 *  Multiply as in [this][other]
-	 */
-	public final Matrix getMultiplied(Matrix other) {
-		if(width_!=other.height_) {
-			throw new IllegalArgumentException("Other matrix wrong size!");
-		}
-		final double[][] otherData = other.data_;
-		final double[][] newData = new double[height_][other.width_];
-		for(int row = 0 ; row < height_ ; row++) {
-			for(int otherCol = 0 ; otherCol<other.width_ ; otherCol++) {
-				double total = 0;
-				 for(int col = 0 ; col < width_ ; col++) {
-					total+=data_[row][col]*otherData[col][otherCol];
-				}
-				newData[row][otherCol] = total;
-			}
-		}
-		return new Matrix(newData);
-	}
+    /**
+     * Returns a new Matrix that is the result of multiplying this matrix by another matrix.
+     * This performs standard matrix multiplication: [this] * [other].
+     *
+     * @param other the matrix to multiply with
+     * @return a new Matrix representing the product of this matrix and the other matrix
+     * @throws IllegalArgumentException if the number of columns in this matrix
+     *         does not match the number of rows in the other matrix
+     */
+    public final Matrix getMultiplied(Matrix other) {
+        if (width_ != other.height_) {
+            throw new IllegalArgumentException("Other matrix has incompatible dimensions for multiplication");
+        }
+        final double[][] otherData = other.data_;
+        final double[][] newData = new double[height_][other.width_];
+        for (int row = 0; row < height_; row++) {
+            for (int otherCol = 0; otherCol < other.width_; otherCol++) {
+                double total = 0;
+                for (int col = 0; col < width_; col++) {
+                    total += data_[row][col] * otherData[col][otherCol];
+                }
+                newData[row][otherCol] = total;
+            }
+        }
+        return new Matrix(newData);
+    }
 
-	public final Matrix getMultiplied(double scale) {
-		Matrix m = getMatrixCopy();   m.multiply(scale);   return m;
-	}
+    /**
+     * Returns a new Matrix that is the result of scaling this matrix by a scalar value.
+     *
+     * @param scale the factor to multiply each element of this matrix by
+     * @return a new Matrix with each element multiplied by the given scale
+     */
+    public final Matrix getMultiplied(double scale) {
+        Matrix m = getMatrixCopy();
+        m.multiply(scale);
+        return m;
+    }
 	/**
 	 * Obtains the inverse of a matrix by appending identity and doing row reduction. May not be the most
 	 * accurate way of doing things (errors tend to accumulate)
@@ -188,39 +220,48 @@ public final class Matrix {
 			rowData[i]/=factor;
 		}
 	}
+    /**
+     * Adds the values from one row to another (modifies the target row).
+     *
+     * @param fromRow the index of the row to add from
+     * @param toRow the index of the row to add to
+     */
+    private void addRow(int fromRow, int toRow) {
+        final double[] fromRowData = data_[fromRow];
+        final double[] toRowData = data_[toRow];
+        for(int i = 0 ; i < width_ ; i++) {
+            toRowData[i] += fromRowData[i];
+        }
+    }
 
-	/**
-	 * Adds values in row from to row to (changes row to)
-	 */
-	private void addRow(int fromRow, int toRow) {
-		final double[] fromRowData = data_[fromRow];
-		final double[] toRowData = data_[toRow];
-		for(int i = 0 ; i < width_ ; i++) {
-			toRowData[i]+=fromRowData[i];
-		}
-	}
-	/**
-	 * Subtracts values in row from to row to (changes row to)
-	 */
-	private void subtractRow(int fromRow, int toRow) {
-		final double[] fromRowData = data_[fromRow];
-		final double[] toRowData = data_[toRow];
-		for(int i = 0 ; i < width_ ; i++) {
-			toRowData[i]-=fromRowData[i];
-		}
-	}
-	/**
-	 * Subtracts values in row from to row to (changes row to)
-	 * @param scale a scale value. For each value in fromRow, x, x is multiplied by scale before
-	 * being subtracted from toRow
-	 */
-	private void subtractRow(int fromRow, double scale, int toRow) {
-		final double[] fromRowData = data_[fromRow];
-		final double[] toRowData = data_[toRow];
-		for(int i = 0 ; i < width_ ; i++) {
-			toRowData[i]-=scale*fromRowData[i];
-		}
-	}
+    /**
+     * Subtracts the values of one row from another (modifies the target row).
+     *
+     * @param fromRow the index of the row to subtract
+     * @param toRow the index of the row to subtract from
+     */
+    private void subtractRow(int fromRow, int toRow) {
+        final double[] fromRowData = data_[fromRow];
+        final double[] toRowData = data_[toRow];
+        for(int i = 0 ; i < width_ ; i++) {
+            toRowData[i] -= fromRowData[i];
+        }
+    }
+
+    /**
+     * Subtracts a scaled version of one row from another (modifies the target row).
+     *
+     * @param fromRow the index of the row to subtract
+     * @param scale the scale factor applied to each value in fromRow before subtraction
+     * @param toRow the index of the row to subtract from
+     */
+    private void subtractRow(int fromRow, double scale, int toRow) {
+        final double[] fromRowData = data_[fromRow];
+        final double[] toRowData = data_[toRow];
+        for(int i = 0 ; i < width_ ; i++) {
+            toRowData[i] -= scale * fromRowData[i];
+        }
+    }
 
 	private final static boolean equalsZero(final double value) {
 		return((value<0.0000001)&&(value>-0.0000001));
@@ -230,22 +271,25 @@ public final class Matrix {
 		data_[rowOne] = data_[rowTwo];
 		data_[rowTwo] = temp;
 	}
-	/**
-		* Check forward in rows after start row until we find one with a \
-		* non zero value at targetColumn and then swap with startRow
-		* @return true if successful, or false if no row with zero at required position
-		*/
-	private boolean swapZeroRow(int startRow, int targetColumn) {
-		for(int check = startRow+1 ; check < height_ ; check++) {
-			if(!equalsZero(getValue(check,targetColumn))) {
-				swapRow(startRow,check);
-				return true;
-			}
-		}
-		return false;
-	}
+    /**
+     * Checks rows below the given start row to find one with a non-zero value
+     * in the specified column and swaps it with the start row.
+     *
+     * @param startRow the index of the row to start checking from
+     * @param targetColumn the column index to check for a non-zero value
+     * @return true if a suitable row was found and swapped; false if no such row exists
+     */
+    private boolean swapZeroRow(int startRow, int targetColumn) {
+        for (int check = startRow + 1; check < height_; check++) {
+            if (!equalsZero(getValue(check, targetColumn))) {
+                swapRow(startRow, check);
+                return true;
+            }
+        }
+        return false;
+    }
 
-	public void rowReduce() {
+    public void rowReduce() {
 		int extent = Math.min(width_,height_);
 		for(int reduce = 0 ; reduce < extent ; reduce++) {
 			boolean doColumn = true;
@@ -277,22 +321,25 @@ public final class Matrix {
 			}
 		}
 	}
-	/**
-	 * Peforms a simple row reduction tramsformation
-	 * @return A row reduced version of this matrix
-	 */
-	public Matrix getRowReduced() {
-		Matrix m = getMatrixCopy();
-		m.rowReduce();
-		return m;
-	}
-	/**
-	 * Cloning
-	 * @return an exact copy of this matrix
-	 */
-	public Matrix getMatrixCopy() {
-		return new Matrix(this);
-	}
+    /**
+     * Performs a simple row reduction transformation on a copy of this matrix.
+     *
+     * @return a new Matrix that is the row-reduced version of this matrix
+     */
+    public Matrix getRowReduced() {
+        Matrix m = getMatrixCopy();
+        m.rowReduce();
+        return m;
+    }
+
+    /**
+     * Creates an exact copy of this matrix.
+     *
+     * @return a new Matrix object that is a deep copy of this matrix
+     */
+    public Matrix getMatrixCopy() {
+        return new Matrix(this);
+    }
 
 	public String toString() {
 		StringBuffer sb = new StringBuffer();

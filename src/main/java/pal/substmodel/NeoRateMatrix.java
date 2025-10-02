@@ -20,7 +20,7 @@ import java.io.*;
 /**
  * The new RateMatrix class. Replaces the old RateMatrix, and will in turn be renamed to RateMatrix at a later point.
  * A NeoRateMatix object should be stateless (with regard to parameters used in likelihood searching). State is given by the parameter values which are administered externally.
- * @note This type of RateMatrix object only creates a relative rate matrix, not a Q matrix (so no reference to equilibrium frequencies!)
+ * Note: This type of RateMatrix object only creates a relative rate matrix, not a Q matrix (so no reference to equilibrium frequencies!)
  * @version $Id: NeoRateMatrix.java,v 1.3 2004/08/15 03:00:37 matt Exp $
  *
  * @author Matthew Goode
@@ -37,9 +37,9 @@ public interface NeoRateMatrix extends  Serializable{
 
 	/**
 	 * Is the relative rate matrix described by this rate matrix meant to represent a reversible process?
-	 * If true only the upper part of the rate matrix needs to be filled in (eg  in matrix[i][j], for all where j > i );
+	 * If true only the upper part of the rate matrix needs to be filled in (eg  in matrix[i][j], for all where j &gt; i );
 	 * @return true if reversible
-	 * @note I don't know how this will go - MG
+	 * Note: I don't know how this will go - MG
 	 */
 	public boolean isReversible();
 

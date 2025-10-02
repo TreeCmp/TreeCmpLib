@@ -92,13 +92,17 @@ public class FreeLeafNode extends AbstractLeafNode implements FreeNode {
 		if(caller!=parentFreeBranch_){	throw new IllegalArgumentException("Unknown caller!");			}
 	}
 
-
-	/**
-	 * This should only be called by another leaf node on the other end of the connection.
-	 * In this case we don't have to do much (tree is two node tree)
-	 */
-	public int redirectRebuildPattern(GeneralConstructionTool tool) {		return getNumberOfPatterns();		}
-
+    /**
+     * Redirects the pattern reconstruction call when this node is a leaf connected to another leaf node.
+     * This scenario represents the simplest possible tree topology (a two-node tree).
+     * In this minimal configuration, no complex reconstruction is needed; the pattern information
+     * is derived directly from the leaf's sequence data.
+     *
+     * @param tool The construction tool, which is typically used for pattern building but is largely bypassed here.
+     * @return The number of distinct patterns (or sites) represented in the leaf node's data.
+     * Note: This method should only be called when this leaf node's sole connection is another leaf node.
+     */
+    public int redirectRebuildPattern(GeneralConstructionTool tool) {      return getNumberOfPatterns();     }
 	public final ConditionalProbabilityStore getFlatConditionalProbabilities(final FreeBranch callingBranch, UnconstrainedLikelihoodModel.External external, ConditionalProbabilityStore resultStore, GeneralConstructionTool tool) {
 		if(callingBranch!=parentFreeBranch_) {		throw new IllegalArgumentException("Unknown calling connection");			}
 		return leafCalculator_.getFlatConditionalProbabilities();

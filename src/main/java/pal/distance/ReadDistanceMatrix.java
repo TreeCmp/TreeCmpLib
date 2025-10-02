@@ -29,24 +29,31 @@ public class ReadDistanceMatrix extends DistanceMatrix
 	// Public stuff
 	//
 
-	/** read from stream */
-	public ReadDistanceMatrix(PushbackReader input)
-		throws DistanceParseException
-	{
-		readSquare(input);
-	}
+    /**
+     * Constructs a ReadDistanceMatrix by reading distances from a character stream.
+     *
+     * @param input a PushbackReader providing the distance matrix data
+     * @throws DistanceParseException if there is an error parsing the distance matrix
+     */
+    public ReadDistanceMatrix(PushbackReader input) throws DistanceParseException {
+        readSquare(input);
+    }
 
-	/** read from file */
-	public ReadDistanceMatrix(String file)
-		throws DistanceParseException, IOException
-	{
-		PushbackReader input = InputSource.openFile(file);
-		readSquare(input);
-		input.close();
-	}
+    /**
+     * Constructs a ReadDistanceMatrix by reading distances from a file.
+     *
+     * @param file the path to the file containing the distance matrix
+     * @throws DistanceParseException if there is an error parsing the distance matrix
+     * @throws IOException if an I/O error occurs while reading the file
+     */
+    public ReadDistanceMatrix(String file) throws DistanceParseException, IOException {
+        PushbackReader input = InputSource.openFile(file);
+        readSquare(input);
+        input.close();
+    }
 
 
-	//
+    //
 	// Private stuff
 	//
 

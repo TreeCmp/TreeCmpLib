@@ -117,22 +117,45 @@ public class Leaf extends Node implements Comparable {
     return new Leaf(name);
   }
 
-  /**Removes this leaf from the tree. If the neighbour of this leaf
-     had degree 3 before the removal, it is collapsed. Returns a node
-     that is in the new tree.
-  */
+    /**
+     * Removes this leaf node from the tree.
+     *
+     * <p>If the internal node neighboring this leaf (its parent) had a degree of 3 before the removal,
+     * that neighbor node is **collapsed** (fused with its own neighbor) to maintain the tree structure.
+     *
+     * @return A {@code Node} that remains in the new, resulting tree after deletion and potential collapse,
+     * or {@code null} if the leaf had no associated edge ({@code e == null}).
+     */
   protected Node delete() {
     if (e == null)
       return null;
     return e.to.removeNeighbour(this);
   }
-  
-  /**Specified in Node*/
+
+    /**
+     * Handles the removal of a neighboring node.
+     *
+     * <p>This method is specified in the abstract {@code Node} class and is implemented here
+     * for non-internal node types (like {@code Leaf}) to handle specific removal logic.
+     * Since a {@code Leaf} is always the terminal end of a branch, calling this method on a
+     * leaf is generally used to trigger the collapse logic starting from the leaf's parent.
+     *
+     * @param neighbour The node that is being removed from the tree's structure (in this context, usually the parent calling back).
+     * @return This {@code Leaf} node itself, as it cannot remove a neighbor.
+     */
   protected Node removeNeighbour(Node neighbour) {
     return this;
   }
 
-  /**Specified in Node*/
+    /**
+     * Generates the Newick format string representation of this leaf node, including its name.
+     *
+     * <p>The leaf name is automatically enclosed in single quotes if it contains whitespace or
+     * is otherwise invalid according to Newick format rules.
+     *
+     * @param caller The node from which the current call originated (used to traverse the tree).
+     * @return The Newick format string for this leaf node, potentially including quotes around the name.
+     */
   protected String getString(Node caller) {
     String tmpname1 = name;
     //The name might need to be quoted

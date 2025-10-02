@@ -46,74 +46,92 @@ public class MutationRateModelTree extends ParameterizedTree.ParameterizedTreeBa
 
 	private final static double MIN_MU = 1e-12;
 	private final static double MIN_DELTA = 1e-12;
-	/**
-	 * take any tree and afford it with an interface
-	 * suitable for a clock-like tree (parameters
-	 * are the minimal node height differences at each internal node).
-	 * Includes model parameters as parameters of tree
-	 * <p>
-	 * <em>This parameterisation of a clock-tree, ensuring that
-	 * all parameters are independent of each other is due to
-	 * Andrew Rambaut (personal communication).</em>
-	 */
-	public MutationRateModelTree(Tree t, TimeOrderCharacterData tocd, MutationRateModel model)  {
-		this(t,tocd, model,true);
-	}
-	/**
-	 * take any tree and afford it with an interface
-	 * suitable for a clock-like tree (parameters
-	 * are the minimal node height differences at each internal node).
-	 * <p>
-	 * <em>This parameterisation of a clock-tree, ensuring that
-	 * all parameters are independent of each other is due to
-	 * Andrew Rambaut (personal communication).</em>
-	 */
-	public MutationRateModelTree(Tree t, TimeOrderCharacterData tocd, MutationRateModel model, boolean includeModelParameters)  {
+    /**
+     * Constructs a clock-like tree interface based on a provided tree, time data, and mutation rate model.
+     * The parameters of this object include the minimal node height differences at each internal node,
+     * and the parameters of the mutation rate model are included by default.
+     *
+     * <p>
+     * <em>This parameterisation of a clock-tree, ensuring that
+     * all parameters are independent of each other is due to
+     * Andrew Rambaut (personal communication).</em>
+     * </p>
+     *
+     * @param t The base {@code Tree} to be parameterized.
+     * @param tocd The {@code TimeOrderCharacterData} containing the sampling times needed for clock-like analysis.
+     * @param model The {@code MutationRateModel} defining the evolutionary rate and its parameters.
+     */
+    public MutationRateModelTree(Tree t, TimeOrderCharacterData tocd, MutationRateModel model)  {
+        this(t,tocd, model,true);
+    }
 
-		setBaseTree(t);
+    /**
+     * Constructs a clock-like tree interface based on a provided tree, time data, and mutation rate model,
+     * with an option to include the model's parameters in the tree's parameter set.
+     * The tree parameters represent the minimal node height differences at each internal node.
+     *
+     * <p>
+     * <em>This parameterisation of a clock-tree, ensuring that
+     * all parameters are independent of each other is due to
+     * Andrew Rambaut (personal communication).</em>
+     * </p>
+     *
+     * @param t The base {@code Tree} to be parameterized.
+     * @param tocd The {@code TimeOrderCharacterData} containing the sampling times needed for clock-like analysis.
+     * @param model The {@code MutationRateModel} defining the evolutionary rate and its parameters.
+     * @param includeModelParameters If {@code true}, the parameters of the {@code MutationRateModel} are included in this object's parameter list.
+     * @throws RuntimeException if the root node has fewer than two children or if the {@code tocd} does not contain time information.
+     */
+    public MutationRateModelTree(Tree t, TimeOrderCharacterData tocd, MutationRateModel model, boolean includeModelParameters)  {
 
-		this.tocd = tocd;
-		this.model = model;
+        setBaseTree(t);
 
-		if (t.getRoot().getChildCount() < 2) {
-			throw new RuntimeException(
-				"The root node must have at least two childs!");
-		}
+        this.tocd = tocd;
+        this.model = model;
 
-		NodeUtils.heights2Lengths(getRoot());
+        if (t.getRoot().getChildCount() < 2) {
+            throw new RuntimeException(
+                    "The root node must have at least two childs!");
+        }
 
-		numParameters = getInternalNodeCount();
-		if(includeModelParameters) {numParameters+= model.getNumParameters(); }
+        NodeUtils.heights2Lengths(getRoot());
 
-		if (!tocd.hasTimes()) {
-			throw new RuntimeException("Must have times!");
-		}
+        numParameters = getInternalNodeCount();
+        if(includeModelParameters) {numParameters+= model.getNumParameters(); }
 
-		parameter = new double[getInternalNodeCount()];
-		heights2parameters();
-	}
+        if (!tocd.hasTimes()) {
+            throw new RuntimeException("Must have times!");
+        }
 
-	/**
-	 * Cloning constructor
-	 */
-	protected MutationRateModelTree(MutationRateModelTree toCopy ){
-		this.tocd = toCopy.tocd;
-		this.model = (MutationRateModel)toCopy.model.clone();
-		this.parameter = pal.misc.Utils.getCopy(toCopy.parameter);
-		this.lnL = toCopy.lnL;
-		this.numParameters = toCopy.numParameters;
-		parameters2Heights();
-		NodeUtils.heights2Lengths(getRoot());
-	}
+        parameter = new double[getInternalNodeCount()];
+        heights2parameters();
+    }
 
-	/**
-	 * Sets the maximum distance between ancestor and latest descendant.
-	 * @note by default it as MAX_ARC in BranchLimits (around 1...)
-	 */
-	public void setMaxRelativeHeight(double value) {
-		this.maxRelativeHeight_ = value;
-	}
-	// interface Parameterized
+    /**
+     * Cloning constructor that performs a deep copy of the tree structure and a clone of the mutation rate model.
+     *
+     * @param toCopy The {@code MutationRateModelTree} instance to be cloned.
+     */
+    protected MutationRateModelTree(MutationRateModelTree toCopy ){
+        this.tocd = toCopy.tocd;
+        this.model = (MutationRateModel)toCopy.model.clone();
+        this.parameter = pal.misc.Utils.getCopy(toCopy.parameter);
+        this.lnL = toCopy.lnL;
+        this.numParameters = toCopy.numParameters;
+        parameters2Heights();
+        NodeUtils.heights2Lengths(getRoot());
+    }
+
+    /**
+     * Sets the maximum allowed relative height difference between an ancestor node and its latest descendant.
+     * This value is typically used to constrain tree heights during optimization.
+     *
+     * @param value The new maximum relative height value (default is often around 1.0, based on {@code BranchLimits.MAX_ARC}).
+     */
+    public void setMaxRelativeHeight(double value) {
+        this.maxRelativeHeight_ = value;
+    }
+    // interface Parameterized
 
 	public int getNumParameters() {
 		return numParameters;
@@ -176,12 +194,14 @@ public class MutationRateModelTree extends ParameterizedTree.ParameterizedTreeBa
 		return "Mutation Rate Model based tree ("+model.toSingleLine()+")";
 	}
 
-	/**
-	 * returns mu
-	 */
-	public MutationRateModel getMutationRateModel() {
-		return model;
-	}
+    /**
+     * Returns the underlying mutation rate model.
+     *
+     * @return The {@code MutationRateModel} instance associated with this object.
+     */
+    public MutationRateModel getMutationRateModel() {
+        return model;
+    }
 
 	protected void parameters2Heights() {
 		// nodes have been stored by a post-order traversal
@@ -295,12 +315,17 @@ public class MutationRateModelTree extends ParameterizedTree.ParameterizedTreeBa
 // ===========================================================================
 // ===== Static stuff =======
 
-	/**
-	 * Obtain a ParameterizedTree.Factory for generating Unconstrained trees
-	 */
-	public static final ParameterizedTree.Factory getParameterizedTreeFactory(MutationRateModel.Factory rateModel, TimeOrderCharacterData tocd) {
-		return new TreeFactory(rateModel,tocd);
-	}
+    /**
+     * Obtains a {@code ParameterizedTree.Factory} instance capable of generating
+     * {@code Unconstrained} trees (trees whose branch lengths are treated as free parameters).
+     *
+     * @param rateModel The {@code MutationRateModel.Factory} used to create the rate model component of the parameterized tree.
+     * @param tocd The {@code TimeOrderCharacterData} containing the sampling times or ordinals, used by the generated factory.
+     * @return A {@code ParameterizedTree.Factory} object specifically configured to generate unconstrained trees.
+     */
+    public static final ParameterizedTree.Factory getParameterizedTreeFactory(MutationRateModel.Factory rateModel, TimeOrderCharacterData tocd) {
+        return new TreeFactory(rateModel,tocd);
+    }
 
 	private static class TreeFactory implements ParameterizedTree.Factory {
 		MutationRateModel.Factory rateModel_;

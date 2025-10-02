@@ -25,12 +25,17 @@ public interface ThetaHandler {
 	public String getInfo();
 
 	public void fillInLSInfo(double[] mRow, int startingIndex, int minSample, int maxSample);
-	/**
-	 * May return null if not possible to infer demographic model
-	 * @note most if not all models will use units of Expected Substitutions
-	 */
-	public DemographicModel generateDemographicModel(double[] deltas, double[] thetas, TimeOrderCharacterData tocd);
-	public boolean canGenerateDemogrpahicModel();
+    /**
+     * Generates a DemographicModel from a set of parameters related to population sizes (thetas) and time intervals (deltas).
+     *
+     * <p>Note: Most, if not all, generated models will express time units in terms of Expected Substitutions.</p>
+     *
+     * @param deltas An array of parameters defining time or interval lengths (often in expected substitutions).
+     * @param thetas An array of parameters defining effective population sizes (often in terms of 4*Ne*mu, where Ne is effective population size and mu is mutation rate).
+     * @param tocd The TimeOrderCharacterData containing the temporal information used to anchor the model.
+     * @return A new DemographicModel instance, or {@code null} if it is not possible to infer the demographic model from the provided parameters.
+     */
+    public DemographicModel generateDemographicModel(double[] deltas, double[] thetas, TimeOrderCharacterData tocd);public boolean canGenerateDemogrpahicModel();
 
 	// ======== Utils =================
 	public static final class Utils {

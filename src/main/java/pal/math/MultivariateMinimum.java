@@ -72,6 +72,7 @@ public abstract class MultivariateMinimum
 	{
 		return findMinimum(f,xvec,fxFracDigits,xFracDigits,null);
 	}
+
 	/**
 	 * Find minimum close to vector x
 	 * (desired fractional digits for each parameter is specified)
@@ -81,8 +82,8 @@ public abstract class MultivariateMinimum
 	 *         (contains the location of the minimum on return)
 	 * @param fxFracDigits desired fractional digits in the function value
 	 * @param xFracDigits desired fractional digits in parameters x
-	 *
-	 * @return minimal function value
+     * @param monitor optional monitor object for tracking the minimization process (can be null)
+     * @return the minimal function value
 	 */
 	public double findMinimum(MultivariateFunction f, double[] xvec,
 		int fxFracDigits, int xFracDigits, MinimiserMonitor monitor)
@@ -127,7 +128,7 @@ public abstract class MultivariateMinimum
 	 * @param tolfx absolute tolerance of function value
 	 * @param tolx absolute tolerance of each parameter
 	 * @param monitor A monitor object that receives information about the minimising process (for display purposes)
-	 * @note The default implementation just calls the optimize function with out the Monitor!
+	 * Note: The default implementation just calls the optimize function with out the Monitor!
 	 */
 
 	public void optimize(MultivariateFunction f, double[] xvec, double tolfx, double tolx, MinimiserMonitor monitor) {
@@ -250,7 +251,9 @@ public abstract class MultivariateMinimum
 	public static interface Factory {
 		/**
 		 * Generate a new Multivariate Minimum
-		 */
-		MultivariateMinimum generateNewMinimiser();
+         *
+         * @return a new multivariate minimiser
+         */
+        MultivariateMinimum generateNewMinimiser();
 	}
 }

@@ -156,7 +156,7 @@ public class DiscreteStatistics
 	 * compute the q-th quantile for a distribution of x
 	 * (= inverse cdf)
 	 * 
-	 * @param q quantile (0 < q <= 1)
+	 * @param q quantile (0 &lt; q &lt;= 1)
 	 * @param x discrete distribution (an unordered list of numbers)
 	 * @param indices index sorting x
 	 *
@@ -180,7 +180,7 @@ public class DiscreteStatistics
 	 * compute the q-th quantile for a distribution of x
 	 * (= inverse cdf)
 	 * 
-	 * @param q quantile (0 <= q <= 1)
+	 * @param q quantile (0 &lt;= q &lt;= 1)
 	 * @param x discrete distribution (an unordered list of numbers)
 	 *
 	 * @return q-th quantile
@@ -194,7 +194,7 @@ public class DiscreteStatistics
 	}
 	
 	/**
-	 * compute the cumulative probability Pr(x <= z) for a given z
+	 * compute the cumulative probability Pr(x &lt;= z) for a given z
 	 * and a distribution of x
 	 * 
 	 * @param z threshold value
@@ -215,7 +215,7 @@ public class DiscreteStatistics
 	}
 	
 	/**
-	 * compute the cumulative probability Pr(x <= z) for a given z
+	 * compute the cumulative probability Pr(x &lt;= z) for a given z
 	 * and a distribution of x
 	 * 
 	 * @param z threshold value

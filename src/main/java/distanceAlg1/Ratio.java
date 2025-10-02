@@ -79,8 +79,8 @@ public class Ratio {
 	
 	/** Only sets e length if no e edges are stored in the ratio.
 	 * Otherwise does nothing.
-	 * 
-	 * @param eLen
+	 *
+     * @param eLen the length to assign to edge e
 	 */
 	public void setELength(double eLen) {
 		if (eEdges.size() == 0) {
@@ -90,8 +90,8 @@ public class Ratio {
 	
 	/** Only sets f length if no f edges are stored in the ratio.
 	 * Otherwise does nothing.
-	 * 
-	 * @param fLen
+	 *
+     * @param fLen the length to assign to edge f
 	 */
 	public void setFLength(double fLen) {
 		if (fEdges.size() == 0) {
@@ -121,16 +121,16 @@ public class Ratio {
 	
 	
 	/** Returns the actual ratio of the (combined) length of the e edges over the (combined) length of the f edges.
-	 * 
-	 * @return
+	 *
+     * @return the ratio (eLength divided by fLength)
 	 */
 	public double getRatio() {
 		return eLength/fLength;
 	}
 	
 	/** Returns the "time" (between 0 and 1) that we cross the orthant boundary associated with this ratio.
-	 * 
-	 * @return
+	 *
+     * @return the crossing time value in [0, 1]
 	 */
 	public double getTime() {
 		return eLength/(eLength + fLength);
@@ -162,10 +162,10 @@ public class Ratio {
 	
 	
 	/**  Combines the two ratios.  If neither ratio has edges associated with it, just combine the lengths.
-	 * 
-	 * @param r1
-	 * @param r2
-	 * @return
+	 *
+     * @param r1 the first ratio to combine
+     * @param r2 the second ratio to combine
+     * @return a new Ratio representing the combination of r1 and r2
 	 */
 	public static Ratio combine(Ratio r1, Ratio r2) {
 		Ratio r = new Ratio();
@@ -191,14 +191,19 @@ public class Ratio {
 	
 	/** Computes the geometric average of d1 and d2.  
 	 *  ie. returns sqrt(d1^2 + d2^2)
-	 * @param d1
-	 * @param d2
-	 * @return
+     * @param d1 first value
+     * @param d2 second value
+     * @return geometric average of d1 and d2
 	 */
 	public static double geoAvg(double d1, double d2) {
 		return Math.sqrt(Math.pow(d1,2) + Math.pow(d2,2));
 	}
-	
+
+    /** Computes the geometric average of the norms of a vector of edges.
+     *
+     * @param edges vector of PhyloTreeEdge objects
+     * @return geometric average of the edge norms
+     */
 	public static double geoAvg(Vector<PhyloTreeEdge> edges) {
 		double gAvg = 0;
 		
@@ -210,8 +215,8 @@ public class Ratio {
 	}
 	
 	/** Returns the ratio with everything e switched with everything f.
-	 * 
-	 * @return
+	 *
+     * @return a new Ratio with eEdges and fEdges reversed
 	 */
 	public Ratio reverse() {
 		Ratio ratio = new Ratio();
@@ -219,8 +224,7 @@ public class Ratio {
 		ratio.addAllFEdges(eEdges);
 		return ratio;
 	}
-	
-	
+
 	public Boolean containsOriginalEEdge(Bipartition edge) {
 		PhyloTreeEdge ratioEdge;
 		
@@ -260,6 +264,8 @@ public class Ratio {
 	/**
 	 * XXX: Note that the toString representation of the Ratio is not unique - the edges could
 	 * be ordered differently in the Vector, and hence represented differently as a String.
+     *
+     * @return a String representation of the Ratio, including eEdges, eLength/fLength, and fEdges
 	 */
 	public String toString() {
 		DecimalFormat d4o = new DecimalFormat("#0.####");
@@ -268,8 +274,8 @@ public class Ratio {
 	
 	/** Returns the edges, numbered by originalID, in order (?).
 	 * {1,2}/{4,1}
-	 * 
-	 * @return
+	 *
+     * @return a String showing the eEdges, fEdges, and their length ratio
 	 */
 	public String toStringCombTypeAndValue() {
 		DecimalFormat d3o = new DecimalFormat("#0.###");
@@ -294,8 +300,8 @@ public class Ratio {
 	}
 	
 	/** Returns the edges, numbered by originalID, in order (?).
-	 * 
-	 * @return
+	 *
+     * @return a String showing the eEdges and fEdges
 	 */
 	public String toStringCombType() {
 		String s = "{";
@@ -320,8 +326,8 @@ public class Ratio {
 	
 	
 	/** Returns the ratio as just its value.
-	 * 
-	 * @return
+	 *
+     * @return a String representation of the ratio value
 	 */
 	public String toStringJustValue() {
 		return "" + getRatio();

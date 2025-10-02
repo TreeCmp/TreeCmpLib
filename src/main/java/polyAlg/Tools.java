@@ -29,33 +29,39 @@ import distanceAlg1.RatioSequence;
 
 public class Tools {
 
-	/** Truncates the number d by p places.
-	 * 
-	 * @param d
-	 * @param p
-	 * @return
-	 */
-	public static double truncate (double d, int p) {
-		return Math.floor(d * Math.pow(10,p)) / Math.pow(10,p);
-	}
-	
+    /**
+     * Truncates a double-precision floating-point number to a specified number of decimal places.
+     *
+     * <p>This operation discards all digits after the p-th decimal place, without rounding.
+     *
+     * @param d The double value to be truncated.
+     * @param p The number of decimal places to keep.
+     * @return The truncated double value.
+     */
+    public static double truncate (double d, int p) {
+        return Math.floor(d * Math.pow(10,p)) / Math.pow(10,p);
+    }
+
 	// XXX:  Should be using BigDecimal
 	public static double round(double d, int p) {
 		return ((double) Math.round(d * Math.pow(10,p)))/ Math.pow(10,p);
 	}
-	
-	/**  Rounds the number d to have p significant digits.  (p for precision)
-	 *   Code adapted from http://stackoverflow.com/questions/7548841/round-a-double-to-3-significant-figures
-	 * @param d
-	 * @param s
-	 * @return
-	 */
-	public static double roundSigDigits(double d, int p) {
-		BigDecimal bd = new BigDecimal(d);
-		bd = bd.round(new MathContext(p,RoundingMode.HALF_EVEN));
-		return bd.doubleValue();
-	}
-	
+
+    /**
+     * Rounds the number {@code d} to have {@code p} significant digits.
+     *
+     * <p>This method uses the {@code BigDecimal} class with {@code RoundingMode.HALF_EVEN} (Banker's rounding)
+     * to achieve the specified precision in terms of significant figures.
+     *
+     * @param d The double value to be rounded.
+     * @param p The desired number of significant digits (precision).
+     * @return The double value rounded to {@code p} significant digits.
+     */
+    public static double roundSigDigits(double d, int p) {
+        BigDecimal bd = new BigDecimal(d);
+        bd = bd.round(new MathContext(p,RoundingMode.HALF_EVEN));
+        return bd.doubleValue();
+    }
 	
 	public static boolean[][] getIncidenceMatrix(Vector<PhyloTreeEdge> edges1, Vector<PhyloTreeEdge> edges2) {
 		boolean[][] incidenceMatrix = new boolean[edges1.size()][edges2.size()];
@@ -122,75 +128,83 @@ public class Tools {
 		}
 		return newV;
 	}
-	
-	/** Removes all the PhyloTreeEdge with split  = 0 from the vector v.
-	 * 
-	 * @param v
-	 * @return
-	 */
-	public static Vector<PhyloTreeEdge> deleteEmptyEdges(Vector<PhyloTreeEdge> v) {
-		int k = 0; 
-		while (k < v.size()) {
-//			System.out.println("v.get(k) is " + v.get(k));
-			if (v.get(k).isEmpty()) {
-				v.remove(k);
-			}
-			else {
-				k++;
-			}
-		}
-		return v;
-	}
-	
-	/** Normalizes the vector coords, to have length 1.
-	 * Returns a new vector of all 0s if has length 0.
-	 * (So a newly created double[] is returned in either case.)
-	 * 
-	 * @param coords
-	 * @return
-	 */
-	public static double[] normalize(double[] coords) {
-		// Compute the length of coords.
-		double length = 0;
-		for (int i = 0; i < coords.length; i++) {
-			length = length + Math.pow(coords[i],2);
-		}
-		length = Math.sqrt(length);
-		
-		// if the vector was all zeros, return the vector.
-		if (length == 0) {
-			double[] newCoords = new double[coords.length];
-			Arrays.fill(newCoords,0.0);
-			return newCoords;
-		}
-		
-		return scaleBy(coords,1/length);
-	}
-	
-	/** Multiplies the coordintes in coords by value a.
-	 * 
-	 * @param coords
-	 * @param a
-	 * @return
-	 */
-	public static double[] scaleBy(double[] coords, double a) {
-		double[] newCoords = new double[coords.length];
-		for (int i = 0; i < coords.length; i++) {
-			newCoords[i] = coords[i]*a;
-		}
-		return newCoords;
-	}
 
-	/** Converts a double array into a string of the entries separated by spaces.
-	 * 
-	 */
-	public static String doubleArray2String(double[] array) {
-		String s = "";
-		for (double e: array) {
-			s = s + e + " ";
-		}
-		// remove the last space
-		s = s.substring(0,s.length()-1);
-		return s;
-	}
+    /**
+     * Removes all the {@code PhyloTreeEdge} objects from the vector `v` where the split value is 0,
+     * as determined by the edge being "empty" (i.e., {@code edge.isEmpty()} returns true).
+     *
+     * @param v The vector of {@code PhyloTreeEdge} objects to modify.
+     * @return The modified vector {@code v} with empty edges removed.
+     */
+    public static Vector<PhyloTreeEdge> deleteEmptyEdges(Vector<PhyloTreeEdge> v) {
+        int k = 0;
+        while (k < v.size()) {
+//        System.out.println("v.get(k) is " + v.get(k));
+            if (v.get(k).isEmpty()) {
+                v.remove(k);
+            }
+            else {
+                k++;
+            }
+        }
+        return v;
+    }
+
+    /**
+     * Normalizes the coordinate vector `coords` to have a Euclidean length (norm) of 1.
+     *
+     * <p>If the input vector has a length of 0 (i.e., it's the zero vector), a new vector of the same
+     * dimension containing all 0s is returned.
+     *
+     * @param coords The array of doubles representing the coordinate vector.
+     * @return A new array of doubles representing the normalized vector.
+     */
+    public static double[] normalize(double[] coords) {
+        // Compute the length of coords.
+        double length = 0;
+        for (int i = 0; i < coords.length; i++) {
+            length = length + Math.pow(coords[i],2);
+        }
+        length = Math.sqrt(length);
+
+        // if the vector was all zeros, return the vector.
+        if (length == 0) {
+            double[] newCoords = new double[coords.length];
+            Arrays.fill(newCoords,0.0);
+            return newCoords;
+        }
+
+        return scaleBy(coords,1/length);
+    }
+
+    /**
+     * Multiplies the coordinates in `coords` by the scalar value `a`.
+     *
+     * @param coords The array of doubles representing the coordinate vector.
+     * @param a The scalar value to multiply the coordinates by.
+     * @return A new array of doubles representing the scaled vector.
+     */
+    public static double[] scaleBy(double[] coords, double a) {
+        double[] newCoords = new double[coords.length];
+        for (int i = 0; i < coords.length; i++) {
+            newCoords[i] = coords[i]*a;
+        }
+        return newCoords;
+    }
+
+    /**
+     * Converts a double array into a single string with its entries separated by spaces.
+     *
+     * @param array The double array to convert.
+     * @return A string containing the elements of the array separated by spaces.
+     */
+    public static String doubleArray2String(double[] array) {
+        String s = "";
+        for (double e: array) {
+            s = s + e + " ";
+        }
+        // remove the last space
+        s = s.substring(0,s.length()-1);
+        return s;
+    }
 }

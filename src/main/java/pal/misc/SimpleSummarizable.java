@@ -21,30 +21,36 @@ public class SimpleSummarizable implements Summarizable, java.io.Serializable {
 	private String[] types_;
 	private double[] values_;
 
-	/**
-			The simple constructor
-			@note param types and param values should be of the same length
-	*/
-	public SimpleSummarizable(String[] types, double[] values) {
-		this.types_ = types;
-		this.values_ = values;
-	}
+    /**
+     * Simple constructor.
+     * Note: The arrays of types and values should be of the same length.
+     *
+     * @param types  array of summary types
+     * @param values array of corresponding values
+     */
+    public SimpleSummarizable(String[] types, double[] values) {
+        this.types_ = types;
+        this.values_ = values;
+    }
 
-	/** The Imitation constructor - for immitating another Summarizable object with
-			minimum memory requirements
-			@param toImitiate - the Summarizable to imitate. This summarizable with contatin
-													the same types and values as toImitate (at the time of construction)
-			@note No reference to toImitate is maintained.
-	*/
-	public SimpleSummarizable(Summarizable toImitate) {
-		this.types_ = toImitate.getSummaryTypes();
-		this.values_ = new double[this.types_.length];
-		for(int i = 0 ; i < values_.length ; i++) {
-			this.values_[i] = toImitate.getSummaryValue(i);
-		}
-	}
+    /**
+     * Imitation constructor - creates a new SimpleSummarizable object
+     * based on another Summarizable object with minimum memory requirements.
+     * No reference to the original object is maintained.
+     *
+     * @param toImitate the Summarizable object to imitate; the new object
+     *                  will contain the same types and values as toImitate
+     *                  at the time of construction
+     */
+    public SimpleSummarizable(Summarizable toImitate) {
+        this.types_ = toImitate.getSummaryTypes();
+        this.values_ = new double[this.types_.length];
+        for (int i = 0; i < values_.length; i++) {
+            this.values_[i] = toImitate.getSummaryValue(i);
+        }
+    }
 
-	public String[] getSummaryTypes() {
+    public String[] getSummaryTypes() {
 		return this.types_;
 	}
 

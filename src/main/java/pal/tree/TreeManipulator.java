@@ -20,13 +20,13 @@ package pal.tree;
  * @version $Id: TreeManipulator.java,v 1.3 2004/08/02 05:22:04 matt Exp $
  *
  * @author Matthew Goode
- * @note REDUCE_CONSTRUCTION functioning (relatively untested) as of 18 September 2003
+ * Note: REDUCE_CONSTRUCTION functioning (relatively untested) as of 18 September 2003
  *
  * <br><br><em>History</em>
  * <ul>
  *  <li> 18/9/2003 MG:Corrected rooting for complex case, added in getAllRoot methods, REDUCED_CONSTRUCTION stuff working, added in ingroup branch length stuff to rooting (to help make pretty pictures), added getAsInput() methods </li>
  *  <li> 25/10/2003 MG:Fixed bug with EXPAND_CONSTRUCTION on a unrooted tree </li>
- *  <li> 16/4/2003 MG:Changed name (TreeRooter -> TreeManipulator), added branch access stuff
+ *  <li> 16/4/2003 MG:Changed name (TreeRooter -&gt; TreeManipulator), added branch access stuff
  * </ul>
  */
 import pal.util.AlgorithmCallback;
@@ -65,7 +65,7 @@ public class TreeManipulator implements UnrootedTreeInterface.Instructee, Rooted
 	 * Construct a TreeManipulator based around a normal tree
 	 * @param base The base tree, which can be rooted or unrooted (will be treated as unrooted either way)
 	 * @param constructionMode the way in which the internal tree representation is constructed
-	 * @note The base tree is never altered
+	 * Note: The base tree is never altered
 	 */
 	public TreeManipulator(Tree base, int constructionMode) {
 		this(base.getRoot(), base.getUnits(),constructionMode);
@@ -73,41 +73,47 @@ public class TreeManipulator implements UnrootedTreeInterface.Instructee, Rooted
 	/**
 	 * Construct a TreeManipulator based around a normal tree
 	 * @param base The base tree, which can be rooted or unrooted (will be treated as unrooted either way)
-	 * @note The base tree is never altered
+	 * Note: The base tree is never altered
 	 */
 	public TreeManipulator(Tree base) {
 		this(base.getRoot(), base.getUnits());
 	}
-	/**
-	 * Units will be Units.UNKNOWN
-	 */
-	public TreeManipulator(Node base) {
-		this(base,Units.UNKNOWN);
-	}
-	/**
-	 * Construct a TreeManipulator based around a normal tree
-	 * @param base The base tree, which can be rooted or unrooted (will be treated as unrooted either way)
-	 * @param units, the units of generated trees. Not really of concern if only Node trees built
-	 * @note The base tree is never altered
-	 */
-	public TreeManipulator(Node base, int units) {
-		this(base,units,MIMIC_CONSTRUCTION);
-	}
-	/**
-	 * Construct a TreeManipulator based around a normal tree
-	 * @param base The base tree, which can be rooted or unrooted (will be treated as unrooted either way)
-	 * @param units, the units of generated trees. Not really of concern if only Node trees built
-	 * @note The base tree is never altered
-	 */
-	public TreeManipulator(Node base, int units, int constructionMode) {
-		SimpleNode simpleBase = new PALNodeWrapper(base);
-		this.unrootedTree_ = construct(simpleBase, constructionMode);
-		this.inputTreeUnrooted_ = base.getChildCount()>2;
-		this.firstChildNodeLength_ = base.getChild(0).getBranchLength();
-		this.units_ = units;
-		this.unrootedTree_.clearPathInfo();
-	}
-
+    /**
+     * Constructs a {@code TreeManipulator} based around a normal tree, setting the units to {@code Units.UNKNOWN}.
+     * This is a convenience constructor for internal use when the exact units of generated trees are not critical.
+     *
+     * @param base The base node defining the tree structure.
+     */
+    public TreeManipulator(Node base) {
+        this(base,Units.UNKNOWN);
+    }
+    /**
+     * Constructs a {@code TreeManipulator} based around a normal tree using the default construction mode ({@code MIMIC_CONSTRUCTION}).
+     *
+     * @param base The base node defining the tree, which can be rooted or unrooted (it will be treated as unrooted for manipulation).
+     * Note: The base tree is never altered.
+     * @param units The units (e.g., branch length type) that generated trees will be expressed in.
+     */
+    public TreeManipulator(Node base, int units) {
+        this(base,units,MIMIC_CONSTRUCTION);
+    }
+    /**
+     * Constructs a {@code TreeManipulator} based around a normal tree, specifying the construction mode.
+     * The manipulator is initialized to wrap the base tree structure for unrooted manipulation.
+     *
+     * @param base The base node defining the tree, which can be rooted or unrooted (it will be treated as unrooted for manipulation).
+     * Note: The base tree is never altered.
+     * @param units The units (e.g., branch length type) that generated trees will be expressed in.
+     * @param constructionMode An integer flag specifying how the internal unrooted tree representation should be constructed (e.g., {@code MIMIC_CONSTRUCTION}).
+     */
+    public TreeManipulator(Node base, int units, int constructionMode) {
+        SimpleNode simpleBase = new PALNodeWrapper(base);
+        this.unrootedTree_ = construct(simpleBase, constructionMode);
+        this.inputTreeUnrooted_ = base.getChildCount()>2;
+        this.firstChildNodeLength_ = base.getChild(0).getBranchLength();
+        this.units_ = units;
+        this.unrootedTree_.clearPathInfo();
+    }
 
 	public TreeManipulator(UnrootedTreeInterface.Instructee base, int units, int constructionMode) {
 	  UnrootedInterfaceImpl ui = new UnrootedInterfaceImpl();
@@ -170,7 +176,7 @@ public class TreeManipulator implements UnrootedTreeInterface.Instructee, Rooted
 	}
 	/**
 	 * @return a tree rooted around the node it was originally rooted around (if originally rooted),
-	 * @note With
+	 * Note: With
 	 */
 	public Node getDefaultRoot() {
 		Node n = unrootedTree_.getRootedAround(firstChildNodeLength_);
@@ -183,7 +189,7 @@ public class TreeManipulator implements UnrootedTreeInterface.Instructee, Rooted
 	 * than the ones listed. If there are members that are not actually in the tree, they will be ignored.
 	 * @param possibleCladeMembers the names of the members in the clade of interest
 	 * @return true if the conditions are met
-	 * @note not currently correctly implemented
+	 * Note: not currently correctly implemented
 	 */
 	private boolean isFormsFormsExactClade(String[] possibleCladeMembers) {
 		return unrootedTree_.isFormsExactClade(possibleCladeMembers);
@@ -208,7 +214,7 @@ public class TreeManipulator implements UnrootedTreeInterface.Instructee, Rooted
 	}
 	/**
 	 * @return a tree rooted around the node it was originally rooted around (if originally rooted),
-	 * @note With
+	 * Note: With
 	 */
 	public Tree getDefaultRootTree() {
 		return constructTree(getDefaultRoot(),units_);
@@ -220,235 +226,299 @@ public class TreeManipulator implements UnrootedTreeInterface.Instructee, Rooted
 		return constructTree(getMidPointRooted(),units_);
 	}
 
-	/**
-	 * return unrooted node
-	 */
-	public Node getUnrooted() {
-		Node n = unrootedTree_.getUnrooted();
-		NodeUtils.lengths2Heights(n);
-		return n;
-	}
-	/**
-	 * return unrooted node
-	 */
-	public Tree getUnrootedTree() {
-		return constructTree(getUnrooted(),units_);
-	}
+    /**
+     * Returns an unrooted node representation of the tree being manipulated.
+     * Node heights are calculated from branch lengths before returning.
+     *
+     * @return The root {@code Node} of the unrooted tree structure.
+     */
+    public Node getUnrooted() {
+        Node n = unrootedTree_.getUnrooted();
+        NodeUtils.lengths2Heights(n);
+        return n;
+    }
+    /**
+     * Returns a new {@code Tree} object representing the unrooted topology.
+     *
+     * @return A new {@code Tree} instance of the unrooted tree.
+     */
+    public Tree getUnrootedTree() {
+        return constructTree(getUnrooted(),units_);
+    }
 
-	/**
-	 * @return all connections in tree
-	 */
-	private Connection[] getAllConnections() {
-		return unrootedTree_.getAllConnections();
-	}
+    /**
+     * Returns an array of all connections (branches) in the unrooted tree structure.
+     * These connections represent potential rooting points.
+     *
+     * @return An array of {@code Connection} objects representing all branches in the tree.
+     */
+    private Connection[] getAllConnections() {
+        return unrootedTree_.getAllConnections();
+    }
 
-	/**
-	 * @param outgroupNames the names of the members of the outgroup
-	 * @return the tree rooted by an outgroup defined by the mrca of a set of nodes
-	 * @throws IllegalArgument exception if outgroup names does not contain any valid node names
-	 * @note If the outgroup is not well defined, this may not be the only rooting
-	 */
-	public Node getRootedBy(String[] outgroupNames) {
-		Node n = unrootedTree_.getRootedAroundMRCA(outgroupNames);
-		NodeUtils.lengths2Heights(n);
-		return n;
-	}
-		/**
-	 * @param outgroupNames the names of the members of the outgroup
-	 * @return the tree rooted by an outgroup defined by the mrca of a set of nodes
-	 * @throws IllegalArgument exception if outgroup names does not contain any valid node names
-	 * @note If the outgroup is not well defined, this may not be the only rooting
-	 */
-	public void instructRootedBy(RootedTreeInterface rootedInterface, String[] outgroupNames) {
-		unrootedTree_.instructRootedAroundMRCA(rootedInterface, outgroupNames);
-	}
-	/**
-	 * @param outgroupNames the names of the members of the outgroup
-	 * @param ingroupBranchLength the maximum length of the branch leading to the ingroup clade
-	 * @return the tree rooted by an outgroup defined by the mrca of a set of nodes
-	 * @throws IllegalArgument exception if outgroup names does not contain any valid node names
-	 * @note If the outgroup is not well defined, this may not be the only rooting
-	 */
-	public Node getRootedBy(String[] outgroupNames,double ingroupBranchLength) {
-		return unrootedTree_.getRootedAroundMRCA(outgroupNames,ingroupBranchLength);
-	}
+    /**
+     * Roots the unrooted tree by finding the Most Recent Common Ancestor (MRCA) of the specified outgroup members,
+     * making the branch leading to that MRCA the new root.
+     * Node heights are calculated from branch lengths before returning.
+     *
+     * @param outgroupNames The names (identifiers) of the members belonging to the outgroup.
+     * @return The new {@code Node} representing the root of the rooted tree.
+     * Note: If the outgroup is not well defined (e.g., spans a polytomy), this may not be the only rooting.
+     * @throws IllegalArgumentException If outgroup names does not contain any valid node names in the tree.
+     */
+    public Node getRootedBy(String[] outgroupNames) {
+        Node n = unrootedTree_.getRootedAroundMRCA(outgroupNames);
+        NodeUtils.lengths2Heights(n);
+        return n;
+    }
+    /**
+     * Instructs a {@code RootedTreeInterface} to construct the tree rooted by the Most Recent Common Ancestor (MRCA)
+     * of the specified outgroup members.
+     *
+     * @param rootedInterface The interface object responsible for constructing the rooted tree display/model.
+     * @param outgroupNames The names (identifiers) of the members belonging to the outgroup.
+     * Note: If the outgroup is not well defined (e.g., spans a polytomy), this may not be the only rooting.
+     * @throws IllegalArgumentException If outgroup names does not contain any valid node names in the tree.
+     */
+    public void instructRootedBy(RootedTreeInterface rootedInterface, String[] outgroupNames) {
+        unrootedTree_.instructRootedAroundMRCA(rootedInterface, outgroupNames);
+    }
+    /**
+     * Roots the unrooted tree by the MRCA of the specified outgroup and assigns a specific length to the branch
+     * leading to the ingroup clade.
+     *
+     * @param outgroupNames The names (identifiers) of the members belonging to the outgroup.
+     * @param ingroupBranchLength The maximum length to assign to the branch connecting the ingroup to the outgroup.
+     * @return The new {@code Node} representing the root of the rooted tree.
+     * Note: If the outgroup is not well defined (e.g., spans a polytomy), this may not be the only rooting.
+     * @throws IllegalArgumentException If outgroup names does not contain any valid node names in the tree.
+     */
+    public Node getRootedBy(String[] outgroupNames,double ingroupBranchLength) {
+        return unrootedTree_.getRootedAroundMRCA(outgroupNames,ingroupBranchLength);
+    }
 
-	/**
-	 * @param outgroupNames the names of the members of the outgroup
-	 * @return all the trees rooted by an outgroup defined by the mrca of a set of nodes
-	 * @throws IllegalArgument exception if outgroup names does not contain any valid node names
-	 */
-	public Node[] getAllRootedBy(String[] outgroupNames) {
-		return unrootedTree_.getAllRootedAroundMRCA(outgroupNames);
-	}
+    /**
+     * Returns all possible rootings (if multiple are defined) by the Most Recent Common Ancestor (MRCA)
+     * of the specified outgroup members.
+     *
+     * @param outgroupNames The names (identifiers) of the members belonging to the outgroup.
+     * @return An array of {@code Node} objects, each representing the root of a possible rooted tree.
+     * @throws IllegalArgumentException If outgroup names does not contain any valid node names in the tree.
+     */
+    public Node[] getAllRootedBy(String[] outgroupNames) {
+        return unrootedTree_.getAllRootedAroundMRCA(outgroupNames);
+    }
 
-	/**
-	 * @param outgroupNames the names of the members of the outgroup
-	 * @return the tree rooted by an outgroup defined by the mrca of a set of nodes
-	 * @note If the outgroup is not well defined, this may not be the only rooting
-	 */
-	public Tree getTreeRootedBy(String[] outgroupNames) {
-		return constructTree(getRootedBy(outgroupNames),units_);
-	}
-	/**
-	 * @param outgroupNames the names of the members of the outgroup
-	 * @param ingroupBranchLength the maximum length of the branch leading to the ingroup clade
-	 * @return the tree rooted by an outgroup defined by the mrca of a set of nodes
-	 * @note If the outgroup is not well defined, this may not be the only rooting
-	 */
-	public Tree getTreeRootedBy(String[] outgroupNames, double ingroupBranchLength) {
-		return constructTree(getRootedBy(outgroupNames,ingroupBranchLength),units_);
-	}
+    /**
+     * Returns a new {@code Tree} object rooted by the Most Recent Common Ancestor (MRCA) of the specified outgroup members.
+     *
+     * @param outgroupNames The names (identifiers) of the members belonging to the outgroup.
+     * @return A new {@code Tree} instance of the rooted tree.
+     * Note: If the outgroup is not well defined, this may not be the only rooting.
+     */
+    public Tree getTreeRootedBy(String[] outgroupNames) {
+        return constructTree(getRootedBy(outgroupNames),units_);
+    }
+    /**
+     * Returns a new {@code Tree} object rooted by the MRCA of the specified outgroup members,
+     * with a specified length for the ingroup branch.
+     *
+     * @param outgroupNames The names (identifiers) of the members belonging to the outgroup.
+     * @param ingroupBranchLength The maximum length of the branch leading to the ingroup clade.
+     * @return A new {@code Tree} instance of the rooted tree.
+     * Note: If the outgroup is not well defined, this may not be the only rooting.
+     */
+    public Tree getTreeRootedBy(String[] outgroupNames, double ingroupBranchLength) {
+        return constructTree(getRootedBy(outgroupNames,ingroupBranchLength),units_);
+    }
 
-	/**
-	 * @param outgroupNames the names of the members of the outgroup
-	 * @return all the possible rootings defined by the outgroup
-	 */
-	public Tree[] getAllTreesRootedBy(String[] outgroupNames) {
-		Node[] nodes = getAllRootedBy(outgroupNames);
-		Tree[] trees = new Tree[nodes.length];
-		for(int i = 0 ; i < nodes.length ;i++) {
-		  trees[i] = constructTree(nodes[i],units_);
-		}
-		return trees;
-	}
-	/**
-	 * @return a tree iterator that returns each and every possible root of the base tree (as a new tree object each time)
-	 * @note All Rooted trees are not constructed at once, but only on request. Use this method instead
-	 * of getEveryRoot() if memory is an issue
-	 */
-	public TreeIterator getEveryRootIterator() {
-		return new RootIterator(getAllConnections(),units_);
-	}
+    /**
+     * Returns all possible {@code Tree} objects that can be rooted by the outgroup defined by the MRCA of the specified members.
+     *
+     * @param outgroupNames The names (identifiers) of the members belonging to the outgroup.
+     * @return An array of all possible rooted {@code Tree} objects defined by the outgroup.
+     */
+    public Tree[] getAllTreesRootedBy(String[] outgroupNames) {
+        Node[] nodes = getAllRootedBy(outgroupNames);
+        Tree[] trees = new Tree[nodes.length];
+        for(int i = 0 ; i < nodes.length ;i++) {
+            trees[i] = constructTree(nodes[i],units_);
+        }
+        return trees;
+    }
+    /**
+     * Returns an iterator that provides access to each possible rooting of the base tree as a new {@code Tree} object.
+     * This method is memory efficient as trees are constructed one at a time upon request.
+     *
+     * @return A {@code TreeIterator} that iterates through every possible rooted tree.
+     */
+    public TreeIterator getEveryRootIterator() {
+        return new RootIterator(getAllConnections(),units_);
+    }
 
-	public void instruct(UnrootedTreeInterface treeInterface) {
-		UnrootedTreeInterface.BaseBranch base = treeInterface.createBase();
-		unrootedTree_.instruct(base);
-	}
-	public void instruct(RootedTreeInterface treeInterface) {
-		RootedTreeInterface.RNode base = treeInterface.createRoot();
-		unrootedTree_.instruct(base,firstChildNodeLength_);
+    /**
+     * Instructs an {@code UnrootedTreeInterface} to construct the unrooted representation of the tree being manipulated.
+     *
+     * @param treeInterface The interface object responsible for constructing the unrooted tree display/model.
+     */
+    public void instruct(UnrootedTreeInterface treeInterface) {
+        UnrootedTreeInterface.BaseBranch base = treeInterface.createBase();
+        unrootedTree_.instruct(base);
+    }
+    /**
+     * Instructs a {@code RootedTreeInterface} to construct a rooted representation of the tree.
+     *
+     * @param treeInterface The interface object responsible for constructing the rooted tree display/model.
+     */
+    public void instruct(RootedTreeInterface treeInterface) {
+        RootedTreeInterface.RNode base = treeInterface.createRoot();
+        unrootedTree_.instruct(base,firstChildNodeLength_);
 
-	}
-	/**
-	 * Obtain access to individual branches
- 	 * @return an array of branch access objects
-	 */
-	public BranchAccess[] getBranchAccess() {
-	  final Connection[] connections = getAllConnections();
-		final BranchAccess[] results = new BranchAccess[connections.length];
-		for(int i = 0 ; i < connections.length ; i++) {
-			results[i] = new BranchAccessImpl(this,connections[i], units_);
-		}
-		return results;
-	}
-	/**
-	 * @return each and every possible root of the base tree
-	 */
-	public Tree[] getEveryRoot() {
-		final Connection[] connections = getAllConnections();
-		final Tree[] results = new Tree[connections.length];
-		for(int i = 0 ; i < connections.length ; i++) {
-			results[i] = constructTree(connections[i].getRootedAround(), units_);
-		}
-		return results;
-	}
-	/**
-	 * @param Node n, a node from the original base tree that this TreeManipulator was
-	 * constructed on
-	 * @throws Illegal argument exception if input node was not in original base tree
-	 */
-	public Node getRootedAbove(Node base) {
-		UndirectedNode match = unrootedTree_.getRelatedNode(base);
-		if(match==null) {
-			throw new IllegalArgumentException("Parameter node not found in original tree");
-		}
-		Node n = match.getPeerParentConnection().getRootedAround();
-		NodeUtils.lengths2Heights(n);
-		return n;
-	}
-	/**
-	 * @param Node n, a node from the original base tree that this TreeManipulator was
-	 * constructed on
-	 * @throws Illegal argument exception if input node was not in original base tree
-	 */
-	public Tree getTreeRootedAbove(Node n) {
-		return constructTree(getRootedAbove(n),units_);
-	}
+    }
+    /**
+     * Obtains an array of access objects, each corresponding to a branch in the unrooted tree, allowing
+     * external access and manipulation of individual branch properties.
+     *
+     * @return An array of {@code BranchAccess} objects for all branches in the tree.
+     */
+    public BranchAccess[] getBranchAccess() {
+        final Connection[] connections = getAllConnections();
+        final BranchAccess[] results = new BranchAccess[connections.length];
+        for(int i = 0 ; i < connections.length ; i++) {
+            results[i] = new BranchAccessImpl(this,connections[i], units_);
+        }
+        return results;
+    }
+    /**
+     * Returns an array containing every possible rooted {@code Tree} that can be derived from the base unrooted tree.
+     * Warning: This constructs all trees at once and may be memory intensive. Use {@code getEveryRootIterator()} instead for large trees.
+     *
+     * @return An array of all possible rooted {@code Tree} objects.
+     */
+    public Tree[] getEveryRoot() {
+        final Connection[] connections = getAllConnections();
+        final Tree[] results = new Tree[connections.length];
+        for(int i = 0 ; i < connections.length ; i++) {
+            results[i] = constructTree(connections[i].getRootedAround(), units_);
+        }
+        return results;
+    }
+    /**
+     * Reroots the tree above the branch leading to the specified node from the original base tree.
+     * Node heights are calculated from branch lengths before returning.
+     *
+     * @param base A node from the original base tree that this {@code TreeManipulator} was constructed on.
+     * @return The new {@code Node} representing the root of the resulting tree.
+     * @throws IllegalArgumentException If the input node was not found in the original base tree structure.
+     */
+    public Node getRootedAbove(Node base) {
+        UndirectedNode match = unrootedTree_.getRelatedNode(base);
+        if(match==null) {
+            throw new IllegalArgumentException("Parameter node not found in original tree");
+        }
+        Node n = match.getPeerParentConnection().getRootedAround();
+        NodeUtils.lengths2Heights(n);
+        return n;
+    }
+    /**
+     * Returns a new {@code Tree} object rooted above the branch leading to the specified node from the original base tree.
+     *
+     * @param n A node from the original base tree that this {@code TreeManipulator} was constructed on.
+     * @return A new {@code Tree} instance rooted above the specified node.
+     * @throws IllegalArgumentException If the input node was not found in the original base tree structure.
+     */
+    public Tree getTreeRootedAbove(Node n) {
+        return constructTree(getRootedAbove(n),units_);
+    }
+
 // -=-==--=-==-=--=-=-=-=-=-=-=-=-=-=-====--=-=-=--=====-=-=-=-=-=---====-=-=-=
 // Static access methods
-	/**
-	 * Unroots a tree
-	 * @param base The input tree that may or may not be unrooted
-	 * @return an unrooted tree (has a trification at base)
-	 */
-	public static final Tree getUnrooted(Tree base) {
-		return new TreeManipulator(base).getUnrootedTree();
-	}
+    /**
+     * Unroots a tree by internally converting it to an unrooted representation and returning a new tree object.
+     * The resulting tree will have a trifurcation (three outgoing branches) at the base.
+     *
+     * @param base The input tree that may or may not be rooted.
+     * @return A new {@code Tree} object representing the unrooted topology.
+     */
+    public static final Tree getUnrooted(Tree base) {
+        return new TreeManipulator(base).getUnrootedTree();
+    }
 
-	/**
-	 * Returns the mid point rooting of a tree. This is the rooting that divides
-	 * the data between the two most distinct taxa
-	 * @see http://www.mun.ca/biology/scarr/Panda_midpoint_rooting.htm
-	 * @param base The input tree that may or may not be unrooted
-	 * @return an unrooted tree (has a trification at base)
-	 */
-	public static final Tree getMidpointRooted(Tree base) {
-		return new TreeManipulator(base).getMidPointRootedTree();
-	}
+    /**
+     * Returns the tree rooted using the **midpoint rooting** method. This method places the root halfway along
+     * the longest path between any two terminal taxa (leaves) in the tree, effectively dividing the data between
+     * the two most distinct taxa.
+     *
+     * @see <a href="http://www.mun.ca/biology/scarr/Panda_midpoint_rooting.htm">Midpoint Rooting Explanation</a>
+     * @param base The input tree that may or may not be rooted.
+     * @return A new {@code Tree} object rooted at the midpoint.
+     */
+    public static final Tree getMidpointRooted(Tree base) {
+        return new TreeManipulator(base).getMidPointRootedTree();
+    }
 
-	/**
-	 * Obtains every rooting of a base tree
-	 * @param base The input tree that may or may not be unrooted
-	 */
-	public static final Tree[] getEveryRoot(Tree base) {
-		return new TreeManipulator(base).getEveryRoot();
-	}
+    /**
+     * Obtains an array containing every possible rooting of the base tree.
+     * Warning: This constructs all trees at once and may be memory intensive for large trees.
+     *
+     * @param base The input tree that may or may not be rooted.
+     * @return An array of {@code Tree} objects, where each element is a unique rooted version of the base tree.
+     */
+    public static final Tree[] getEveryRoot(Tree base) {
+        return new TreeManipulator(base).getEveryRoot();
+    }
 
-	/**
-	 * Obtains every rooting of a base tree
-	 * @param base The input tree that may or may not be unrooted
-	 */
-	public static final TreeIterator getEveryRootIterator(Tree base) {
-		return new TreeManipulator(base).getEveryRootIterator();
-	}
+    /**
+     * Obtains an iterator that yields every possible rooting of the base tree as a new {@code Tree} object upon request.
+     * This method is generally preferred over {@code getEveryRoot(Tree)} for memory efficiency.
+     *
+     * @param base The input tree that may or may not be rooted.
+     * @return A {@code TreeIterator} that provides access to all possible rooted trees sequentially.
+     */
+    public static final TreeIterator getEveryRootIterator(Tree base) {
+        return new TreeManipulator(base).getEveryRootIterator();
+    }
 
-	/**
-	 * Roots a tree by an outgroup
-	 * @param base The input tree that may or may not be unrooted
-	 * @param outgroupNames The names of the members of the outgroup. Names not matching taxa in the tree are ignored. The node that is the MCRA of
-	 * members of the outgroup will influence the rooting.
-	 * @throws IllegalArgumentException if no members of the tree appear in the outgroup
-	 * @note if the outgroup is not well defined the returned tree may not be the only rooting
-	 */
-	public static final Tree getRootedBy(Tree base, String[] outgroupNames) {
-		return new TreeManipulator(base).getTreeRootedBy(outgroupNames);
-	}
-	/**
-	 * Roots a tree by an outgroup
-	 * @param base The input tree that may or may not be unrooted
-	 * @param outgroupNames The names of the members of the outgroup. Names not matching taxa in the tree are ignored. The node that is the MCRA of
-	 * members of the outgroup will influence the rooting.
-	 * @throws IllegalArgumentException if no members of the tree appear in the outgroup
-	 * @note if the outgroup is not well defined the returned tree may not be the only rooting
-	 */
-	public static final Tree getRootedBy(Tree base, String[] outgroupNames, double ingroupBranchLength) {
-		return new TreeManipulator(base).getTreeRootedBy(outgroupNames,ingroupBranchLength);
-	}
+    /**
+     * Roots a tree using an **outgroup** defined by a set of taxon names.
+     * The tree is rooted by placing the root on the branch leading to the Most Recent Common Ancestor (MRCA)
+     * of the specified outgroup members.
+     *
+     * @param base The input tree that may or may not be rooted.
+     * @param outgroupNames The names of the members of the outgroup. Names not matching taxa in the tree are ignored.
+     * @return A new rooted {@code Tree} object.
+     * Note: If the outgroup is not well defined (e.g., spans a polytomy), the returned tree may not be the only possible rooting.
+     * @throws IllegalArgumentException If no members of the tree appear in the outgroup.
+     */
+    public static final Tree getRootedBy(Tree base, String[] outgroupNames) {
+        return new TreeManipulator(base).getTreeRootedBy(outgroupNames);
+    }
+    /**
+     * Roots a tree using an **outgroup** and sets a specific length for the branch connecting the ingroup to the outgroup.
+     *
+     * @param base The input tree that may or may not be rooted.
+     * @param outgroupNames The names of the members of the outgroup. Names not matching taxa in the tree are ignored.
+     * @param ingroupBranchLength The maximum length to assign to the branch leading to the ingroup clade (the new root branch length).
+     * @return A new rooted {@code Tree} object.
+     * Note: If the outgroup is not well defined (e.g., spans a polytomy), the returned tree may not be the only possible rooting.
+     * @throws IllegalArgumentException If no members of the tree appear in the outgroup.
+     */
+    public static final Tree getRootedBy(Tree base, String[] outgroupNames, double ingroupBranchLength) {
+        return new TreeManipulator(base).getTreeRootedBy(outgroupNames,ingroupBranchLength);
+    }
 
-	/**
-	 * Roots a tree by an outgroup
-	 * @param base The input tree that may or may not be unrooted
-	 * @param ingroupBranchLength the maximum length of the branch leading to the ingroup clade
-	 * @param outgroupNames The names of the members of the outgroup. Names not matching taxa in the tree are ignored. The node that is the MCRA of
-	 * members of the outgroup will influence the rooting.
-	 * @return every possible interpretation of rooting a tree by the given outgroup. If the outgroup is well defined there will be only one tree.
-	 * @throws IllegalArgumentException if no members of the tree appear in the outgroup
-	 */
-	public static final Tree[] getAllRootingsBy(Tree base, String[] outgroupNames) {
-		return new TreeManipulator(base).getAllTreesRootedBy(outgroupNames);
-	}
-
+    /**
+     * Returns an array of every possible interpretation of rooting a tree by the given outgroup.
+     * If the outgroup is well defined (i.e., monophyletic relative to the ingroup), the array will typically contain only one tree.
+     *
+     * @param base The input tree that may or may not be rooted.
+     * @param outgroupNames The names of the members of the outgroup. Names not matching taxa in the tree are ignored.
+     * @return An array of all possible rooted {@code Tree} objects defined by the outgroup.
+     * @throws IllegalArgumentException If no members of the tree appear in the outgroup.
+     */
+    public static final Tree[] getAllRootingsBy(Tree base, String[] outgroupNames) {
+        return new TreeManipulator(base).getAllTreesRootedBy(outgroupNames);
+    }
 
 // -=-==--=-==-=--=-=-=-=-=-=-=-=-=-=-====--=-=-=--=====-=-=-=-=-=---====-=-=-=
 	/**
@@ -699,22 +769,25 @@ public class TreeManipulator implements UnrootedTreeInterface.Instructee, Rooted
 
 			throw new IllegalArgumentException("Non existent outgroup:"+pal.misc.Utils.toString(nodeNames));
 		}
-		/**
-		 * @param blockingNode
-		 * @param nodeNames
-		 * @return
-		 */
-		public Connection getMRCAConnection(UndirectedNode blockingNode, String[] nodeNames) {
+        /**
+         * Recursively searches the unrooted tree structure, starting from the nodes of this connection,
+         * to find the {@code Connection} that corresponds to the Most Recent Common Ancestor (MRCA) of the specified nodes.
+         *
+         * @param blockingNode The {@code UndirectedNode} that represents the direction *not* to search (i.e., the node from which the call originated, typically one of {@code firstNode_} or {@code secondNode_}).
+         * @param nodeNames An array of strings containing the names of the nodes (taxa) whose MRCA is sought.
+         * @return The {@code Connection} object that defines the branch leading to the MRCA of the specified nodes, or {@code null} if the MRCA is not found within the subtrees accessible from this connection (excluding the direction of the {@code blockingNode}).
+         */
+        public Connection getMRCAConnection(UndirectedNode blockingNode, String[] nodeNames) {
 
-			Connection first = (firstNode_!=blockingNode) ? firstNode_.getMRCAConnection(this,nodeNames) : null;
-			Connection second = (secondNode_!=blockingNode) ? secondNode_.getMRCAConnection(this,nodeNames) : null;
-			if(first!=null) {
-				if(second!=null) { return this; }
-				return first;
-			}
-			//Second may be null
-			return second;
-		}
+            Connection first = (firstNode_!=blockingNode) ? firstNode_.getMRCAConnection(this,nodeNames) : null;
+            Connection second = (secondNode_!=blockingNode) ? secondNode_.getMRCAConnection(this,nodeNames) : null;
+            if(first!=null) {
+                if(second!=null) { return this; }
+                return first;
+            }
+            //Second may be null
+            return second;
+        }
 		public Connection getMRCAConnectionBaseTraverse(String[] nodeNames) {
 
 			return getMRCAConnectionBaseTraverse(null,nodeNames);
@@ -850,47 +923,64 @@ public class TreeManipulator implements UnrootedTreeInterface.Instructee, Rooted
 		public Node getMidPointRooted() {
 			return getMidPointConnection().getRootedAround();
 		}
-		/**
-		 * @return the maximum length from the node that isn't the blockingNode to it's leafs without going via this connection
-		 * @note returned length does <b>not</b> include the length of this connection
-		 */
-		public double getMaxLengthToLeaf(UndirectedNode blockingNode) {
-			if(secondNode_==blockingNode) {
-				return getMaximumPathLengthToLeafViaFirst();
-			}
-			if(firstNode_==blockingNode) {
-				return getMaximumPathLengthToLeafViaSecond();
-			}
-			throw new RuntimeException("Connection.GetMaxLengthToLeaf() called from unknown asking node");
-		}
+        /**
+         * Calculates the maximum path length from the non-blocking node to any of its descendant leaves,
+         * without traversing back along this connection. This is typically used in unrooted tree contexts
+         * where a connection defines a split, and one side of the split is being queried.
+         *
+         * @param blockingNode The {@code UndirectedNode} on this connection that represents the direction *not* to search.
+         * @return The maximum cumulative branch length from the non-blocking node to any leaf in the subtree,
+         * excluding the length of this connection itself.
+         */
+        public double getMaxLengthToLeaf(UndirectedNode blockingNode) {
+            if(secondNode_==blockingNode) {
+                return getMaximumPathLengthToLeafViaFirst();
+            }
+            if(firstNode_==blockingNode) {
+                return getMaximumPathLengthToLeafViaSecond();
+            }
+            throw new RuntimeException("Connection.GetMaxLengthToLeaf() called from unknown asking node");
+        }
 
-		/**
-		 * Force a recalculation
-		 */
-		public void recalculateMaximumPathLengths() {
-			clearPathInfo();
-			updatePathInfo();
-			assertPathInfo();
-		}
-		public void assertPathInfo() {
-			assertPathInfo(null);
-		}
+        /**
+         * Triggers a complete recalculation of the maximum path lengths and related path information
+         * for this connection and recursively for all connected parts of the unrooted tree.
+         */
+        public void recalculateMaximumPathLengths() {
+            clearPathInfo();
+            updatePathInfo();
+            assertPathInfo();
+        }
 
-		/**
-		 * @throws RuntimeException if not all nodes have path info setup
-		 */
-		public void assertPathInfo(UndirectedNode blockingNode) {
-			if(isFirstPathInfoFound_&&isSecondPathInfoFound_) {
-				if(blockingNode!=firstNode_) {
-					firstNode_.callMethodOnConnections(this,ASSERT_PATH_INFO_CALLER);
-				}
-				if(blockingNode!=secondNode_) {
-					secondNode_.callMethodOnConnections(this,ASSERT_PATH_INFO_CALLER);
-				}
-			} else {
-				throw new RuntimeException("Assertion error : assertPathInfo failed!");
-			}
-		}
+        /**
+         * Asserts that the path information has been correctly calculated and stored for this connection.
+         * This is a convenience method that calls the full assertion with no blocking node.
+         *
+         * @throws RuntimeException if not all nodes have path information set up correctly.
+         */
+        public void assertPathInfo() {
+            assertPathInfo(null);
+        }
+
+        /**
+         * Recursively asserts that the path information has been correctly calculated and stored for this connection and its subtrees.
+         * The assertion skips the direction indicated by the blocking node.
+         *
+         * @param blockingNode The {@code UndirectedNode} on this connection that represents the direction *not* to check. Can be {@code null} to check both directions.
+         * @throws RuntimeException if the path information is missing (i.e., {@code isFirstPathInfoFound_} or {@code isSecondPathInfoFound_} is false) or if a recursive check fails.
+         */
+        public void assertPathInfo(UndirectedNode blockingNode) {
+            if(isFirstPathInfoFound_&&isSecondPathInfoFound_) {
+                if(blockingNode!=firstNode_) {
+                    firstNode_.callMethodOnConnections(this,ASSERT_PATH_INFO_CALLER);
+                }
+                if(blockingNode!=secondNode_) {
+                    secondNode_.callMethodOnConnections(this,ASSERT_PATH_INFO_CALLER);
+                }
+            } else {
+                throw new RuntimeException("Assertion error : assertPathInfo failed!");
+            }
+        }
 		public void updatePathInfo() {
 			updatePathInfo(null);
 		}
@@ -991,30 +1081,34 @@ public class TreeManipulator implements UnrootedTreeInterface.Instructee, Rooted
 			Node n = NodeFactory.createNode(new Node[] { left, right});
 			return n;
 		}
-		/**
-		 * Not the most efficient way of doing this. Roots tree around outgroup, and restricts distance of ingroup to base (to make it look pretty)
-		 * @param ingroupDistance
-		 * @param outgroupMembers
-		 * @return
-		 */
-		public final Node getRootedAround(double ingroupDistance, String[] outgroupMembers) {
-		  final UndirectedNode ingroup, outgroup;
-		  if(firstNode_.getMRCA(this,outgroupMembers)!=null) {
-				outgroup = firstNode_;
-				ingroup = secondNode_;
-			}  else {
-			  ingroup = firstNode_;
-				outgroup = secondNode_;
-			}
-			double distanceForOutgroup = distance_-ingroupDistance;
-			if(distanceForOutgroup<0) {
-				ingroupDistance = distance_;
-				distanceForOutgroup = 0;
-			}
-			Node left = ingroup.buildTree(this, ingroupDistance);
-			Node right = outgroup.buildTree(this, distanceForOutgroup);
-			return NodeFactory.createNode(new Node[] { left, right});
-		}
+        /**
+         * Roots the tree around the Most Recent Common Ancestor (MRCA) of the specified outgroup members,
+         * but explicitly restricts the distance of the ingroup branch to a maximum specified length
+         * (often done for aesthetic reasons in visualization).
+         * Note: This rooting method is not the most efficient available.
+         *
+         * @param ingroupDistance The desired maximum length of the branch leading to the ingroup clade (the new root branch length).
+         * @param outgroupMembers An array of strings containing the names of the members defining the outgroup.
+         * @return The new {@code Node} representing the root of the rooted tree, with the ingroup branch length adjusted.
+         */
+        public final Node getRootedAround(double ingroupDistance, String[] outgroupMembers) {
+            final UndirectedNode ingroup, outgroup;
+            if(firstNode_.getMRCA(this,outgroupMembers)!=null) {
+                outgroup = firstNode_;
+                ingroup = secondNode_;
+            }  else {
+                ingroup = firstNode_;
+                outgroup = secondNode_;
+            }
+            double distanceForOutgroup = distance_-ingroupDistance;
+            if(distanceForOutgroup<0) {
+                ingroupDistance = distance_;
+                distanceForOutgroup = 0;
+            }
+            Node left = ingroup.buildTree(this, ingroupDistance);
+            Node right = outgroup.buildTree(this, distanceForOutgroup);
+            return NodeFactory.createNode(new Node[] { left, right});
+        }
 	}
 
 
@@ -1418,7 +1512,7 @@ public class TreeManipulator implements UnrootedTreeInterface.Instructee, Rooted
 		}
 		/**
 		 * @return an unrooted tree around this node
-		 * @note does not work if this node is a leaf node (one connection)! (should check and use another node)
+		 * Note: does not work if this node is a leaf node (one connection)! (should check and use another node)
 		 */
 		public Node buildUnrootedTree() {
 			if(connectedNodes_.length==1) {
@@ -1551,23 +1645,31 @@ public class TreeManipulator implements UnrootedTreeInterface.Instructee, Rooted
 	 * internally to confuse and bewilder)
 	 */
 	public static interface BranchAccess {
-		/**
-		 * Create a new TreeManipulator object that has sub grafted on (half way across this branch)
-		 * @param subTree The sub tree, as normal Node object.
-		 * @return A new TreeManipulator
-		 */
-	  public TreeManipulator attachSubTree(Node subTree, int constructionMode);
-		/**
-		 * Obtain the split of the labels around this branch.
-		 * @return A two dimensional array of string arrays (the first element is the label names of one side of the split, the second element is the remainder)
-		 */
-		public String[][] getLabelSplit();
+        /**
+         * Creates a new {@code TreeManipulator} object resulting from **grafting** a specified subtree
+         * onto the middle of the branch represented by this connection. The original {@code TreeManipulator} is not modified.
+         *
+         * @param subTree The subtree to be attached, provided as a normal {@code Node} object.
+         * @param constructionMode An integer flag specifying how the internal unrooted tree representation should be constructed (e.g., {@code MIMIC_CONSTRUCTION}).
+         * @return A new {@code TreeManipulator} instance containing the modified tree structure.
+         */
+        public TreeManipulator attachSubTree(Node subTree, int constructionMode);
 
-		/**
-		 * Set the annotation for this branch (will be used when instructing a TreeInterface
-		 * @param annotation the annotation object (is dependent on the TreeInterface instructed)
-		 */
-		public void setAnnotation(Object annotation);
+        /**
+         * Obtains the partition of the tree's tip labels (taxa) into two sets, based on the split defined by this branch.
+         *
+         * @return A two-dimensional array of string arrays. The first element (index 0) is a string array of label names on one side of the split, and the second element (index 1) is a string array of the remaining label names.
+         */
+        public String[][] getLabelSplit();
+
+        /**
+         * Sets an annotation object associated with this specific branch.
+         * This annotation will be passed to a {@code TreeInterface} when instructing it to build a tree representation,
+         * allowing external visualization tools or models to apply branch-specific metadata.
+         *
+         * @param annotation The annotation object. The type and meaning of this object depend on the specific {@code TreeInterface} used.
+         */
+        public void setAnnotation(Object annotation);
 	}
 // ==============================================================================================
 // ================================== Support Classes ===========================================
@@ -1581,11 +1683,12 @@ public class TreeManipulator implements UnrootedTreeInterface.Instructee, Rooted
 		public Object getAnnotation();
 
 		public String getLabel();
-		/**
-		 * Obtain the length of the parent branch (or 0 if no parent branch)
-		 * @return the approriate length
-		 */
-		public double getParentBranchLength();
+        /**
+         * Returns the branch length connecting this node to its parent.
+         *
+         * @return The length of the branch leading to the parent node, or {@code 0.0} if this node is the root and has no parent branch defined.
+         */
+        public double getParentBranchLength();
 		public Node getPALPeer();
 	}
 	private static interface SimpleBranch {

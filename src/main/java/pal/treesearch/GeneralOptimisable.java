@@ -18,13 +18,15 @@ import pal.math.*;
 public interface GeneralOptimisable {
 	public int getNumberOfOptimisationTypes();
 
-	/**
-	 *
-	 * @param minimiser The single dimensional minimisation tool
-	 * @param tool The construction tool
-	 * @param fracDigits the number of fractional digits to converge to
-	 * @return The optimised log likelihood, or >0 if not optimisation occured
-	 */
-	public double optimise(int optimisationType, UnivariateMinimum minimiser, GeneralConstructionTool tool, int fracDigits);
-
+    /**
+     * Executes a one-dimensional optimization process, typically to find the optimal branch length
+     * that maximizes the log likelihood (or minimizes the negative log likelihood).
+     *
+     * @param optimisationType An integer code specifying the type of optimization to perform (e.g., branch length, node height).
+     * @param minimiser The single dimensional minimization tool (e.g., Golden Section Search or Brent's method) used to find the optimal parameter value.
+     * @param tool The construction tool used to calculate the log likelihood for a given parameter value.
+     * @param fracDigits The desired number of fractional digits of precision to which the optimization process should converge.
+     * @return The optimized log likelihood value achieved after convergence, or a value greater than 0 if no optimization occurred or if the minimization failed to find a lower value.
+     */
+    public double optimise(int optimisationType, UnivariateMinimum minimiser, GeneralConstructionTool tool, int fracDigits);
 }

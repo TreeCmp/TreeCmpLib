@@ -54,7 +54,7 @@ public interface MultivariateFunction
 	/**
 	 * @return an Orthogonal Hints object that can be used by Orthogonal based optimisers
 	 * to get information about the function
-	 * @return if no such information just return null!
+	 * if no such information just return null!
 	 */
 	OrthogonalHints getOrthogonalHints();
 

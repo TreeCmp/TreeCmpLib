@@ -25,13 +25,11 @@ import java.io.*;
  */
 public class TwoStateModel extends AbstractRateMatrix implements RateMatrix, XMLConstants
 {
-	/**
-	 * constructor
-	 *
-	 * @param f frequencies
-	 *
-	 * @return rate matrix
-	 */
+    /**
+     * Constructs a TwoStateModel with the specified equilibrium frequencies.
+     *
+     * @param f An array of double values representing the two equilibrium frequencies (must sum to 1.0).
+     */
 	public TwoStateModel(double[] f)
 	{
 		// Dimension = 2

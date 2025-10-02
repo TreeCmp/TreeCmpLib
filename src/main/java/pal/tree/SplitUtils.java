@@ -22,119 +22,124 @@ public class SplitUtils
 	// Public stuff
 	//
 
-	/**
-	 * creates a split system from a tree
-	 * (using a pre-specified order of sequences)
-	 *
-	 * @param idGroup  sequence order for the matrix
-	 * @param tree
-	 */
-	public static SplitSystem getSplits(IdGroup idGroup, Tree tree)
-	{
-		int size = tree.getInternalNodeCount()-1;
-		SplitSystem splitSystem = new SplitSystem(idGroup, size);
+    /**
+     * Creates a {@code SplitSystem} (a collection of splits) from a rooted tree.
+     * The order of labels (sequences) in the resulting split vectors is determined by the provided {@code IdGroup}.
+     *
+     * @param idGroup The {@code IdGroup} defining the predefined order of taxa/sequences for the split matrix columns.
+     * @param tree The {@code Tree} object from which the splits are derived.
+     * @return A new {@code SplitSystem} containing all non-trivial splits induced by the internal branches of the tree, ordered according to {@code idGroup}.
+     */
+    public static SplitSystem getSplits(IdGroup idGroup, Tree tree)
+    {
+        int size = tree.getInternalNodeCount()-1;
+        SplitSystem splitSystem = new SplitSystem(idGroup, size);
 
-		boolean[][] splits = splitSystem.getSplitVector();
+        boolean[][] splits = splitSystem.getSplitVector();
 
-		for (int i = 0; i < size; i++)
-		{
-			getSplit(idGroup, tree.getInternalNode(i), splits[i]);
-		}
-
-
-		return splitSystem;
-	}
+        for (int i = 0; i < size; i++)
+        {
+            getSplit(idGroup, tree.getInternalNode(i), splits[i]);
+        }
 
 
-
-	/**
-	 * creates a split system from a tree
-	 * (using tree-induced order of sequences)
-	 *
-	 * @param tree
-	 */
-	public static SplitSystem getSplits(Tree tree)
-	{
-		IdGroup idGroup = TreeUtils.getLeafIdGroup(tree);
-
-		return getSplits(idGroup, tree);
-	}
+        return splitSystem;
+    }
 
 
 
-	/**
-	 * get split for branch associated with internal node
-	 *
-	 * @param idGroup order of labels
-	 * @param internalNode Node
-	 * @param boolean[] split
-	 */
-	public static void getSplit(IdGroup idGroup, Node internalNode, boolean[] split)
-	{
-		if (internalNode.isLeaf() || internalNode.isRoot())
-		{
-			throw new IllegalArgumentException("Only internal nodes (and no root) nodes allowed");
-		}
+    /**
+     * Creates a {@code SplitSystem} from a rooted tree.
+     * The order of labels (sequences) in the resulting split vectors is determined by the natural leaf order of the tree.
+     *
+     * @param tree The {@code Tree} object from which the splits are derived.
+     * @return A new {@code SplitSystem} containing all non-trivial splits induced by the internal branches of the tree.
+     */
+    public static SplitSystem getSplits(Tree tree)
+    {
+        IdGroup idGroup = TreeUtils.getLeafIdGroup(tree);
 
-		// make sure split is reset
-		for (int i = 0; i < split.length; i++)
-		{
-			split[i] = false;
-		}
+        return getSplits(idGroup, tree);
+    }
 
-		// mark all leafs downstream of the node
 
-		for (int i = 0; i < internalNode.getChildCount(); i++)
-		{
-			markNode(idGroup, internalNode, split);
-		}
 
-		// standardize split (i.e. first index is alway true)
-		if (split[0] == false)
-		{
-			for (int i = 0; i < split.length; i++)
-			{
-				if (split[i] == false)
-					split[i] = true;
-				else
-					split[i] = false;
-			}
-		}
-	}
+    /**
+     * Populates a boolean array representing the split induced by the branch leading to a given internal node.
+     * The split partitions the leaves of the tree into two sets: those descended from the node and all others.
+     *
+     * @param idGroup The {@code IdGroup} that defines the target order of labels (columns) for the {@code split} array.
+     * @param internalNode The internal node (excluding the root) defining the branch that generates the split.
+     * @param split The pre-allocated boolean array to be filled with the split information. It must have a length equal to the number of labels in {@code idGroup}.
+     * @throws IllegalArgumentException If the node is a leaf or the root of the tree.
+     */
+    public static void getSplit(IdGroup idGroup, Node internalNode, boolean[] split)
+    {
+        if (internalNode.isLeaf() || internalNode.isRoot())
+        {
+            throw new IllegalArgumentException("Only internal nodes (and no root) nodes allowed");
+        }
 
-	/**
-	 * checks whether two splits are identical
-	 * (assuming they are of the same length
-	 * and use the same leaf order)
-	 *
-	 * @param s1 split 1
-	 * @param s2 split 2
-	 */
-	public static boolean isSame(boolean[] s1, boolean[] s2)
-	{
-		boolean reverse;
-		if (s1[0] == s2[0]) reverse = false;
-		else reverse = true;
+        // make sure split is reset
+        for (int i = 0; i < split.length; i++)
+        {
+            split[i] = false;
+        }
 
-		if (s1.length != s2.length)
-			throw new IllegalArgumentException("Splits must be of the same length!");
+        // mark all leafs downstream of the node
 
-		for (int i = 0; i < s1.length; i++)
-		{
-			if (reverse)
-			{
-				// splits not identical
-				if (s1[i] == s2[i]) return false;
-			}
-			else
-			{
-				// splits not identical
-				if (s1[i] != s2[i]) return false;
-			}
-		}
+        for (int i = 0; i < internalNode.getChildCount(); i++)
+        {
+            markNode(idGroup, internalNode, split);
+        }
 
-		return true;
-	}
+        // standardize split (i.e. first index is alway true)
+        if (split[0] == false)
+        {
+            for (int i = 0; i < split.length; i++)
+            {
+                if (split[i] == false)
+                    split[i] = true;
+                else
+                    split[i] = false;
+            }
+        }
+    }
+
+    /**
+     * Checks whether two splits are identical, allowing for one split to be the exact reverse
+     * (complement) of the other, but assuming they use the same leaf order.
+     *
+     * @param s1 The first split (boolean array).
+     * @param s2 The second split (boolean array).
+     * @return {@code true} if the two splits are identical or complements of each other; otherwise, {@code false}.
+     * @throws IllegalArgumentException If the two split arrays do not have the same length.
+     */
+    public static boolean isSame(boolean[] s1, boolean[] s2)
+    {
+        boolean reverse;
+        if (s1[0] == s2[0]) reverse = false;
+        else reverse = true;
+
+        if (s1.length != s2.length)
+            throw new IllegalArgumentException("Splits must be of the same length!");
+
+        for (int i = 0; i < s1.length; i++)
+        {
+            if (reverse)
+            {
+                // splits not identical
+                if (s1[i] == s2[i]) return false;
+            }
+            else
+            {
+                // splits not identical
+                if (s1[i] != s2[i]) return false;
+            }
+        }
+
+        return true;
+    }
 
 	//
 	// Package stuff

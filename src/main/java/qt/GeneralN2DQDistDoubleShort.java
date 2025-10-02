@@ -32,8 +32,8 @@ public class GeneralN2DQDistDoubleShort extends Distance{
 /**Calculates the quartet distance between two general unrooted
      trees. The computation takes O(n^2d) time for trees that are
      well resolved but up to quartic time depending on how unresulved the tree is.
-     @param t1 the first tree
-     @param t2 the second tree
+     @param gt1 the first tree
+     @param gt2 the second tree
      @return the quartet distance
   */
   protected long calcDistance(Tree gt1, Tree gt2) {

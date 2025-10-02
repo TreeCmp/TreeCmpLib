@@ -35,38 +35,36 @@ public interface NeoParameterized {
 	 */
 	public void setParameters(double[] parameters, int startIndex);
 
-	/**
-	 * get model parameter
-	 *
-	 * @param parameters the array holding the parameters
-	 * @param startIndex the index into the array that the related parameters start at
-	 */
-	public void getParameters(double[] parameterStore, int startIndex);
+    /**
+     * Retrieves model parameters and stores them into the provided array starting at the specified index.
+     *
+     * @param parameterStore the array where parameters will be stored
+     * @param startIndex the starting index in the array to store parameters
+     */
+    public void getParameters(double[] parameterStore, int startIndex);
 
-	/**
-	 * get lower parameter limit
-	 *
-	 * @param n parameter number
-	 *
-	 * @return lower bound
-	 */
-	public double getLowerLimit(int n);
+    /**
+     * Returns the lower bound for the n-th parameter.
+     *
+     * @param n the index of the parameter
+     * @return the lower limit of the specified parameter
+     */
+    public double getLowerLimit(int n);
 
-	/**
-	 * get upper parameter limit
-	 *
-	 * @param n parameter number
-	 *
-	 * @return upper bound
-	 */
-	public double getUpperLimit(int n);
+    /**
+     * Returns the upper bound for the n-th parameter.
+     *
+     * @param n the index of the parameter
+     * @return the upper limit of the specified parameter
+     */
+    public double getUpperLimit(int n);
 
-
-	/**
-	 * get default value parameter values
-	 *
-	 * @return default value
-	 */
-	public void getDefaultValues(double[] store, int startIndex);
+    /**
+     * Retrieves the default values of parameters and stores them into the provided array starting at the specified index.
+     *
+     * @param store the array where default values will be stored
+     * @param startIndex the starting index in the array to store default values
+     */
+    public void getDefaultValues(double[] store, int startIndex);
 
 }

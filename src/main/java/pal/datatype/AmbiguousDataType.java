@@ -26,9 +26,13 @@ public interface AmbiguousDataType extends DataType {
 	// Public stuff
 	//
 
-	/**
-	 * returns an array containing the non-ambiguous states that this state represents.
-	 */
+    /**
+     * Returns an array containing the non-ambiguous states that the given
+     * ambiguous state represents.
+     *
+     * @param ambiguousState the state value that may represent multiple possible states
+     * @return an array of non-ambiguous state values represented by the given {@code ambiguousState}
+     */
 	int[] getSpecificStates(int ambiguousState);
 
 	/**

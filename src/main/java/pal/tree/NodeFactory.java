@@ -26,52 +26,99 @@ package pal.tree;
 import pal.misc.Identifier;
 public class NodeFactory
 {
-	/** create a node */
-	public static final Node createNode()
-	{
-		return new SimpleNode();
-	}
-	/** create a node, with a specified identifier */
-	public static final Node createNode(Identifier id)
-	{
-		return new SimpleNode(id.getName(),0);
-	}
-	/** create a node, with a specified identifier */
-	public static final Node createNode(Identifier id, double height)
-	{
-		SimpleNode sn = new SimpleNode(id.getName(),0);
-		sn.setNodeHeight(height);
-		return sn;
-	}
-		/** create a node, with a specified identifier */
-	public static final Node createNodeBranchLength(double branchLength, Identifier id)
-	{
-		SimpleNode sn = new SimpleNode(id.getName(),0);
-		sn.setBranchLength(branchLength);
-		return sn;
-	}
-	/** constructor used to clone a node and all children */
-	public static final Node createNode(Node node)
-	{
-		return new SimpleNode(node);
-	}
-	public static final Node createNode(Node[] children) {
-		return new SimpleNode(children);
-	}
-	/**
-	 * Create a node with the specified children, and the specified branch height
-	 */
-	public static final Node createNode(Node[] children, double height) {
-		SimpleNode sn = new SimpleNode(children);
-		sn.setNodeHeight(height);
-		return sn;
-	}
-	/**
-	 * Create a node with the specified children, and the specified branch length
-	 */
-	public static final Node createNodeBranchLength(double branchLength, Node[] children) {
-		SimpleNode sn = new SimpleNode(children);
-		sn.setBranchLength(branchLength);
-		return sn;
-	}
+    /**
+     * Creates a new, uninitialized node with default properties.
+     *
+     * @return A new {@code Node} instance (typically a {@code SimpleNode}).
+     */
+    public static final Node createNode()
+    {
+        return new SimpleNode();
+    }
+
+    /**
+     * Creates a new node with the specified identifier.
+     *
+     * @param id The {@code Identifier} to be assigned to the new node.
+     * @return A new {@code Node} instance with the given identifier.
+     */
+    public static final Node createNode(Identifier id)
+    {
+        return new SimpleNode(id.getName(),0);
+    }
+
+    /**
+     * Creates a new node with the specified identifier and node height.
+     *
+     * @param id The {@code Identifier} to be assigned to the new node.
+     * @param height The height to be set for the new node.
+     * @return A new {@code Node} instance with the specified identifier and height.
+     */
+    public static final Node createNode(Identifier id, double height)
+    {
+        SimpleNode sn = new SimpleNode(id.getName(),0);
+        sn.setNodeHeight(height);
+        return sn;
+    }
+
+    /**
+     * Creates a new node with the specified identifier and branch length.
+     *
+     * @param branchLength The length of the branch leading to the new node.
+     * @param id The {@code Identifier} to be assigned to the new node.
+     * @return A new {@code Node} instance with the specified branch length and identifier.
+     */
+    public static final Node createNodeBranchLength(double branchLength, Identifier id)
+    {
+        SimpleNode sn = new SimpleNode(id.getName(),0);
+        sn.setBranchLength(branchLength);
+        return sn;
+    }
+
+    /**
+     * Creates a deep clone of the specified node and all its descendants.
+     *
+     * @param node The source {@code Node} to be cloned.
+     * @return A new {@code Node} instance that is a clone of the source node and its subtree.
+     */
+    public static final Node createNode(Node node)
+    {
+        return new SimpleNode(node);
+    }
+
+    /**
+     * Creates a new internal node with the specified array of children.
+     *
+     * @param children An array of {@code Node} objects that will become children of the new node.
+     * @return A new internal {@code Node} instance.
+     */
+    public static final Node createNode(Node[] children) {
+        return new SimpleNode(children);
+    }
+
+    /**
+     * Creates a new internal node with the specified children and the specified node height.
+     *
+     * @param children An array of {@code Node} objects that will become children of the new node.
+     * @param height The height to be set for the new node.
+     * @return A new internal {@code Node} instance with the specified height.
+     */
+    public static final Node createNode(Node[] children, double height) {
+        SimpleNode sn = new SimpleNode(children);
+        sn.setNodeHeight(height);
+        return sn;
+    }
+
+    /**
+     * Creates a new internal node with the specified children and the specified branch length.
+     *
+     * @param branchLength The length of the branch leading to the new internal node.
+     * @param children An array of {@code Node} objects that will become children of the new node.
+     * @return A new internal {@code Node} instance with the specified branch length.
+     */
+    public static final Node createNodeBranchLength(double branchLength, Node[] children) {
+        SimpleNode sn = new SimpleNode(children);
+        sn.setBranchLength(branchLength);
+        return sn;
+    }
 }

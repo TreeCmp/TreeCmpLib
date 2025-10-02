@@ -52,159 +52,184 @@ public class SimpleIdGroup implements IdGroup, Serializable, Nameable {
 		}
 	}
 
-	/**
-	 * Constructor taking the size of the group.
-	 */
-	public SimpleIdGroup(int size) {
-		this(size,false);
+    /**
+     * Constructor taking the size of the group.
+     *
+     * @param size the number of identifiers in the group
+     */
+    public SimpleIdGroup(int size) {
+        this(size,false);
+    }
 
-	}
+    /**
+     * Constructor taking an array of strings.
+     *
+     * @param labels the array of identifier names
+     */
+    public SimpleIdGroup(String[] labels) {
+        this(labels.length);
+        for (int i = 0; i < labels.length; i++) {
+            setIdentifier(i, new Identifier(labels[i]));
+        }
+    }
 
-	/**
-	 * Constructor taking an array of strings.
-	 */
-	public SimpleIdGroup(String[] labels) {
-		this(labels.length);
-		for (int i = 0; i < labels.length; i++) {
-			setIdentifier(i, new Identifier(labels[i]));
-		}
-	}
+    /**
+     * Constructor taking the size of the group.
+     *
+     * @param size      the number of identifiers in the group
+     * @param createIDs if true, creates default Identifiers; otherwise leaves blank for manual filling
+     */
+    public SimpleIdGroup(int size, boolean createIDs) {
+        ids = new Identifier[size];
+        indices = new Hashtable(size);
+        if(createIDs) {
+            for(int i = 0 ; i < size ; i++ ) {
+                setIdentifier(i, new Identifier(""+i));
+            }
+        }
+    }
 
-	/**
-	 * Constructor taking the size of the group.
-	 * @param size - the number of ids
-	 * @param createIDs - if true creates default Identifiers.
-	 * Otherwise leaves blank (for user to fill in)
-	 */
-	public SimpleIdGroup(int size, boolean createIDs) {
+    /**
+     * Constructor taking an array of identifiers.
+     *
+     * @param id array of Identifier objects
+     */
+    public SimpleIdGroup(Identifier[] id) {
+        this(id.length);
+        for (int i = 0; i < id.length; i++) {
+            setIdentifier(i, id[i]);
+        }
+    }
 
-		ids = new Identifier[size];
-		indices = new Hashtable(size);
-		if(createIDs) {
-			for(int i = 0 ; i < size ; i++ ) {
-				setIdentifier(i, new Identifier(""+i));
-			}
-		}
-	}
+    /**
+     * Constructor taking two separate IdGroups and merging them.
+     *
+     * @param a first IdGroup
+     * @param b second IdGroup
+     */
+    public SimpleIdGroup(IdGroup a, IdGroup b) {
+        this(a.getIdCount() + b.getIdCount());
+        for (int i = 0; i < a.getIdCount(); i++) {
+            setIdentifier(i, a.getIdentifier(i));
+        }
+        for (int i = 0; i < b.getIdCount(); i++) {
+            setIdentifier(i + a.getIdCount(), b.getIdentifier(i));
+        }
+    }
 
-	/**
-	 * Constructor taking an array of identifiers.
-	 */
-	public SimpleIdGroup(Identifier[] id) {
-		this(id.length);
-		for (int i = 0; i < id.length; i++) {
-			setIdentifier(i, id[i]);
-		}
-	}
+    /**
+     * Impersonating Constructor. Copies identifiers from another IdGroup.
+     *
+     * @param a IdGroup to copy
+     */
+    public SimpleIdGroup(IdGroup a) {
+        this(a.getIdCount());
+        for (int i = 0; i < a.getIdCount(); i++) {
+            setIdentifier(i, a.getIdentifier(i));
+        }
+    }
 
-	/**
-	 * Constructor taking two separate id groups and merging them.
-	 */
-	public SimpleIdGroup(IdGroup a, IdGroup b) {
-		this(a.getIdCount() + b.getIdCount());
+    /**
+     * Impersonating Constructor with one identifier ignored.
+     *
+     * @param a        IdGroup to copy
+     * @param toIgnore index of identifier to ignore
+     */
+    public SimpleIdGroup(IdGroup a, int toIgnore) {
+        this((toIgnore < 0 ||toIgnore > a.getIdCount() ? a.getIdCount() : a.getIdCount()-1));
+        int index = 0;
+        for (int i = 0; i < a.getIdCount(); i++) {
+            if(i!=toIgnore) {
+                setIdentifier(index++, a.getIdentifier(i));
+            }
+        }
+    }
 
-		for (int i = 0; i < a.getIdCount(); i++) {
-			setIdentifier(i, a.getIdentifier(i));
-		}
-		for (int i = 0; i < b.getIdCount(); i++) {
-			setIdentifier(i + a.getIdCount(), b.getIdentifier(i));
-		}
-	}
+    /**
+     * Returns the number of identifiers in this group.
+     *
+     * @return number of identifiers
+     */
+    public int getIdCount() {
+        return ids.length;
+    }
 
-	/**
-	 * Impersonating Constructor.
-	 */
-	public SimpleIdGroup(IdGroup a) {
-		this(a.getIdCount());
+    /**
+     * Returns the identifier at the specified index.
+     *
+     * @param i index of the identifier
+     * @return Identifier object at index i
+     */
+    public Identifier getIdentifier(int i) {
+        return ids[i];
+    }
 
-		for (int i = 0; i < a.getIdCount(); i++) {
-			setIdentifier(i, a.getIdentifier(i));
-		}
-	}
-	/**
-	 * Impersonating Constructor.
-	 * @param toIgnore - will ignore the identifier at the index specified by toIgnore
-	 */
-	public SimpleIdGroup(IdGroup a, int toIgnore) {
-		this((toIgnore < 0 ||toIgnore > a.getIdCount() ? a.getIdCount() : a.getIdCount()-1));
-		int index = 0;
-		for (int i = 0; i < a.getIdCount(); i++) {
-			if(i!=toIgnore) {
-				setIdentifier(index++, a.getIdentifier(i));
-			}
-		}
-	}
+    /**
+     * Convenience method to return the name of identifier at index i.
+     *
+     * @param i index of the identifier
+     * @return name of the identifier
+     */
+    public final String getName(int i) {
+        return ids[i].getName();
+    }
 
-	/**
-	 * Returns the number of identifiers in this group
-	 */
-	public int getIdCount() {
-		return ids.length;
-	}
+    /**
+     * Sets the identifier at the specified index.
+     *
+     * @param i  index to set
+     * @param id Identifier object to set
+     */
+    public void setIdentifier(int i, Identifier id) {
+        ids[i] = id;
+        indices.put(id.getName(), new Integer(i));
+    }
 
-	/**
-	 * Returns the ith identifier.
-	 */
-	public Identifier getIdentifier(int i) {
-		return ids[i];
-	}
+    /**
+     * Returns the index of the identifier with the given name.
+     *
+     * @param name name of the identifier
+     * @return index of the identifier or -1 if not found
+     */
+    public int whichIdNumber(String name) {
+        Integer index = (Integer)indices.get(name);
+        if (index != null) {
+            return index.intValue();
+        }
+        return -1;
+    }
 
-	/**
-	 * Convenience method to return the name of identifier i
-	 */
-	public final String getName(int i) {
-		return ids[i].getName();
-	}
+    /**
+     * Returns a string representation of this IdGroup in bracketed format.
+     *
+     * @return string representation of IdGroup
+     */
+    public String toString() {
+        StringBuffer sb = new StringBuffer();
+        sb.append("[ ");
+        for (int i = 0; i < getIdCount(); i++) {
+            sb.append(getIdentifier(i) + " ");
+        }
+        sb.append("]");
+        return new String(sb);
+    }
 
-	/**
-	 * Sets the ith identifier.
-	 */
-	public void setIdentifier(int i, Identifier id) {
-		ids[i] = id;
-		indices.put(id.getName(), new Integer(i));
-	}
+    /**
+     * Returns the name of this IdGroup.
+     *
+     * @return name of the group
+     */
+    public String getName() {
+        return name;
+    }
 
-	/**
-	 * Return index of identifier with name or -1 if not found
-	 */
-	public int whichIdNumber(String name) {
-
-		Integer index = (Integer)indices.get(name);
-		if (index != null) {
-			return index.intValue();
-		}
-		return -1;
-	}
-
-	/**
-	 * Returns a string representation of this IdGroup in the form of
-	 * a bracketed list.
-	 */
-	public String toString() {
-
-		StringBuffer sb = new StringBuffer();
-		sb.append("[ ");
-		for (int i = 0; i < getIdCount(); i++) {
-			sb.append(getIdentifier(i) + " ");
-		}
-		sb.append("]");
-		return new String(sb);
-	}
-
-	// implement Nameable interface
-
-	/**
-	 * Return the name of this IdGroup.
-	 */
-	public String getName() {
-		return name;
-	}
-
-	/**
-	 * Sets the name of this IdGroup.
-	 */
-	public void setName(String n) {
-		name = n;
-	}
+    /**
+     * Sets the name of this IdGroup.
+     *
+     * @param n name to assign
+     */
+    public void setName(String n) {
+        name = n;
+    }
 }
 

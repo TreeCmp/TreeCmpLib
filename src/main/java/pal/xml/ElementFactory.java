@@ -47,197 +47,282 @@ public class ElementFactory implements XMLConstants {
 		return alignmentNode;
 	}
 
-	/**
-	 * @return a DOM element describing an attribute element.
-	 */
-	public static Element createAttributeElement(Attribute a, Document document) {
-		Element attNode = document.createElement(ATTRIBUTE);
+    /**
+     * Creates a DOM element describing an attribute.
+     *
+     * @param a The Attribute object to be serialized.
+     * @param document The XML document in which the element is created.
+     * @return A DOM element describing the attribute.
+     */
+    public static Element createAttributeElement(Attribute a, Document document) {
+        Element attNode = document.createElement(ATTRIBUTE);
 
-		Object value = a.getValue();
-		String type = Attribute.STRING;
-		if (value instanceof Double) { type = Attribute.DOUBLE; }
-		if (value instanceof Float) { type = Attribute.FLOAT; }
-		if (value instanceof Boolean) { type = Attribute.BOOLEAN; }
-		if (value instanceof Integer) { type = Attribute.INTEGER; }
+        Object value = a.getValue();
+        String type = Attribute.STRING;
+        if (value instanceof Double) { type = Attribute.DOUBLE; }
+        if (value instanceof Float) { type = Attribute.FLOAT; }
+        if (value instanceof Boolean) { type = Attribute.BOOLEAN; }
+        if (value instanceof Integer) { type = Attribute.INTEGER; }
 
-		attNode.setAttribute(NAME, a.getName());
-		attNode.setAttribute(VALUE, value.toString());
-		attNode.setAttribute(TYPE, type);
+        attNode.setAttribute(NAME, a.getName());
+        attNode.setAttribute(VALUE, value.toString());
+        attNode.setAttribute(TYPE, type);
 
-		return attNode;
-	}
+        return attNode;
+    }
 
-	/**
-	 * Creates an XML element representing a demographic model.
-	 */
-	public static Element createDemographicModelElement(DemographicModel demo, Document document) {
+    /**
+     * Creates an XML element representing a demographic model.
+     *
+     * @param demo The DemographicModel object to serialize.
+     * @param document The XML document in which the element is created.
+     * @return An XML element representing the demographic model.
+     */
+    public static Element createDemographicModelElement(DemographicModel demo, Document document) {
 
-		Element demoNode = document.createElement(DEMOGRAPHIC_MODEL);
-		if (demo instanceof ConstExpGrowth) {
-			demoNode.setAttribute(TYPE, CONST_EXP_GROWTH);
-			ConstExpGrowth ceg = (ConstExpGrowth)demo;
-			if (ceg.getParameterization() == ConstExpGrowth.ALPHA_PARAMETERIZATION) {
-				demoNode.appendChild(createParameterElement(ALPHA,
-					ceg.getAncestral(), document));
-			} else {
-				demoNode.appendChild(createParameterElement(ANCESTRAL_POP_SIZE,
-					ceg.getAncestral(), document));
-			}
-		} else if (demo instanceof ExponentialGrowth) {
-			demoNode.setAttribute(TYPE, EXPONENTIAL_GROWTH);
-			demoNode.appendChild(createParameterElement(GROWTH_RATE,
-					((ExponentialGrowth)demo).getGrowthRate(), document));
-		} else if (demo instanceof ConstantPopulation) {
-			demoNode.setAttribute(TYPE, CONSTANT_POPULATION);
-			demoNode.appendChild(createParameterElement(POPULATION_SIZE,
-				((ConstantPopulation)demo).getN0(), document));
-		}
-		demoNode.setAttribute(UNITS, getUnitString(demo.getUnits()));
-		return demoNode;
-	}
+        Element demoNode = document.createElement(DEMOGRAPHIC_MODEL);
+        if (demo instanceof ConstExpGrowth) {
+            demoNode.setAttribute(TYPE, CONST_EXP_GROWTH);
+            ConstExpGrowth ceg = (ConstExpGrowth)demo;
+            if (ceg.getParameterization() == ConstExpGrowth.ALPHA_PARAMETERIZATION) {
+                demoNode.appendChild(createParameterElement(ALPHA,
+                        ceg.getAncestral(), document));
+            } else {
+                demoNode.appendChild(createParameterElement(ANCESTRAL_POP_SIZE,
+                        ceg.getAncestral(), document));
+            }
+        } else if (demo instanceof ExponentialGrowth) {
+            demoNode.setAttribute(TYPE, EXPONENTIAL_GROWTH);
+            demoNode.appendChild(createParameterElement(GROWTH_RATE,
+                    ((ExponentialGrowth)demo).getGrowthRate(), document));
+        } else if (demo instanceof ConstantPopulation) {
+            demoNode.setAttribute(TYPE, CONSTANT_POPULATION);
+            demoNode.appendChild(createParameterElement(POPULATION_SIZE,
+                    ((ConstantPopulation)demo).getN0(), document));
+        }
+        demoNode.setAttribute(UNITS, getUnitString(demo.getUnits()));
+        return demoNode;
+    }
 
-	public static Element createEdgeNodeElement(pal.tree.Node node, Document document) {
-		Element edgeNode = document.createElement(EDGE);
-		edgeNode.setAttribute(LENGTH, node.getBranchLength()+"");
-		for (int i =0; i < node.getChildCount(); i++) {
-			edgeNode.appendChild(createNodeElement(node.getChild(i), document, true));
-		}
-		return edgeNode;
-	}
+    /**
+     * Creates an XML element representing a phylogenetic edge and its descendant node(s).
+     *
+     * @param node The tree node whose branch length defines the edge.
+     * @param document The XML document in which the element is created.
+     * @return An XML element representing the edge and its subtree.
+     */
+    public static Element createEdgeNodeElement(pal.tree.Node node, Document document) {
+        Element edgeNode = document.createElement(EDGE);
+        edgeNode.setAttribute(LENGTH, node.getBranchLength()+"");
+        for (int i =0; i < node.getChildCount(); i++) {
+            edgeNode.appendChild(createNodeElement(node.getChild(i), document, true));
+        }
+        return edgeNode;
+    }
 
-	/**
-	 * Creates a DOM element associated with the given document representing
-	 * the given equilibrium frequencies of a rate matrix.
-	 */
-	public static Element createFrequenciesElement(double[] frequencies, Document d) {
-		Element freqNode = d.createElement(FREQUENCIES);
-		String freqs = frequencies[0] + " ";
-		for (int i =1; i < frequencies.length; i++) {
-			freqs += " " + frequencies[i];
-		}
-		freqNode.appendChild(d.createTextNode(freqs));
-		return freqNode;
-	}
+    /**
+     * Creates a DOM element associated with the given document representing
+     * the given equilibrium frequencies of a rate matrix.
+     *
+     * @param frequencies An array of doubles representing the equilibrium frequencies.
+     * @param d The XML document in which the element is created.
+     * @return A DOM element containing the equilibrium frequencies as text.
+     */
+    public static Element createFrequenciesElement(double[] frequencies, Document d) {
+        Element freqNode = d.createElement(FREQUENCIES);
+        String freqs = frequencies[0] + " ";
+        for (int i =1; i < frequencies.length; i++) {
+            freqs += " " + frequencies[i];
+        }
+        freqNode.appendChild(d.createTextNode(freqs));
+        return freqNode;
+    }
 
-	/**
-	 * Creates an XML element representing a mutation rate model.
-	 */
-	public static Element createMutationRateModelElement(MutationRateModel muModel, Document document) {
+    /**
+     * Creates an XML element representing a mutation rate model.
+     *
+     * @param muModel The MutationRateModel object to serialize.
+     * @param document The XML document in which the element is created.
+     * @return An XML element representing the mutation rate model.
+     */
+    public static Element createMutationRateModelElement(MutationRateModel muModel, Document document) {
 
-		Element muNode = document.createElement(MUTATION_RATE_MODEL);
-		if (muModel instanceof SteppedMutationRate) {
-			muNode.setAttribute(TYPE, STEPPED_MUTATION_RATE);
-			SteppedMutationRate smr = (SteppedMutationRate)muModel;
-			muNode.appendChild(createParameterElement(MUTATION_RATE, smr.getMus()[0], document));
-			muNode.appendChild(createParameterElement(ANCESTRAL_MU_RATE, smr.getMus()[1], document));
-			muNode.appendChild(createParameterElement(MU_STEP_TIME, smr.getMuChanges()[0], document));
-		} else if (muModel instanceof ConstantMutationRate) {
-			muNode.setAttribute(TYPE, CONSTANT_MUTATION_RATE);
-			muNode.appendChild(createParameterElement(MUTATION_RATE,
-				muModel.getMutationRate(0.0), document));
-		}
-		return muNode;
-	}
+        Element muNode = document.createElement(MUTATION_RATE_MODEL);
+        if (muModel instanceof SteppedMutationRate) {
+            muNode.setAttribute(TYPE, STEPPED_MUTATION_RATE);
+            SteppedMutationRate smr = (SteppedMutationRate)muModel;
+            muNode.appendChild(createParameterElement(MUTATION_RATE, smr.getMus()[0], document));
+            muNode.appendChild(createParameterElement(ANCESTRAL_MU_RATE, smr.getMus()[1], document));
+            muNode.appendChild(createParameterElement(MU_STEP_TIME, smr.getMuChanges()[0], document));
+        } else if (muModel instanceof ConstantMutationRate) {
+            muNode.setAttribute(TYPE, CONSTANT_MUTATION_RATE);
+            muNode.appendChild(createParameterElement(MUTATION_RATE,
+                    muModel.getMutationRate(0.0), document));
+        }
+        return muNode;
+    }
 
-	public static Element createNodeElement(pal.tree.Node node, Document document) {
-		return createNodeElement(node, document, false);
-	}
+    /**
+     * Creates an XML element representing a tree node, excluding explicit edge elements.
+     * This method is a convenience wrapper for {@link #createNodeElement(pal.tree.Node, Document, boolean)}.
+     *
+     * @param node The tree node to serialize.
+     * @param document The XML document in which the element is created.
+     * @return An XML element representing the node.
+     */
+    public static Element createNodeElement(pal.tree.Node node, Document document) {
+        return createNodeElement(node, document, false);
+    }
 
-	public static Element createNodeElement(pal.tree.Node node, Document document, boolean includeEdges) {
-		Element nodeNode = document.createElement(NODE);
-		nodeNode.setAttribute(HEIGHT, node.getNodeHeight()+"");
-		nodeNode.setAttribute(NAME, node.getIdentifier().getName());
+    /**
+     * Creates an XML element representing a tree node.
+     *
+     * @param node The tree node to serialize.
+     * @param document The XML document in which the element is created.
+     * @param includeEdges If true, child nodes are wrapped in {@code <Edge>} elements; otherwise, they are direct children.
+     * @return An XML element representing the node.
+     */
+    public static Element createNodeElement(pal.tree.Node node, Document document, boolean includeEdges) {
+        Element nodeNode = document.createElement(NODE);
+        nodeNode.setAttribute(HEIGHT, node.getNodeHeight()+"");
+        nodeNode.setAttribute(NAME, node.getIdentifier().getName());
 
-		if (node instanceof pal.tree.AttributeNode) {
-			pal.tree.AttributeNode attNode = (pal.tree.AttributeNode)node;
-			Enumeration e = attNode.getAttributeNames();
-			while ((e != null) && e.hasMoreElements()) {
-				String name = (String)e.nextElement();
-				Object value = attNode.getAttribute(name);
-				nodeNode.appendChild(createAttributeElement(new Attribute(name, value), document));
-			}
-		}
-		for (int i =0; i < node.getChildCount(); i++) {
-			if (includeEdges) {
-				nodeNode.appendChild(createEdgeNodeElement(node.getChild(i), document));
-			} else {
-				nodeNode.appendChild(createNodeElement(node.getChild(i), document));
-			}
-		}
-		return nodeNode;
-	}
+        if (node instanceof pal.tree.AttributeNode) {
+            pal.tree.AttributeNode attNode = (pal.tree.AttributeNode)node;
+            Enumeration e = attNode.getAttributeNames();
+            while ((e != null) && e.hasMoreElements()) {
+                String name = (String)e.nextElement();
+                Object value = attNode.getAttribute(name);
+                nodeNode.appendChild(createAttributeElement(new Attribute(name, value), document));
+            }
+        }
+        for (int i =0; i < node.getChildCount(); i++) {
+            if (includeEdges) {
+                nodeNode.appendChild(createEdgeNodeElement(node.getChild(i), document));
+            } else {
+                nodeNode.appendChild(createNodeElement(node.getChild(i), document));
+            }
+        }
+        return nodeNode;
+    }
 
-	/**
-	 * Creates an XML element representing a parameter.
-	 */
-	public static Element createParameterElement(String name, double value, Document document) {
-		Element parameterNode = document.createElement(PARAMETER);
-		parameterNode.setAttribute(NAME, name);
-		parameterNode.setAttribute(VALUE, value+"");
-		return parameterNode;
-	}
+    /**
+     * Creates an XML element representing a parameter.
+     *
+     * @param name The name of the parameter.
+     * @param value The value of the parameter.
+     * @param document The XML document in which the element is created.
+     * @return An XML element representing the parameter.
+     */
+    public static Element createParameterElement(String name, double value, Document document) {
+        Element parameterNode = document.createElement(PARAMETER);
+        parameterNode.setAttribute(NAME, name);
+        parameterNode.setAttribute(VALUE, value+"");
+        return parameterNode;
+    }
 
-	public static Element createRateMatrixElement(RateMatrix matrix, Document d) {
-		Element matrixNode = d.createElement(RATE_MATRIX);
-		matrixNode.setAttribute(MODEL, matrix.getUniqueName());
-		matrixNode.setAttribute(DATA_TYPE, matrix.getDataType().getDescription());
-		matrixNode.setAttribute(DATA_TYPE_ID, matrix.getDataType().getTypeID()+"");
+    /**
+     * Creates an XML element representing a rate matrix.
+     *
+     * @param matrix The RateMatrix object to serialize.
+     * @param d The XML document in which the element is created.
+     * @return An XML element representing the rate matrix.
+     */
+    public static Element createRateMatrixElement(RateMatrix matrix, Document d) {
+        Element matrixNode = d.createElement(RATE_MATRIX);
+        matrixNode.setAttribute(MODEL, matrix.getUniqueName());
+        matrixNode.setAttribute(DATA_TYPE, matrix.getDataType().getDescription());
+        matrixNode.setAttribute(DATA_TYPE_ID, matrix.getDataType().getTypeID()+"");
 
-		matrixNode.appendChild(createFrequenciesElement(matrix.getEquilibriumFrequencies(), d));
-		for (int i =0 ; i < matrix.getNumParameters(); i++) {
-			matrixNode.appendChild(
-				createParameterElement(matrix.getParameterName(i), matrix.getParameter(i), d));
-		}
-		return matrixNode;
-	}
+        matrixNode.appendChild(createFrequenciesElement(matrix.getEquilibriumFrequencies(), d));
+        for (int i =0 ; i < matrix.getNumParameters(); i++) {
+            matrixNode.appendChild(
+                    createParameterElement(matrix.getParameterName(i), matrix.getParameter(i), d));
+        }
+        return matrixNode;
+    }
 
-	public static Element createSequenceElement(Identifier id, String sequence, Document document) {
-		Element sequenceNode = document.createElement(SEQUENCE);
-		sequenceNode.setAttribute(NAME, id.getName());
-		sequenceNode.appendChild(document.createTextNode(sequence));
-		return sequenceNode;
-	}
+    /**
+     * Creates an XML element representing a sequence.
+     *
+     * @param id The identifier for the sequence.
+     * @param sequence The sequence string (e.g., DNA, amino acids).
+     * @param document The XML document in which the element is created.
+     * @return An XML element representing the sequence.
+     */
+    public static Element createSequenceElement(Identifier id, String sequence, Document document) {
+        Element sequenceNode = document.createElement(SEQUENCE);
+        sequenceNode.setAttribute(NAME, id.getName());
+        sequenceNode.appendChild(document.createTextNode(sequence));
+        return sequenceNode;
+    }
 
-	public static Element createTimeDataElement(TimeOrderCharacterData tocd, Document document) {
-		Element timeDataNode = document.createElement(TIME_DATA);
-		timeDataNode.setAttribute(UNITS, getUnitString(tocd.getUnits()));
-		timeDataNode.setAttribute(ORIGIN, "0");
-		timeDataNode.setAttribute(DIRECTION, BACKWARDS);
-		for (int i =0; i < tocd.getIdCount(); i++) {
-			timeDataNode.appendChild(
-				createTimeElement(tocd.getIdentifier(i), tocd.getTime(i), document));
-		}
-		return timeDataNode;
-	}
+    /**
+     * Creates an XML element representing time-ordered character data.
+     *
+     * @param tocd The TimeOrderCharacterData object to serialize.
+     * @param document The XML document in which the element is created.
+     * @return An XML element representing the time data.
+     */
+    public static Element createTimeDataElement(TimeOrderCharacterData tocd, Document document) {
+        Element timeDataNode = document.createElement(TIME_DATA);
+        timeDataNode.setAttribute(UNITS, getUnitString(tocd.getUnits()));
+        timeDataNode.setAttribute(ORIGIN, "0");
+        timeDataNode.setAttribute(DIRECTION, BACKWARDS);
+        for (int i =0; i < tocd.getIdCount(); i++) {
+            timeDataNode.appendChild(
+                    createTimeElement(tocd.getIdentifier(i), tocd.getTime(i), document));
+        }
+        return timeDataNode;
+    }
 
-	public static Element createTreeElement(Tree tree, Document document, boolean includeEdges) {
-		Element treeNode = document.createElement(TREE);
-		treeNode.setAttribute(UNITS, getUnitString(tree.getUnits()));
-		treeNode.appendChild(createNodeElement(tree.getRoot(), document, false));
-		return treeNode;
-	}
+    /**
+     * Creates an XML element representing a phylogenetic tree.
+     *
+     * @param tree The Tree object to serialize.
+     * @param document The XML document in which the element is created.
+     * @param includeEdges Ignored in this implementation; always calls the node creation without edges.
+     * @return An XML element representing the tree.
+     */
+    public static Element createTreeElement(Tree tree, Document document, boolean includeEdges) {
+        Element treeNode = document.createElement(TREE);
+        treeNode.setAttribute(UNITS, getUnitString(tree.getUnits()));
+        treeNode.appendChild(createNodeElement(tree.getRoot(), document, false));
+        return treeNode;
+    }
 
 
-	// PRIVATE METHODS
+// PRIVATE METHODS
 
-	private static Element createTimeElement(Identifier id, double time, Document document) {
-		Element timeNode = document.createElement(TIME);
-		timeNode.setAttribute(VALUE, time+"");
-		timeNode.appendChild(document.createTextNode(id.getName()));
-		return timeNode;
-	}
+    /**
+     * Private method to create an XML element representing a single time point associated with an identifier.
+     *
+     * @param id The identifier associated with the time point.
+     * @param time The time value.
+     * @param document The XML document in which the element is created.
+     * @return An XML element representing the time data for an identifier.
+     */
+    private static Element createTimeElement(Identifier id, double time, Document document) {
+        Element timeNode = document.createElement(TIME);
+        timeNode.setAttribute(VALUE, time+"");
+        timeNode.appendChild(document.createTextNode(id.getName()));
+        return timeNode;
+    }
 
-	/**
-	 * Private method that converts a unit integer into a human-readable name.
-	 */
-	private static String getUnitString(int units) {
-		switch (units) {
-			case Units.GENERATIONS: return GENERATIONS;
-			case Units.DAYS: return DAYS;
-			case Units.MONTHS: return MONTHS;
-			case Units.YEARS: return YEARS;
-			case Units.EXPECTED_SUBSTITUTIONS: return MUTATIONS;
-			default: return UNKNOWN;
-		}
-	}
+    /**
+     * Private method that converts a unit integer constant into a human-readable name string for XML serialization.
+     *
+     * @param units The integer constant representing the unit type.
+     * @return A string representation of the units (e.g., "years", "generations").
+     */
+    private static String getUnitString(int units) {
+        switch (units) {
+            case Units.GENERATIONS: return GENERATIONS;
+            case Units.DAYS: return DAYS;
+            case Units.MONTHS: return MONTHS;
+            case Units.YEARS: return YEARS;
+            case Units.EXPECTED_SUBSTITUTIONS: return MUTATIONS;
+            default: return UNKNOWN;
+        }
+    }
 }

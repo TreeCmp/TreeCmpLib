@@ -160,17 +160,31 @@ public class Tree {
     return isbinary;
   }
 
-  /**Makes a copy of this tree*/
+/**
+ * Creates and returns a complete deep copy of the current phylogenetic tree.
+ *
+ * <p>This method initiates the recursive copy process starting from the tree's internal
+ * representation (the root node), ensuring that all nodes and edges in the new tree are
+ * distinct objects from the original.
+ *
+ * @return A new {@code Tree} object that is an exact structural duplicate of this tree.
+ */
   public Tree copy() {
     return new Tree(tree.copy(null));
   }
-  
-  /**Returns a new tree that is the same as this one, except that the
-     leaves at the given positions have been removed. The tree is
-     collapsed, so that it does not contain any internal nodes of
-     degree 2.
-     @param pos the positions of the leaves to delete, given as a list of integers
-  */
+
+    /**
+     * Creates and returns a new tree that is a copy of this one, but with the leaves
+     * at the given positions removed.
+     *
+     * <p>The tree structure is **collapsed** during the process, ensuring that the resulting
+     * tree does not contain any internal nodes with a degree of 2.
+     *
+     * @param pos A {@code LinkedList} of {@code Integer} objects, where each integer
+     * represents the index (position) of a leaf to be deleted from the tree's internal
+     * leaf array ({@code leaves}).
+     * @return A new {@code Tree} object with the specified leaves deleted and the structure collapsed.
+     */
   public Tree deleteLeaves(LinkedList pos) {
     //make new copy
     Tree newtree = new Tree(tree.copy(null));

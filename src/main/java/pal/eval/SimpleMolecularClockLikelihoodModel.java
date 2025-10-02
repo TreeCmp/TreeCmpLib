@@ -38,7 +38,7 @@ public class SimpleMolecularClockLikelihoodModel implements MolecularClockLikeli
      * @param leftConditionalProbabilityProbabilties Implementations should be allowed to overwrite in certain cases
      * @param rightConditionalProbabilityProbabilties Implementations should be allowed to overwrite in certain cases
      * @return true if result build on cached information
-     * @note An assumption may be made that after a call to this method the leftConditionals and rightConditionals are not used again!
+     * Note: An assumption may be made that after a call to this method the leftConditionals and rightConditionals are not used again!
      */
     public ConditionalProbabilityStore calculatePostExtendedFlatConditionals( double topBaseHeight, double bottomBaseHeight, PatternInfo centerPattern,
 		  ConditionalProbabilityStore leftConditionalProbabilityProbabilties,

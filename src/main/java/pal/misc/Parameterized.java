@@ -95,17 +95,24 @@ public interface Parameterized
 			this.base_ = base;
 		}
 
-		/**
-		 * Sub class should call setParameterizedBase() at some point if using this constructor... otherwise many explosions and the flashing of lights.
-		 */
-		protected ParameterizedUser() {}
+        /**
+         * Default constructor.
+         * <p>
+         * Subclasses should call {@link #setParameterizedBase(Parameterized)} at some point
+         * if using this constructor, otherwise the object will not function correctly.
+         */
+        protected ParameterizedUser() {}
 
-		/**
-		 * Set's the base parameterized object...
-		 */
-		protected void setParameterizedBase(Parameterized base) {
-			this.base_ = base;
-		}
+        /**
+         * Sets the base parameterized object for this user.
+         * <p>
+         * This allows the user class to delegate parameter operations to the provided base.
+         *
+         * @param base the {@link Parameterized} object that will serve as the underlying parameter handler
+         */
+        protected void setParameterizedBase(Parameterized base) {
+            this.base_ = base;
+        }
 
 		public final int getNumParameters() { return base_.getNumParameters(); }
 
@@ -155,74 +162,105 @@ public interface Parameterized
 		private double[] upperLimits_;
 		private double[] defaultValues_;
 		private double[] parametersSE_;
-		/**
-		 * Builds a parameterized objects around a set of double arrays
-		 * @note uses the actual passed objects, so subclasses can maintain references
-		 * to the arrays and their values will be refected in the parameterized interface
-		 */
-		protected ParameterizedBase(
-			double[] parameters,
-			double[] lowerLimits,
-			double[] upperLimits,
-			double[] defaultValues
-			) {
-			setSource(parameters,lowerLimits,upperLimits,defaultValues);
-		}
-		/**
-		 * Builds a parameterized objects around a set of double arrays
-		 * @note uses the actual passed objects, so subclasses can maintain references
-		 * to the arrays and their values will be refected in the parameterized interface
-		 */
-		protected ParameterizedBase(
-			double[] parameters,
-			double[] lowerLimits,
-			double[] upperLimits,
-			double[] defaultValues,
-			double[] parametersSE
-			) {
-			setSource(parameters,lowerLimits,upperLimits,defaultValues, parametersSE);
-		}
-		/**
-		 * Builds a parameterized objects around a set of double arrays. The user needs
-		 * to call setSource() at some point to correctly set things up
-		 * @note uses the actual passed objects, so subclasses can maintain references
-		 * to the arrays and their values will be refected in the parameterized interface
-		 */
-		protected ParameterizedBase() { }
-		/**
-		 * Set's the base arrays...
-		 * @throws IllegalArgumentException if arrays are not the same size
-		 */
-		protected void setSource(
-			double[] parameters,
-			double[] lowerLimits,
-			double[] upperLimits,
-			double[] defaultValues
-		) {
-			setSource(parameters,lowerLimits,upperLimits,defaultValues,new double[parameters.length]);
-		}
-		/**
-		 * Set's the base arrays...
-		 * @throws IllegalArgumentException if arrays are not the same size
-		 */
-		protected void setSource(
-			double[] parameters,
-			double[] lowerLimits,
-			double[] upperLimits,
-			double[] defaultValues,
-			double[] parametersSE
-		) {
-			this.parameters_ = parameters;
-			this.lowerLimits_ = lowerLimits;
-			this.upperLimits_ = upperLimits;
-			this.defaultValues_ = defaultValues;
-			this.parametersSE_ = parametersSE;
-			int length = parameters_.length;
-			if(lowerLimits.length!=length) { sizeError();	}
-			if(upperLimits.length!=length) { sizeError();	}
-			if(defaultValues.length!=length) { sizeError();	}
-			if(parametersSE.length!=length) { sizeError();	}
-		}
+        /**
+         * Builds a parameterized object around a set of double arrays.
+         * <p>
+         * Note: uses the actual passed arrays, so subclasses can maintain references
+         * to the arrays, and their values will be reflected in the parameterized interface.
+         *
+         * @param parameters the array holding the parameter values
+         * @param lowerLimits the array holding the lower limits for each parameter
+         * @param upperLimits the array holding the upper limits for each parameter
+         * @param defaultValues the array holding the default values for each parameter
+         */
+        protected ParameterizedBase(
+                double[] parameters,
+                double[] lowerLimits,
+                double[] upperLimits,
+                double[] defaultValues
+        ) {
+            setSource(parameters, lowerLimits, upperLimits, defaultValues);
+        }
+
+        /**
+         * Builds a parameterized object around a set of double arrays, including standard errors.
+         * <p>
+         * Note: uses the actual passed arrays, so subclasses can maintain references
+         * to the arrays, and their values will be reflected in the parameterized interface.
+         *
+         * @param parameters the array holding the parameter values
+         * @param lowerLimits the array holding the lower limits for each parameter
+         * @param upperLimits the array holding the upper limits for each parameter
+         * @param defaultValues the array holding the default values for each parameter
+         * @param parametersSE the array holding standard errors for each parameter
+         */
+        protected ParameterizedBase(
+                double[] parameters,
+                double[] lowerLimits,
+                double[] upperLimits,
+                double[] defaultValues,
+                double[] parametersSE
+        ) {
+            setSource(parameters, lowerLimits, upperLimits, defaultValues, parametersSE);
+        }
+
+        /**
+         * Constructs an empty parameterized object.
+         * <p>
+         * The user needs to call {@link #setSource(double[], double[], double[], double[])}
+         * or {@link #setSource(double[], double[], double[], double[], double[])} at some
+         * point to correctly initialize the object.
+         */
+        protected ParameterizedBase() { }
+        /**
+         * Sets the base arrays for parameters, lower limits, upper limits, and default values.
+         * <p>
+         * Initializes standard errors to a new array of the same length as {@code parameters}.
+         *
+         * @param parameters the array holding the parameter values
+         * @param lowerLimits the array holding the lower limits for each parameter
+         * @param upperLimits the array holding the upper limits for each parameter
+         * @param defaultValues the array holding the default values for each parameter
+         * @throws IllegalArgumentException if the lengths of the arrays do not match
+         */
+        protected void setSource(
+                double[] parameters,
+                double[] lowerLimits,
+                double[] upperLimits,
+                double[] defaultValues
+        ) {
+            setSource(parameters, lowerLimits, upperLimits, defaultValues, new double[parameters.length]);
+        }
+
+        /**
+         * Sets the base arrays for parameters, lower limits, upper limits, default values,
+         * and parameter standard errors.
+         *
+         * @param parameters the array holding the parameter values
+         * @param lowerLimits the array holding the lower limits for each parameter
+         * @param upperLimits the array holding the upper limits for each parameter
+         * @param defaultValues the array holding the default values for each parameter
+         * @param parametersSE the array holding the standard errors for each parameter
+         * @throws IllegalArgumentException if the lengths of the arrays do not match
+         */
+        protected void setSource(
+                double[] parameters,
+                double[] lowerLimits,
+                double[] upperLimits,
+                double[] defaultValues,
+                double[] parametersSE
+        ) {
+            this.parameters_ = parameters;
+            this.lowerLimits_ = lowerLimits;
+            this.upperLimits_ = upperLimits;
+            this.defaultValues_ = defaultValues;
+            this.parametersSE_ = parametersSE;
+            int length = parameters_.length;
+            if (lowerLimits.length != length) { sizeError(); }
+            if (upperLimits.length != length) { sizeError(); }
+            if (defaultValues.length != length) { sizeError(); }
+            if (parametersSE.length != length) { sizeError(); }
+        }
 		private final void sizeError() {
 			throw new IllegalArgumentException("All arrays do not match in size");
 		}
@@ -263,65 +301,109 @@ public interface Parameterized
 
 // ============================================================================
 // ============ Utils ==========================================================
-	public static final class Utils {
-		/**
-		 * @return the current paramters of source in a double array
-		 */
-		public static final double[] getParameters(Parameterized source) {
-			double[] params = new double[source.getNumParameters()];
-			for(int i = 0 ; i < params.length ; i++) {
-				params[i] = source.getParameter(i);
-			}
-			return params;
-		}
-		public final static int getTotalNumberOfParameters(Parameterized[] bases) {
-		  int total = 0;
-			for(int i = 0 ; i < bases.length ; i++) {
-			  total+=bases[i].getNumParameters();
-			}
-			return total;
-		}
-		public final static void setupLookups(Parameterized[] bases, int[] baseLookup, int[] parameterIndexLookup, int totalNumberOfParameters) {
-		  int baseIndex = 0;
-			int parameterIndex = 0;
-			for(int i = 0 ; i < totalNumberOfParameters ; i++) {
-			  while(bases[baseIndex].getNumParameters()<=parameterIndex) {
-				  baseIndex++;
-					parameterIndex = 0;
-				}
-				baseLookup[i] = baseIndex;
-				parameterIndexLookup[i] = parameterIndex;
-				parameterIndex++;
-			}
-		}
-		/**
-		 * Create a wrapper around a set of double arrays to create a parameterized object
-		 * (changes to parameterized object change given arrays)
-		 */
-		public static final Parameterized createParametizedWrapper(double[] parameters, double[] lowerLimits, double[] upperLimits, double[] defaultValues) {
-			return new ParameterizedWrapper(parameters,lowerLimits,upperLimits,defaultValues);
-		}
-		/**
-		 * Create a wrapper around a set of double arrays to create a parameterized object
-		 * (changes to parameterized object change given arrays)
-		 */
-		public static final Parameterized createParametizedWrapper(double[] parameters, double[] lowerLimits, double[] upperLimits, double[] defaultValues, double[] parametersSE) {
-			return new ParameterizedWrapper(parameters,lowerLimits,upperLimits,defaultValues, parametersSE);
-		}
+    public static final class Utils {
+        /**
+         * Returns the current parameter values of the given {@link Parameterized} object.
+         *
+         * @param source the {@link Parameterized} object to extract parameters from
+         * @return an array of doubles representing the current parameter values
+         */
+        public static final double[] getParameters(Parameterized source) {
+            double[] params = new double[source.getNumParameters()];
+            for (int i = 0; i < params.length; i++) {
+                params[i] = source.getParameter(i);
+            }
+            return params;
+        }
 
-		/**
-		 * Combine multiple parameterized objects into one
-		 */
-		public static final Parameterized combine(Parameterized[] bases) {
-			return new MultiParameterized(bases);
-		}
-		/**
-		 * Combine multiple parameterized objects into one
-		 * @note resulting Parameterized object may not be serializable!
-		 */
-		public static final Parameterized combine(Parameterized baseOne, Parameterized baseTwo) {
-			return new MultiParameterized(new Parameterized[] {baseOne, baseTwo});
-		}
+        /**
+         * Returns the total number of parameters across multiple {@link Parameterized} objects.
+         *
+         * @param bases an array of {@link Parameterized} objects
+         * @return the sum of all parameters in the given objects
+         */
+        public static final int getTotalNumberOfParameters(Parameterized[] bases) {
+            int total = 0;
+            for (int i = 0; i < bases.length; i++) {
+                total += bases[i].getNumParameters();
+            }
+            return total;
+        }
+
+        /**
+         * Sets up lookup arrays to map a flattened parameter index to the base object and
+         * the parameter index within that object.
+         *
+         * @param bases an array of {@link Parameterized} objects
+         * @param baseLookup an int array to store the base index for each parameter
+         * @param parameterIndexLookup an int array to store the index within the base for each parameter
+         * @param totalNumberOfParameters the total number of parameters across all bases
+         */
+        public final static void setupLookups(Parameterized[] bases, int[] baseLookup, int[] parameterIndexLookup, int totalNumberOfParameters) {
+            int baseIndex = 0;
+            int parameterIndex = 0;
+            for (int i = 0; i < totalNumberOfParameters; i++) {
+                while (bases[baseIndex].getNumParameters() <= parameterIndex) {
+                    baseIndex++;
+                    parameterIndex = 0;
+                }
+                baseLookup[i] = baseIndex;
+                parameterIndexLookup[i] = parameterIndex;
+                parameterIndex++;
+            }
+        }
+
+        /**
+         * Wraps given arrays of parameters and limits into a {@link Parameterized} object.
+         * Changes to the {@link Parameterized} object reflect in the original arrays.
+         *
+         * @param parameters the current parameter values
+         * @param lowerLimits the lower limits for each parameter
+         * @param upperLimits the upper limits for each parameter
+         * @param defaultValues the default values for each parameter
+         * @return a {@link Parameterized} wrapper around the arrays
+         */
+        public static final Parameterized createParametizedWrapper(double[] parameters, double[] lowerLimits, double[] upperLimits, double[] defaultValues) {
+            return new ParameterizedWrapper(parameters, lowerLimits, upperLimits, defaultValues);
+        }
+
+        /**
+         * Wraps given arrays of parameters, limits, defaults, and standard errors into a {@link Parameterized} object.
+         * Changes to the {@link Parameterized} object reflect in the original arrays.
+         *
+         * @param parameters the current parameter values
+         * @param lowerLimits the lower limits for each parameter
+         * @param upperLimits the upper limits for each parameter
+         * @param defaultValues the default values for each parameter
+         * @param parametersSE the standard errors for each parameter
+         * @return a {@link Parameterized} wrapper around the arrays
+         */
+        public static final Parameterized createParametizedWrapper(double[] parameters, double[] lowerLimits, double[] upperLimits, double[] defaultValues, double[] parametersSE) {
+            return new ParameterizedWrapper(parameters, lowerLimits, upperLimits, defaultValues, parametersSE);
+        }
+
+        /**
+         * Combines multiple {@link Parameterized} objects into a single {@link Parameterized} object.
+         *
+         * @param bases an array of {@link Parameterized} objects to combine
+         * @return a {@link MultiParameterized} object representing all parameters
+         */
+        public static final Parameterized combine(Parameterized[] bases) {
+            return new MultiParameterized(bases);
+        }
+
+        /**
+         * Combines two {@link Parameterized} objects into a single {@link Parameterized} object.
+         * <p>
+         * Note: The resulting object may not be serializable.
+         *
+         * @param baseOne the first {@link Parameterized} object
+         * @param baseTwo the second {@link Parameterized} object
+         * @return a {@link MultiParameterized} object representing both parameters
+         */
+        public static final Parameterized combine(Parameterized baseOne, Parameterized baseTwo) {
+            return new MultiParameterized(new Parameterized[]{baseOne, baseTwo});
+        }
 
 		// ============================================================================
 		// ============ ParameterizedWrapper ============================================
@@ -335,5 +417,4 @@ public interface Parameterized
 
 		}
 	}
-
 }

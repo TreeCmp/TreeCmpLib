@@ -14,7 +14,7 @@ package pal.eval;
  * <p>Company: </p>
  * @author not attributable
  * @version 1.0
- * @note not designed to be serialized
+ * Note: not designed to be serialized
  */
 import pal.substmodel.*;
 public class SimpleLeafCalculator implements LHCalculator.Leaf{

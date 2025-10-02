@@ -40,35 +40,43 @@ public abstract class CachedRateMatrix implements RateMatrix, PalObjectListener 
 
 	boolean modelChanged_ = false;
 
-	/**
-	 * @param model the underlying substitution model
-	 * @param cache the caching method used
-	 */
-	public CachedRateMatrix(RateMatrix rateMatrix, DoubleKeyCache cache) {
-		this.rateMatrix = rateMatrix;
-		dimension = rateMatrix.getDimension();
-		this.cache = cache;
-		this.rateMatrix.addPalObjectListener(this);
-	}
+    /**
+     * Constructs a CachedRateMatrix using a specified substitution model and caching strategy.
+     *
+     * @param rateMatrix The underlying substitution model (RateMatrix) whose probabilities will be cached.
+     * @param cache The caching mechanism (DoubleKeyCache) to be used for storing calculated probabilities.
+     */
+    public CachedRateMatrix(RateMatrix rateMatrix, DoubleKeyCache cache) {
+        this.rateMatrix = rateMatrix;
+        dimension = rateMatrix.getDimension();
+        this.cache = cache;
+        this.rateMatrix.addPalObjectListener(this);
+    }
 
-	/**
-	 * @param model the underlying substitution model
-	 */
-	public CachedRateMatrix(RateMatrix rateMatrix, int maxCacheSize) {
-		this(rateMatrix, new DefaultCache(maxCacheSize));
-	}
+    /**
+     * Constructs a CachedRateMatrix, creating a default cache with the specified maximum size.
+     *
+     * @param rateMatrix The underlying substitution model (RateMatrix).
+     * @param maxCacheSize The maximum number of entries the internal cache should store.
+     */
+    public CachedRateMatrix(RateMatrix rateMatrix, int maxCacheSize) {
+        this(rateMatrix, new DefaultCache(maxCacheSize));
+    }
 
-	/**
-	 * @return a clone of this cached model.
-	 * @param model the previous cached model.
-	 */
-	public CachedRateMatrix(CachedRateMatrix cachedRateMatrix) {
+    /**
+     * Constructs a clone of the specified CachedRateMatrix model.
+     * The underlying RateMatrix is cloned, but the cache object itself is shared
+     * (shallow copy of cache reference).
+     *
+     * @param cachedRateMatrix The existing CachedRateMatrix model to clone properties from.
+     */
+    public CachedRateMatrix(CachedRateMatrix cachedRateMatrix) {
 
-		this.rateMatrix = (RateMatrix)cachedRateMatrix.rateMatrix.clone();
-		this.rateMatrix.addPalObjectListener(this);
-		this.dimension = cachedRateMatrix.dimension;
-		this.cache = (DoubleKeyCache)cachedRateMatrix.cache;
-	}
+        this.rateMatrix = (RateMatrix)cachedRateMatrix.rateMatrix.clone();
+        this.rateMatrix.addPalObjectListener(this);
+        this.dimension = cachedRateMatrix.dimension;
+        this.cache = (DoubleKeyCache)cachedRateMatrix.cache;
+    }
 
 	// interface Report
 	public final void report(PrintWriter out) {

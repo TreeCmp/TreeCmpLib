@@ -143,8 +143,10 @@ public class GapBalanced extends SimpleDataType implements MolecularDataType {
 	}
 
 	/**
-	 * @retrun true if this state is an unknown state
-	 */
+     *
+     * @param state the state to check
+     * @return true if this state is an unknown state, false otherwise
+     */
 	protected final boolean isUnknownStateImpl(final int state) {
 		return(state>=22||state<0);
 	}
@@ -166,25 +168,46 @@ public class GapBalanced extends SimpleDataType implements MolecularDataType {
 //================ MolecularDataType stuff ===================
 //==========================================================
 
-	/**
-	 *
-	 */
+    /**
+     * Converts an array of residue (amino acid) states into nucleotide states.
+     *
+     * <p><b>Note:</b> This method is not implemented yet and will throw a
+     * {@link RuntimeException} if called.</p>
+     *
+     * @param residueStates the sequence of residue (amino acid) states
+     * @return the nucleotide states corresponding to the residues
+     * @throws RuntimeException always, since this method is not implemented yet
+     */
 	public int[] getNucleotideStates(int[] residueStates) {
 		throw new RuntimeException("NOT IMPLEMENTED YET!");
 	}
 
 	/**
 	 * Currently converts ambiguous states to a simple version (IE takes the first possible simple state for the ambiguous state)
-	 */
+     *
+     * @param nucleotideStates the nucleotide states encoded with possible ambiguous values
+     * @param startingIndex the index in the sequence at which to start translation
+     * @return an array of amino acid states derived from the input nucleotides
+     */
 	public final int[] getMolecularStatesFromIUPACNucleotides(int[] nucleotideStates, int startingIndex) {
 		return getMolecularStatesFromSimpleNucleotides(
 			IUPACNucleotides.getSimpleStates(nucleotideStates),
 			startingIndex
 		);
 	}
-	/**
-	 * @return
-	 */
+
+    /**
+     * Converts a sequence of simple nucleotide states into molecular (amino acid) states
+     * using the internal translation table.
+     *
+     * <p>This method groups nucleotides into codons (triplets). The first and last nucleotides
+     * in each codon are marked with {@code LEFT_BRACKET_STATE} and {@code RIGHT_BRACKET_STATE},
+     * while the middle position stores the translated amino acid state.</p>
+     *
+     * @param nucleotideStates the nucleotide states (values 0–3 for A, C, G, T; others treated as unknown)
+     * @param startingIndex the index in the sequence at which to start translation
+     * @return an array of molecular (amino acid) states corresponding to the codons in the input
+     */
 	public final int[] getMolecularStatesFromSimpleNucleotides(int[] nucleotideStates, int startingIndex) {
 		int[] residueStates = new int[nucleotideStates.length-startingIndex];
 		int codonIndex = 0;

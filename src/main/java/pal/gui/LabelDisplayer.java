@@ -12,7 +12,7 @@ import java.awt.*;
  * A Label display object displays a label at a particular location on a graphics object.
  * The class may change attributes such as font, colour, etc... but should leave the graphics state unchanged (ie, revert back to original colour)
  * @author Matthew Goode
- * @note
+ * Note:
  *     <ul>
  *       <li> 14 August 2003 - Created to allow greater flexibility in label display on trees
  *     </ul>

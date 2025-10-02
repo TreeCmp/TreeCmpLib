@@ -58,53 +58,82 @@ public interface RateMatrix
 	 */
 	double[] getEquilibriumFrequencies();
 
-	/**
-	 * @return stationary frequency (sum = 1.0) for ith state
-	 * Preferred method for infrequent use.
-	 */
-	double getEquilibriumFrequency(int i);
+    /**
+     * Returns the stationary (equilibrium) frequency for the specified state.
+     * The sum of all equilibrium frequencies across all states equals 1.0.
+     * This method is the preferred method for infrequent use.
+     *
+     * @param i The index of the state for which the equilibrium frequency is requested.
+     * @return The stationary frequency for the ith state.
+     */
+    double getEquilibriumFrequency(int i);
 
-	/**
-	 * Get the data type of this rate matrix
-	 */
-	DataType getDataType();
+    /**
+     * Gets the data type handled by this rate matrix (e.g., DNA, Amino Acids).
+     *
+     * @return The DataType of this rate matrix.
+     */
+    DataType getDataType();
 
-	/**
-	 * @return rate matrix (transition: from 1st index to 2nd index)
-	 * @deprecated try not to use.
-	 */
-	double[][] getRelativeRates();
+    /**
+     * Returns the relative rate matrix, where the first index represents the 'from' state
+     * and the second index represents the 'to' state (transition: from 1st index to 2nd index).
+     *
+     * @return The 2D array representing the relative rate matrix.
+     * @deprecated Try not to use this method directly, as it exposes internal representation.
+     */
+    double[][] getRelativeRates();
 
-	/**
-	 * @return the probability of going from one state to another
-	 * given the current distance
-	 * @param fromState The state from which we are starting
-	 * @param toState The resulting state
-	 */
-	double getTransitionProbability(int fromState, int toState);
+    /**
+     * Returns the probability of transitioning from one state to another over the currently set distance.
+     *
+     * @param fromState The index of the starting state.
+     * @param toState The index of the resulting state.
+     * @return The transition probability P(toState | fromState) over the current distance.
+     */
+    double getTransitionProbability(int fromState, int toState);
 
-	/** A utility method for speed, transfers trans prob information quickly
-	 *	into store
-	 */
-	void getTransitionProbabilities(double[][] probabilityStore);
+    /**
+     * A utility method designed for speed; it transfers the pre-calculated transition probability
+     * information quickly into the provided storage matrix.
+     *
+     * @param probabilityStore The 2D array where the transition probabilities will be stored (usually [from][to]).
+     */
+    void getTransitionProbabilities(double[][] probabilityStore);
 
-	/** Sets the distance (such as time/branch length) used when calculating
-	 *	the probabilities. This method may well take the most time!
-	 */
-	void setDistance(double distance);
+    /**
+     * Sets the evolutionary distance (such as time or branch length) used for calculating
+     * the transition probabilities.
+     * Note: This method may trigger computationally intensive steps.
+     *
+     * @param distance The evolutionary distance to be used.
+     */
+    void setDistance(double distance);
 
-	/** Sets the distance (such as time/branch length) used when calculating
-	 *	the probabilities.
-	 *  @note The resulting transition probabilities will be in reverse
-	 *  (that is in the matrix instead of [from][to] it's [to][from])
-	 */
-	void setDistanceTranspose(double distance);
+    /**
+     * Sets the evolutionary distance (such as time or branch length) used for calculating
+     * the transition probabilities.
+     * Note: The resulting transition probabilities calculated and stored internally will be in reverse
+     * order (i.e., transposed, [to][from] instead of the standard [from][to]).
+     *
+     * @param distance The evolutionary distance to be used.
+     */
+    void setDistanceTranspose(double distance);
 
-	/** Add a PalObjectListener to be notified of changes to the model.
-	 *  Only the parametersChanged method will generally be called
-	 */
-	void addPalObjectListener(PalObjectListener pol);
-	void removePalObjectListener(PalObjectListener pol);
+    /**
+     * Adds a listener to be notified of changes to the model (e.g., parameter changes).
+     * Only the {@code parametersChanged} method of the listener will generally be called.
+     *
+     * @param pol The PalObjectListener to add.
+     */
+    void addPalObjectListener(PalObjectListener pol);
+
+    /**
+     * Removes a listener so it is no longer notified of changes to the model.
+     *
+     * @param pol The PalObjectListener to remove.
+     */
+    void removePalObjectListener(PalObjectListener pol);
 
 	/**
 	 * @return an orthogonal hints object for orthogonal optimisation (may return null for no hints)

@@ -37,18 +37,22 @@ public class PhyloTreeEdge extends Bipartition {
 		originalEdge = new Bipartition();
 		originalID = -1;
 	}
-	
-	/** Constructor: creates a new split with the specified child leaves and leave length as null
-	 * 
-	 * @param partition
-	 */
+
+    /** Constructor: creates a new edge with the specified partition and null attribute.
+     *
+     * @param edge the set of child leaves defining this edge
+     */
 	public PhyloTreeEdge(BitSet edge) {
 		super(edge);
 		originalEdge = new Bipartition();
 		originalID = -1;
 //		System.out.println("split " + split);
 	}
-	
+
+    /** Constructor: creates a new edge with the specified attribute.
+     *
+     * @param attrib the attribute (e.g., length) associated with this edge
+     */
 	public PhyloTreeEdge(EdgeAttribute attrib) {
 		super();
 		this.attribute = attrib;
@@ -56,46 +60,71 @@ public class PhyloTreeEdge extends Bipartition {
 		originalID = -1;
 //		System.out.println("double length ");
 	}
-	
-	
+
+    /** Constructor: creates a new edge with the specified attribute and original ID.
+     *
+     * @param attrib the attribute associated with this edge
+     * @param originalID identifier of the original edge
+     */
 	public PhyloTreeEdge(EdgeAttribute attrib, int originalID) {
 		super();
 		this.attribute = attrib;
 		originalEdge = new Bipartition();
 		this.originalID = originalID;
 	}
-	
+
+    /** Constructor: creates a new edge with the specified attribute, original edge, and original ID.
+     *
+     * @param attrib the attribute associated with this edge
+     * @param originalEdge the original edge bipartition
+     * @param originalID identifier of the original edge
+     */
 	public PhyloTreeEdge(EdgeAttribute attrib, Bipartition originalEdge, int originalID) {
 		super();
 		this.attribute = attrib;
 		this.originalEdge = new Bipartition(originalEdge.partition);
 		this.originalID = originalID;
 	}
-	
-	
+
+    /** Constructor: creates a new edge from a bipartition with attribute and original ID.
+     *
+     * @param edge the bipartition defining this edge
+     * @param attrib the attribute associated with this edge
+     * @param originalID identifier of the original edge
+     */
 	public PhyloTreeEdge(Bipartition edge, EdgeAttribute attrib, int originalID) {
 		super(edge.partition);
 		this.attribute = attrib;
 		originalEdge = new Bipartition(edge.partition);
 		this.originalID = originalID;
 	}
-	
+
+    /** Constructor: creates a new edge with specified partition, attribute, original edge, and original ID.
+     *
+     * @param edge the set of child leaves defining this edge
+     * @param attrib the attribute associated with this edge
+     * @param originalEdge the original edge as a BitSet
+     * @param originalID identifier of the original edge
+     */
 	public PhyloTreeEdge(BitSet edge, EdgeAttribute attrib, BitSet originalEdge, int originalID) {
 		super(edge);
 		this.attribute = attrib;
 		this.originalEdge = new Bipartition(originalEdge);
 		this.originalID = originalID;
 	}
-	
-	// Getters and Setters
-	// Return 
+
+    /** Returns the Euclidean norm of the edge attribute.
+     *
+     * @return the norm of this edge's attribute
+     */
 	public double getNorm() {
 		return attribute.norm();
 	}
 
-	/** Returns true if the length of the edge is 0.
-	 * 
-	 */
+    /** Returns true if the length of the edge is zero.
+     *
+     * @return true if the edge has zero length, false otherwise
+     */
 	public boolean isZero() {
 		return (this.getNorm() == 0);		//XXX: Change to make dependent on tolerance.
 	}
@@ -106,29 +135,43 @@ public class PhyloTreeEdge extends Bipartition {
 /*	public String toString() {
 		return "" + TreeDistance.truncate(length,6) + " " + super.toString();
 	}
-*/	
-	/** String representation of an split.  
-	 */
+*/
+    /** Returns a string representation of this edge, showing its attribute and partition.
+     *
+     * @return string representation of the edge
+     */
 	public String toString() {
 		return "" + attribute + " " + partition;
 	}
-	
+
+    /** Returns a verbose string representation of this edge.
+     *
+     * @param leaf2NumMap mapping from leaf indices to their names
+     * @return verbose string of this edge
+     */
 	public String toStringVerbose(Vector<String> leaf2NumMap) {
 		
 		return "" + originalID + "\t\t" + attribute + "\t\t" + Bipartition.toStringVerbose(this.partition, leaf2NumMap);
 	}
-	
+
+    /** Returns a string representation rerooted at the specified leaf.
+     *
+     * @param leaf2NumMap mapping from leaf indices to names
+     * @param newRoot the leaf to be used as the new root
+     * @return rerooted string representation
+     */
 	public String toStringReroot(Vector<String> leaf2NumMap, String newRoot) {
 		
 		return "" + originalID + "\t\t" + attribute + "\t\t" + Bipartition.toStringReroot(this.partition, leaf2NumMap, newRoot);
 	}
-	
-	/** Returns a string of what it printed out.
-	 * 
-	 * @param edges
-	 * @param leaf2NumMap
-	 * @return
-	 */
+
+    /** Prints a vector of edges verbosely.
+     *
+     * @param edges the edges to print
+     * @param leaf2NumMap mapping from leaf indices to their names
+     * @param originalEdges whether to print original edges or current edges
+     * @return string containing the printed output
+     */
 	public static String printEdgesVerbose(Vector<PhyloTreeEdge> edges, Vector<String> leaf2NumMap, Boolean originalEdges) {
 		String output = "";
 		
@@ -153,10 +196,19 @@ public class PhyloTreeEdge extends Bipartition {
 	
 	// TODO:  currently not overriding the object clone because doesn't return type Object.
 	// Also, can not use constructor.
+    /** Returns a clone of this edge.
+     *
+     * @return a deep copy of this PhyloTreeEdge
+     */
 	public PhyloTreeEdge clone() {
 		return new PhyloTreeEdge((BitSet) this.partition.clone(), (EdgeAttribute) this.attribute.clone(), (BitSet)this.originalEdge.getPartition().clone(), this.originalID);
 	}
-	
+
+    /** Compares this edge to another object for equality.
+     *
+     * @param e the object to compare with
+     * @return true if equal, false otherwise
+     */
 	@Override public boolean equals(Object e) {
 		if (e == null) {
 			return false;
@@ -171,24 +223,34 @@ public class PhyloTreeEdge extends Bipartition {
 		
 		return partition.equals(((Bipartition) e).partition) && attribute.equals( ((PhyloTreeEdge) e).attribute);
 	}
-	
+
+    /** Returns true if this edge has the same bipartition as another edge.
+     *
+     * @param e the edge to compare
+     * @return true if partitions are equal
+     */
 	public boolean sameBipartition(PhyloTreeEdge e) {
 		return this.partition.equals(e.partition);
 	}
-	
+
+    /** Returns true if this edge has the same bipartition as another bipartition.
+     *
+     * @param e the bipartition to compare
+     * @return true if partitions are equal
+     */
 	public boolean sameBipartition(Bipartition e) {
 		return this.partition.equals(e.partition);
 	}
 
-	/**  Already "cloned".
-	 * 
-	 * @return
-	 */
+	/**  Already "cloned"
+     * Returns a clone of this edge as a bipartition.
+     *
+     * @return a new Bipartition identical to this edge
+     */
 	public Bipartition asSplit() {
 		return new Bipartition((BitSet) this.partition.clone());
 	}
-	
-	
+
 	public Bipartition getOriginalEdge() {
 		return originalEdge;
 	}

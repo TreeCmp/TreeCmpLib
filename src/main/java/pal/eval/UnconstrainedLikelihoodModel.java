@@ -20,7 +20,7 @@ package pal.eval;
  * </p>
  * @author Matthew Goode
  * @version 1.0
- * @note needs to have the use of the word likelihood altered in certain cases (to conditional probability)
+ * Note: needs to have the use of the word likelihood altered in certain cases (to conditional probability)
  *
  */
 import pal.misc.*;
@@ -37,7 +37,7 @@ public interface UnconstrainedLikelihoodModel {
      * @param leftConditionalProbabilities Implementations must not overwrite or change
      * @param rightConditionalProbabilities Implementations must not overwrite or change
      * @param resultStore Where to stick the created categoryPatternState information
-     * @note calls to getLastConditionalProbabilities() does not have to be valid after call this method
+     * Note: calls to getLastConditionalProbabilities() does not have to be valid after call this method
      */
     public void calculateFlat( PatternInfo centerPattern, ConditionalProbabilityStore leftConditionalProbabilities, ConditionalProbabilityStore rightConditionalProbabilities, ConditionalProbabilityStore resultStore );
 
@@ -48,7 +48,7 @@ public interface UnconstrainedLikelihoodModel {
      * @param leftConditionalProbabilities Implementations must not overwrite or change
      * @param rightConditionalProbabilities Implementations must not overwrite or change
      * @param resultStore Where to stick the created categoryPatternState information
-     * @note calls to getLastConditionalProbabilities() does not have to be valid after call this method
+     * Note: calls to getLastConditionalProbabilities() does not have to be valid after call this method
      */
     public void calculateExtended( double distance,
                                    PatternInfo centerPattern,
@@ -113,7 +113,9 @@ public interface UnconstrainedLikelihoodModel {
     /**
      * Calculate the likelihood given the conditional probabilites at the root
      * @param patternWeights the weights of each pattern
-		 * @param numberOfPatterns the number of patterns
+     * @param numberOfPatterns the number of patterns
+     * @param conditionalProbabilityStore a {@link ConditionalProbabilityStore} containing the conditional probabilities
+     * for each pattern at the root
      * @return the Log likelihood
      */
     public double calculateLogLikelihoodSingle( int[] patternWeights, int numberOfPatterns,
@@ -125,6 +127,7 @@ public interface UnconstrainedLikelihoodModel {
      * @param centerPattern the pattern information
      * @param leftConditionalProbabilitiesStore The left conditional probabilities
      * @param rightConditionalProbabilitiesStore The right conditional probabilities
+     * @return a {@link SiteDetails} object containing the conditional probabilities and related information
      */
     public SiteDetails calculateSiteDetailsRooted(
       PatternInfo centerPattern,
@@ -132,19 +135,20 @@ public interface UnconstrainedLikelihoodModel {
       ConditionalProbabilityStore rightConditionalProbabilitiesStore
       );
 
-		/**
+    /**
      * Calculate the conditional probabilities of each pattern for each category
      * @param distance The distance between the two nodes
      * @param centerPattern the pattern information
      * @param leftConditionalProbabilitiesStore The left conditional probabilities
      * @param rightConditionalProbabilitiesStore The right conditional probabilities
      * @param tempStore after call will hold a matrix of values in the form [cat][pattern], where [cat][pattern] represents the site probability under a particular category/class, *not* multiplied by the category probability or pattern weights
+     * @return a {@link SiteDetails} object containing the conditional probabilities and related information
      */
 		public SiteDetails calculateSiteDetailsUnrooted( double distance,
-	    PatternInfo centerPattern,
-      ConditionalProbabilityStore leftConditionalProbabilitiesStore,
-      ConditionalProbabilityStore rightConditionalProbabilitiesStore,
-			ConditionalProbabilityStore tempStore
+                                                         PatternInfo centerPattern,
+                                                         ConditionalProbabilityStore leftConditionalProbabilitiesStore,
+                                                         ConditionalProbabilityStore rightConditionalProbabilitiesStore,
+                                                         ConditionalProbabilityStore tempStore
     );
   } //End of class External
 // =================================================================================================
@@ -161,7 +165,7 @@ public interface UnconstrainedLikelihoodModel {
      * @param leftConditionalProbabilities Implementations should be allowed to overwrite in certain cases
      * @param rightConditionalProbabilities Implementations should be allowed to overwrite in certain cases
 		 * @return true if results built from cached information
-     * @note An assumption may be made that after a call to this method the leftConditionals and rightConditionals are not used again!
+     * Note: An assumption may be made that after a call to this method the leftConditionals and rightConditionals are not used again!
      */
     public ConditionalProbabilityStore calculateFlat( PatternInfo centerPattern, ConditionalProbabilityStore leftConditionalProbabilities, ConditionalProbabilityStore rightConditionalProbabilities );
 
@@ -172,7 +176,7 @@ public interface UnconstrainedLikelihoodModel {
      * @param leftConditionalProbabilities Implementations should be allowed to overwrite in certain cases
      * @param rightConditionalProbabilities Implementations should be allowed to overwrite in certain cases
      * @return resulting conditional probabilities
-     * @note An assumption may be made that after a call to this method the leftConditionals and rightConditionals are not used again!
+     * Note: An assumption may be made that after a call to this method the leftConditionals and rightConditionals are not used again!
      */
     public ConditionalProbabilityStore calculateExtended( double distance,  PatternInfo centerPattern, final ConditionalProbabilityStore leftConditionalProbabilities,
       final ConditionalProbabilityStore rightConditionalProbabilities);
@@ -185,7 +189,7 @@ public interface UnconstrainedLikelihoodModel {
 	/**
 	 * A LHCalculator.Leaf object is attached to each leaf node and can be used to calculated conditional probabilities across the related branch.
 	 * Allows for quick implementations as well as implementations that cope correctly with ambiguous characters
-	 * @note Should not be made serializable!
+	 * Note: Should not be made serializable!
 	 */
 	public static interface Leaf {
 		public ConditionalProbabilityStore getFlatConditionalProbabilities();
@@ -217,8 +221,9 @@ public interface UnconstrainedLikelihoodModel {
 		/**
 		 * If true, then user can assume that areas of trees that haven't changed, and the model parameters haven't be altered,
 		 * can have their conditionals cached.
-		 * @return
-		 */
+         *
+         * @return true if caching of conditionals is allowed, false otherwise
+         */
 		public boolean isAllowCaching();
 
 

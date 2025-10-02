@@ -68,7 +68,9 @@ public class CoalescentIntervals implements Units, Report, Serializable
 
 	/**
 	 * Constructor taking a number of intervals.
-	 */
+     *
+     * @param size the number of coalescent intervals to create
+     */
 	public CoalescentIntervals(int size)
 	{
 		this();
@@ -83,7 +85,9 @@ public class CoalescentIntervals implements Units, Report, Serializable
 	/**
 	 * Sets the units these coalescent intervals are 
 	 * measured in.
-	 */
+     *
+     * @param u the units to set
+     */
 	public void setUnits(int u)
 	{
 		units = u;
@@ -92,7 +96,9 @@ public class CoalescentIntervals implements Units, Report, Serializable
 	/**
 	 * Returns the units these coalescent intervals are 
 	 * measured in.
-	 */
+     *
+     * @return the units of the coalescent intervals
+     */
 	public int getUnits()
 	{
 		return units;
@@ -102,14 +108,20 @@ public class CoalescentIntervals implements Units, Report, Serializable
 	 * Returns the number of uncoalesced lineages within this interval.
 	 * Required for s-coalescents, where new lineages are added as
 	 * earlier samples are come across.
-	 */
+     *
+     * @param i the index of the interval
+     * @return the number of lineages in the interval
+     */
 	public int getNumLineages(int i) {
 		return numLineages[i];
 	}
 
 	/**
 	 * set the number lineages for this particular interval.
-	 */
+     *
+     * @param i the index of the interval
+     * @param numLines the number of lineages to set
+     */
 	public void setNumLineages(int i, int numLines) {
 		numLineages[i] = numLines;
 	}
@@ -117,7 +129,10 @@ public class CoalescentIntervals implements Units, Report, Serializable
 
 	/**
 	 * Returns the number coalescent events in an interval
-	 */
+     *
+     * @param i the index of the interval
+     * @return the number of coalescent events
+     */
 	public int getCoalescentEvents(int i)
 	{
 		if (i < intervals.length-1)
@@ -132,7 +147,10 @@ public class CoalescentIntervals implements Units, Report, Serializable
 
 	/**
 	 * Returns the type of interval observed.
-	 */
+     *
+     * @param i the index of the interval
+     * @return COALESCENT, NEW_SAMPLE, or NOTHING
+     */
 	public int getIntervalType(int i)
 	{
 		int numEvents = getCoalescentEvents(i);
@@ -144,14 +162,20 @@ public class CoalescentIntervals implements Units, Report, Serializable
 
 	/**
 	 * Gets an interval.
-	 */
+     *
+     * @param i the index of the interval
+     * @return the interval value
+     */
 	public double getInterval(int i) {
 		return intervals[i];
 	}
 
 	/**
 	 * Sets interval.
-	 */
+     *
+     * @param i the index of the interval to set
+     * @param value the length of the interval
+     */
 	public void setInterval(int i, double value) {
 		intervals[i] = value;
 	}
@@ -159,7 +183,9 @@ public class CoalescentIntervals implements Units, Report, Serializable
 	/**
 	 * get the total height of the genealogy represented by these
 	 * intervals. 
-	 */
+     *
+     * @return total height
+     */
 	public double getTotalHeight() {
 		
 		double height=0.0;
@@ -172,7 +198,9 @@ public class CoalescentIntervals implements Units, Report, Serializable
 
 	/**
 	 * get number of intervals
-	 */
+     *
+     * @return the number of intervals
+     */
 	public int getIntervalCount()
 	{
 		return intervals.length;
@@ -183,7 +211,9 @@ public class CoalescentIntervals implements Units, Report, Serializable
 	 * Checks whether this set of coalescent intervals is fully resolved
 	 * (i.e. whether is has exactly one coalescent event in each
 	 * subsequent interval)
-	 */
+     *
+     * @return true if fully binary coalescent, false otherwise
+     */
 	public boolean isBinaryCoalescent()
 	{
 		for (int i = 0; i < intervals.length; i++)
@@ -198,7 +228,9 @@ public class CoalescentIntervals implements Units, Report, Serializable
 	 * Checks whether this set of coalescent intervals coalescent only
 	 * (i.e. whether is has exactly one or more coalescent event in each
 	 * subsequent interval)
-	 */
+     *
+     * @return true if coalescent-only, false otherwise
+     */
 	public boolean isCoalescentOnly()
 	{
 		for (int i = 0; i < intervals.length; i++)
@@ -215,7 +247,10 @@ public class CoalescentIntervals implements Units, Report, Serializable
 	 * The reference must have the same number of lineages at
 	 * the start of the first interval, and the present
 	 * CoalsecentIntervals must be fully resolved. 
-	 */
+     *
+     * @param reference the reference CoalescentIntervals to group with
+     * @throws IllegalArgumentException if this or reference intervals are incompatible
+     */
 	public void groupIntervals(CoalescentIntervals reference)
 	{
 		if (!isBinaryCoalescent())
@@ -251,9 +286,13 @@ public class CoalescentIntervals implements Units, Report, Serializable
 	}
 
 	/**
-	 * Returns a list stating which of the intervals are <= minSize
+	 * Returns a list stating which of the intervals are &lt;= minSize
 	 * (and thus should be pooled).
-	 */
+     *
+     * @param minSize the minimum size threshold
+     * @param smallInterval the boolean array to store small interval flags
+     * @throws IllegalArgumentException if smallInterval length != intervals length
+     */
 	public void getSmallIntervals(double minSize, boolean[] smallInterval)
 	{
 		if (intervals.length != smallInterval.length)
@@ -277,7 +316,9 @@ public class CoalescentIntervals implements Units, Report, Serializable
 	 * Starting at time zero (i.e. with the interval with largest number of lineages),
 	 * the specified small intervals are pooled with the next non-small interval
 	 * (if this does not exist then with the previous non-small interval)
-	 */
+     *
+     * @param smallInterval boolean array indicating which intervals are small
+     */
 	public void poolIntervals(boolean[] smallInterval)
 	{
 		int uniqueIntervals = 0;
@@ -324,9 +365,11 @@ public class CoalescentIntervals implements Units, Report, Serializable
 
 	/**
 	 * Starting at time zero (i.e. with the interval with largest number of lineages),
-	 * small intervals (<= minSize) are pooled with the next non-small interval
+	 * small intervals (&lt;= minSize) are pooled with the next non-small interval
 	 * (if this does not exist then with the previous non-small interval)
-	 */
+     *
+     * @param minSize the maximum size for intervals to be pooled
+     */
 	public void poolSmallIntervals(double minSize)
 	{
 		boolean[] smallInterval = new boolean[intervals.length];
@@ -338,7 +381,10 @@ public class CoalescentIntervals implements Units, Report, Serializable
 	/** 
 	 * Returns the log likelihood of this set of coalescent intervals, 
 	 * given a demographic model.
-	 */
+     *
+     * @param model the demographic model to use
+     * @return the log likelihood
+     */
 	public double computeLogLikelihood(DemographicModel model) {
 	
 		double total=0.0;

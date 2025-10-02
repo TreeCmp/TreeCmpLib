@@ -30,16 +30,20 @@ public interface ParameterizedTree extends Parameterized, Tree {
 	 * Factory interface
 	 */
 	static interface Factory {
-		/**
-		 * Generate a new parameterized tree wrapped around base
-		 */
-		ParameterizedTree generateNewTree(Tree base);
+        /**
+         * Generates a new instance of a {@code ParameterizedTree}, typically by wrapping
+         * the provided base tree and initializing its internal parameters.
+         *
+         * @param base The foundational {@code Tree} object that the new parameterized tree will be based on.
+         * @return A new {@code ParameterizedTree} instance, ready for parameter manipulation or optimization.
+         */
+        ParameterizedTree generateNewTree(Tree base);
 	}
 
 	/**
 	 * For parameterisations that work by adjusting a base tree (that is, they aren't really
 	 * tree's themselves...)
-	 * @note it should implment ParameterizedTree but, it that causes funny problems with my compiler ... I don't know why MG)
+	 * Note: it should implment ParameterizedTree but, it that causes funny problems with my compiler ... I don't know why MG)
 	 */
 	static abstract class ParameterizedTreeBase implements  Parameterized, Tree{
 		/**
@@ -52,7 +56,9 @@ public interface ParameterizedTree extends Parameterized, Tree {
 		//
 		/**
 		 * Cloning constructor
-		 */
+         *
+         * @param toCopy the {@code ParameterizedTreeBase} object to copy
+         */
 		protected ParameterizedTreeBase(ParameterizedTreeBase toCopy) {
 			this.tree = toCopy.tree.getCopy();
 		}

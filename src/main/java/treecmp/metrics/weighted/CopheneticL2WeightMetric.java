@@ -43,11 +43,26 @@ import treecmp.metrics.*;
          super();
      }
 
-    /**
-     * @param t1
-     * @param t2
-     * @return 
-     */
+     /**
+      * Calculates the **Patristic Distance** (also known as the Path-Length distance or Sokal and Rohlf
+      * Cophenetic Index) between two phylogenetic trees, {@code t1} and {@code t2}.
+      *
+      * <p>The distance is defined as the Euclidean distance (L2 norm) between the vectors of pairwise
+      * patristic distances (or cophenetic values) from the two trees.
+      * The distance is calculated by summing the squared differences of:
+      * <ul>
+      * <li>The depth (height) of the **Least Common Ancestor (LCA)** for every unique pair of leaves (i, j).</li>
+      * <li>The depth of the root-to-tip path (tip height) for every individual leaf (i).</li>
+      * </ul>
+      *
+      * <p>The method uses the LCA matrix (`lcaMatrix`) and pre-calculated node depths (`intDepthT` and `extDepthT`)
+      * to efficiently compute the squared difference in path lengths.
+      *
+      * @param t1 The first phylogenetic tree.
+      * @param t2 The second phylogenetic tree.
+      * @param indexes Optional indices (ignored in this implementation).
+      * @return The Patristic Distance (Euclidean distance) between the two trees.
+      */
     @Override
     public double getDistance(Tree t1, Tree t2, int... indexes) {
         int extT1Num = t1.getExternalNodeCount();

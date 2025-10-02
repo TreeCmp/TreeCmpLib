@@ -44,34 +44,43 @@ public class SUPGMABase {
 	public String toString() {
 		return "SUPGMA BASE: (DMA:"+ distanceAccess_+") "+"(Rate Handler:"+rateHandler_+") "+"(Theta Handler:"+thetaHandler_+")";
 	}
-	/**
-	 * @default false
-	 */
-	public void setThetaHandler(ThetaHandler handler) { this.thetaHandler_ = handler; }
-	/**
-	 * Makes no difference if no time info available
-	 */
-	public void setRateHandler(RateHandler rateHandler) {
-		this.rateHandler_ = rateHandler;
-	}
+    /**
+     * Sets the handler responsible for managing the theta parameter(s) of the model.
+     *
+     * @param handler The ThetaHandler instance to be used.
+     */
+    public void setThetaHandler(ThetaHandler handler) { this.thetaHandler_ = handler; }
 
+    /**
+     * Sets the handler responsible for managing the rate parameter(s).
+     * This setting has no effect if time information is not available in the model.
+     *
+     * @param rateHandler The RateHandler instance to be used.
+     */
+    public void setRateHandler(RateHandler rateHandler) {
+        this.rateHandler_ = rateHandler;
+    }
 
-	/**
-	 * Get all distances as one long array
-	 */
-	private double[] getDistances(AlgorithmCallback callback) {
-		int num = tocd_.getIdCount();
-		double[] distanceArray= new double[num*(num-1)/2];
-		int index = 0;
-		DistanceMatrix distances = distanceAccess_.obtainMatrix(callback);
-		for(int i = 0 ; i < num; i++) {
-			for(int j = i+1 ; j < num ; j++) {
-				//From i to j;
-				distanceArray[index++] = distances.getDistance(i,j);
-			}
-		}
-		return distanceArray;
-	}
+    /**
+     * Retrieves all pairwise distances from the distance matrix and returns them as a single linear array.
+     * The array size is calculated as n*(n-1)/2, where n is the number of identifiers.
+     *
+     * @param callback An AlgorithmCallback used to obtain the distance matrix.
+     * @return A one-dimensional array containing all unique pairwise distances (i to j, where i < j).
+     */
+    private double[] getDistances(AlgorithmCallback callback) {
+        int num = tocd_.getIdCount();
+        double[] distanceArray= new double[num*(num-1)/2];
+        int index = 0;
+        DistanceMatrix distances = distanceAccess_.obtainMatrix(callback);
+        for(int i = 0 ; i < num; i++) {
+            for(int j = i+1 ; j < num ; j++) {
+                //From i to j;
+                distanceArray[index++] = distances.getDistance(i,j);
+            }
+        }
+        return distanceArray;
+    }
 
 	public Tree solve(AlgorithmCallback callback, ClusterTree.ClusteringMethod cm, LMSSolver solver) {
 		Analyser a = generateAnalyser();
@@ -90,18 +99,19 @@ public class SUPGMABase {
 		return pp.generateSUPGMATree(callback,cm,replicateGenerator_,numberOfReplicates,solver);
 	}
 
-
-	/**
-	 * Generates a suitable analyser.
-	 */
-	public Analyser generateAnalyser() {
-		if(tocd_.hasTimes()) {
-			return new TimeBasedAnalyser(thetaHandler_,rateHandler_);
-		} else { //No time
-			return new NoTimeBasedAnalyser(thetaHandler_);
-		}
-	}
-
+    /**
+     * Generates an appropriate analyser instance based on whether the internal
+     * time-ordered character data (TOCD) contains time information.
+     *
+     * @return A {@code TimeBasedAnalyser} if time data exists, or a {@code NoTimeBasedAnalyser} otherwise.
+     */
+    public Analyser generateAnalyser() {
+        if(tocd_.hasTimes()) {
+            return new TimeBasedAnalyser(thetaHandler_,rateHandler_);
+        } else { //No time
+            return new NoTimeBasedAnalyser(thetaHandler_);
+        }
+    }
 // ==================================================================
 
 
@@ -527,15 +537,25 @@ public class SUPGMABase {
 // ============================================================================
 
 	public static interface PopulationParameters {
-		/**
-		 * @return true if it possible to do Confidence Interval stuff
-		 */
-		public boolean isCICompatible();
-		/**
-		 * @returns an object capable of calculating the CI information (null if not possible)
-		 */
-		public CISummary inferCI(AlgorithmCallback callback, int numberOfReplicates, SimulatedAlignment.Factory alignmentFactory, SubstitutionModel evolutionaryModel, LMSSolver solver);
-		public Tree generateSUPGMATree(ClusterTree.ClusteringMethod cm);
+        /**
+         * Checks if the underlying model or data structure supports the calculation of
+         * Confidence Intervals (CI).
+         *
+         * @return {@code true} if Confidence Interval calculation is possible; otherwise, {@code false}.
+         */
+        public boolean isCICompatible();
+
+        /**
+         * Infers and calculates Confidence Interval (CI) information using simulation and resampling techniques.
+         *
+         * @param callback An AlgorithmCallback used to report progress or handle interruptions during the inference process.
+         * @param numberOfReplicates The number of simulated or resampled datasets to be generated for CI calculation.
+         * @param alignmentFactory The factory used to generate the simulated or resampled alignments.
+         * @param evolutionaryModel The substitution model used for simulating data or fitting during the bootstrap process.
+         * @param solver The LMSSolver used to optimize or fit the model parameters to the simulated/replicated alignments.
+         * @return A {@code CISummary} object containing the calculated CI information, or {@code null} if CI calculation is not possible (i.e., {@code isCICompatible()} is false).
+         */
+        public CISummary inferCI(AlgorithmCallback callback, int numberOfReplicates, SimulatedAlignment.Factory alignmentFactory, SubstitutionModel evolutionaryModel, LMSSolver solver);public Tree generateSUPGMATree(ClusterTree.ClusteringMethod cm);
 		public Tree generateSUPGMATree(AlgorithmCallback callback, ClusterTree.ClusteringMethod cm, DistanceMatrixGenerator replicateSource, int numberOfAlignmentBootstrapReplicates, LMSSolver solver);
 
 		public Tree[] simulateTrees(int numberOfTreesToSimulate, AlgorithmCallback callback, LMSSolver solver);

@@ -12,7 +12,7 @@ package pal.distance;
  * Description:  A means for accessing a DistanceMatrix
  * @author Matthew Goode
  * @version 1.0
- * @note originally part of DistanceMatrixSource
+ * Note: originally part of DistanceMatrixSource
  * @see DistanceMatrixGenerator
  */
 import pal.alignment.*;

@@ -215,7 +215,7 @@ abstract public class AbstractRateMatrix implements RateMatrix, ExternalParamete
 
 	/** Sets the distance (such as time/branch length) used when calculating
 	 *       	the probabilities.
-	 *  @note The resulting transition probabilities will be in reverse
+	 *  Note: The resulting transition probabilities will be in reverse
 	 *  (that is in the matrix instead of [from][to] it's [to][from])
 	 */
 	public final void setDistanceTranspose(double distance) {

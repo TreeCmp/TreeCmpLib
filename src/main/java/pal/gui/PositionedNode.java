@@ -23,7 +23,13 @@ public class PositionedNode extends SimpleNode {
 	boolean highlight_;
 	Node peer_;
 
-	/** Builds a tree based on node, but highlights highlightNode */
+    /** Builds a tree based on node, but highlights highlightNode
+     *
+     *
+     * @param node the node to build the PositionedNode tree from
+     * @param highlightNode the node to highlight; the resulting PositionedNode corresponding to this node
+     *                      will have its highlight flag set to true. Can be null if no node is to be highlighted.
+     */
 	public PositionedNode(Node node, Node highlightNode) {
 
 		init(node);

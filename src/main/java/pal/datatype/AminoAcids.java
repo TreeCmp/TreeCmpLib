@@ -14,7 +14,7 @@ package pal.datatype;
  *
  * @version $Id: AminoAcids.java,v 1.19 2003/03/23 00:04:23 matt Exp $
  *
- * @note The Terminate state is not part of the "true" states of this DataType.
+ * Note: The Terminate state is not part of the "true" states of this DataType.
  * It exists for terms of translating but is regarded as a unknown character
  * in general. (but using getChar('*') will not return getNumStates(),
  * but isUnknown() will classify it as unknown)
@@ -151,8 +151,12 @@ public class AminoAcids extends SimpleDataType
 		return UNKNOWN_CHARACTER;
 	}
 
-	/**
-	 * @retrun true if this state is an unknown state
+    /**
+     * Determines whether the given state is considered unknown.
+     * This implementation considers states less than 0 or greater than or equal to 20 as unknown.
+     *
+     * @param state the state to check
+     * @return true if this state is an unknown state
 	 */
 	protected boolean isUnknownStateImpl(final int state) {
 		return(state>=20||state<0);
@@ -174,7 +178,10 @@ public class AminoAcids extends SimpleDataType
 //========================= Static Utility Methods =====================
 //======================================================================
 
-	/**
+    /**
+     * Returns a three-letter acronym (TLA) for an amino acid, based on its state.
+     *
+     * @param state the state representing an amino acid
 	 * @return a three letter acronym for an AminoAcid, according to state
 	 */
 	public static final String getTLA(int state) {

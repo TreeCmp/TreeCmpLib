@@ -22,27 +22,27 @@
 */
 package qt;
 public class DistResult {
-  private long qdist, qsim, q1, q2, starbf, bfstar;
+    private long qdist, qsim, q1, q2, starbf, bfstar;
 
-  /**Construcs an object representing the results of a quartet distance
-   * calculation between two trees T1 and T2.
-   * @param qdist the quartet distance between prune(T1) and prune(T2),
-   * where prune removes all leaves T1 and T2 do not have in common.
-   * @param dsim the quartets the two trees have in common (topology must
-   * be the same).
-   * @param q1 is the number of quartets that exist in T1 but not in T2
-   * due to leaves present in T1 that are not in T2.
-   * @param q2 vice versa.
-   */
-  
-
-  /**Convenience constructor.*/
-  public DistResult(long qdist, long qsim, long q1, long q2) {
-    this.qdist = qdist;
-    this.qsim = qsim;
-    this.q1 = q1;
-    this.q2 = q2;
-  }
+    /**
+     * Constructs an object representing the results of a quartet distance
+     * calculation between two trees, T1 and T2.
+     *
+     * @param qdist The quartet distance between the pruned trees, `prune(T1)` and `prune(T2)`.
+     * Pruning removes all leaves that T1 and T2 do not have in common.
+     * @param qsim The number of quartets (four-leaf subsets) that the two pruned trees
+     * have in common (i.e., the topology for these four leaves is identical in both trees).
+     * @param q1 The number of quartets that exist in T1 but are not considered in the comparison
+     * because they involve leaves present in T1 that are not present in T2.
+     * @param q2 The number of quartets that exist in T2 but are not considered in the comparison
+     * because they involve leaves present in T2 that are not present in T1.
+     */
+    public DistResult(long qdist, long qsim, long q1, long q2) {
+        this.qdist = qdist;
+        this.qsim = qsim;
+        this.q1 = q1;
+        this.q2 = q2;
+    }
 
   
   public String toString() {

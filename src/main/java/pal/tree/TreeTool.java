@@ -81,33 +81,40 @@ public final class TreeTool  {
 	public static final Tree createUPGMATree(double[][] dm, String[] otuNames) {
 	  return new UPGMATree(new DistanceMatrix(dm, new SimpleIdGroup(otuNames)));
 	}
-	/**
-	 * Unroot a tree (makes the base of the tree a trification). Total Branch lengths are conserved
-	 * @param t The rooted (or unrooted) tree
-	 * @return An unrooted tree
-	 * @see class TreeManipulator
-	 */
-	public static final Tree getUnrooted(Tree t) {
-	  return TreeManipulator.getUnrooted(t);
-	}
-	/**
-	 * Root a tree around it's midpoint. Total Branch lengths are conserved
-	 * @param t The unrooted (or rooted) tree
-	 * @return A rooted tree
-	 * @see class TreeManipulator
-	 */
-	public static final Tree getMidPointRooted(Tree t) {
-	  return TreeManipulator.getMidpointRooted(t);
-	}
-	/**
-	 * Root a tree by an outgroup. Total Branch lengths are conserved
-	 * @param t The unrooted (or rooted) tree
-	 * @param outgroupMembers The names of the outgroup members (must be at least one). If there are more than one outgroup than the clade that contains all members is used as the outgroup. In some case poorly choosen outgroup members can result in multiple ways of rooting. If for some reason this is what is wanted see the TreeManipulator class for more powerful options.
-	 * @return A rooted tree
-	 * @see class TreeManipulator
-	 */
-	public static final Tree getRooted(Tree t, String[] outgroupMembers) {
-	  return TreeManipulator.getRootedBy(t,outgroupMembers);
-	}
-
+    /**
+     * Unroots a tree by removing the root, resulting in a **multifurcation** (typically a trifurcation)
+     * at the base of the returned tree. The sum of all branch lengths is conserved.
+     *
+     * @param t The input tree, which may be rooted or already unrooted.
+     * @return A new {@code Tree} object representing the unrooted topology.
+     * @see TreeManipulator
+     */
+    public static final Tree getUnrooted(Tree t) {
+        return TreeManipulator.getUnrooted(t);
+    }
+    /**
+     * Roots a tree using the **midpoint rooting** method, which places the new root
+     * halfway along the longest path between any two terminal taxa. The sum of all branch lengths is conserved.
+     *
+     * @param t The input tree, which may be unrooted or rooted.
+     * @return A new {@code Tree} object rooted at the midpoint.
+     * @see TreeManipulator
+     */
+    public static final Tree getMidPointRooted(Tree t) {
+        return TreeManipulator.getMidpointRooted(t);
+    }
+    /**
+     * Roots a tree using an **outgroup** defined by a set of taxon names. The tree is rooted
+     * on the branch leading to the Most Recent Common Ancestor (MRCA) of the specified outgroup members.
+     * The sum of all branch lengths is conserved.
+     *
+     * @param t The input tree, which may be unrooted or rooted.
+     * @param outgroupMembers The names of the outgroup members (must be at least one). The clade containing
+     * all specified members is used to determine the rooting point.
+     * @return A new {@code Tree} object rooted by the determined outgroup.
+     * @see TreeManipulator
+     */
+    public static final Tree getRooted(Tree t, String[] outgroupMembers) {
+        return TreeManipulator.getRootedBy(t,outgroupMembers);
+    }
 }

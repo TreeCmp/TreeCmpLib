@@ -188,7 +188,7 @@ public class UnrootedMLSearcher implements Markable, StateProvider, UnrootedTree
 		 *
 		 * @param stopper The means for determining when a set of round should be stopped
 		 * @return An undoable action that does the Simulataneous NNI/Branch length of Stephan Guindon
-		 * @note this action cannot undo (well, it could but it hasn't been implemented). This is okay as it should always find a better or equal valued state
+		 * Note: this action cannot undo (well, it could but it hasn't been implemented). This is okay as it should always find a better or equal valued state
 		 */
 	public UndoableAction getNNIBranchLengthOptimiseAction(StoppingCriteria.Factory stopper) {
 		return new NNIBranchLengthOptimiseAction(allConnections_,model_, stopper.newInstance(),AlgorithmCallback.Utils.getNullCallback(),tool_);
@@ -255,7 +255,7 @@ public class UnrootedMLSearcher implements Markable, StateProvider, UnrootedTree
 	 /**
 		* Likelihood calculation method (not optimisation)
 		* @return the log likelihood, based on current model, branchlengths and topology
-		* @note not valid if no alignment/model given in construction
+		* Note: not valid if no alignment/model given in construction
 		*/
 	public double calculateLogLikelihood() {
 		 return treeAccess_.calculateLogLikelihood(model_,true, tool_.allocateNewExternalCalculator(), tool_);
@@ -263,7 +263,7 @@ public class UnrootedMLSearcher implements Markable, StateProvider, UnrootedTree
 	 /**
 		* An alternative likelihood calculation method (should give same results as other method, and in same time)
 		* @return the log likelihood, based on current model, branchlengths and topology
-		* @note not valid if no alignment/model given in construction
+		* Note: not valid if no alignment/model given in construction
 		*/
 	public double calculateLogLikelihood2() {
 		return treeAccess_.calculateLogLikelihood2(model_,true, tool_.allocateNewExternalCalculator(), tool_);
@@ -735,7 +735,7 @@ public class UnrootedMLSearcher implements Markable, StateProvider, UnrootedTree
 		/**
 		 * @param solution a reference to the UnconstrainedOptiser
 		 * @param assessor a means of assessing the solution (assumes gives true likelihood)
-		 * @note I choose to use a static inner class and have funny references because of personal style (I like writing inner classes I can ship out to separate files if I need to)
+		 * Note: I choose to use a static inner class and have funny references because of personal style (I like writing inner classes I can ship out to separate files if I need to)
 		 */
 		public SweepSPRAction(Connection[] allConnections,  SPRAction baseAction, MersenneTwisterFast random) {
 			this.baseAction_ = baseAction;
@@ -816,7 +816,7 @@ public class UnrootedMLSearcher implements Markable, StateProvider, UnrootedTree
 		/**
 		 * @param solution a reference to the UnconstrainedOptiser
 		 * @param assessor a means of assessing the solution (assumes gives true likelihood)
-		 * @note I choose to use a static inner class and have funny references because of personal style (I like writing inner classes I can ship out to separate files if I need to)
+		 * Note: I choose to use a static inner class and have funny references because of personal style (I like writing inner classes I can ship out to separate files if I need to)
 		 */
 		public FullSweepSPRAction(Connection[] allConnections,  SPRAction baseAction) {
 			this.baseAction_ = baseAction;
@@ -1061,12 +1061,12 @@ public class UnrootedMLSearcher implements Markable, StateProvider, UnrootedTree
 
 		/**
 		 * @return the left connection with reference to the caller
-		 * @note can return null if not possible (if leaf)
+		 * Note: can return null if not possible (if leaf)
 		 */
 		public Connection getLeft(Connection caller);
 		/**
 		 * @return the right connection with reference to the caller
-		 * @note can return null if not possible (if leaf)
+		 * Note: can return null if not possible (if leaf)
 		 */
 		public Connection getRight(Connection caller);
 
@@ -2331,7 +2331,7 @@ public class UnrootedMLSearcher implements Markable, StateProvider, UnrootedTree
 			this.rightNode_ = right;
 		}
 		/**
-		 * @note does not change the nodes connection information. Leaves tree in an inconsitent state
+		 * Note: does not change the nodes connection information. Leaves tree in an inconsitent state
 		 */
 		public void swapNode(UNode nodeToReplace, UNode replacement) {
 			if(nodeToReplace==leftNode_) {

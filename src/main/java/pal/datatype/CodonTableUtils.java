@@ -19,31 +19,37 @@ package pal.datatype;
 
 public class CodonTableUtils {
 
-
 	/**
 	 * Translates a Nucleotide sequence into a Amino Acid sequence
-	 */
+     *
+     * @param nucleotideSequence the nucleotide sequence as a String
+     * @param startingPosition the starting position to begin translation
+     * @param length the length of the reading frame in nucleotides (should be a multiple of 3; remainder is truncated)
+     * @param reverse if {@code true}, reads codons in reverse order starting at {@code startingPosition}
+     * @param translator the {@link CodonTable} used to translate codons into amino acids
+     * @return a String containing the translated amino acid sequence
+     */
 	public static final String convertNucleotideToAminoAcid(String
 	nucleotideSequence, int startingPosition, int length, boolean reverse,
 		CodonTable translator) {
 		return (convertNucleotideToAminoAcid(nucleotideSequence.toCharArray(), startingPosition,length, reverse, translator)).toString();
 	}
 
-
-	/**
+    /**
 	 * Translates a Nucleotide sequence into a Amino Acid sequence
-	 * @param nucleotideSequence - the base nucleotide sequence as a char array
-	 * @param starting position - the starting position to begin reading from
-	 * @param length - the length of the reading frame (in nucleotide units -
+	 * @param nucleotideSequence the base nucleotide sequence as a char array
+	 * @param startingPosition the starting position to begin reading from
+	 * @param length the length of the reading frame (in nucleotide units -
 	 * should be a multiple of 3, if not remainder is truncated!)
-	 * @param reverse - if true works backwards with codon at starting
+	 * @param reverse if true works backwards with codon at starting
 	 * position being last in translation (codon read in reverse as well).
 	 * Else reads forwards.
-	 * @param translator - the nucleotide translator to use for translation
+	 * @param translator the nucleotide translator to use for translation
 	 * nucleotides into amino acids.
-	 * @note can handle circular reading frames (ie startingPositon+length
+     * @return a String containing the translated amino acid sequence
+	 * Note: can handle circular reading frames (ie startingPositon+length
 	 * can be greater than seuqnce length)
-	 */
+     */
 	public static final char[] convertNucleotideToAminoAcid(char[]
 	nucleotideSequence, int startingPosition, int length, boolean reverse,
 	CodonTable translator) {

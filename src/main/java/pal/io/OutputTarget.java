@@ -29,9 +29,9 @@ public class OutputTarget extends PrintWriter
 	 * open file for writing
 	 *
 	 * @param name file name
-	 *
 	 * @return output stream
-	 */
+     * @throws IOException if an I/O error occurs
+     */
 	public static OutputTarget openFile(String name)
 		throws IOException
 	{

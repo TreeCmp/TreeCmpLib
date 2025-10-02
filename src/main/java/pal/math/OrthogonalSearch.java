@@ -24,7 +24,6 @@ public class OrthogonalSearch extends MultivariateMinimum
 	// Public stuff
 	//
 
-
 	//
 	// Private stuff
 	//
@@ -68,27 +67,37 @@ public class OrthogonalSearch extends MultivariateMinimum
 		//this(OrderUtils.getBiasAlternatingFactory( OrderUtils.getOrderedFactory(), OrderUtils.getZeroFactory()));
 		this(shuffle? OrderEnumerator.Utils.getShuffledFactory() : OrderEnumerator.Utils.getOrderedFactory());
 	}
-	/**
-	 * Initialization
-	 */
-	public OrthogonalSearch(OrderEnumerator.OEFactory orderingFactory) {
-		this.orthogonalOrderingFactory_ = orderingFactory;
-	}
+    /**
+     * Constructs an OrthogonalSearch instance with a given ordering factory.
+     *
+     * @param orderingFactory the factory used to generate order enumerators for orthogonal search
+     */
+    public OrthogonalSearch(OrderEnumerator.OEFactory orderingFactory) {
+        this.orthogonalOrderingFactory_ = orderingFactory;
+    }
 
-	/**
-	 *
-	 */
-	public void setUseCurrentInUnivariateMinimisation(boolean value) {
-		this.useCurrentInUnivariateMinimisation_ = value;
-	}
-	/**
-	 * Should we ignore new minisations that are not as minimal as the current one?
-	 */
-	public void setIgnoreNonMinimalUnivariateMinimisations(boolean value) {
-		this.ignoreNonMinimalUnivariateMinimisations_ = value;
-	}
+    /**
+     * Sets whether the current value should be included in univariate minimisation.
+     *
+     * @param value {@code true} to include the current value in univariate minimisation,
+     *              {@code false} to ignore it
+     */
+    public void setUseCurrentInUnivariateMinimisation(boolean value) {
+        this.useCurrentInUnivariateMinimisation_ = value;
+    }
 
-	// implementation of abstract method
+    /**
+     * Sets whether to ignore new univariate minimisations that are not more minimal
+     * than the current minimum.
+     *
+     * @param value {@code true} to ignore non-minimal minimisations,
+     *              {@code false} to accept them
+     */
+    public void setIgnoreNonMinimalUnivariateMinimisations(boolean value) {
+        this.ignoreNonMinimalUnivariateMinimisations_ = value;
+    }
+
+    // implementation of abstract method
 
 	public void optimize(MultivariateFunction f, double[] xvec, double tolfx, double tolx) {
 		optimize(f,xvec,tolfx,tolx,null);
@@ -125,7 +134,8 @@ public class OrthogonalSearch extends MultivariateMinimum
 	/**
 	 * Generate a MultivariateMinimum.Factory for an OrthogonalSearch
 	 * @param shuffle if true shuffles order for each round (see OrthogonalSearch constructors)
-	 */
+     * @return a factory that can create new OrthogonalSearch minimisers
+     */
 	public static final Factory generateFactory(boolean shuffle) {	return new SearchFactory(shuffle);	}
 
 	//============ For sub classes ===================
@@ -145,9 +155,16 @@ public class OrthogonalSearch extends MultivariateMinimum
 	}
 
 	protected interface RoundOptimiser {
-		/**
-		 * @param monitor - may be null;
-		 */
+        /**
+         * Perform one round of minimisation.
+         *
+         * @param xvec the current vector of parameter values
+         * @param um the univariate minimiser to use
+         * @param tolx tolerance for changes in x values
+         * @param fx current function value at xvec
+         * @param monitor optional MinimiserMonitor for reporting progress; may be {@code null}
+         * @return the function value at the minimum found in this round
+         */
 		public double doRound(double[] xvec, UnivariateMinimum um, double tolx,double fx, MinimiserMonitor monitor);
 	}
 
@@ -156,7 +173,9 @@ public class OrthogonalSearch extends MultivariateMinimum
 	}
 	/**
 	 * Should we ignore new minisations that are not as minimal as the current one?
-	 */
+     *
+     * @return {@code true} if non-minimal univariate minimisations are ignored, {@code false} otherwise
+     */
 	protected final boolean isIgnoreNonMinimalUnivariateMinimisations() {
 		return this.ignoreNonMinimalUnivariateMinimisations_;
 	}

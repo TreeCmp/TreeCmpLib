@@ -136,37 +136,52 @@ public class SimulatedAlignment extends AbstractAlignment
 		simulate(makeRandomRootSequence());
 	}
 
-	/** generate new artificial data set (random root sequence) */
-	public void simulate(String givenRootSequence)	{
-		simulate(DataType.Utils.getByteStates(givenRootSequence, model.getDataType()));
-	}
-	/** generate new artificial data set (specified root sequence) */
-	public void simulate(byte[] rootSeq)
-	{
-		double[][][] transitionStore = SubstitutionModel.Utils.generateTransitionProbabilityTables(model);
-		// Check root sequence
-		for (int i = 0; i < numSites; i++)
-		{
-			if (rootSeq[i] >= numStates || rootSeq[i] < 0)
-			{
-				throw new IllegalArgumentException("Root sequence contains illegal state (?,-, etc.)");
-			}
-		}
+    /**
+     * Generates a new artificial character data set (simulated sequence alignment)
+     * starting with a randomly determined root sequence.
+     *
+     * @param givenRootSequence The root sequence provided as a {@code String}. The method converts this string into an array of byte states based on the model's data type.
+     */
+    public void simulate(String givenRootSequence)  {
+        simulate(DataType.Utils.getByteStates(givenRootSequence, model.getDataType()));
+    }
 
-		tree.getInternalNode(tree.getInternalNodeCount()-1).setSequence(rootSeq);
+    /**
+     * Generates a new artificial character data set (simulated sequence alignment)
+     * starting with the specified sequence for the root node.
+     *
+     * <p>The simulation involves assigning new site-specific rate categories, then traversing the tree
+     * in pre-order to determine the mutated sequence at each descendant node using transition probability tables.</p>
+     *
+     * @param rootSeq The root sequence as an array of byte states (indices corresponding to the model's states).
+     * @throws IllegalArgumentException If the provided root sequence contains illegal state indices (i.e., less than 0 or greater than or equal to the number of states).
+     */
+    public void simulate(byte[] rootSeq)
+    {
+        double[][][] transitionStore = SubstitutionModel.Utils.generateTransitionProbabilityTables(model);
+        // Check root sequence
+        for (int i = 0; i < numSites; i++)
+        {
+            if (rootSeq[i] >= numStates || rootSeq[i] < 0)
+            {
+                throw new IllegalArgumentException("Root sequence contains illegal state (?,-, etc.)");
+            }
+        }
 
-		// Assign new rate categories
-		assignRates();
+        tree.getInternalNode(tree.getInternalNodeCount()-1).setSequence(rootSeq);
 
-		// Visit all nodes except root
-		Node node = NodeUtils.preorderSuccessor(tree.getRoot());
-		do
-		{
-			determineMutatedSequence(node,transitionStore);
-			node = NodeUtils.preorderSuccessor(node);
-		}
-		while (node != tree.getRoot());
-	}
+        // Assign new rate categories
+        assignRates();
+
+        // Visit all nodes except root
+        Node node = NodeUtils.preorderSuccessor(tree.getRoot());
+        do
+        {
+            determineMutatedSequence(node,transitionStore);
+            node = NodeUtils.preorderSuccessor(node);
+        }
+        while (node != tree.getRoot());
+    }
 
 	private void determineMutatedSequence(Node node, double[][][] transitionStore)
 	{
@@ -245,61 +260,73 @@ public class SimulatedAlignment extends AbstractAlignment
 	}
 // ============================================================================
 // SimulatedAlignment.Factory
-	/**
-	 * A utility class that can be used to generate Simulated alignments based on
-	 * a tree with predefined sequence length and substitution model
-	 */
-	public static final class Factory {
-		private int sequenceLength_;
-		private SubstitutionModel model_;
-		public Factory(int sequenceLength, SubstitutionModel model) {
-			if(sequenceLength<1) {
-				throw new IllegalArgumentException("Invalid sequence length:"+sequenceLength);
-			}
-			this.sequenceLength_ = sequenceLength;
-			this.model_ = model;
-		}
-		/**
-		 * Generate a simulated alignment based on input tree
-		 * @param tree The tree, with branchlengths set appropriately.
-		 * @note Units should be expected substitutions
-		 * @throws IllegalArgumentException if trees units are not EXPECTED SUBSTITUTIONS, or UNKNOWN
-		 */
-		public final SimulatedAlignment generateAlignment(final Tree tree) {
-			if(
-					(tree.getUnits()!=Units.EXPECTED_SUBSTITUTIONS)&&
-					(tree.getUnits()!=Units.UNKNOWN)
-				) {
-				throw new IllegalArgumentException("Tree units must be Expected Substitutions (or reluctantly Unknown)");
-			}
-			//System.out.println("Simulating:"+model_);
-			SimulatedAlignment sa = new SimulatedAlignment(sequenceLength_,tree,model_);
-			sa.simulate();
-			return sa;
-		}
-		/**
-		 * Generate an array of simulated alignments based on an array of input trees
-		 * @param trees The tree, with branchlengths set appropriately.
-		 * @param callback An AlgorithmCallback for monitoring progress and premature stopping
-		 * @note Units should be expected substitutions
-		 * @note if AlgorithmCallback indicates premature stopping will return an array of
-		 *  alignments created so far.
-		 * @throws IllegalArgumentException if trees units are not EXPECTED SUBSTITUTIONS, or UNKNOWN
-		 */
-		public final SimulatedAlignment[] generateAlignments(final Tree[] trees, final AlgorithmCallback callback) {
-			SimulatedAlignment[] as = new SimulatedAlignment[trees.length];
-			for(int i = 0 ; i < trees.length ; i++) {
-				if(callback.isPleaseStop()) {
-					SimulatedAlignment[] partial = new SimulatedAlignment[i];
-					System.arraycopy(as,0,partial,0,i);
-					return partial;
-				}
-				as[i] = generateAlignment(trees[i]);
-				as[i].simulate();
-				callback.updateProgress(i/(double)trees.length);
-			}
-			callback.clearProgress();
-			return as;
-		}
-	}
+    /**
+     * A utility class that acts as a factory to generate {@code SimulatedAlignment} objects
+     * based on a specified sequence length and a substitution model.
+     */
+    public static final class Factory {
+        private int sequenceLength_;
+        private SubstitutionModel model_;
+
+        /**
+         * Constructs a {@code Factory} instance ready to produce simulated alignments.
+         *
+         * @param sequenceLength The desired length of the sequences in the generated alignments.
+         * @param model The {@code SubstitutionModel} that defines the simulation process (e.g., nucleotide or amino acid rates).
+         * @throws IllegalArgumentException if the provided sequence length is less than 1.
+         */
+        public Factory(int sequenceLength, SubstitutionModel model) {
+            if(sequenceLength<1) {
+                throw new IllegalArgumentException("Invalid sequence length:"+sequenceLength);
+            }
+            this.sequenceLength_ = sequenceLength;
+            this.model_ = model;
+        }
+
+        /**
+         * Generates a single simulated alignment based on the input tree topology and branch lengths.
+         *
+         * @param tree The {@code Tree} object, whose branch lengths are used to simulate evolution.
+         * Note: Branch lengths must be set in units of **expected substitutions** (or units must be {@code UNKNOWN}).
+         * @return A new {@code SimulatedAlignment} object.
+         * @throws IllegalArgumentException if the tree's units are neither {@code Units.EXPECTED_SUBSTITUTIONS} nor {@code Units.UNKNOWN}.
+         */
+        public final SimulatedAlignment generateAlignment(final Tree tree) {
+            if(
+                    (tree.getUnits()!=Units.EXPECTED_SUBSTITUTIONS)&&
+                            (tree.getUnits()!=Units.UNKNOWN)
+            ) {
+                throw new IllegalArgumentException("Tree units must be Expected Substitutions (or reluctantly Unknown)");
+            }
+            //System.out.println("Simulating:"+model_);
+            SimulatedAlignment sa = new SimulatedAlignment(sequenceLength_,tree,model_);
+            sa.simulate();
+            return sa;
+        }
+
+        /**
+         * Generates an array of simulated alignments based on a corresponding array of input trees.
+         * This method supports monitoring progress and premature stopping via a callback mechanism.
+         *
+         * @param trees An array of {@code Tree} objects, each with branch lengths set in units of **expected substitutions** (or {@code UNKNOWN}).
+         * @param callback An {@code AlgorithmCallback} for monitoring progress and allowing the process to be prematurely stopped.
+         * @return An array of generated {@code SimulatedAlignment} objects. If the {@code callback} indicates stopping, a truncated array containing alignments generated so far is returned.
+         * @throws IllegalArgumentException if any of the trees' units are neither {@code Units.EXPECTED_SUBSTITUTIONS} nor {@code Units.UNKNOWN}.
+         */
+        public final SimulatedAlignment[] generateAlignments(final Tree[] trees, final AlgorithmCallback callback) {
+            SimulatedAlignment[] as = new SimulatedAlignment[trees.length];
+            for(int i = 0 ; i < trees.length ; i++) {
+                if(callback.isPleaseStop()) {
+                    SimulatedAlignment[] partial = new SimulatedAlignment[i];
+                    System.arraycopy(as,0,partial,0,i);
+                    return partial;
+                }
+                as[i] = generateAlignment(trees[i]);
+                as[i].simulate();
+                callback.updateProgress(i/(double)trees.length);
+            }
+            callback.clearProgress();
+            return as;
+        }
+    }
 }

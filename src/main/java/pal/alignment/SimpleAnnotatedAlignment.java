@@ -41,7 +41,9 @@ public class SimpleAnnotatedAlignment extends SimpleAlignment implements Annotat
 
 	/**
 	 * Clone constructor from an unannotated alignment.  All annotation is set to defaults
-	 */
+     *
+     * @param a alignment to clone
+     */
 	public SimpleAnnotatedAlignment(Alignment a) {
 		super(a);
 		initWhenNoAnnotation();
@@ -51,7 +53,9 @@ public class SimpleAnnotatedAlignment extends SimpleAlignment implements Annotat
 
 	/**
 	 * Clone constructor.
-	 */
+     *
+     * @param a annotated alignment to clone
+     */
 	public SimpleAnnotatedAlignment(AnnotationAlignment a) {
 		super(a);
 		chromosomePosition=a.getChromosomePosition(0);
@@ -67,7 +71,10 @@ public class SimpleAnnotatedAlignment extends SimpleAlignment implements Annotat
 
 	/**
 	 * This constructor will subset the alignment based on the taxa in IdGroup
-	 */
+     *
+     * @param a annotated alignment to subset
+     * @param newGroup IdGroup containing the taxa to subset
+     */
 	public SimpleAnnotatedAlignment(AnnotationAlignment a, IdGroup newGroup) {
 		int intersectionCount=0;
 		for (int i = 0; i <newGroup.getIdCount(); i++) {
@@ -95,10 +102,15 @@ public class SimpleAnnotatedAlignment extends SimpleAlignment implements Annotat
 			}
 	}
 
-		/**
+    /**
 	 * This constructor creates a basic SimpleAnnotatedAlignment.  The annotation should be added with
 	 * the set commands.
-	 */
+     *
+     * @param ids identifiers for sequences
+     * @param sequences aligned sequences
+     * @param gaps characters considered as gaps
+     * @param dt datatype of the sequences
+     */
 	public SimpleAnnotatedAlignment(Identifier[] ids, String[] sequences, String gaps, DataType dt) {
 		super(ids, sequences, gaps,dt);
 		initWhenNoAnnotation();
@@ -106,20 +118,30 @@ public class SimpleAnnotatedAlignment extends SimpleAlignment implements Annotat
 		positionType=new char[numSites];
 	}
 
-			/**
+    /**
 	 * This constructor creates a basic SimpleAnnotatedAlignment.  The annotation should be added with
 	 * the set commands.
-	 */
+     *
+     * @param group group of sequence identifiers
+     * @param sequences aligned sequences
+     * @param dt datatype of the sequences
+     */
 	public SimpleAnnotatedAlignment(IdGroup group, String[] sequences, DataType dt) {
 		super(group, sequences,dt);
 		initWhenNoAnnotation();
 		weightedPosition=new float[numSites];
 		positionType=new char[numSites];
 	}
-		/**
+
+    /**
 	 * This constructor creates a basic SimpleAnnotatedAlignment.  The annotation should be added with
 	 * the set commands.
-	 */
+     *
+     * @param group group of sequence identifiers
+     * @param sequences aligned sequences
+     * @param gaps characters considered as gaps
+     * @param dt datatype of the sequences
+     */
 	public SimpleAnnotatedAlignment(IdGroup group, String[] sequences, String gaps, DataType dt) {
 		super(group, sequences, gaps,dt);
 		initWhenNoAnnotation();
@@ -143,44 +165,100 @@ public class SimpleAnnotatedAlignment extends SimpleAlignment implements Annotat
 			chromosomePosition=-9;
 			}
 
-	/** Return the position along chromosome */
-	 public float getChromosomePosition(int site) {return chromosomePosition;}
+    /**
+     * Return the position along chromosome.
+     *
+     * @param site site index
+     * @return position on the chromosome
+     */
+    public float getChromosomePosition(int site) {return chromosomePosition;}
 
-	 /** Set the position along chromosome */
-	 public void setChromosomePosition(float position)
+    /**
+     * Set the position along chromosome.
+     *
+     * @param position chromosomal position
+     */
+    public void setChromosomePosition(float position)
 		{this.chromosomePosition=position;}
 
-	 /** Returns chromosome */
-	 public int getChromosome(int site) {return chromosome;}
+    /**
+     * Returns chromosome.
+     *
+     * @param site site index
+     * @return chromosome number
+     */
+    public int getChromosome(int site) {return chromosome;}
 
-		/** Sets chromosome */
-	 public void setChromosome(int chromosome)
+    /**
+     * Sets chromosome.
+     *
+     * @param chromosome chromosome number
+     */
+    public void setChromosome(int chromosome)
 		{this.chromosome=chromosome;}
 
-	/** Return the weighted position along the gene (handles gaps) */
-	 public float getWeightedLocusPosition(int site) { return weightedPosition[site];}
+    /**
+     * Return the weighted position along the gene (handles gaps).
+     *
+     * @param site site index
+     * @return weighted position
+     */
+    public float getWeightedLocusPosition(int site) { return weightedPosition[site];}
 
-		 /** Sets the weighted position along the gene (handles gaps) */
-	 public void setWeightedLocusPosition(int site, float weightedPos) {weightedPosition[site]=weightedPos;}
+    /**
+     * Sets the weighted position along the gene (handles gaps).
+     *
+     * @param site site index
+     * @param weightedPos weighted position value
+     */
+    public void setWeightedLocusPosition(int site, float weightedPos) {weightedPosition[site]=weightedPos;}
 
-			/** Return the position along the locus (ignores gaps) */
-	 public int getLocusPosition(int site) {return site;}
+    /**
+     * Return the position along the locus (ignores gaps).
+     *
+     * @param site site index
+     * @return position in the locus
+     */
+    public int getLocusPosition(int site) {return site;}
 
+    /**
+     * Returns position type (e.g. I=intron, E=exon, P=promoter, 1=first, 2=second, 3=third).
+     *
+     * @param site site index
+     * @return position type
+     */
+    public char getPositionType(int site) {return positionType[site];}
 
-	 /** Returns position type (eg.  I=intron, E-exon, P=promoter, 1=first, 2=second, 3=third, etc.*/
-	 public char getPositionType(int site) {return positionType[site];}
+    /**
+     * Sets the position type (e.g. I=intron, E=exon, P=promoter, 1=first, 2=second, 3=third).
+     *
+     * @param site site index
+     * @param posType type of position
+     */
+    public void setPositionType(int site, char posType) {positionType[site]=posType;}
 
-	 /** Set thes position type (eg.  I=intron, E-exon, P=promoter, 1=first, 2=second, 3=third, etc.*/
-	 public void setPositionType(int site, char posType) {positionType[site]=posType;}
-
-	 /** Returns the name of the locus */
+    /**
+     * Returns the name of the locus.
+     *
+     * @param site site index
+     * @return locus name
+     */
 	 public String getLocusName(int site) {return locusName;}
 
-			/** Sets the name of the locus */
+    /**
+     * Sets the name of the locus.
+     *
+     * @param locusName name of the locus
+     */
 	 public void setLocusName(String locusName) {this.locusName=locusName;}
 
-			 /** Returns the datatype (for SimpleAnnotatedAlignment there is only one datatype) */
-	 public DataType getDataType(int site) {return getDataType(); }
+    /**
+     * Returns the datatype (for SimpleAnnotatedAlignment there is only one datatype).
+     *
+     * @param site site index
+     * @return data type
+     */
+    public DataType getDataType(int site) {return getDataType(); }
 
 		// interface Report
 

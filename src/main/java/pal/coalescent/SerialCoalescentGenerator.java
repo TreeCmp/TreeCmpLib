@@ -12,7 +12,7 @@ package pal.coalescent;
  * Description:  A utility class for generating large numbers of Serail coalescent derived trees (and simulated alignments)
  * @author Cow
  * @version 1.0
- * @note I'm not too sure where to put this class, or if it is of any use to anyone (outside of sUPGMA). It may jump packages.
+ * Note: I'm not too sure where to put this class, or if it is of any use to anyone (outside of sUPGMA). It may jump packages.
  */
 import pal.misc.*;
 import pal.coalescent.*;
@@ -26,16 +26,26 @@ public class SerialCoalescentGenerator implements java.io.Serializable {
 	private int numberOfTreesToGenerate_;
 	private SimulatedAlignment.Factory alignmentFactory_;
 	private final TreeOperation treeFinisher_;
+
 	/**
 	 * Results will not contain alignments
-	 */
+     *
+     * @param tocd                  the time-ordered character data to use for simulation
+     * @param demographicModel      the demographic model to simulate coalescent intervals
+     * @param numberOfTreesToGenerate the number of trees to generate
+     */
 	public SerialCoalescentGenerator(TimeOrderCharacterData tocd, DemographicModel demographicModel, int numberOfTreesToGenerate) {
 		this(tocd,demographicModel,numberOfTreesToGenerate,TreeOperation.Utils.getNoOperation(), null);
 
 	}
 	/**
 	 * Results will not contain alignments
-	 */
+     *
+     * @param tocd             the time-ordered character data to use for simulation
+     * @param demographicModel the demographic model to simulate coalescent intervals
+     * @param numberOfTreesToGenerate the number of trees to generate
+     * @param treeFinisher     the TreeOperation to apply to each generated tree (e.g., decorating or finishing)
+     */
 	public SerialCoalescentGenerator(TimeOrderCharacterData tocd, DemographicModel demographicModel, int numberOfTreesToGenerate, TreeOperation treeFinisher) {
 		this(tocd,demographicModel,numberOfTreesToGenerate,treeFinisher, null);
 
@@ -43,9 +53,16 @@ public class SerialCoalescentGenerator implements java.io.Serializable {
 	public SerialCoalescentGenerator(TimeOrderCharacterData tocd, DemographicModel demographicModel, TreeOperation treeFinisher, SimulatedAlignment.Factory alignmentFactory) {
 		this(tocd,demographicModel,1,treeFinisher, alignmentFactory);
 	}
-	/**
-	 * @param alignmentFactory Can be null if no alignments to be generated (otherwise results will contain alignments as well as trees)
-	 */
+
+    /**
+     * Constructs a SerialCoalescentGenerator that can optionally generate alignments along with trees.
+     *
+     * @param tocd                  the time-ordered character data to use for simulation
+     * @param demographicModel      the demographic model to simulate coalescent intervals
+     * @param numberOfTreesToGenerate the number of trees to generate
+     * @param treeFinisher          the TreeOperation to apply to each generated tree (e.g., decorating or finishing)
+     * @param alignmentFactory Can be null if no alignments to be generated (otherwise results will contain alignments as well as trees)
+     */
 	public SerialCoalescentGenerator(TimeOrderCharacterData tocd, DemographicModel demographicModel, int numberOfTreesToGenerate , TreeOperation treeFinisher, SimulatedAlignment.Factory alignmentFactory) {
 		this.tocd_ = tocd;
 		this.treeFinisher_ = treeFinisher;
@@ -53,17 +70,23 @@ public class SerialCoalescentGenerator implements java.io.Serializable {
 		this.numberOfTreesToGenerate_ = numberOfTreesToGenerate;
 		this.alignmentFactory_ = alignmentFactory;
 	}
+
 	private final Tree generateNewTree() {
 		SerialCoalescentSimulator scs = new SerialCoalescentSimulator();
 		scs.simulateIntervals(tocd_, demographicModel_, true);
 		return treeFinisher_.operateOn(scs.getTree());
 	}
+
 	public final Tree generateTree() {
 		return generateNewTree();
 	}
-	/**
+
+    /**
 	 * If callback request stop then returns trees creating thus far
-	 */
+     *
+     * @param callback  the AlgorithmCallback used to report progress and check for stop requests
+     * @return an array of generated Tree objects; may contain fewer than the requested number if stopped early
+     */
 	public final Tree[] generateTrees(AlgorithmCallback callback) {
 		Tree[] trees = new Tree[numberOfTreesToGenerate_];
 		callback.updateStatus("Simulating trees");
@@ -82,7 +105,10 @@ public class SerialCoalescentGenerator implements java.io.Serializable {
 	}
 	/**
 	 * If callback request stop then returns results creating thus far
-	 */
+     *
+     * @param callback  the AlgorithmCallback used to report progress and check for stop requests
+     * @return a Results object containing the generated trees and their corresponding alignments
+     */
 	private final Results generateTreeAndAlignmentResults(AlgorithmCallback callback) {
 		Tree[] trees = new Tree[numberOfTreesToGenerate_];
 		Alignment[] alignments = new Alignment[numberOfTreesToGenerate_];
@@ -106,7 +132,10 @@ public class SerialCoalescentGenerator implements java.io.Serializable {
 	}
 	/**
 	 * If callback request stop then returns results creating thus far
-	 */
+     *
+     * @param callback  the AlgorithmCallback used to report progress and check for stop requests
+     * @return a Results object containing the generated trees
+     */
 	private final Results generateTreeOnlyResults(AlgorithmCallback callback) {
 		Tree[] trees = new Tree[numberOfTreesToGenerate_];
 		callback.clearProgress();

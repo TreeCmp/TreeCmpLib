@@ -24,8 +24,6 @@ public class BoundsCheckedFunction implements MultivariateFunction
 	 * is out of bounds; default is 1000000)
 	 *
 	 * @param func   unconstrained multivariate function
-	 * @param minArg lower constraint
-	 * @param maxArg upper constraint
 	 */
 	public BoundsCheckedFunction(MultivariateFunction func)
 	{

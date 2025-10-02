@@ -66,7 +66,17 @@ public class SimpleTree implements Tree, Report, Units, Serializable
 
 	//serialver -classpath ./classes pal.tree.SimpleTree
 
-	/** I like doing things my self! */
+    /** I like doing things my self!
+     * Custom serialization method used when writing this object's state to an
+     * {@code ObjectOutputStream}.
+     *
+     * <p>This implementation manually writes a version number and then sequentially writes
+     * the internal fields (`root`, `attributes`, and `units`) for persistence, overriding
+     * the default serialization mechanism.
+     *
+     * @param out The stream to write the object state to.
+     * @throws java.io.IOException If an I/O error occurs during writing to the stream.
+     */
 	private void writeObject(java.io.ObjectOutputStream out) throws java.io.IOException {
 		out.writeByte(1); //Version number
 		out.writeObject(root);
@@ -96,153 +106,193 @@ public class SimpleTree implements Tree, Report, Units, Serializable
 		root.setBranchLengthSE(0.0);
 	}
 
-	/** constructor taking a root node */
-	public SimpleTree(Node r) {
+    /**
+     * Constructs a SimpleTree with the specified node as its root.
+     *
+     * @param r The root {@code Node} for the new tree.
+     */
+    public SimpleTree(Node r) {
 
-		root = r;
-		createNodeList();
-	}
+        root = r;
+        createNodeList();
+    }
 
-	/** clone constructor */
-	public SimpleTree(Tree tree)
-	{
-		root = new SimpleNode(tree.getRoot());
-		setUnits(tree.getUnits());
-		createNodeList();
-	}
+    /**
+     * Constructs a new SimpleTree as a deep clone of the given tree.
+     * The internal structure and identifiers are copied.
+     *
+     * @param tree The source {@code Tree} object to be cloned.
+     */
+    public SimpleTree(Tree tree)
+    {
+        root = new SimpleNode(tree.getRoot());
+        setUnits(tree.getUnits());
+        createNodeList();
+    }
 
-	/** clone constructor */
-	public SimpleTree(Tree tree, boolean keepIdentifiers)
-	{
-		root = new SimpleNode(tree.getRoot(), keepIdentifiers);
-		setUnits(tree.getUnits());
-		createNodeList();
-	}
-	/**
-	 * clone constructor
-	 * @param lm - a label mapping use for translating the original label names into something else
-	 */
-	public SimpleTree(Tree tree, LabelMapping lm)
-	{
-		root = new SimpleNode(tree.getRoot(), lm);
-		setUnits(tree.getUnits());
-		createNodeList();
-	}
-	/**
-	 * Return the units that this tree is expressed in.
-	 */
-	public final int getUnits() {
-		return units;
-	}
+    /**
+     * Constructs a new SimpleTree as a deep clone of the given tree,
+     * with an option to discard or retain identifiers during the node cloning process.
+     *
+     * @param tree The source {@code Tree} object to be cloned.
+     * @param keepIdentifiers If {@code true}, the identifiers of the nodes are retained during cloning; if {@code false}, they are discarded.
+     */
+    public SimpleTree(Tree tree, boolean keepIdentifiers)
+    {
+        root = new SimpleNode(tree.getRoot(), keepIdentifiers);
+        setUnits(tree.getUnits());
+        createNodeList();
+    }
 
-	/**
-	 * Sets the units that this tree is expressed in.
-	 */
-	public final void setUnits(int units) {
-		this.units = units;
-	}
+    /**
+     * Constructs a new SimpleTree as a deep clone of the given tree,
+     * applying a label mapping to potentially rename the node identifiers during cloning.
+     *
+     * @param tree The source {@code Tree} object to be cloned.
+     * @param lm A {@code LabelMapping} used to translate the original node labels into new ones.
+     */
+    public SimpleTree(Tree tree, LabelMapping lm)
+    {
+        root = new SimpleNode(tree.getRoot(), lm);
+        setUnits(tree.getUnits());
+        createNodeList();
+    }
+
+    /**
+     * Returns the unit of measurement (e.g., time, substitutions) in which this tree's branch lengths are expressed.
+     *
+     * @return The integer code representing the units of the tree.
+     */
+    public final int getUnits() {
+        return units;
+    }
+
+    /**
+     * Sets the unit of measurement (e.g., time, substitutions) in which this tree's branch lengths are expressed.
+     *
+     * @param units The integer code representing the new units for the tree.
+     */
+    public final void setUnits(int units) {
+        this.units = units;
+    }
 
 
-	/**
-	 * Returns the number of external nodes.
-	 */
-	public final int getExternalNodeCount() {
-		if(externalNode==null) {
-			createNodeList();
-		}
-		return numExternalNodes;
-	}
+    /**
+     * Returns the total number of external nodes (leaves) in the tree.
+     *
+     * @return The count of external nodes.
+     */
+    public final int getExternalNodeCount() {
+        if(externalNode==null) {
+            createNodeList();
+        }
+        return numExternalNodes;
+    }
 
-	/**
-	 * Returns the ith external node.
-	 */
-	public final Node getExternalNode(int i) {
-		if(externalNode==null) {
-			createNodeList();
-		}
-		return externalNode[i];
-	}
+    /**
+     * Returns the external node (leaf) at the specified index.
+     *
+     * @param i The zero-based index of the external node to retrieve.
+     * @return The {@code Node} object that is a leaf.
+     */
+    public final Node getExternalNode(int i) {
+        if(externalNode==null) {
+            createNodeList();
+        }
+        return externalNode[i];
+    }
 
-	/**
-	 * Returns the number of internal nodes.
-	 */
-	public final int getInternalNodeCount() {
-		if(internalNode==null) {
-			createNodeList();
-		}
-		return numInternalNodes;
-	}
+    /**
+     * Returns the total number of internal nodes in the tree (excluding the root if it is considered separately).
+     *
+     * @return The count of internal nodes.
+     */
+    public final int getInternalNodeCount() {
+        if(internalNode==null) {
+            createNodeList();
+        }
+        return numInternalNodes;
+    }
 
-	/**
-	 * Returns the ith internal node.
-	 */
-	public final Node getInternalNode(int i) {
-		if(internalNode==null) {
-			createNodeList();
-		}
-		return internalNode[i];
-	}
+    /**
+     * Returns the internal node at the specified index.
+     *
+     * @param i The zero-based index of the internal node to retrieve.
+     * @return The {@code Node} object that is internal.
+     */
+    public final Node getInternalNode(int i) {
+        if(internalNode==null) {
+            createNodeList();
+        }
+        return internalNode[i];
+    }
 
-	/**
-	 * Returns the root node of this tree.
-	 */
-	public final Node getRoot() {
-		return root;
-	}
+    /**
+     * Returns the root node of this tree.
+     *
+     * @return The root {@code Node} of the tree.
+     */
+    public final Node getRoot() {
+        return root;
+    }
 
-	/**
-	 * Set a new node as root node.
-	 */
-	public final void setRoot(Node r) {
-		root = r;
-		createNodeList();
-	}
+    /**
+     * Sets a new node as the root of this tree and rebuilds the node lists.
+     *
+     * @param r The new root {@code Node}.
+     */
+    public final void setRoot(Node r) {
+        root = r;
+        createNodeList();
+    }
 
-	/** count and list external and internal nodes and
-		compute heights of each node */
-	public void createNodeList()
-	{
-		numInternalNodes = 0;
-		numExternalNodes = 0;
-		Node node = root;
-		do
-		{
-			node = NodeUtils.postorderSuccessor(node);
-			if (node.isLeaf())
-			{
-				node.setNumber(numExternalNodes);
-				numExternalNodes++;
-			}
-			else
-			{
-				node.setNumber(numInternalNodes);
-				numInternalNodes++;
-			}
-		}
-		while(node != root);
+    /**
+     * Counts and lists all external and internal nodes, assigns an index number to each,
+     * and computes the height of each node if node heights have not yet been calculated.
+     */
+    public void createNodeList()
+    {
+        numInternalNodes = 0;
+        numExternalNodes = 0;
+        Node node = root;
+        do
+        {
+            node = NodeUtils.postorderSuccessor(node);
+            if (node.isLeaf())
+            {
+                node.setNumber(numExternalNodes);
+                numExternalNodes++;
+            }
+            else
+            {
+                node.setNumber(numInternalNodes);
+                numInternalNodes++;
+            }
+        }
+        while(node != root);
 
-		internalNode = new Node[numInternalNodes];
-		externalNode = new Node[numExternalNodes];
-		node = root;
-		do
-		{
-			node = NodeUtils.postorderSuccessor(node);
-			if (node.isLeaf())
-			{
-				externalNode[node.getNumber()] = node;
-			}
-			else
-			{
-				internalNode[node.getNumber()] = node;
-			}
-		}
-		while(node != root);
+        internalNode = new Node[numInternalNodes];
+        externalNode = new Node[numExternalNodes];
+        node = root;
+        do
+        {
+            node = NodeUtils.postorderSuccessor(node);
+            if (node.isLeaf())
+            {
+                externalNode[node.getNumber()] = node;
+            }
+            else
+            {
+                internalNode[node.getNumber()] = node;
+            }
+        }
+        while(node != root);
 
-		// compute heights if it seems necessary
-		if (root.getNodeHeight() == 0.0) {
-			NodeUtils.lengths2Heights(root);
-		}
-	}
+        // compute heights if it seems necessary
+        if (root.getNodeHeight() == 0.0) {
+            NodeUtils.lengths2Heights(root);
+        }
+    }
 
 	public String toString() {
 		StringWriter sw = new StringWriter();

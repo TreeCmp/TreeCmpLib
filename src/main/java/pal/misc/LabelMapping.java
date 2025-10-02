@@ -53,16 +53,22 @@ public class LabelMapping implements java.io.Serializable {
 			mappings_.put(id.getName(),label);
 		}
 	}
-	/**
-	 * @param names Names
-	 * @param colours associated colours
-	 * @note assumes parallel arrays
-	 */
-	public void addMappings(String[] ids, String[] labels) {
-		for(int i = 0 ; i < ids.length ; i++) {
-			mappings_.put(ids[i],labels[i]);
-		}
-	}
+    /**
+     * Adds mappings between identifiers and their associated labels.
+     * Assumes that the input arrays are parallel (i.e., {@code ids[i]} corresponds to {@code labels[i]}).
+     *
+     * @param ids an array of identifier names
+     * @param labels an array of labels corresponding to each identifier
+     * @throws IllegalArgumentException if {@code ids} and {@code labels} have different lengths
+     */
+    public void addMappings(String[] ids, String[] labels) {
+        if (ids.length != labels.length) {
+            throw new IllegalArgumentException("ids and labels must have the same length");
+        }
+        for (int i = 0; i < ids.length; i++) {
+            mappings_.put(ids[i], labels[i]);
+        }
+    }
 
 	public String getLabel(String id, String defaultLabel) {
 		if(id==null||!mappings_.containsKey(id)) {
@@ -88,17 +94,25 @@ public class LabelMapping implements java.io.Serializable {
 	/**
 	 * If a mapping occurs more than once will rename instance to "x 1", "x 2"... and so on where x is the mapping in question
 	 */
-	public LabelMapping getUniquifiedMappings() {
-		Hashtable totals = new Hashtable();
-		for(Enumeration e = mappings_.keys() ; e.hasMoreElements() ; ) {
-			Object key = e.nextElement();
-			Object mapping = mappings_.get(key);
-			int count = 1;
-			if(totals.containsKey(mapping)) {
-				count = ((Integer)totals.get(mapping)).intValue()+1;
-			}
-			totals.put(mapping,new Integer(count));
-		}
+    /**
+     * Returns a {@link LabelMapping} in which duplicate mappings are made unique.
+     * If a mapping occurs more than once, subsequent instances are renamed
+     * by appending " 1", " 2", etc. to the original mapping.
+     * For example, if the mapping "A" occurs three times, it will become "A", "A 1", "A 2".
+     *
+     * @return a new {@link LabelMapping} with unique mappings
+     */
+    public LabelMapping getUniquifiedMappings() {
+        Hashtable totals = new Hashtable();
+        for (Enumeration e = mappings_.keys(); e.hasMoreElements(); ) {
+            Object key = e.nextElement();
+            Object mapping = mappings_.get(key);
+            int count = 1;
+            if (totals.containsKey(mapping)) {
+                count = ((Integer) totals.get(mapping)).intValue() + 1;
+            }
+            totals.put(mapping, new Integer(count));
+        }
 		Hashtable counts = new Hashtable();
 		Hashtable result = new Hashtable();
 		for(Enumeration e = mappings_.keys() ; e.hasMoreElements() ; ) {

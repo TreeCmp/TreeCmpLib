@@ -44,30 +44,58 @@ public abstract class SimpleDataType implements DataType
 
 	/**
 	 * Handles gap char and then passes on to getStateImpl
-	 */
+     *
+     * @param c the character to convert
+     * @return the state corresponding to the given character,
+     *         or {@link #SUGGESTED_GAP_STATE} if the character is a suggested gap
+     */
 	public final int getState(char c) {
 		if(DataType.Utils.isSuggestedGap(c)) { return SUGGESTED_GAP_STATE; }
 		return getStateImpl(c);
 	}
+
 	/**
 	 * Handles gap state and then passes on to getStateImpl
-	 */
+     *
+     * @param state the state to convert
+     * @return the character corresponding to the given state,
+     *         {@link #PRIMARY_SUGGESTED_GAP_CHARACTER} if the state is a suggested gap,
+     *         or {@link #UNKNOWN_CHARACTER} if the state is invalid
+     */
 	public final char getChar(final int state) {
 		if(state==SUGGESTED_GAP_STATE) { return PRIMARY_SUGGESTED_GAP_CHARACTER; }
 		if(state<0) { return UNKNOWN_CHARACTER; }
 		return getCharImpl(state);
 	}
+
 	/**
 	 * For sub classes to implement main functionality of getState. Gaps
 	 * do not need to be considered
-	 */
+     *
+     *
+     * @param c the character to convert
+     * @return the state corresponding to the given character
+     */
 	abstract protected int getStateImpl(char c);
 
+    /**
+     * Converts the given state into its corresponding character.
+     * This method must be implemented by subclasses to provide
+     * the main functionality of {@link #getChar(int)}.
+     * Gap handling is not required here, as it is managed by {@link #getChar(int)}.
+     *
+     * @param state the state to convert
+     * @return the character corresponding to the given state
+     */
 	abstract protected char getCharImpl(int state);
 
 	/**
 	 * Automatically handles Gaps for sub classes
-	 */
+	 *
+     * @param c the character to check
+     * @return the preferred character representation, or
+     *         {@link #PRIMARY_SUGGESTED_GAP_CHARACTER} if {@code c} is a gap
+     */
 	public final char getPreferredChar(final char c) {
 		if(isGapChar(c)) {
 			return PRIMARY_SUGGESTED_GAP_CHARACTER;
@@ -75,14 +103,17 @@ public abstract class SimpleDataType implements DataType
 		return getPreferredCharImpl(c);
 	}
 
-	/**
-	 * Can be overidden by subclasses. Default implementation
-	 * get's character's state and that get's the character for that state
-	 */
+    /**
+     * Can be overidden by subclasses. Default implementation
+     * get's character's state and that get's the character for that state
+     *
+     * @param c the non-gap character
+     * @return the preferred character representation
+     */
+
 	protected char getPreferredCharImpl(final char c) {
 		return getChar(getState(c));
 	}
-
 
 	/**
 	 * @return true if this state is unknown (or a gap)
@@ -90,20 +121,33 @@ public abstract class SimpleDataType implements DataType
 	public final boolean isUnknownChar(final char c) {
 		return isUnknownState(getState(c));
 	}
-		/**
+
+    /**
 	 * Checks if state is a gap state (then returns true), otherwise passes on
 	 * to isUnknownStateImpl
-	 * @retrun true if this state is an unknown state
-	 *
+     *
+     * @param state the state to check
+	 * @return true if this state is an unknown state
 	 */
 	public final boolean isUnknownState(final int state) {
 		return(state==SUGGESTED_GAP_STATE||isUnknownStateImpl(state));
 	}
-	/**
+
+    /**
 	 * For subclasses to handle, without regard for gaps
-	 */
+     *
+     * @param state the state to check
+     * @return {@code true} if the given state is unknown,
+     *         {@code false} otherwise
+     */
 	abstract protected boolean isUnknownStateImpl(int state);
-	public String toString() { return getDescription(); }
+
+    /**
+     * Returns a description of this data type.
+     *
+     * @return a string description of this data type
+     */
+    public String toString() { return getDescription(); }
 
 	/**
 	 * @return -1 (not getNumStates())

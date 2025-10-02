@@ -113,19 +113,28 @@ public class TopologyTestEngine {
 		public double[] getNewReplicateLogLikelihoods(AlgorithmCallback callback);
 	}
 
-	public static interface StatisticsHandler {
-		public double[] getOriginalTestStatistics(double[] originalOptimisedLogLikelihoods, int numberOfTopologies);
-		/**
-		 *
-		 * @param originalOptimisedLogLikelihoods stored as [topology]
-		 * @param replicateLogLikelihoods store as [replicate][topology]
-		 * @param numberOfTopologies the number of topologies
-		 * @param numberOfTopologies the number of replicates
-		 * @return
-		 */
-		public double[] getPValues(double[] originalOptimisedLogLikelihoods, double[][] replicateLogLikelihoods, int numberOfReplicates, int numberOfTopologies);
+    public static interface StatisticsHandler {
 
-	}
+        /**
+         * Computes the test statistics based on the original log-likelihood values.
+         * @param originalOptimisedLogLikelihoods An array containing the log-likelihood values optimized for the original data, indexed by topology.
+         * @param numberOfTopologies The total number of topologies considered.
+         * @return An array of calculated test statistics for each topology.
+         */
+        public double[] getOriginalTestStatistics(double[] originalOptimisedLogLikelihoods, int numberOfTopologies);
+
+        /**
+         * Calculates the P-values for each topology based on the comparison of the original
+         * log-likelihoods to the distribution of log-likelihoods from replicate datasets.
+         *
+         * @param originalOptimisedLogLikelihoods An array of log-likelihood values from the original data, indexed by topology.
+         * @param replicateLogLikelihoods A 2D array of log-likelihood values from the replicate (simulated) datasets, stored as [replicate][topology].
+         * @param numberOfReplicates The number of replicate datasets used.
+         * @param numberOfTopologies The number of topologies considered.
+         * @return An array of calculated P-values for each topology.
+         */
+        public double[] getPValues(double[] originalOptimisedLogLikelihoods, double[][] replicateLogLikelihoods, int numberOfReplicates, int numberOfTopologies);
+    }
 }
 
 

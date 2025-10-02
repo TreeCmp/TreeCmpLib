@@ -39,8 +39,8 @@ public class ConjugateGradientSearch extends MultivariateMinimum
 
 	/**
 	 *  controls the printed output from the routine
-	 *  (0 -> no output, 1 -> print only starting and final values,
-	 *   2 -> detailed map of the minimisation process),
+	 *  (0 -&gt; no output, 1 -&gt; print only starting and final values,
+	 *   2 -&gt; detailed map of the minimisation process),
 	 *  the default value is 0
 	 */
 	public int prin = 0;
@@ -58,8 +58,8 @@ public class ConjugateGradientSearch extends MultivariateMinimum
 	/**
 	 * conjugateGradientStyle determines the method for the
 	 * conjugate gradient direction update
-	 * update (0 -> Fletcher-Reeves, 1 -> Polak-Ribiere,
-	 * 2 -> Beale-Sorenson, Hestenes-Stiefel), the default is 2.
+	 * update (0 -&gt; Fletcher-Reeves, 1 -&gt; Polak-Ribiere,
+	 * 2 -&gt; Beale-Sorenson, Hestenes-Stiefel), the default is 2.
 	 */
 	public int conjugateGradientStyle = BEALE_SORENSON_HESTENES_STIEFEL_UPDATE;
 

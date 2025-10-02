@@ -31,7 +31,9 @@ public class StrippedAnnotatedAlignment extends StrippedAlignment implements Ann
 
 	/**
 	 * Simple constructor
-	 */
+     *
+     * @param a alignment to wrap and strip
+     */
 	public StrippedAnnotatedAlignment(AnnotationAlignment a) {
 		super(a);
 		setDataType(a.getDataType());
@@ -40,35 +42,64 @@ public class StrippedAnnotatedAlignment extends StrippedAlignment implements Ann
 		lastSite=rawAlignment.getSiteCount();
 	}
 
-	/** Return the position along chromosome */
+    /** Return the position along chromosome
+     *
+     *
+     * @param site site index
+     * @return chromosome position at the given site
+     */
 	 public float getChromosomePosition(int site) {return rawAlignment.getChromosomePosition(alias[site]);}
 
 
-	 /** Returns chromosome */
+    /** Returns chromosome
+     *
+     * @param site site index
+     * @return chromosome number at the given site
+     */
 	 public int getChromosome(int site) {return rawAlignment.getChromosome(alias[site]);}
 
-	 /** Return the weighted position along the gene (handles gaps) */
+    /** Return the weighted position along the gene (handles gaps)
+     *
+     * @param site site index
+     * @return weighted locus position
+     */
 	 public float getWeightedLocusPosition(int site) { return rawAlignment.getWeightedLocusPosition(alias[site]);}
 
-			/** Return the position along the locus (ignores gaps) */
+    /** Return the position along the locus (ignores gaps)
+     *
+     * @param site site index
+     * @return locus position
+     */
 	 public int getLocusPosition(int site) {return rawAlignment.getLocusPosition(alias[site]);}
 
-	 /** Returns position type (eg.  I=intron, E-exon, P=promoter, 1=first, 2=second, 3=third, etc.*/
+    /** Returns position type (eg.  I=intron, E-exon, P=promoter, 1=first, 2=second, 3=third, etc.
+     *
+     * @param site site index
+     * @return position type character
+     */
 	 public char getPositionType(int site) {return rawAlignment.getPositionType(alias[site]);}
 
-	 /** Returns the name of the locus */
+    /** Returns the name of the locus
+     *
+     * @param site site index
+     * @return locus name
+     */
 	 public String getLocusName(int site) {return rawAlignment.getLocusName(alias[site]);}
 
-	 /** Returns the datatype */
+    /** Returns the datatype
+     *
+     * @param site site index
+     * @return data type at the given site
+     */
 	 public DataType getDataType(int site) {return rawAlignment.getDataType(alias[site]);}
 
 	 /**
-		* Remove sites based on site position (excluded sites are <firstSite and >lastSite)
-		* This not effect any prior exclusions.
-		*
-		* @param firstSite first site to keep in the range
-		* @param lastSite last site to keep in the range
-		*/
+      * Remove sites based on site position (excluded sites are &lt; firstSite and &gt; lastSite)
+      * This not effect any prior exclusions.
+      *
+      * @param firstSite first site to keep in the range
+      * @param lastSite last site to keep in the range
+      */
 	 public void removeSitesOutsideRange(int firstSite, int lastSite) {
 			this.firstSite=firstSite;
 			this.lastSite=lastSite;

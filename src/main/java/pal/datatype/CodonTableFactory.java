@@ -19,12 +19,12 @@ package pal.datatype;
 
 public class CodonTableFactory {
 
-
-
 	/**
 	 * Creates a translator of a given types
+     *
 	 * @param type - UNIVERSAL, M_VERTEBRATE
-	 */
+     * @return a {@link CodonTable} instance corresponding to the specified type
+     */
 	public static CodonTable createTranslator(int type) {
 		UniversalTranslator ut = new UniversalTranslator();
 		ut.setOrganismTypeID(type);
@@ -292,7 +292,7 @@ class UniversalTranslator implements CodonTable {
 
 	/**
 	 * Returns the char associated with AminoAcid represented by 'codon'.
-	 * @note char is as defined by AminoAcids.java
+	 * Note: char is as defined by AminoAcids.java
 	 * @see AminoAcids
 	 * @return state for '?' if codon unknown or wrong length
 	 */
@@ -303,7 +303,7 @@ class UniversalTranslator implements CodonTable {
 
 	/**
 	 * Returns the state associated with AminoAcid represented by 'codon'.
-	 * @note state is as defined by AminoAcids.java
+	 * Note: state is as defined by AminoAcids.java
 	 * @return '?' if codon unknown or wrong length
 	 * @see AminoAcids
 	 */

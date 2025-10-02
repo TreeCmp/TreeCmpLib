@@ -21,7 +21,7 @@ package pal.math;
  * of a conjugate direction search method proposed by Powell)
  *
  * @author Korbinian Strimmer
- * @note A part of this code has been hacked. See the section marked by ************* - MG
+ * Note: A part of this code has been hacked. See the section marked by ************* - MG
  */
 public class ConjugateDirectionSearch extends MultivariateMinimum
 {
@@ -45,9 +45,9 @@ public class ConjugateDirectionSearch extends MultivariateMinimum
 
 	/**
 	 *  controls the printed output from the routine
-	 *  (0 -> no output, 1 -> print only starting and final values,
-	 *   2 -> detailed map of the minimization process,
-	 *   3 -> print also eigenvalues and vectors of the
+	 *  (0 -&gt; no output, 1 -&gt; print only starting and final values,
+	 *   2 -&gt; detailed map of the minimization process,
+	 *   3 -&gt; print also eigenvalues and vectors of the
 	 *   search directions), the default value is 0
 	 */
 	public int prin = 0;
@@ -973,11 +973,16 @@ public class ConjugateDirectionSearch extends MultivariateMinimum
 		}
 	}
 
-	/**
-	 * Generate a MultivariateMinimum.Factory for a ConjugateDirectionSearch
-	 */
-	public static final Factory generateFactory() {	return SearchFactory.INSTANCE;	}
-	// ============ The Factory Class for Orthogonal Searches ===================
+    /**
+     * Generate a factory for creating ConjugateDirectionSearch minimisers.
+     *
+     * @return a MultivariateMinimum.Factory instance for ConjugateDirectionSearch
+     */
+    public static final Factory generateFactory() {
+        return SearchFactory.INSTANCE;
+    }
+
+    // ============ The Factory Class for Orthogonal Searches ===================
 	private static final class SearchFactory implements Factory {
 		private static final SearchFactory INSTANCE = new SearchFactory();
 		public MultivariateMinimum generateNewMinimiser() {		return new ConjugateDirectionSearch();	}

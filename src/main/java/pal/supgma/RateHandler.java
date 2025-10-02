@@ -30,19 +30,23 @@ public interface RateHandler {
 		public static final RateHandler getSingleRateHandler() {
 			return SingleRateHandler.INSTANCE;
 		}
-		/**
-		 * @return the number of intervals given the arbitary intervalChangeTimes (assumed to
-		 * hold no negative numbers not including zero) and the maxSampleTime
-		 */
-		public static final int getArbitaryIntervalCount(double[] intervalChangeTimes, double maxSampleTime) {
-			int paramCount = 1;
-			for(int i = 0 ; i < intervalChangeTimes.length ; i++) {
-				if(intervalChangeTimes[i]< maxSampleTime) {
-					paramCount++;
-				}
-			}
-			return paramCount;
-		}
+        /**
+         * Calculates the number of time intervals defined by a set of arbitrary change points
+         * up to a maximum sampling time.
+         *
+         * @param intervalChangeTimes An array of time points defining where intervals change (must be non-negative).
+         * @param maxSampleTime The maximum time point used for sampling; intervals beyond this time are ignored.
+         * @return The total number of intervals defined between zero and {@code maxSampleTime}.
+         */
+        public static final int getArbitaryIntervalCount(double[] intervalChangeTimes, double maxSampleTime) {
+            int paramCount = 1; // Starts at 1 because the first interval is from 0 to the first change time.
+            for(int i = 0 ; i < intervalChangeTimes.length ; i++) {
+                if(intervalChangeTimes[i]< maxSampleTime) {
+                    paramCount++;
+                }
+            }
+            return paramCount;
+        }
 
 		public static final RateHandler getSetRateHandler(double rate, int units) {
 			return new SetRateHandler(new ConstantMutationRate(rate,units,rate,rate));

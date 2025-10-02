@@ -28,7 +28,7 @@ import java.util.*;
  * This is a Java version of the C-program for MT19937: Integer version.
  * next(32) generates one pseudorandom unsigned integer (32bit)
  * which is uniformly distributed among 0 to 2^32-1  for each
- * call.  next(int bits) >>>'s by (32-bits) to get a value ranging
+ * call.  next(int bits) &gt;&gt;&gt;'s by (32-bits) to get a value ranging
  * between 0 and 2^bits-1 long inclusive; hope that's correct.
  * setSeed(seed) set initial values to the working area
  * of 624 words. For setSeed(seed), seed is any 32-bit integer
@@ -745,10 +745,13 @@ public class MersenneTwisterFast implements Serializable
 	return (y >>> 8) / ((float)(1 << 24));
 	}
 
-
-
-		/** Returns an integer drawn uniformly from 0 to n-1.  Suffice it to say,
-	n must be > 0, or an IllegalArgumentException is raised. */
+    /** Returns an integer drawn uniformly from 0 to n-1. Suffice it to say,
+     * n must be &lt; 0, or an IllegalArgumentException is raised.
+     *
+     * @param n the upper bound (exclusive). Must be greater than 0
+     * @return a pseudorandom integer between 0 (inclusive) and {@code n} (exclusive)
+     * @throws IllegalArgumentException if {@code n <= 0}
+     */
 		public int nextInt(int n)
 	{
 	if (n<=0)
@@ -824,60 +827,104 @@ public class MersenneTwisterFast implements Serializable
 	return val;
 	}
 
+// ===================== Static access methods to the private DEFAULT_INSTANCE ===========
 
-	// ===================== Static access methods to the private DEFAULT_INSTANCE ===========
-	/** Access a default instance of this class, access is synchronized */
-	public static final byte getNextByte() {
-		synchronized(DEFAULT_INSTANCE) {
-			return DEFAULT_INSTANCE.nextByte();
-		}
-	}
-	/** Access a default instance of this class, access is synchronized */
-	public static final boolean getNextBoolean() {
-		synchronized(DEFAULT_INSTANCE) {
-			return DEFAULT_INSTANCE.nextBoolean();
-		}
-	}
-	/** Access a default instance of this class, access is synchronized */
-	public static final void getNextBytes(byte[] bs) {
-		synchronized(DEFAULT_INSTANCE) {
-			DEFAULT_INSTANCE.nextBytes(bs);
-		}
-	}
-	/** Access a default instance of this class, access is synchronized */
-	public static final char getNextChar() {
-		synchronized(DEFAULT_INSTANCE) {
-			return DEFAULT_INSTANCE.nextChar();
-		}
-	}
-	/** Access a default instance of this class, access is synchronized */
-	public static final double getNextDouble() {
-		synchronized(DEFAULT_INSTANCE) {
-			return DEFAULT_INSTANCE.nextDouble();
-		}
-	}
-	/** Access a default instance of this class, access is synchronized */
-	public static final float getNextFloat() {
-		synchronized(DEFAULT_INSTANCE) {
-			return DEFAULT_INSTANCE.nextFloat();
-		}
-	}
-	/** Access a default instance of this class, access is synchronized */
-	public static final long getNextLong() {
-		synchronized(DEFAULT_INSTANCE) {
-			return DEFAULT_INSTANCE.nextLong();
-		}
-	}
-	/** Access a default instance of this class, access is synchronized */
-	public static final short getNextShort() {
-		synchronized(DEFAULT_INSTANCE) {
-			return DEFAULT_INSTANCE.nextShort();
-		}
-	}
-	/** Access a default instance of this class, access is synchronized */
-	public static final int getNextInt() {
-		synchronized(DEFAULT_INSTANCE) {
-			return DEFAULT_INSTANCE.nextInt();
-		}
-	}
+    /**
+     * Returns the next pseudorandom byte from the default instance (thread-safe).
+     *
+     * @return a pseudorandom byte
+     */
+    public static final byte getNextByte() {
+        synchronized (DEFAULT_INSTANCE) {
+            return DEFAULT_INSTANCE.nextByte();
+        }
+    }
+
+    /**
+     * Returns the next pseudorandom boolean from the default instance (thread-safe).
+     *
+     * @return a pseudorandom boolean value
+     */
+    public static final boolean getNextBoolean() {
+        synchronized (DEFAULT_INSTANCE) {
+            return DEFAULT_INSTANCE.nextBoolean();
+        }
+    }
+
+    /**
+     * Fills the provided byte array with pseudorandom values from the default instance (thread-safe).
+     *
+     * @param bs the byte array to fill with random data
+     */
+    public static final void getNextBytes(byte[] bs) {
+        synchronized (DEFAULT_INSTANCE) {
+            DEFAULT_INSTANCE.nextBytes(bs);
+        }
+    }
+
+    /**
+     * Returns the next pseudorandom character from the default instance (thread-safe).
+     *
+     * @return a pseudorandom {@code char}
+     */
+    public static final char getNextChar() {
+        synchronized (DEFAULT_INSTANCE) {
+            return DEFAULT_INSTANCE.nextChar();
+        }
+    }
+
+    /**
+     * Returns the next pseudorandom double from the default instance (thread-safe).
+     *
+     * @return a pseudorandom double between 0.0 and 1.0
+     */
+    public static final double getNextDouble() {
+        synchronized (DEFAULT_INSTANCE) {
+            return DEFAULT_INSTANCE.nextDouble();
+        }
+    }
+
+    /**
+     * Returns the next pseudorandom float from the default instance (thread-safe).
+     *
+     * @return a pseudorandom float between 0.0f and 1.0f
+     */
+    public static final float getNextFloat() {
+        synchronized (DEFAULT_INSTANCE) {
+            return DEFAULT_INSTANCE.nextFloat();
+        }
+    }
+
+    /**
+     * Returns the next pseudorandom long from the default instance (thread-safe).
+     *
+     * @return a pseudorandom {@code long}
+     */
+    public static final long getNextLong() {
+        synchronized (DEFAULT_INSTANCE) {
+            return DEFAULT_INSTANCE.nextLong();
+        }
+    }
+
+    /**
+     * Returns the next pseudorandom short from the default instance (thread-safe).
+     *
+     * @return a pseudorandom {@code short}
+     */
+    public static final short getNextShort() {
+        synchronized (DEFAULT_INSTANCE) {
+            return DEFAULT_INSTANCE.nextShort();
+        }
+    }
+
+    /**
+     * Returns the next pseudorandom integer from the default instance (thread-safe).
+     *
+     * @return a pseudorandom integer
+     */
+    public static final int getNextInt() {
+        synchronized (DEFAULT_INSTANCE) {
+            return DEFAULT_INSTANCE.nextInt();
+        }
+    }
 }

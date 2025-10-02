@@ -22,9 +22,15 @@ public interface StoppingCriteria extends java.io.Serializable {
 	 */
 	public double getRelativeStoppingRatio();
 
-	/**
-	 * @param externalStablized if true than other factors have stablized
-	 */
+    /**
+     * Start a new iteration of the algorithm.
+     *
+     * @param currentScore      The score obtained in the current iteration.
+     * @param bestScore         The best score found so far.
+     * @param maximising        If true, higher scores are considered better; if false, lower scores are considered better.
+     * @param externalStablized If true, other external factors have stabilized.
+     * @param callback          A callback used to report progress or results back to the caller.
+     */
 	public void newIteration(double currentScore, double bestScore, boolean maximising, boolean externalStablized, AlgorithmCallback callback);
 	public void reset();
 //===========================================
@@ -37,37 +43,48 @@ public interface StoppingCriteria extends java.io.Serializable {
 //=========== Static Util Class =============
 //===========================================
 	public static class Utils {
-		/**
-		 * A stopping criteria that stops after a set number of iterations
-		 * @param maxIterationCount the maximum number of iterations.
-		 */
+        /**
+         * A stopping criteria that stops after a set number of iterations.
+         *
+         * @param maxIterationCount the maximum number of iterations.
+         * @return a factory producing the stopping criteria.
+         */
 		public static final StoppingCriteria.Factory getIterationCount(int maxIterationCount) {
 			return new IterationCountSC.SCFactory(maxIterationCount);
 		}
-		/**
-		 * A stopping criteria that works by counting how many iterations occur at a given score (either the best score or the
-		 * current score) and stopping when score does not change after a set number of generations
-		 * @param maxIterationCountAtCurrentScore the number of iterations to wait at the current score before stopping
-		 * @param matchBestScore if true will examine the best score so far, else will examine the current score so far.
-		 */
+        /**
+         * A stopping criteria that works by counting how many iterations occur at a given score
+         * (either the best score or the current score) and stopping when the score does not change
+         * after a set number of generations.
+         *
+         * @param maxIterationCountAtCurrentScore the number of iterations to wait at the current score before stopping.
+         * @param matchBestScore if true, will examine the best score so far; if false, will examine the current score so far.
+         * @return a factory producing the stopping criteria.
+         */
 		public static final StoppingCriteria.Factory getUnchangedScore(int maxIterationCountAtCurrentScore, boolean matchBestScore) {
 			return new UnchangedScoreSC.SCFactory(maxIterationCountAtCurrentScore, matchBestScore);
 		}
-		/**
-		 * A stopping criteria that works by counting how many iterations occur at a given score (either the best score or the
-		 * current score) and stopping when score does not change after a set number of generations
-		 * @param maxIterationCountAtCurrentScore the number of iterations to wait at the current score before stopping
-		 * @param matchBestScore if true will examine the best score so far, else will examine the current score so far.
-		 */
+        /**
+         * A stopping criteria that works by counting how many iterations occur at a given score
+         * (either the best score or the current score) and stopping when the score does not change
+         * after a set number of generations, with a tolerance for approximate equality.
+         *
+         * @param maxIterationCountAtCurrentScore the number of iterations to wait at the current score before stopping.
+         * @param matchBestScore if true, will examine the best score so far; if false, will examine the current score so far.
+         * @param tolerance the allowed deviation when comparing scores (to handle non-exact equality).
+         * @return a factory producing the stopping criteria.
+         */
 		public static final StoppingCriteria.Factory getNonExactUnchangedScore(int maxIterationCountAtCurrentScore, boolean matchBestScore, double tolerance) {
 			return new NonExactUnchangedScoreSC.SCFactory(maxIterationCountAtCurrentScore, matchBestScore, tolerance);
 		}
 
-		/**
-		 * A stopping criteria that is a composite of a set of criteria, stops when at least one
-		 * sub criteria wants to stop
-		 * @param subCriteria an array of StoppingCriteria to combine
-		 */
+        /**
+         * A stopping criteria that is a composite of a set of criteria;
+         * stops when at least one sub-criteria wants to stop.
+         *
+         * @param subCriteria an array of StoppingCriteria to combine.
+         * @return a factory producing the composite stopping criteria.
+         */
 		public static final StoppingCriteria.Factory getCombined(Factory[] subCriteria) {
 			return new CombinedSC.SCFactory(subCriteria);
 		}

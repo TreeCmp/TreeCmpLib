@@ -57,35 +57,51 @@ public class GeneralLikelihoodCalculator implements PalObjectListener, Likelihoo
 
 	double[] gapPriors_;
 
-	/**
-	 * Constructor taking site pattern, tree and a rate matrix.
-	 * @note giving a SitePattern is not going to make anything faster
-	 */
-	public GeneralLikelihoodCalculator(Alignment baseAlignment, Tree tree, RateMatrix model) {
-		this(baseAlignment,tree, SubstitutionModel.Utils.createSubstitutionModel(model));
-	}
+    /**
+     * Constructs a GeneralLikelihoodCalculator using an alignment, tree, and a rate matrix.
+     * <p>The rate matrix is converted into a general substitution model internally.
+     * Note: providing a SitePattern will not improve performance.</p>
+     *
+     * @param baseAlignment the alignment to use for likelihood computation
+     * @param tree the phylogenetic tree to use
+     * @param model the rate matrix (substitution model) to use
+     */
+    public GeneralLikelihoodCalculator(Alignment baseAlignment, Tree tree, RateMatrix model) {
+        this(baseAlignment, tree, SubstitutionModel.Utils.createSubstitutionModel(model));
+    }
 
-	/**
-	 * Constructor taking site pattern, tree rate matrix, and a rate distribution
-	 * @note giving a SitePattern is not going to make anything faster
-	 */
-	public GeneralLikelihoodCalculator(Alignment baseAlignment, Tree tree, RateMatrix model, RateDistribution distribution) {
-		this(baseAlignment,tree, SubstitutionModel.Utils.createSubstitutionModel(model,distribution));
-	}
+    /**
+     * Constructs a GeneralLikelihoodCalculator using an alignment, tree, rate matrix, and a rate distribution.
+     * <p>The rate matrix and distribution are combined into a general substitution model internally.
+     * Note: providing a SitePattern will not improve performance.</p>
+     *
+     * @param baseAlignment the alignment to use for likelihood computation
+     * @param tree the phylogenetic tree to use
+     * @param model the rate matrix to use
+     * @param distribution the rate distribution to use for the substitution model
+     */
+    public GeneralLikelihoodCalculator(Alignment baseAlignment, Tree tree, RateMatrix model, RateDistribution distribution) {
+        this(baseAlignment, tree, SubstitutionModel.Utils.createSubstitutionModel(model, distribution));
+    }
 
-	/**
-	 * Constructor taking site pattern, tree and a general substitution model.
-	 * @note giving a SitePattern is not going to make anything faster
-	 */
-	public GeneralLikelihoodCalculator(Alignment baseAlignment, Tree tree, SubstitutionModel model) {
-		this.baseAlignment_ = baseAlignment;
-		this.numberOfTransitionCategories_ = model.getNumberOfTransitionCategories();
-		numberOfSites_ = baseAlignment.getSiteCount();
-		this.patternWeightWorkingStore_ = new int[numberOfSites_];
-		numberOfStates_ = baseAlignment.getDataType().getNumStates();
-		buildGapPriors();
-		setup(tree, model);
-	}
+    /**
+     * Constructs a GeneralLikelihoodCalculator using an alignment, tree, and a general substitution model.
+     * <p>Initializes the internal structures, including pattern weights and gap priors.
+     * Note: providing a SitePattern will not improve performance.</p>
+     *
+     * @param baseAlignment the alignment to use for likelihood computation
+     * @param tree the phylogenetic tree to use
+     * @param model the general substitution model to use
+     */
+    public GeneralLikelihoodCalculator(Alignment baseAlignment, Tree tree, SubstitutionModel model) {
+        this.baseAlignment_ = baseAlignment;
+        this.numberOfTransitionCategories_ = model.getNumberOfTransitionCategories();
+        numberOfSites_ = baseAlignment.getSiteCount();
+        this.patternWeightWorkingStore_ = new int[numberOfSites_];
+        numberOfStates_ = baseAlignment.getDataType().getNumStates();
+        buildGapPriors();
+        setup(tree, model);
+    }
 
 	public void parametersChanged(PalObjectEvent pe) {
 		modelChanged_ = true;

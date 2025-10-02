@@ -25,7 +25,12 @@ public class DistanceMatrixUtils implements Serializable {
 	 * compute squared distance to second distance matrix.
 	 * If both matrices have the same size it is assumed that the order of the taxa
 	 * is identical.
-	 */
+     *
+     * @param mat1 the first distance matrix
+     * @param mat2 the second distance matrix
+     * @param weighted if true, use Fitch-Margoliash weighting; if false, use Cavalli-Sforza-Edwards weighting
+     * @return the squared distance between the two matrices
+     */
 	public static double squaredDistance(DistanceMatrix mat1, DistanceMatrix mat2, boolean weighted) {
 
 		boolean aliasNeeded = false;
@@ -88,7 +93,11 @@ public class DistanceMatrixUtils implements Serializable {
 
 	/**
 	 * Returns a distance matrix with the specified taxa removed.
-	 */
+     *
+     * @param parent the original distance matrix
+     * @param taxaToRemove the index of the taxon to remove
+     * @return a new DistanceMatrix without the specified taxon
+     */
 	public static DistanceMatrix minus(DistanceMatrix parent, int taxaToRemove) {
 
 		int size = parent.getIdCount() - 1;

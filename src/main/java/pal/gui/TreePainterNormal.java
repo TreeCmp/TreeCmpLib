@@ -22,7 +22,7 @@ import java.awt.*;
  * @version $Id: TreePainterNormal.java,v 1.17 2003/08/16 23:48:26 matt Exp $
  *
  * @author Alexei Drummond
- * @note
+ * Note:
  *     <ul>
  *       <li> 14 August 2003 - Changed to reflect NameColouriser changes
  *     </ul>

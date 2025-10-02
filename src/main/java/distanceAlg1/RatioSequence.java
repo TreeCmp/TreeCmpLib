@@ -106,29 +106,30 @@ public class RatioSequence extends Vector<Ratio>{
 		return true;
 	}
 		
-	
-	/** Returns the i-th ratio in the ratio sequence.
-	 * 
-	 * @param i
-	 * @return
+		/** Returns the i-th ratio in the ratio sequence.
+	 *
+     * @param i the index of the ratio to retrieve (0-based)
+     * @return the Ratio object at index i
 	 */
 	public Ratio getRatio(int i) {
 		return this.get(i);
 	}
-	
 
-	
-	
-	/** Sets the i-th ratio in the ratio sequence to 
-	public Ratio setRatio(int i, Ratio r) {
-		
-	}
-	
-	
-	/** Returns true if the ratio sequence rs is ascending.  Namely, the first ratio is <= to
-	 * the second ratio, which is <= the third ratio, etc.
-	 * @param rs
-	 * @return
+    /**
+     * Sets the i-th ratio in the ratio sequence to the specified value.
+     *
+     * @param i the index of the ratio to set (0-based)
+     * @param r the Ratio object to set at index i
+     * @return the previous Ratio at index i
+     */
+//	public Ratio setRatio(int i, Ratio r) {
+//
+//	}
+
+	/** Returns true if the ratio sequence rs is ascending.  Namely, the first ratio is &le;= to
+	 * the second ratio, which is &le;= the third ratio, etc.
+     *
+     * @return true if the ratio sequence is ascending, false otherwise
 	 */
 	public boolean isAscending() {
 		for (int i = 0; i < this.size() - 1; i++) {
@@ -141,9 +142,8 @@ public class RatioSequence extends Vector<Ratio>{
 	
 	/** Calculates the distance for the ratio sequence rs:
 	 *  e1/f1, e2/f2, ... en/fn gives the distance sqrt( (e1 + f1)^2 + (e2 + f2)^2 + ... + (en + fn)^2 )
-	 * 
-	 * @param rs
-	 * @return
+	 *
+     * @return the distance of the ratio sequence
 	 */
 	public double getDistance() {
 		double distSqrd = 0;
@@ -163,8 +163,8 @@ public class RatioSequence extends Vector<Ratio>{
 	}
 	
 	/** Gets the distance for this ratio sequence after it has been combined to be non-descending.
-	 * 
-	 * @return
+	 *
+     * @return the distance of the non-descending ratio sequence
 	 */
 	public double getMinNonDesRSDistance() {
 		return getNonDesRSWithMinDist().getDistance();
@@ -175,9 +175,9 @@ public class RatioSequence extends Vector<Ratio>{
 	/** Interleaves the ratio sequences rs1 and rs2 after combining them to get
 	 * the ascending ratio sequence with the min distance,
 	 * to make a new ratio sequence.
-	 * @param rs1
-	 * @param rs2
-	 * @return
+     * @param rs1 the first RatioSequence to interleave
+     * @param rs2 the second RatioSequence to interleave
+     * @return a new RatioSequence representing the interleaved, ascending sequence
 	 */
 	public static RatioSequence interleave(RatioSequence rs1, RatioSequence rs2) {
 		RatioSequence combined1 = rs1.getNonDesRSWithMinDist();
@@ -230,8 +230,9 @@ public class RatioSequence extends Vector<Ratio>{
 	
 	/** Returns a randomly generated RatioSequence with d ratios,
 	 * each with a numerator and denominator randomly generated between 0 and 1.
-	 * @param d
-	 * @return
+     *
+     * @param dim the number of ratios in the sequence
+     * @return a new RatioSequence object with randomly generated ratios
 	 */
 	public static RatioSequence getRandomRS(int dim) {
 		String ptA = "";
@@ -250,9 +251,9 @@ public class RatioSequence extends Vector<Ratio>{
 	 * In particular, consider combineCode in binary.  A 1 in the i-th position from the right means the  
 	 * (i-1)th and i-th ratios should be combined.
 	 * TODO: add error checking
-	 * @param rs
-	 * @param combineCode
-	 * @return
+     *
+     * @param combineCode integer representing which ratios to combine in binary
+     * @return a new RatioSequence with combined ratios according to combineCode
 	 */
 	public RatioSequence getCombinedRS(int combineCode) {
 		RatioSequence combinedRS = new RatioSequence(); // new ratio sequence formed by combining.
@@ -280,15 +281,14 @@ public class RatioSequence extends Vector<Ratio>{
 	}
 	
 	
-	/** Combines the ratios in rs so they are non-descending ie. so e1/f1 <= e2/f3 <= ... <= en/fn
+	/** Combines the ratios in rs so they are non-descending ie. so e1/f1 &le;= e2/f3 &le;= ... &le;= en/fn
 	 * Use the following algorithm: At the first pair of ratios which are descending, combine.  
 	 * Compare the combined ratio with the previous one, and combine if necessary, etc.
 	 * 
-	 * If the ratio sequence we are running this on has size < 2, return that ratio sequence. 
+	 * If the ratio sequence we are running this on has size &le; 2, return that ratio sequence.
 	 * XXX: combine code calculated wrong when have to compare with previously processed ratios (I think I fixed this???)
-	 * 
-	 * @param rs
-	 * @return
+	 *
+     * @return a new RatioSequence that is non-descending with minimum distance
 	 */
 	public RatioSequence getNonDesRSWithMinDist() {
 		if (this.size() < 2) {
@@ -344,15 +344,14 @@ public class RatioSequence extends Vector<Ratio>{
 		return combinedRS;
 	}
 	
-	/** Combines the ratios in rs so they are strictly ascending ie. so e1/f1 < e2/f3 < ... < en/fn
+	/** Combines the ratios in rs so they are strictly ascending ie. so e1/f1 &le; e2/f3 &le; ... &le; en/fn
 	 * Use the following algorithm: At the first pair of ratios which are descending, combine.  
 	 * Compare the combined ratio with the previous one, and combine if necessary, etc.
 	 * 
-	 * If the ratio sequence we are running this on has size < 2, return that ratio sequence. 
+	 * If the ratio sequence we are running this on has size &le; 2, return that ratio sequence.
 	 * XXX: combine code calculated wrong when have to compare with previously processed ratios (I think I fixed this???)
-	 * 
-	 * @param rs
-	 * @return
+	 *
+     * @return a new RatioSequence that is strictly ascending with minimum distance
 	 */
 	public RatioSequence getAscRSWithMinDist() {
 		if (this.size() < 2) {
@@ -407,13 +406,12 @@ public class RatioSequence extends Vector<Ratio>{
 		
 		return combinedRS;
 	}
-	
-	
-	
+
 	/** Reverses the ratio sequence, including flipping the ratios.
 	 * So if it represents the  ratio sequence between T1 and T2,
 	 * we return the ratio sequence between T2 and T1.
-	 * @return
+     *
+     * @return a new RatioSequence representing the reversed sequence
 	 */
 	public RatioSequence reverse() {
 		RatioSequence revRS = new RatioSequence();
@@ -424,8 +422,8 @@ public class RatioSequence extends Vector<Ratio>{
 	}
 	
 	/** Returns the ratio sequence as just the ratio values.
-	 * 
-	 * @return
+	 *
+     * @return a string showing each ratio's value and detailed composition
 	 */
 	public String toStringValueAndRatio() {
 		DecimalFormat d4o = new DecimalFormat("#0.####");
@@ -437,7 +435,12 @@ public class RatioSequence extends Vector<Ratio>{
 		// we take a substring of s to not return the last " ,"
 		return s.substring(0, s.length() - 2) + "]";
 	}
-	
+
+    /**
+     * Returns a string representation of the ratio sequence as only the ratio values.
+     *
+     * @return a string showing only the values of the ratios in the sequence
+     */
 	public String toStringValue() {
 		DecimalFormat d4o = new DecimalFormat("#0.####");
 		String s = "[ ";
@@ -459,8 +462,10 @@ public class RatioSequence extends Vector<Ratio>{
 		return s;
 	}
 	
-	/*  Returns the combinatorial type of the geodesic, in a condensed format.
-	 * 
+	/**
+     * Returns the combinatorial type of the geodesic, in a condensed format.
+	 *
+	 * @return a string representing the combinatorial types of all ratios in the sequence
 	 */
 	public String toStringCombType() {
 		String s = "";

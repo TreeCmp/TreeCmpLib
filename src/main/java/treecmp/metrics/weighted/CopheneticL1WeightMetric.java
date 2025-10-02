@@ -27,16 +27,21 @@ public class CopheneticL1WeightMetric extends BaseMetric implements Metric {
     public boolean isRooted() {
         return true;
     }
-    
+
     /**
-     * This metric has not been implemented yet!
-     * See "Cophenetic metrics for phylogenetic trees, after Sokal and Rohlf" by
-     * Gabriel Cardona, Arnau Mir, Francesc Rosselló, Lucía Rotger and David Sánchez,
-     * http://www.biomedcentral.com/1471-2105/14/3
-     * 
-     * @param t1
-     * @param t2
-     * @return 
+     * Calculates the distance between two phylogenetic trees, {@code t1} and {@code t2}, using
+     * a cophenetic metric, as described in the paper "Cophenetic metrics for phylogenetic trees,
+     * after Sokal and Rohlf" by Cardona et al.
+     *
+     * <p>This specific implementation currently **throws an exception** because the metric calculation
+     * has **not yet been implemented**.
+     *
+     * @param t1 The first phylogenetic tree.
+     * @param t2 The second phylogenetic tree.
+     * @param indexes Optional indices that might specify which leaves or subtrees to consider (ignored in this non-functional implementation).
+     * @return This method throws an exception and does not return a value in its current state.
+     * @throws UnsupportedOperationException Always thrown because the cophenetic distance calculation is not yet implemented.
+     * @see <a href="http://www.biomedcentral.com/1471-2105/14/3">Cophenetic metrics for phylogenetic trees, after Sokal and Rohlf</a>
      */
     @Override
     public double getDistance(Tree t1, Tree t2, int... indexes) {

@@ -107,23 +107,25 @@ public final class ConditionalProbabilityStore implements java.io.Serializable {
   /**
    * Use this when access the internal conditional likelihood store for the purpose
    * of changing the contents.
+   *
    * @param numberOfPatterns An indication of how much space will be required. The result will always be big enough to accomodate the requested number of patterns.
    * @param resultsBasedOnCachedData An indication of whether the new conditionals about to be stored are based on cached data
-   * @return
+   * @return the 3-dimensional array storing conditional probabilities [category][pattern][state]
    */
   public double[][][] getConditionalProbabilityAccess(int numberOfPatterns, boolean resultsBasedOnCachedData) {
     ensureSize(numberOfPatterns,true);
     this.isBasedOnCachedData_ = resultsBasedOnCachedData;
     return store_;
   }
-	/**
-   * Use this when access the internal conditional likelihood store for the purpose
-   * of changing the contents. This version will not automatically resize array, and will throw an exception if the numberOfPatterns requested is incompatible with the current contents of this store.
-   * @param numberOfPatterns An indication of how much space will be required. An exception is thrown if this number of patterns cannot be accomodated without being resized.
-   * @param resultsBasedOnCachedData An indication of whether the new conditionals about to be stored are based on cached data
-   * @return
-	 * @throws IllegalArgumentException if incompatible number of patterns
-   */
+    /**
+     * Use this when access the internal conditional likelihood store for the purpose
+     * of changing the contents. This version will not automatically resize array, and will throw an exception if the numberOfPatterns requested is incompatible with the current contents of this store.
+     *
+     * @param numberOfPatterns An indication of how much space will be required. An exception is thrown if this number of patterns cannot be accomodated without being resized.
+     * @param resultsBasedOnCachedData An indication of whether the new conditionals about to be stored are based on cached data
+     * @return the 3-dimensional array storing conditional probabilities [category][pattern][state]
+     * @throws IllegalArgumentException if incompatible number of patterns
+    */
   public double[][][] getConditionalProbabilityAccessNoChangeData(int numberOfPatterns, boolean resultsBasedOnCachedData) {
     if(numberOfPatterns>patternCapacity_) {
 		  throw new IllegalArgumentException("Cannot provided for requested number of patterns. Asked for "+numberOfPatterns+" can only give "+patternCapacity_);
@@ -135,9 +137,11 @@ public final class ConditionalProbabilityStore implements java.io.Serializable {
    * Use this when access the internal conditional likelihood store for the purpose
    * of changing the contents.
    * The state arrays will not be created.
+   *
    * @param numberOfPatterns An indication of how much space will be required. The result will always be big enough to accomodate the requested number of patterns.
    * @param resultsBasedOnCachedData An indication of whether the new conditionals about to be stored are based on cached data
-   * @return
+   * @param fix if true, the store will be fixed in size and not resized later
+   * @return the 3-dimensional array storing conditional probabilities [category][pattern][state]
    */
   public double[][][] getIncompleteConditionalProbabilityAccess(int numberOfPatterns, boolean resultsBasedOnCachedData, boolean fix) {
     ensureSize(numberOfPatterns,false);
@@ -145,25 +149,26 @@ public final class ConditionalProbabilityStore implements java.io.Serializable {
     this.fix_ = fix;
 		return store_;
   }
-	public double calculateLogLikelihood(double[] categoryProbabilities, double[] equilibriumFrequencies, int[] patternWeights, int numberOfPatterns) {
+
+  public double calculateLogLikelihood(double[] categoryProbabilities, double[] equilibriumFrequencies, int[] patternWeights, int numberOfPatterns) {
 		double logLikelihood = 0;
-    for( int pattern = 0; pattern<numberOfPatterns; pattern++ ) {
-      double total = 0;
-      for( int cat = 0; cat<numberOfCategories_; cat++ ) {
-				double prob = 0;
-				final double[] stateArray = store_[cat][pattern];
-				for(int state = 0 ; state < numberOfStates_ ; state++) {
-				  prob+=equilibriumFrequencies[state]*stateArray[state];
-				}
-        total += categoryProbabilities[cat]*prob;
-      }
-		  if(patternWeights!=null) {
-				logLikelihood += Math.log( total )*patternWeights[pattern];
-			} else {
-				logLikelihood += Math.log( total );
-			}
-    }
-    return logLikelihood;
+        for( int pattern = 0; pattern<numberOfPatterns; pattern++ ) {
+          double total = 0;
+          for( int cat = 0; cat<numberOfCategories_; cat++ ) {
+                    double prob = 0;
+                    final double[] stateArray = store_[cat][pattern];
+                    for(int state = 0 ; state < numberOfStates_ ; state++) {
+                      prob+=equilibriumFrequencies[state]*stateArray[state];
+                    }
+            total += categoryProbabilities[cat]*prob;
+          }
+              if(patternWeights!=null) {
+                    logLikelihood += Math.log( total )*patternWeights[pattern];
+                } else {
+                    logLikelihood += Math.log( total );
+                }
+        }
+        return logLikelihood;
 	}
 
 	public double calculateLogLikelihood(double[] categoryProbabilities, double[] equilibriumFrequencies, int numberOfPatterns) {

@@ -18,12 +18,10 @@ import java.io.*;
  * Felsenstein 1984 (PHYLIP) model of nucleotide evolution
  *
  * @version $Id: F84.java,v 1.12 2003/11/30 05:29:22 matt Exp $
- * <p>
  * <em>Parameters</em>
  * <ol>
  *  <li> ExpectedTsTv </li> <!-- 0 -->
  * </ol>
- * </p>
  *
  * @author Korbinian Strimmer
  * @author Alexei Drummond

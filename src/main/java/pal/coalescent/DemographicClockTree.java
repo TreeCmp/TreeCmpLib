@@ -35,8 +35,12 @@ public class DemographicClockTree extends ClockTree implements DemographicTree {
 	 * <p>
 	 * <em>This parameterisation of branches, ensuring that
 	 * all parameters are independent of each other is due to
-         * Andrew Rambaut (personal communication).</em>
-	 */
+     * Andrew Rambaut (personal communication).</em>
+     *
+     * @param t     the input tree to be converted into a demographic clock tree
+     * @param model the demographic model to be applied to the tree
+     * @throws IllegalArgumentException if the root node of the tree has fewer than two children
+     */
 	public DemographicClockTree(Tree t, DemographicModel model)
 	{
 		setBaseTree(t);
@@ -58,7 +62,9 @@ public class DemographicClockTree extends ClockTree implements DemographicTree {
 	/**
 	 * Returns the likelihood of the current demographic model, given
 	 * the current branch lengths.
-	 */
+     *
+     * @return the log-likelihood value of the demographic model
+     */
 	public double computeDemoLogLikelihood() {
 	
 		CoalescentIntervals ci = IntervalsExtractor.extractFromTree(this);

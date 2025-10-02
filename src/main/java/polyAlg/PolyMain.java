@@ -51,14 +51,18 @@ public class PolyMain {
 	public static String LEAF_CONTRIBUTION_SQUARED_DESCRIPTION = "(Leaf contribution squared = square of the length of the vector" +
 	" whose i-th element is the absolute value of the difference between the length of the split ending in leaf i in the first tree" +
 	" and the length of the split ending in leaf i in the second tree.)";
-	
-/** Stores subtrees with no common edges in the global variables aTreesNoCommonEdges (from t1)
- * and in bTreesNoCommonEdges (from t2).
- * 
- * If one of the trees has 0 edges, then all edges in the other tree will be compatible with it.
- * Thus we will not get any more subtree pairs with disjoint leaves, and should return.
- * 
- */
+
+    /**
+     * Recursively splits two phylogenetic trees into smaller pairs of subtrees
+     * based on their common edges (splits). Subtrees that no longer share
+     * common edges are stored in the global variables {@code aTreesNoCommonEdges} (from {@code t1})
+     * and {@code bTreesNoCommonEdges} (from {@code t2}).
+     *
+     * <p>This procedure is typically a building block for calculating a topological distance between trees.
+     *
+     * @param t1 The first phylogenetic tree (PhyloTree).
+     * @param t2 The second phylogenetic tree (PhyloTree).
+     */
 public static void splitOnCommonEdge(PhyloTree t1, PhyloTree t2) {
 	int numEdges1 = t1.getEdges().size(); // number of edges in tree 1
 	int numEdges2 = t2.getEdges().size(); /// number of edges in tree 2
@@ -132,17 +136,22 @@ public static void splitOnCommonEdge(PhyloTree t1, PhyloTree t2) {
 	
 
 	splitOnCommonEdge(tB1,tB2);
-}	
+}
 
-	
-/** Reads in all the phylogenetic trees from the file inFileName.
- *  The trees should be one per line, in the Newick format.
- *  There can also be a ";" at the end of each line.
- *  Exits with error message if there is an error in the Newick of any tree.
- *  Displays a warning if some leaves have different leaf sets, but does not exit.
- *  TODO:  change warning to throw an exception that will cause code to  exit if leaves must be the same
- * @param inFileName
- * @return
+
+/**
+ * Reads in all phylogenetic trees from the specified file.
+ * The trees are expected to be one per line, primarily in the Newick format.
+ *
+ * <p>It handles files containing Newick strings (with optional leading text before the first '('
+ * and trailing ';'). It ignores blank lines and lines starting with '#'.
+ * Currently, it **does not support** the Nexus file format and will exit if it detects one.
+ * It exits with an error message if there is a syntax error in the Newick string of any tree.
+ * It displays a warning if subsequent trees have a leaf set different from the first tree, but does not exit.
+ *
+ * @param inFileName The name of the input file containing the tree data.
+ * @param rooted A boolean flag indicating whether the trees should be treated as rooted (true) or unrooted (false).
+ * @return An array of {@code PhyloTree} objects read from the file.
  */
 public static PhyloTree[] readInTreesFromFile (String inFileName, boolean rooted) {
 	int numTrees =0;  // count the number of trees read in
@@ -242,11 +251,22 @@ public static PhyloTree[] readInTreesFromFile (String inFileName, boolean rooted
     return trees;
 }
 
-/** Returns the distance between t1 and t2, accounting for any common edges and leaf edges.
- *  Calls recursive getGeodesic
- *  Does not assume t1 and t2 have the same number of edges.
- *  Pass in null for geoFile to not write to a file.
- * 
+/**
+ * Calculates the geodesic distance between two phylogenetic trees, t1 and t2,
+ * accounting for contributions from common edges and leaf edges.
+ *
+ * <p>The method first checks for common edges and computes the leaf contribution
+ * to the squared distance. It then recursively calls {@code splitOnCommonEdge}
+ * to break the trees down into pairs of subtrees with no common edges.
+ * Finally, it computes the geodesic for these subtrees and interleaves the results.
+ *
+ * <p>If {@code geoFile} is provided, it writes verbose output (if {@code PolyMain.verbose == 1})
+ * or a sequence of boundary and mid-orthant trees (if {@code PolyMain.verbose == 2}) to the file.
+ *
+ * @param t1 The starting phylogenetic tree.
+ * @param t2 The target phylogenetic tree.
+ * @param geoFile The file path to which verbose output or tree sequence should be written. Pass {@code null} to skip file writing.
+ * @return A {@code Geodesic} object containing the computed distance and the ratio sequence defining the geodesic.
  */
 public static Geodesic getGeodesic(PhyloTree t1, PhyloTree t2, String geoFile) {
 	double leafContributionSquared = 0;
@@ -448,13 +468,18 @@ public static Geodesic getGeodesic(PhyloTree t1, PhyloTree t2, String geoFile) {
 	return geo;
 }
 
-/** Returns the geodesic between t1 and t2, which are assumed to have no common edges.
- *  Does not assume t1 and t2 have the same number of edges.
- *  Does not take into account the leaf edges.
- *  Uses polynomial algorithm.
- *  XXX: how to deal with multifurcating trees
- * 
- *  Returns:  a Geodesic with just the ratio sequence set 
+/**
+ * Computes the geodesic distance and corresponding RatioSequence between two phylogenetic subtrees, t1 and t2,
+ * which are assumed to have no common edges (splits). This method uses a polynomial algorithm based on maximum
+ * weight matching in a bipartite graph.
+ *
+ * <p>It explicitly excludes the contribution of leaf edges from the calculation, as these are handled
+ * separately in the main {@code getGeodesic} method.
+ *
+ * @param t1 The first phylogenetic subtree (PhyloTree). Must not share common edges with t2.
+ * @param t2 The second phylogenetic subtree (PhyloTree). Must not share common edges with t1.
+ * @return A {@code Geodesic} object with its {@code RatioSequence} field set, representing the geodesic path
+ * between the edges of t1 and t2 (excluding leaf edges).
  */
 public static Geodesic getGeodesicNoCommonEdges(PhyloTree t1, PhyloTree t2 ) {
 	int numEdges1 = t1.getEdges().size(); // number of edges in tree 1
@@ -560,13 +585,17 @@ public static Geodesic getGeodesicNoCommonEdges(PhyloTree t1, PhyloTree t2 ) {
 }
 
 
-
-/** Computes all the inter-tree distances between the trees in trees using algorithm, and returns them in a 
- * matrix.  Prints the average time on the screen.  If doubleCheck is true, computes each distance both ways,
- * and displays a message if they differ.
- * @param trees
- * @param algorithm
- * @return
+/**
+ * Computes all inter-tree geodesic distances between all unique pairs of trees in the input array.
+ * The results are stored in a matrix of {@code Geodesic} objects.
+ *
+ * <p>The method prints the average computation time for the distances to the screen.
+ * If {@code doubleCheck} is true, each distance is computed in both directions (t_i to t_j and t_j to t_i)
+ * and a warning message is displayed if the computed distances differ, which checks for symmetry.
+ *
+ * @param trees An array of {@code PhyloTree} objects between which all pairwise geodesics are computed.
+ * @param doubleCheck A boolean flag indicating whether to compute each distance in both directions and check for equality.
+ * @return A 2D array (matrix) of {@code Geodesic} objects where {@code geos[i][j]} holds the geodesic from {@code trees[i]} to {@code trees[j]}.
  */
 public static Geodesic[][] getAllInterTreeGeodesics(PhyloTree[] trees, boolean doubleCheck) {
 	Date startTime;
@@ -634,10 +663,18 @@ public static Geodesic[][] getAllInterTreeGeodesics(PhyloTree[] trees, boolean d
 	return geos;
 }
 
-	
-/** Open file fileName, reads in the trees, and outputs the distances computed by the polynomial distance algorithm.
- *  Assumes first line of file is number of trees, and then one tree per line.
+/**
+ * Opens a file, reads in phylogenetic trees, computes all pairwise geodesic distances
+ * using the polynomial distance algorithm, and outputs the results to a specified file.
  *
+ * <p>The input file is assumed to contain Newick tree strings, one per line (following
+ * an optional header/comment lines handled by {@code readInTreesFromFile}).
+ *
+ * @param inFileName The name of the input file containing the Newick tree data.
+ * @param outFileName The name of the output file where the pairwise geodesic distances will be written.
+ * @param doubleCheck A boolean flag passed to {@code getAllInterTreeGeodesics} to determine if distances should be computed in both directions for verification.
+ * @param rooted A boolean flag indicating whether the trees should be treated as rooted.
+ * @throws RuntimeException If an error occurs during file I/O operations (file not found, writing error).
  */
 public static void computeAllInterTreeGeodesicsFromFile(String inFileName, String outFileName, boolean doubleCheck, boolean rooted){
 
@@ -674,12 +711,22 @@ public static void computeAllInterTreeGeodesicsFromFile(String inFileName, Strin
     	System.exit(1);
     }
 }
-	
 
-/** Open file fileName, reads in the trees, and outputs the distances computed by the polynomial distance algorithm.
- * 
- *  If interiorEdgesOnly flag is true, only computes the geodesic distance using the interior edges (ignores leaf lengths).
+
+/**
+ * Reads phylogenetic trees from a file, computes the pairwise geodesic distances between them
+ * using the polynomial distance algorithm, and writes the distances to an output file.
+ * This method is intended for use with a larger number of trees where storing the full
+ * geodesic object matrix is not necessary.
  *
+ * <p>If the {@code interiorEdgesOnly} flag is true, the calculation of the geodesic distance
+ * is restricted to only the interior edges (ignoring the length contribution of leaf edges).
+ *
+ * @param inFileName The name of the input file containing the Newick tree data.
+ * @param outFileName The name of the output file where the pairwise geodesic distances will be written.
+ * @param rooted A boolean flag indicating whether the trees should be treated as rooted.
+ * @param interiorEdgesOnly If {@code true}, only the distance contribution from interior edges is computed; otherwise, the full geodesic distance is calculated.
+ * @throws RuntimeException If an error occurs during file I/O operations (file not found, writing error).
  */
 public static void computeGeodesicsLargeFile(String inFileName, String outFileName, boolean rooted, boolean interiorEdgesOnly){
 	double geoDist = -1;	// initialize
@@ -724,7 +771,7 @@ public static void computeGeodesicsLargeFile(String inFileName, String outFileNa
 
 /**  Computes geodesics between the two lists.
  *   Prints the results to file.
- * 
+ *
  * @param treeFile 				file name of the first list of trees
  * @param otherTreeFile			file name of the second list of trees
  * @param outFileName			file name for the outfile
@@ -800,10 +847,34 @@ public static void displayHelp() {
 	System.out.println("\t -u \t unrooted trees (default is rooted trees)");
 	System.out.println("\t -v || --verbose \t verbose output");
 }
-	
-	
+
+
 /**
- * @param args
+ * The main entry point for the phylogenetic distance calculation program.
+ *
+ * <p>This method parses command-line arguments to determine the operation mode (e.g., single file, two files, Newick strings),
+ * the type of tree (rooted/unrooted), and the output format (verbose, double-check, interior edges only).
+ * It then calls the appropriate method to compute the geodesic distances between trees.
+ *
+ * <h3>Command Line Options:</h3>
+ * <ul>
+ * <li><b>{@code -f <file>}</b>: Specify a second tree file for pairwise comparisons (sets {@code twoFiles = true}).</li>
+ * <li><b>{@code -o <file>}</b>: Specify the output file name (default is {@code output.txt}).</li>
+ * <li><b>{@code -t <newick1> <newick2>}</b>: Input trees directly as two Newick strings (sets {@code treesAsNewick = true}).</li>
+ * <li><b>{@code -d}</b>: Double-check distances by computing them in both directions (sets {@code doubleCheck = true}).</li>
+ * <li><b>{@code -h}</b>: Display help message and exit.</li>
+ * <li><b>{@code -i}</b>: Use interior edges only for distance computation (sets {@code interiorEdgesOnly = true}).</li>
+ * <li><b>{@code -l}</b>: Disable large file mode; compute and store full {@code Geodesic} objects (sets {@code largeFile = false}).</li>
+ * <li><b>{@code -m}</b>: Compute the minimum geodesic distance by relabeling one tree (sets {@code minLabelling = true}).</li>
+ * <li><b>{@code -n}</b>: Normalize trees (sets {@code normalize = true}).</li>
+ * <li><b>{@code -p}</b>: Paired mode for two files; only compute distance between trees on the same line (sets {@code paired = true}).</li>
+ * <li><b>{@code -u}</b>: Treat trees as unrooted (sets {@code rooted = false}). Default is rooted.</li>
+ * <li><b>{@code -v}</b>: Set verbose output mode (sets {@code verbose = 1}).</li>
+ * <li><b>{@code -w}</b>: Set detailed verbose output mode for geodesic information (sets {@code verbose = 2}).</li>
+ * <li>The last non-option argument is always treated as the main input tree file.</li>
+ * </ul>
+ *
+ * @param args The command-line arguments passed to the program.
  */
 public static void main(String[] args) {
 	String treeFile = "";
@@ -933,11 +1004,22 @@ public static void main(String[] args) {
 
 }
 
-/** Tries to find the labelling of the second tree to minimize the geodesic distance to the first tree.
- *  XXX:  swapLeaves has a bug right now
- * 
- * @param treeFile
- * @param outFile
+/**
+ * Tries to find the labeling (permutation of leaf names) of the second tree (tree2)
+ * that minimizes the geodesic distance to the first tree (tree1) using a simulated annealing-like
+ * heuristic.
+ *
+ * <p>It performs a fixed number of iterations (`numIter = 100`), where in each iteration,
+ * a random neighboring tree (by swapping two leaf labels) is generated. The new tree is accepted
+ * if its geodesic distance is shorter, or with a certain probability (based on a control parameter)
+ * if it's longer, to escape local minima.
+ *
+ * <p>**Warning**: The comment in the original code indicates the underlying {@code swapLeaves} method may have a bug.
+ *
+ * @param tree1 The reference phylogenetic tree.
+ * @param tree2 The phylogenetic tree whose leaf labeling will be permuted to minimize distance to tree1.
+ * @param outFile The name of the output file (used for general output, though the method primarily prints to standard out).
+ * @return The {@code PhyloTree} object representing the best-labeled version of tree2 found during the iterations.
  */
 public static PhyloTree getMinLabelling(PhyloTree tree1, PhyloTree tree2, String outFile) {
 	int numIter = 100;

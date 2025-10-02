@@ -171,111 +171,149 @@ public class TimeOrderCharacterData implements Serializable, BranchLimits, Units
 		this.units = units;
 	}
 
-	/**
-	 * Returns a clone of the specified TimeOrderCharacterData
-	 */
-	public static TimeOrderCharacterData clone(TimeOrderCharacterData tocd) {
-		return tocd.subset(tocd);
-	}
+    /**
+     * Returns a clone of the specified TimeOrderCharacterData.
+     *
+     * @param tocd The TimeOrderCharacterData object to be cloned.
+     * @return A new TimeOrderCharacterData object that is a clone (subset of itself).
+     */
+    public static TimeOrderCharacterData clone(TimeOrderCharacterData tocd) {
+        return tocd.subset(tocd);
+    }
 
-	/**
-	 * Extracts a subset of a TimeOrderCharacterData.
-	 */
-	public TimeOrderCharacterData subset(IdGroup staxa) {
+    /**
+     * Extracts a subset of a TimeOrderCharacterData based on the provided identifiers.
+     *
+     * @param staxa The IdGroup defining the subset of identifiers (taxa) to extract.
+     * @return A new TimeOrderCharacterData object containing only the data for the specified identifiers.
+     */
+    public TimeOrderCharacterData subset(IdGroup staxa) {
 
-		TimeOrderCharacterData subset =
-			new TimeOrderCharacterData(staxa, getUnits());
+        TimeOrderCharacterData subset =
+                new TimeOrderCharacterData(staxa, getUnits());
 
-		subset.timeOrdinals = new int[staxa.getIdCount()];
-		if (hasTimes()) {
-			subset.times = new double[staxa.getIdCount()];
-		}
+        subset.timeOrdinals = new int[staxa.getIdCount()];
+        if (hasTimes()) {
+            subset.times = new double[staxa.getIdCount()];
+        }
 
-		for (int i = 0; i < subset.timeOrdinals.length; i++) {
-			int index = taxa.whichIdNumber(staxa.getIdentifier(i).getName());
-			subset.timeOrdinals[i] = timeOrdinals[index];
+        for (int i = 0; i < subset.timeOrdinals.length; i++) {
+            int index = taxa.whichIdNumber(staxa.getIdentifier(i).getName());
+            subset.timeOrdinals[i] = timeOrdinals[index];
 
-			if (hasTimes()) {
-				subset.times[i] = times[index];
-			}
-		}
-		return subset;
-	}
+            if (hasTimes()) {
+                subset.times[i] = times[index];
+            }
+        }
+        return subset;
+    }
 
-	public int getUnits() {
-		return units;
-	}
+    /**
+     * Returns the unit type for the time data.
+     *
+     * @return The unit type, represented as an integer.
+     */
+    public int getUnits() {
+        return units;
+    }
 
-	/**
-	 * A means for define a subgroup.
-	 * @param subgroups an array of integer arrays. Each array holds the indexes
-	 * of the members that for that subgroup
-	 */
-	public final void setSubgroups(final int[][] subgroups) {
-		this.subgroups_ = SubgroupHandler.create(subgroups);
-	}
-	/**
-	 * A means for define a subgroup.
-	 * @param subgroups an array indexes
-	 * of the members that for the subgroup
-	 */
-	public final void setSubgroup(final int[] subgroup) {
-		this.subgroups_ = SubgroupHandler.create(subgroup);
-	}
-	/**
-	 * A means for define a subgroup.
-	 * @param subgroups an array of names that represent the members of the subgroup.Non existent memebers are ignored
-	 */
-	public final void setSubgroup(final String[] subgroup) {
-		this.subgroups_ = SubgroupHandler.create(this, subgroup);
-	}
-	/**
-	 * A means for define subgroups.
-	 * @param subgroups an array of String arrays. Each array holds the members
-	 * for a particular subgroup. Nonexistent members are ignored.
-	 * @note members can appear in more than one subgroup
-	 */
-	public final void setSubgroups(final String[][] subgroups) {
-		this.subgroups_ = SubgroupHandler.create(this, subgroups);
-	}
+    /**
+     * Defines multiple subgroups.
+     *
+     * @param subgroups An array of integer arrays. Each inner array holds the zero-based indexes
+     * of the members that form a particular subgroup.
+     */
+    public final void setSubgroups(final int[][] subgroups) {
+        this.subgroups_ = SubgroupHandler.create(subgroups);
+    }
 
-	public final boolean hasSubgroups() {
-		return this.subgroups_!=null;
-	}
-	public final int getNumberOfSubgroups() {
-		return (subgroups_==null? 0 : subgroups_.length);
-	}
-	/**
-	 * Creates a TimeOrderCharacterData which is a subset of this sub group.
-	 * Different subgroups may contain the same members
-	 */
-	public final TimeOrderCharacterData createSubgroup(int subgroupNumber) {
-		return this.subgroups_[subgroupNumber].generateNewTOCD(this);
-	}
+    /**
+     * Defines a single subgroup.
+     *
+     * @param subgroup An array of zero-based indexes of the members that form the subgroup.
+     */
+    public final void setSubgroup(final int[] subgroup) {
+        this.subgroups_ = SubgroupHandler.create(subgroup);
+    }
+
+    /**
+     * Defines a single subgroup using member names.
+     *
+     * @param subgroup An array of names (String) that represent the members of the subgroup.
+     * Nonexistent members are ignored.
+     */
+    public final void setSubgroup(final String[] subgroup) {
+        this.subgroups_ = SubgroupHandler.create(this, subgroup);
+    }
+
+    /**
+     * Defines multiple subgroups using member names.
+     *
+     * @param subgroups An array of String arrays. Each inner array holds the names of the members
+     * for a particular subgroup. Nonexistent members are ignored.
+     * Note: members can appear in more than one subgroup.
+     */
+    public final void setSubgroups(final String[][] subgroups) {
+        this.subgroups_ = SubgroupHandler.create(this, subgroups);
+    }
+
+    /**
+     * Checks if any subgroups have been defined.
+     *
+     * @return {@code true} if subgroups have been defined, {@code false} otherwise.
+     */
+    public final boolean hasSubgroups() {
+        return this.subgroups_!=null;
+    }
+
+    /**
+     * Returns the total number of defined subgroups.
+     *
+     * @return The number of defined subgroups, or 0 if none are defined.
+     */
+    public final int getNumberOfSubgroups() {
+        return (subgroups_==null? 0 : subgroups_.length);
+    }
+
+    /**
+     * Creates a new TimeOrderCharacterData object which is a subset corresponding to a specified subgroup.
+     * Note: Different subgroups may contain the same members.
+     *
+     * @param subgroupNumber The zero-based index of the subgroup to create the subset from.
+     * @return A new TimeOrderCharacterData object representing the specified subgroup.
+     */
+    public final TimeOrderCharacterData createSubgroup(int subgroupNumber) {
+        return this.subgroups_[subgroupNumber].generateNewTOCD(this);
+    }
 	public final Identifier[] getSubgroupMembers(int subgroupNumber) {
 		return this.subgroups_[subgroupNumber].getSubgroupMembers(this);
 	}
 
 
-	/**
-	 * Sets the times, and works out what the ordinals should be.
-	 */
-	public void setTimes(double[] times, int units) {
-		setTimes(times, units, true);
-	}
+    /**
+     * Sets the time values and calculates the corresponding time ordinals automatically.
+     *
+     * @param times An array of double values representing the time for each member.
+     * @param units An integer representing the unit of time (e.g., years, days).
+     */
+    public void setTimes(double[] times, int units) {
+        setTimes(times, units, true);
+    }
 
-	/**
-	 * Sets the times.
-	 * @param recalculateOrdinals true if ordinals should be
-	 * recalculated from the times.
-	 */
-	public void setTimes(double[] times, int units, boolean recalculateOrdinals) {
-		this.times = times;
-		this.units = units;
-		if (recalculateOrdinals) {
-			setOrdinalsFromTimes();
-		}
-	}
+    /**
+     * Sets the time values with an option to recalculate time ordinals.
+     *
+     * @param times An array of double values representing the time for each member.
+     * @param units An integer representing the unit of time (e.g., years, days).
+     * @param recalculateOrdinals {@code true} if the time ordinals should be recalculated from the new times; {@code false} otherwise.
+     */
+    public void setTimes(double[] times, int units, boolean recalculateOrdinals) {
+        this.times = times;
+        this.units = units;
+        if (recalculateOrdinals) {
+            setOrdinalsFromTimes();
+        }
+    }
 
 	public TimeOrderCharacterData scale(double rate, int newUnits) {
 		TimeOrderCharacterData scaled = clone(this);
@@ -285,160 +323,190 @@ public class TimeOrderCharacterData implements Serializable, BranchLimits, Units
 		}
 		return scaled;
 	}
-	/**
-	 * Sets ordinals.
-	 */
-	public void setOrdinals(int[] ordinals) {
-		timeOrdinals = ordinals;
-	}
-	/**
-	 * @return the maximum time
-	 */
-	public double getMaximumTime() {
-		if(times==null) {
-			throw new RuntimeException("Error: getMaximumTime() called with no times");
-		}
-		double max = times[0];
-		for(int i = 1 ; i < times.length ; i++) {
-			if(times[i]>max) {
-				max = times[i];
-			}
-		}
-		return max;
-	}
-	/**
-	 * @return the minimum time
-	 */
-	public double getMinimumTime() {
-		if(times==null) {
-			throw new RuntimeException("Error: getMinimumTime() called with no times");
-		}
-		double min = times[0];
-		for(int i = 1 ; i < times.length ; i++) {
-			if(times[i]<min) {
-				min = times[i];
-			}
-		}
-		return min;
-	}
+    /**
+     * Sets the time ordinals for this object.
+     *
+     * @param ordinals An array of integers representing the time ordinal for each member.
+     */
+    public void setOrdinals(int[] ordinals) {
+        timeOrdinals = ordinals;
+    }
 
-	/**
-	 * Gets ordinals.
-	 */
-	public int[] getOrdinals() {
-		return timeOrdinals;
-	}
+    /**
+     * Calculates and returns the maximum time value present in the data.
+     *
+     * @return The maximum time value.
+     * @throws RuntimeException If the time data has not been set (i.e., {@code times} is {@code null}).
+     */
+    public double getMaximumTime() {
+        if(times==null) {
+            throw new RuntimeException("Error: getMaximumTime() called with no times");
+        }
+        double max = times[0];
+        for(int i = 1 ; i < times.length ; i++) {
+            if(times[i]>max) {
+                max = times[i];
+            }
+        }
+        return max;
+    }
 
-	/**
-	 * Returns a copy of the times in the form of an array.
-	 */
-	public double[] getCopyOfTimes() {
-		double[] copyTimes = new double[times.length];
-		System.arraycopy(times, 0, copyTimes, 0, times.length);
-		return copyTimes;
-	}
-	/**
-	 * Creates a new TimeOrderCharacterData object with the same properites as this one
-	 * but the identifier positions match that of base (ie whichIdNumber(Name) returns the same as for base)
-	 * @throws IllegalArgumentException if the base ids don't match the ids of this tocd
-	 *
-	 */
-	public TimeOrderCharacterData getReordered(IdGroup base) {
-		return new TimeOrderCharacterData(this,base);
-	}
+    /**
+     * Calculates and returns the minimum time value present in the data.
+     *
+     * @return The minimum time value.
+     * @throws RuntimeException If the time data has not been set (i.e., {@code times} is {@code null}).
+     */
+    public double getMinimumTime() {
+        if(times==null) {
+            throw new RuntimeException("Error: getMinimumTime() called with no times");
+        }
+        double min = times[0];
+        for(int i = 1 ; i < times.length ; i++) {
+            if(times[i]<min) {
+                min = times[i];
+            }
+        }
+        return min;
+    }
 
-	/**
-	 * Remove time character data.
-	 */
-	public void removeTimes() {
-		times = null;
-	}
-	/**
-	 * Given an array of rates between samples (matching exactly the samples in order) then
-	 * produces a TimeOrderCharacterData object that is timed by Expected Substitutions.
-	 * Needs only sample information so no real time information required.
-	 */
-	public TimeOrderCharacterData generateExpectedSubsitutionsTimedTOCD(double[] sampleRates) {
-		TimeOrderCharacterData result = new TimeOrderCharacterData(this,Units.EXPECTED_SUBSTITUTIONS);
-		double[] times = new double[getIdCount()];
-		for(int i = 0 ; i < times.length ; i++) {
-			int sample = getTimeOrdinal(i);
-			double total = 0;
-			//Yes, I know this is inefficient but it's too late in the afternoon for me.
-			for(int es = 0; es<sample ; es++) {	total+=sampleRates[es];	}
-			times[i] = total;
-		}
-		result.setTimes(times,Units.EXPECTED_SUBSTITUTIONS);
-		return result;
-	}
-	/**
-	 * @return a dummy time order character data base on this that does have times, but
-	 * the times are set to match the sample number. Eg. Ids in sample 0 have time 0, ids in sample 1 have time 1, and so on. The
-	 * Units are UNKNOWN
-	 */
-	public TimeOrderCharacterData generateDummyTimedTOCD(double[] sampleRates) {
-		TimeOrderCharacterData dummy = new TimeOrderCharacterData(this,Units.EXPECTED_SUBSTITUTIONS);
-		double[] times = new double[getIdCount()];
-		for(int i = 0 ; i < times.length ; i++) {
-			times[i] = getTimeOrdinal(i);
-		}
-		dummy.setTimes(times, Units.UNKNOWN);
-		return dummy;
-	}
+    /**
+     * Gets the time ordinals array.
+     *
+     * @return The array of time ordinals.
+     */
+    public int[] getOrdinals() {
+        return timeOrdinals;
+    }
 
+    /**
+     * Returns a copy of the time values in the form of an array.
+     *
+     * @return A new array containing a copy of the time values.
+     */
+    public double[] getCopyOfTimes() {
+        double[] copyTimes = new double[times.length];
+        System.arraycopy(times, 0, copyTimes, 0, times.length);
+        return copyTimes;
+    }
 
+    /**
+     * Creates a new TimeOrderCharacterData object with the same properties as this one,
+     * but with the identifier positions reordered to match those of the specified base group.
+     *
+     * @param base The IdGroup that defines the desired order of identifiers.
+     * @return A new reordered TimeOrderCharacterData object.
+     * @throws IllegalArgumentException If the base IDs do not match the IDs of this object.
+     */
+    public TimeOrderCharacterData getReordered(IdGroup base) {
+        return new TimeOrderCharacterData(this,base);
+    }
 
-	/**
-	 * Set time ordinals from another TimeOrderCharacterData.
-	 * Select ordinals by matching names.
-	 * @param tocd to take ordinals from.
-	 */
-	public void setOrdinals(TimeOrderCharacterData tocd) {
-		setOrdinals(tocd, null, false);
-	}
+    /**
+     * Removes the time character data by setting the internal time array to {@code null}.
+     */
+    public void removeTimes() {
+        times = null;
+    }
 
-	public void setTimesAndOrdinals(TimeOrderCharacterData tocd) {
-		setOrdinals(tocd, null, true);
-	}
+    /**
+     * Given an array of rates between samples, produces a new TimeOrderCharacterData object
+     * where times are calculated based on Expected Substitutions.
+     *
+     * @param sampleRates An array of rates corresponding to the samples in order.
+     * @return A new TimeOrderCharacterData object timed by Expected Substitutions.
+     */
+    public TimeOrderCharacterData generateExpectedSubsitutionsTimedTOCD(double[] sampleRates) {
+        TimeOrderCharacterData result = new TimeOrderCharacterData(this,Units.EXPECTED_SUBSTITUTIONS);
+        double[] times = new double[getIdCount()];
+        for(int i = 0 ; i < times.length ; i++) {
+            int sample = getTimeOrdinal(i);
+            double total = 0;
+            //Yes, I know this is inefficient but it's too late in the afternoon for me.
+            for(int es = 0; es<sample ; es++) {    total+=sampleRates[es];    }
+            times[i] = total;
+        }
+        result.setTimes(times,Units.EXPECTED_SUBSTITUTIONS);
+        return result;
+    }
 
-	/**
-	 * Set time ordinals from another TimeOrderCharacterData.
-	 * Select ordinals by matching names.
-	 * @param tocd to take ordinals from
-	 * @param idgroup use these labels to match indices in given tocd.
-	 * @param doTimes if set then sets times as well
-	 */
-	public void setOrdinals(TimeOrderCharacterData tocd, IdGroup standard, boolean doTimes) {
+    /**
+     * Creates a new TimeOrderCharacterData object that uses a dummy time scale.
+     * The time value for each member is set to match its sample number (ordinal).
+     * The units are set to {@code Units.UNKNOWN}.
+     *
+     * @param sampleRates This parameter is not used in the calculation but is kept for API compatibility.
+     * @return A new TimeOrderCharacterData object with dummy times (time = ordinal).
+     */
+    public TimeOrderCharacterData generateDummyTimedTOCD(double[] sampleRates) {
+        TimeOrderCharacterData dummy = new TimeOrderCharacterData(this,Units.EXPECTED_SUBSTITUTIONS);
+        double[] times = new double[getIdCount()];
+        for(int i = 0 ; i < times.length ; i++) {
+            times[i] = getTimeOrdinal(i);
+        }
+        dummy.setTimes(times, Units.UNKNOWN);
+        return dummy;
+    }
 
-		if (timeOrdinals == null) {
-			timeOrdinals = new int[taxa.getIdCount()];
-		}
+    /**
+     * Sets the time ordinals (and optionally times) from another TimeOrderCharacterData object
+     * by matching member names.
+     *
+     * @param tocd The TimeOrderCharacterData object to take ordinals (and times) from.
+     */
+    public void setOrdinals(TimeOrderCharacterData tocd) {
+        setOrdinals(tocd, null, false);
+    }
 
-		if (doTimes && tocd.hasTimes()) {
-			times = new double[taxa.getIdCount()];
-		}
+    /**
+     * Sets both the time values and time ordinals from another TimeOrderCharacterData object
+     * by matching member names.
+     *
+     * @param tocd The TimeOrderCharacterData object to take times and ordinals from.
+     */
+    public void setTimesAndOrdinals(TimeOrderCharacterData tocd) {
+        setOrdinals(tocd, null, true);
+    }
 
-		if (standard == null) {
-			standard = tocd;
-		}
+    /**
+     * Sets the time ordinals (and optionally times) from another TimeOrderCharacterData object.
+     * Ordinals and times are selected by matching member names between the two objects.
+     *
+     * @param tocd The TimeOrderCharacterData object to take ordinals and times from.
+     * @param standard The IdGroup to use as the standard for matching indices in the given {@code tocd}. If {@code null}, {@code tocd} is used.
+     * @param doTimes If {@code true}, times are also set; otherwise, only ordinals are set.
+     */
+    public void setOrdinals(TimeOrderCharacterData tocd, IdGroup standard, boolean doTimes) {
 
-		for (int i = 0; i < taxa.getIdCount(); i++) {
+        if (timeOrdinals == null) {
+            timeOrdinals = new int[taxa.getIdCount()];
+        }
 
-			String name = taxa.getIdentifier(i).getName();
-			int index = standard.whichIdNumber(name);
-			if (index == -1) {
-				System.err.println("Identifiers don't match!");
-				System.err.println("Trying to find: '" + name + "' in:");
-				System.err.println(standard);
-				//System.exit(1);
-			}
+        if (doTimes && tocd.hasTimes()) {
+            times = new double[taxa.getIdCount()];
+        }
 
-			timeOrdinals[i] = tocd.getTimeOrdinal(index);
-			if (doTimes && tocd.hasTimes()) {
-				times[i] = tocd.getTime(index);
-			}
-		}
-	}
+        if (standard == null) {
+            standard = tocd;
+        }
+
+        for (int i = 0; i < taxa.getIdCount(); i++) {
+
+            String name = taxa.getIdentifier(i).getName();
+            int index = standard.whichIdNumber(name);
+            if (index == -1) {
+                System.err.println("Identifiers don't match!");
+                System.err.println("Trying to find: '" + name + "' in:");
+                System.err.println(standard);
+                //System.exit(1);
+            }
+
+            timeOrdinals[i] = tocd.getTimeOrdinal(index);
+            if (doTimes && tocd.hasTimes()) {
+                times[i] = tocd.getTime(index);
+            }
+        }
+    }
 
 	private final boolean equal(double a, double b, double epsilon) {
 		return(Math.abs(a-b)<epsilon);
@@ -466,186 +534,283 @@ public class TimeOrderCharacterData implements Serializable, BranchLimits, Units
 		}
 	}
 
-	/**
-	 * Returns the number of characters per identifier
-	 */
-	public int getNumChars() {
-		if (hasTimes()) {
-			return 2;
-		} else return 1;
-	}
+    /**
+     * Returns the number of characters (data points) associated with each identifier.
+     * This is 2 if time values exist (time + ordinal), and 1 otherwise (only ordinal).
+     *
+     * @return The number of characters per identifier (1 or 2).
+     */
+    public int getNumChars() {
+        if (hasTimes()) {
+            return 2;
+        } else return 1;
+    }
 
-	/**
-	 * Returns a name for this character data.
-	 */
-	public String getName() {
-		return name;
-	}
+    /**
+     * Returns the descriptive name assigned to this character data set.
+     *
+     * @return The name of this character data.
+     */
+    public String getName() {
+        return name;
+    }
 
-	/**
-	 * Sets the name of this character data.
-	 */
-	public void setName(String name) {
-		this.name = name;
-	}
+    /**
+     * Sets the descriptive name of this character data set.
+     *
+     * @param name The new name for this character data.
+     */
+    public void setName(String name) {
+        this.name = name;
+    }
 
-	public double getTime(int taxon) {
-		return times[taxon];
-	}
-	/**
-	 * Obtain the time of a particular ordinal
-	 * @param ordinal The ordinal of interest
-	 * @return The time of the input ordinal
-	 * @throws IllegalArgumentException If no such ordinal
-	 */
-	public double getOrdinalTime(int ordinal) {
-	  for(int i = 0 ; i < timeOrdinals.length ; i++) {
-		  if(timeOrdinals[i]==ordinal) {
-			  return times[i];
-			}
-		}
-		throw new IllegalArgumentException("Unknown ordinal");
-	}
+    /**
+     * Returns the time value for the identifier at the specified index.
+     *
+     * @param taxon The zero-based index of the identifier (taxon) of interest.
+     * @return The time value for the specified identifier.
+     */
+    public double getTime(int taxon) {
+        return times[taxon];
+    }
 
-	public double getTime(String taxonName) {
-		int i = whichIdNumber(taxonName);
-		return times[i];
-	}
+    /**
+     * Obtains the time value associated with a particular time ordinal (sample number).
+     *
+     * @param ordinal The time ordinal (sample number) of interest.
+     * @return The time value corresponding to the input ordinal.
+     * @throws IllegalArgumentException If no identifier has the specified ordinal value.
+     */
+    public double getOrdinalTime(int ordinal) {
+        for(int i = 0 ; i < timeOrdinals.length ; i++) {
+            if(timeOrdinals[i]==ordinal) {
+                return times[i];
+            }
+        }
+        throw new IllegalArgumentException("Unknown ordinal");
+    }
+
+    /**
+     * Returns the time value for the identifier with the specified name.
+     *
+     * @param taxonName The name of the identifier (taxon) of interest.
+     * @return The time value for the specified identifier.
+     */
+    public double getTime(String taxonName) {
+        int i = whichIdNumber(taxonName);
+        return times[i];
+    }
 
 
-	/**
-	 * NOTE: currently assumes times exist!
-	 */
-	public double getHeight(int taxon, double rate) {
-		return times[taxon] * rate;
-	}
+    /**
+     * Calculates the evolutionary "height" or distance for a taxon, given a specific rate.
+     *
+     * @param taxon The zero-based index of the identifier (taxon).
+     * @param rate The rate used for calculation (height = time * rate).
+     * @return The calculated height for the specified taxon.
+     * NOTE: currently assumes times exist!
+     */
+    public double getHeight(int taxon, double rate) {
+        return times[taxon] * rate;
+    }
 
-	public int getTimeOrdinal(int taxon) {
-		return timeOrdinals[taxon];
-	}
-	public int getTimeOrdinal(String taxonName) {
-		int i = whichIdNumber(taxonName);
-		return timeOrdinals[i];
-	}
-	public int getTimeOrdinal(Identifier taxonName) {
-		int i = whichIdNumber(taxonName.getName());
-		return timeOrdinals[i];
-	}
+    /**
+     * Returns the time ordinal (sample number) for the identifier at the specified index.
+     *
+     * @param taxon The zero-based index of the identifier (taxon) of interest.
+     * @return The time ordinal for the specified identifier.
+     */
+    public int getTimeOrdinal(int taxon) {
+        return timeOrdinals[taxon];
+    }
 
-	public boolean hasTimes() {
-		return times != null;
-	}
+    /**
+     * Returns the time ordinal (sample number) for the identifier with the specified name.
+     *
+     * @param taxonName The name of the identifier (taxon) of interest.
+     * @return The time ordinal for the specified identifier.
+     */
+    public int getTimeOrdinal(String taxonName) {
+        int i = whichIdNumber(taxonName);
+        return timeOrdinals[i];
+    }
 
-	/**
-	 * Returns an ordered vector of unique times in this
-	 * time order character data.
-	 */
-	public double[] getUniqueTimeArray() {
-		int count = getSampleCount();
-		double[] utimes = new double[count];
-		for (int i = 0; i < times.length; i++) {
-			utimes[getTimeOrdinal(i)] = times[i];
-		}
-		return utimes;
-	}
+    /**
+     * Returns the time ordinal (sample number) for the specified identifier object.
+     *
+     * @param taxonName The Identifier object of interest.
+     * @return The time ordinal for the specified identifier.
+     */
+    public int getTimeOrdinal(Identifier taxonName) {
+        int i = whichIdNumber(taxonName.getName());
+        return timeOrdinals[i];
+    }
 
-	/**
-	 * Returns a matrix of times between samples. A
-	 * sample is any set of identifiers that have the same times.
-	 */
-	public double[][] getUniqueTimeMatrix() {
-		double[] utimes = getUniqueTimeArray();
-		int count = utimes.length;
-		double[][] stimes = new double[count][count];
-		for (int i = 0; i < count; i++) {
-			for (int j = 0; j < count; j++) {
-				stimes[i][j] = Math.abs(utimes[i] - utimes[j]);
-			}
-		}
+    /**
+     * Checks if time values have been set for this character data.
+     *
+     * @return {@code true} if time values exist (i.e., {@code times} is not {@code null}), {@code false} otherwise.
+     */
+    public boolean hasTimes() {
+        return times != null;
+    }
 
-		return stimes;
-	}
+    /**
+     * Returns an ordered array of unique time values present in this data.
+     * The array is indexed by the time ordinal (sample number).
+     *
+     * @return An array where {@code result[ordinal] = time}.
+     */
+    public double[] getUniqueTimeArray() {
+        int count = getOrdinalCount();
+        double[] utimes = new double[count];
+        for (int i = 0; i < times.length; i++) {
+            utimes[getTimeOrdinal(i)] = times[i];
+        }
+        return utimes;
+    }
 
-	/**
-	 * A sample is any set of identifiers that have the same times.
-	 * @return the number of unique times in this data.
-	 * @deprecated Use getOrdinalCount()
-	 */
-	public int getSampleCount() {
-	  return getOrdinalCount();
-	}
-	/**
-	 * @return the number of unique times in this data.
-	 */
-	public int getOrdinalCount() {
-		int max = 0;
-		for (int i = 0; i < timeOrdinals.length; i++) {
-			if (timeOrdinals[i] > max) max = timeOrdinals[i];
-		}
-		return max + 1;
-	}
+    /**
+     * Returns a symmetric matrix of the absolute time differences between all unique samples (ordinals).
+     * A sample is defined as any set of identifiers that share the same time value.
+     *
+     * @return A matrix where {@code result[i][j]} is the absolute time difference between sample {@code i} and sample {@code j}.
+     */
+    public double[][] getUniqueTimeMatrix() {
+        double[] utimes = getUniqueTimeArray();
+        int count = utimes.length;
+        double[][] stimes = new double[count][count];
+        for (int i = 0; i < count; i++) {
+            for (int j = 0; j < count; j++) {
+                stimes[i][j] = Math.abs(utimes[i] - utimes[j]);
+            }
+        }
 
-	/**
-	 * Returns a string representation of this time order character data.
-	 */
-	public String toString() {
-		StringBuffer sb = new StringBuffer();
+        return stimes;
+    }
 
-		sb.append("Identifier\t"+ (hasTimes() ? "Times\t" : "") + "Sample\n");
-		for (int i = 0; i < taxa.getIdCount(); i++) {
-			sb.append(taxa.getIdentifier(i) + "\t" +
-				(hasTimes() ? getTime(i) + "\t" : "") +
-				getTimeOrdinal(i)+"\n");
-		}
-		return new String(sb);
-	}
+    /**
+     * A sample is defined as any set of identifiers that have the same time.
+     *
+     * @return The number of unique time ordinals (samples) in this data.
+     * @deprecated Use {@link #getOrdinalCount()}
+     */
+    public int getSampleCount() {
+        return getOrdinalCount();
+    }
 
-	public void shuffleTimes() {
-		MersenneTwisterFast mtf = new MersenneTwisterFast();
+    /**
+     * Returns the number of unique time ordinals (samples) in this data.
+     * This is calculated as the maximum ordinal value plus one (assuming ordinals start at 0).
+     *
+     * @return The number of unique time ordinals (samples).
+     */
+    public int getOrdinalCount() {
+        int max = 0;
+        for (int i = 0; i < timeOrdinals.length; i++) {
+            if (timeOrdinals[i] > max) max = timeOrdinals[i];
+        }
+        return max + 1;
+    }
 
-		int[] indices = mtf.shuffled(timeOrdinals.length);
+    /**
+     * Returns a string representation of this time order character data, listing
+     * each identifier along with its time and sample (ordinal) number.
+     *
+     * @return A formatted string representation of the data.
+     */
+    public String toString() {
+        StringBuffer sb = new StringBuffer();
 
-		int[] newOrdinals = new int[timeOrdinals.length];
-		double[] newTimes = null;
-		if (hasTimes()) {
-			newTimes = new double[times.length];
-		}
-		for (int i = 0; i < timeOrdinals.length; i++) {
-			newOrdinals[i] = timeOrdinals[indices[i]];
-			if (hasTimes()) { newTimes[i] = times[indices[i]]; }
-		}
+        sb.append("Identifier\t"+ (hasTimes() ? "Times\t" : "") + "Sample\n");
+        for (int i = 0; i < taxa.getIdCount(); i++) {
+            sb.append(taxa.getIdentifier(i) + "\t" +
+                    (hasTimes() ? getTime(i) + "\t" : "") +
+                    getTimeOrdinal(i)+"\n");
+        }
+        return new String(sb);
+    }
 
-		timeOrdinals = newOrdinals;
-		if (hasTimes()) times = newTimes;
-	}
+    /**
+     * Randomly shuffles the assignment of time ordinals and time values to the identifiers
+     * by permuting the data arrays. The association between a time/ordinal pair is preserved,
+     * but the pair is assigned to a different identifier.
+     */
+    public void shuffleTimes() {
+        MersenneTwisterFast mtf = new MersenneTwisterFast();
 
-	//IdGroup interface
-	public Identifier getIdentifier(int i) {return taxa.getIdentifier(i);}
-	public void setIdentifier(int i, Identifier ident) { taxa.setIdentifier(i, ident); }
-	public int getIdCount() { return taxa.getIdCount(); }
-	public int whichIdNumber(String name) { return taxa.whichIdNumber(name); }
+        int[] indices = mtf.shuffled(timeOrdinals.length);
 
-	/**
-	 * Return id group of this alignment.
-	 * @deprecated TimeOrderCharacterData now implements IdGroup
-	 */
-	public IdGroup getIdGroup() { return taxa; }
+        int[] newOrdinals = new int[timeOrdinals.length];
+        double[] newTimes = null;
+        if (hasTimes()) {
+            newTimes = new double[times.length];
+        }
+        for (int i = 0; i < timeOrdinals.length; i++) {
+            newOrdinals[i] = timeOrdinals[indices[i]];
+            if (hasTimes()) { newTimes[i] = times[indices[i]]; }
+        }
 
-	/**
-	 * A simple utility method for generating a maximu mutation rate based
-	 * on times. This is not guarranteed to be the best method. If the times are
-	 * small (ie total differenct < 1), the maximum Mutation Rate is high. If the times are large
-	 * (eg total differenct > 1) the maximum Mutation Rate is low. IE. the aim is to keep the Expected substitutions (mu*t) range reasonable (<1)
-	 */
-	public final double getSuggestedMaximumMutationRate() {
-		double[] times = getUniqueTimeArray();
-		double minDiff = times[1] - times[0];
-		for(int i = 2 ; i < times.length ; i++) {
-			double diff = times[i]-times[i-1];
-			if(diff<minDiff) { minDiff = diff; }
-		}
-		return 5/minDiff;
-	}
+        timeOrdinals = newOrdinals;
+        if (hasTimes()) times = newTimes;
+    }
+
+//IdGroup interface methods:
+
+    /**
+     * Returns the identifier at the specified index.
+     *
+     * @param i The zero-based index.
+     * @return The Identifier object.
+     */
+    public Identifier getIdentifier(int i) {return taxa.getIdentifier(i);}
+
+    /**
+     * Sets the identifier at the specified index.
+     *
+     * @param i The zero-based index.
+     * @param ident The new Identifier object to set.
+     */
+    public void setIdentifier(int i, Identifier ident) { taxa.setIdentifier(i, ident); }
+
+    /**
+     * Returns the total number of identifiers in this data set.
+     *
+     * @return The count of identifiers.
+     */
+    public int getIdCount() { return taxa.getIdCount(); }
+
+    /**
+     * Finds the index of the identifier with the given name.
+     *
+     * @param name The name of the identifier to search for.
+     * @return The zero-based index of the identifier, or -1 if not found.
+     */
+    public int whichIdNumber(String name) { return taxa.whichIdNumber(name); }
+
+    /**
+     * Returns the underlying IdGroup object containing the identifiers.
+     *
+     * @return The IdGroup object.
+     * @deprecated TimeOrderCharacterData now implements IdGroup directly, making this method redundant.
+     */
+    public IdGroup getIdGroup() { return taxa; }
+
+    /**
+     * A simple utility method for generating a suggested maximum mutation rate based on the minimum time difference between samples.
+     * The aim is to keep the range of Expected Substitutions (mu * t) reasonable (e.g., less than 1).
+     *
+     * @return The suggested maximum mutation rate.
+     */
+    public final double getSuggestedMaximumMutationRate() {
+        double[] times = getUniqueTimeArray();
+        double minDiff = times[1] - times[0];
+        for(int i = 2 ; i < times.length ; i++) {
+            double diff = times[i]-times[i-1];
+            if(diff<minDiff) { minDiff = diff; }
+        }
+        return 5/minDiff;
+    }
 
 // ============================================================================
 // ====== SubgroupHandler =====================================================

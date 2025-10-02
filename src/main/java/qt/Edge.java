@@ -63,15 +63,22 @@ public class Edge {
       }
     }
   }
- 
-  /**Calculates the size of the intersection of leaves between the
-     rooted trees represented by this directed edge, and the given
-     edge. A table is given to utilize dynamic programming. A boolean
-     defines how to look up in the table
-     @param other the directed edge representing the other tree
-     @param sizes the known intersecion sizes
-     @param row whether to look up in rows or columns
-  */
+
+/**
+ * Calculates the size of the intersection of the **leaf sets** (descendants) between the
+ * subtree defined by this directed edge and the subtree defined by the given {@code other} edge.
+ *
+ * <p>This method uses **dynamic programming** with a memoization table (`sizes`) to store and reuse
+ * computed intersection sizes, which is fundamental to the quartet distance algorithm.
+ *
+ * @param other The directed edge representing the subtree in the other tree.
+ * @param sizes The 2D integer array (table) used for memoization of known intersection sizes.
+ * The value {@code Integer.MIN_VALUE} indicates an uncomputed entry.
+ * @param row A boolean flag that determines the lookup indices:
+ * - If {@code true}: indices are {@code [this.id][other.id]}.
+ * - If {@code false}: indices are {@code [other.id][this.id]}.
+ * @return The size of the intersection of the leaf sets of the two subtrees.
+ */
   public int intSize(Edge other, int[][] sizes, boolean row) {
     int i,j;
     if (row) {
@@ -191,12 +198,15 @@ public class Edge {
     return backedge.id;
   }
 
-  /**Return the size of the subtree that this edge points to
-     measured in leaves*/
-  public int getSubtreeSize() {
-    return size;
-  }
-
+    /**
+     * Returns the size of the subtree that this edge points to,
+     * measured by the number of leaves (terminal nodes) contained within that subtree.
+     *
+     * @return The integer size of the descendant leaf set of the node pointed to by this edge.
+     */
+    public int getSubtreeSize() {
+        return size;
+    }
 
   /**Computes the number of ways to select two elements from a set of
      size n (also known as 'n choose 2')

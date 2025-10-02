@@ -30,7 +30,10 @@ public class IntervalsExtractor implements Units
 
 	/**
 	 * extracts intervals from clock tree.
-	 */
+     *
+     * @param tree the clock tree from which to extract intervals
+     * @return CoalescentIntervals object representing the extracted intervals
+     */
 	public static CoalescentIntervals extractFromClockTree(Tree tree)
 	{
 		return extractFromClockTree(tree, -1);
@@ -38,10 +41,14 @@ public class IntervalsExtractor implements Units
 
 	/**
 	 * extracts intervals from clock tree. Leafs are assumed to have
-	 * height zero.  Starting at time zero, small (<= minSize) intervals are pooled
+	 * height zero.  Starting at time zero, small (&lt;= minSize) intervals are pooled
 	 * with the next non-small interval (if this does not exist then
 	 * with the previous non-small interval)
-	 */
+     *
+     * @param tree    the clock tree from which to extract intervals
+     * @param minSize the minimum interval size for pooling (&lt;= minSize are pooled)
+     * @return CoalescentIntervals object representing the extracted intervals
+     */
 	public static CoalescentIntervals extractFromClockTree(Tree tree, double minSize)
 	{
 		tree.createNodeList(); //make consistent
@@ -54,7 +61,6 @@ public class IntervalsExtractor implements Units
 		//{
 		//	tree.getExternalNode(i).setNodeHeight(0.0);
 		//}
-
 
 		Vector times = new Vector();
 		Vector childs = new Vector();
@@ -113,7 +119,11 @@ public class IntervalsExtractor implements Units
 	/**
 	 * extracts intervals in generation times from serial clock tree (in mutation times)
 	 * after taking into account mutation rate model.
-	 */
+     *
+     * @param tree    the clock tree in mutation time units
+     * @param muModel the mutation rate model for converting to generation times
+     * @return CoalescentIntervals object representing the extracted intervals
+     */
 	public static CoalescentIntervals extractFromTree(Tree tree, MutationRateModel muModel) {
 
 		Tree newTree = TreeUtils.mutationsToGenerations(tree, muModel);
@@ -122,7 +132,10 @@ public class IntervalsExtractor implements Units
 
 	/**
 	 * extracts intervals from serial clock tree.
-	 */
+     *
+     * @param tree the serial clock tree
+     * @return CoalescentIntervals object representing the extracted intervals
+     */
 	public static CoalescentIntervals extractFromTree(Tree tree)
 	{
 		double MULTIFURCATION_LIMIT = BranchLimits.MINARC;
@@ -187,8 +200,6 @@ public class IntervalsExtractor implements Units
 			// coalescent event
 			numLines -= lineagesRemoved;
 
-
-
 		}
 
 		CoalescentIntervals ci = new CoalescentIntervals(intervals.size());
@@ -200,7 +211,6 @@ public class IntervalsExtractor implements Units
 		// Same Units as tree
 		ci.setUnits(tree.getUnits());
 
-
 		return ci;
 	}
 
@@ -208,7 +218,11 @@ public class IntervalsExtractor implements Units
 
 	/**
 	 * extract coalescent times and tip information into Vector times from tree.
-	 */
+     *
+     * @param node   the node to start collecting from
+     * @param times  vector to store node heights
+     * @param childs vector to store node child counts
+     */
 	private static void collectAllTimes(Node node, Vector times, Vector childs) {
 
 		times.addElement(new ComparableDouble(node.getNodeHeight()));
@@ -221,7 +235,11 @@ public class IntervalsExtractor implements Units
 
 	/**
 	 * extract internal node heights Vector times from tree.
-	 */
+     *
+     * @param node   the node to start collecting from
+     * @param times  vector to store internal node heights
+     * @param childs vector to store internal node child counts
+     */
 	private static void collectInternalNodeHeights(Node node, Vector times, Vector childs)
 	{
 		if (!node.isLeaf())

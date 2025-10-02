@@ -19,7 +19,7 @@ import pal.misc.*;
  * @version $Id: AlignmentUtils.java,v 1.29 2004/10/14 02:01:43 matt Exp $
  *
  * @author Alexei Drummond
- *  * @note
+ *  * Note:
  *     <ul>
  *       <li> 14 August 2003 - Changed call to new SimpleAlignment() to reflect change in construtors (refered to not calculating frequencies but that no longer happens anyhow)
  *     </ul>
@@ -31,10 +31,13 @@ public class AlignmentUtils {
 
 	/**
 	 *  Report number of sequences, sites, and data type
-	 *  @note does not alter alignment state. If data type not defined
+	 *  Note: does not alter alignment state. If data type not defined
 	 *  in alignment will find a suitable instance for report but will
 	 *  not change alignment!
-	 */
+     *
+     * @param a   the alignment to report on.
+     * @param out the PrintWriter to write the report to.
+     */
 	public static void report(Alignment a, PrintWriter out)
 	{
 		DataType dt = a.getDataType();
@@ -47,19 +50,32 @@ public class AlignmentUtils {
 		out.println("Data type: " + dt.getDescription() + " data");
 	}
 
-	/** print alignment (default format: INTERLEAVED) */
+    /** print alignment (default format: INTERLEAVED)
+     *
+     * @param a   the alignment to print.
+     * @param out the PrintWriter to print to.
+     */
 	public static void print(Alignment a, PrintWriter out)
 	{
 		printInterleaved(a, out);
 	}
 
-	/** print alignment (in plain format) */
-	public static void printPlain(Alignment a, PrintWriter out) {
+	/** print alignment (in plain format)
+     *
+     * @param a   the alignment to print.
+     * @param out the PrintWriter to print to.
+     */
+    public static void printPlain(Alignment a, PrintWriter out) {
 		printPlain(a, out, false);
 	}
 
-	/** print alignment (in plain format) */
-	public static void printPlain(Alignment a, PrintWriter out, boolean relaxed)
+	/** print alignment (in plain format)
+     *
+     * @param a       the alignment to print.
+     * @param out     the PrintWriter to print to.
+     * @param relaxed if true, labels are displayed with wider spacing.
+     */
+    public static void printPlain(Alignment a, PrintWriter out, boolean relaxed)
 	{
 		// PHYLIP header line
 		out.println("  " + a.getSequenceCount() + " " + a.getSiteCount());
@@ -73,8 +89,12 @@ public class AlignmentUtils {
 		}
 	}
 
-	/** print alignment (in PHYLIP SEQUENTIAL format) */
-	public static void printSequential(Alignment a, PrintWriter out)
+	/** print alignment (in PHYLIP SEQUENTIAL format)
+     *
+     * @param a   the alignment to print.
+     * @param out the PrintWriter to print to.
+     */
+    public static void printSequential(Alignment a, PrintWriter out)
 	{
 		// PHYLIP header line
 		out.println("  " + a.getSequenceCount() + " " + a.getSiteCount() + "  S");
@@ -102,9 +122,11 @@ public class AlignmentUtils {
 		}
 	}
 
-
-	/** print alignment (in PHYLIP 3.4 INTERLEAVED format) */
-	public static void printInterleaved(Alignment a, PrintWriter out)
+	/** print alignment (in PHYLIP 3.4 INTERLEAVED format)*
+     * @param a   the alignment to print.
+     * @param out the PrintWriter to print to.
+     */
+    public static void printInterleaved(Alignment a, PrintWriter out)
 	{
 		int n = 0;
 
@@ -134,8 +156,12 @@ public class AlignmentUtils {
 		}
 	}
 
-	/** Print alignment (in CLUSTAL W format) */
-	public static void printCLUSTALW(Alignment a, PrintWriter out)
+	/** Print alignment (in CLUSTAL W format)
+     *
+     * @param a   the alignment to print.
+     * @param out the PrintWriter to print to.
+     */
+    public static void printCLUSTALW(Alignment a, PrintWriter out)
 	{
 		int n = 0;
 
@@ -161,9 +187,15 @@ public class AlignmentUtils {
 		}
 	}
 
-	/**
-	 * Returns state indices for a sequence.
-	 */
+    /**
+     * Fills an array with state indices for a single aligned sequence.
+     *
+     * @param a           the alignment.
+     * @param i           the index of the sequence.
+     * @param indices     the array to fill with state indices.
+     * @param dataType    the data type used for converting characters to states.
+     * @param unknownState the value to assign to unknown characters.
+     */
 	public static final void getAlignedSequenceIndices(Alignment a, int i, int[] indices, DataType dataType, int unknownState) {
 
 		String sequence = a.getAlignedSequenceString(i);
@@ -178,13 +210,24 @@ public class AlignmentUtils {
 		}
 	}
 
-	/**
-	 * Unknown characters are given the state of -1
-	 */
+    /**
+     * Returns all aligned sequences as integer state matrices, using -1 for unknown characters.
+     *
+     * @param base the alignment.
+     * @return a 2D array of state indices.
+     */
 	public static final int[][] getAlignedStates(Alignment base) {
 		return getAlignedStates(base,-1);
 	}
-	public static final int[][] getAlignedStates(Alignment base, int unknownState) {
+
+    /**
+     * Returns all aligned sequences as integer state matrices, using the provided value for unknown characters.
+     *
+     * @param base         the alignment.
+     * @param unknownState the value to assign to unknown characters.
+     * @return a 2D array of state indices.
+     */
+    public static final int[][] getAlignedStates(Alignment base, int unknownState) {
 		int numberOfSites = base.getSiteCount();
 		DataType dt = base.getDataType();
 		int[][] sequences = new int[base.getSequenceCount()][base.getSiteCount()];
@@ -205,7 +248,13 @@ public class AlignmentUtils {
 	 * Returns total sum of pairs alignment penalty using gap creation
 	 * and extension penalties and transition penalties in the
 	 * TransitionPenaltyTable provided. By default this is end-weighted.
-	 */
+     *
+     * @param a           the alignment.
+     * @param penalties   the transition penalty table.
+     * @param gapCreation cost of opening a gap.
+     * @param gapExtension cost of extending a gap.
+     * @return total alignment penalty.
+     */
 	public static double getAlignmentPenalty(
 					Alignment a,
 					TransitionPenaltyTable penalties,
@@ -220,12 +269,16 @@ public class AlignmentUtils {
 	 * Returns total sum of pairs alignment distance using gap creation
 	 * and extension penalties and transition penalties as defined in the
 	 * TransitionPenaltyTable provided.
-	 * Gap cost calculated as follows: given gap of length len => gapCreation + (1en-l)*gapExtension
-	 * @param gapCreation the cost of the initial gap opening character
-	 * @param gapExtension the cost of the remaining gap characters
-
-	 * @param local true if end gaps ignored, false otherwise
-	 */
+	 * Gap cost calculated as follows: given gap of length len =&gt; gapCreation + (1en-l)*gapExtension
+     *
+     * @param a           the alignment.
+     * @param dataType    the data type of the alignment.
+     * @param penalties   the transition penalty table.
+     * @param gapCreation cost of opening a gap.
+     * @param gapExtension cost of extending a gap.
+     * @param local       if true, end gaps are ignored; if false, end gaps are penalized.
+     * @return total alignment penalty.
+     */
 	public static double getAlignmentPenalty(
 					Alignment a,
 					DataType dataType,
@@ -250,34 +303,31 @@ public class AlignmentUtils {
 		return totalBag.score(gapCreation, gapExtension);
 	}
 
-	/**
-	 * guess data type suitable for a given sequence data set
-	 *
-	 * @param alignment alignment
-	 *
-	 * @return suitable DataType object
-	 */
+    /**
+     * Guesses a suitable DataType for a given alignment.
+     *
+     * @param alignment the alignment to examine.
+     * @return a suitable DataType.
+     */
 	public static DataType getSuitableInstance(Alignment alignment) {
 		return getSuitableInstance(new AlignmentCM(alignment));
 	}
 
-		/**
-	 * guess data type suitable for a given sequence data set
-	 *
-	 * @param alignment the alignment represented as an array of strings
-	 *
-	 * @return suitable DataType object
-	 */
+    /**
+     * Guesses a suitable DataType for a given array of sequences represented as strings.
+     *
+     * @param sequences the sequences.
+     * @return a suitable DataType.
+     */
 	public static DataType getSuitableInstance(String[] sequences) {
 		return getSuitableInstance(new StringCM(sequences));
 	}
-	/**
-	 * guess data type suitable for a given sequence data set
-	 *
-	 * @param alignment the alignment represented as an array of strings
-	 *
-	 * @return suitable DataType object
-	 */
+    /**
+     * Guesses a suitable DataType for a given array of sequences represented as char arrays.
+     *
+     * @param sequences the sequences.
+     * @return a suitable DataType.
+     */
 	public static DataType getSuitableInstance(char[][] sequences) {
 		return getSuitableInstance(new CharacterCM(sequences));
 	}
@@ -373,10 +423,13 @@ public class AlignmentUtils {
 	}
 
 	/** count states
-	 *  @note Alignment state does not change! That is,
+	 *  Note: Alignment state does not change! That is,
 	 *  does not create a data type for alignment, and does not
 	 *  set the frequencies internally for the alignment
-	 */
+     *
+     * @param a the alignment to analyze.
+     * @return an array of doubles representing the relative frequency of each state.
+     */
 	public static double[] estimateFrequencies(Alignment a)
 	{
 		DataType dt = a.getDataType();
@@ -421,9 +474,12 @@ public class AlignmentUtils {
 
 	/** Estimates frequencies via tuplets. This is most useful for nucleotide data where the frequencies at each codon position are\
 	 *  of interest (tuplet size = 3)
-	 * @param a The input alignment
-	 * @param tupletSize the size of the tuplet
-	 *  @note Alignment state does not change! That is,
+     *
+     * @param a           the alignment to analyze.
+     * @param tupletSize  the size of the tuplet (e.g., 3 for codons).
+     * @return a 2D array of doubles, where frequencies[i][j] represents the frequency of
+     *         state j at tuplet position i.
+	 *  Note: Alignment state does not change! That is,
 	 *  does not create a data type for alignment, and does not
 	 *  set the frequencies internally for the alignment
 	 */
@@ -472,8 +528,6 @@ public class AlignmentUtils {
 		return frequencies;
 	}
 
-
-
 	public static final boolean isSiteRedundant(Alignment a, int site) {
 		int numSeq = a.getSequenceCount();
 		final DataType dt = a.getDataType();
@@ -511,15 +565,24 @@ public class AlignmentUtils {
 	/**
 	 * Returns true if the alignment has a gap at the site in the
 	 * sequence specified.
-	 */
+     *
+     * @param a   the alignment.
+     * @param seq the sequence index.
+     * @param site the site index within the sequence.
+     * @return true if there is a gap character at the specified position, false otherwise.
+     */
 	public static final boolean isGap(Alignment a, int seq, int site) {
 		return a.getDataType().isGapChar(a.getData(seq, site));
 	}
 
-	/**
+    /**
+     * Prints misalignment information for codons in an alignment using a given codon translator.
+     *
+     * @param a                      the alignment.
+     * @param out                    the PrintWriter to write output to.
 	 * @param startingCodonPosition from {0,1,2}, representing codon position
 	 * of first value in sequences...
-		 * @param translator the translator to use for converting codons to
+     * @param translator the translator to use for converting codons to
 	 * amino acids.
 	 * @param removeIncompleteCodons removes end codons that are not complete
 	 * (due to startingPosition, and sequence length).
@@ -570,9 +633,13 @@ public class AlignmentUtils {
 		}
 	}
 
-	/**
-		@param startingCodonPosition - from {0,1,2}, representing codon position of first value in sequences...
-		@note uses middle nucelotide of code to display info...
+    /**
+     * Prints misalignment information for codons in an alignment without using a codon translator.
+     *
+     * @param a                     the alignment.
+     * @param out                   the PrintWriter to write output to.
+     * @param startingCodonPosition - from {0,1,2}, representing codon position of first value in sequences...
+     * Note: uses middle nucelotide of code to display info...
 	 */
 	public static void getPositionMisalignmentInfo(Alignment a, PrintWriter out, int startingCodonPosition) {
 		DataType dt = a.getDataType();
@@ -600,7 +667,11 @@ public class AlignmentUtils {
 	}
 	/** Concatenates an array of alignments such that the resulting alignment is
 	 *		all of the sub alignments place along side each other
-	 */
+     *
+     * @param alignments the array of alignments to concatenate.
+     * @param dt         the DataType of the resulting alignment.
+     * @return a new alignment containing all sequences concatenated horizontally.
+     */
 	public static final Alignment concatAlignments(Alignment[] alignments, DataType dt) {
 		int maxSequence = -1;
 		Alignment maxAlignment =null;
@@ -633,7 +704,12 @@ public class AlignmentUtils {
 
 	}
 
-	/** Returns a particular sequence of an alignment as a char array */
+    /** Returns a particular sequence of an alignment as a char array
+     *
+     * @param a        the alignment.
+     * @param sequence the index of the sequence to extract.
+     * @return a char array representing the sequence.
+     */
 	public static final char[] getSequenceCharArray(Alignment a, int sequence) {
 		char[] cs = new char[a.getSiteCount()];
 		for(int i = 0 ; i < cs.length ; i++) {
@@ -641,15 +717,25 @@ public class AlignmentUtils {
 		}
 		return cs;
 	}
-	/** Returns a particular sequence of an alignment as a String */
+
+    /** Returns a particular sequence of an alignment as a String
+     *
+     * @param a        the alignment.
+     * @param sequence the index of the sequence to extract.
+     * @return a String representing the sequence.
+     */
 	public static final String getSequenceString(Alignment a, int sequence) {
 		return new String(getSequenceCharArray(a,sequence));
 	}
 
-		/** Returns an alignment which follows the pattern of the input alignment
+    /** Returns an alignment which follows the pattern of the input alignment
 			except that all sites which do not contain states in dt (excluding the
 			gap character) are removed. The Datatype of the returned alignment is dt
-	*/
+     *
+     * @param a  the original alignment.
+     * @param dt the DataType to apply.
+     * @return a new alignment filtered according to the specified DataType.
+     */
 	public static final Alignment getChangedDataType(Alignment a, DataType dt) {
 		int numberOfSites = a.getSiteCount();
 		boolean[] include = new boolean[numberOfSites];
@@ -679,8 +765,11 @@ public class AlignmentUtils {
 
 	/** Tests the characters of an alignment to see if there are any characters that
 			are not within a data type.
-			@teturn the number of invalid characters
-	*/
+     *
+     * @param a  the alignment.
+     * @param dt the DataType to validate against.
+     * @return the number of unknown or invalid characters.
+     */
 	public static final int countUnknowns(Alignment a, DataType dt) {
 		int count = 0;
 		for(int i = 0 ; i < a.getSequenceCount() ; i++) {
@@ -692,27 +781,8 @@ public class AlignmentUtils {
 		}
 		return count;
 	}
-	private static final void stripLeadingIncompleteCodon(int[] states, int unknownState) {
-		int numberOfCodons = states.length/3;
-		final Nucleotides n = Nucleotides.DEFAULT_INSTANCE;
-		for(int codon = 0 ; codon < numberOfCodons ; codon++) {
-			int unknownCount = 0;
-			final int index = codon*3;
-			for(int i = 0 ; i < 3 ; i++) {
-				if(n.isUnknownState(states[index+i])) {
-					unknownCount++;
-				}
-			}
-			if(unknownCount==0) {
-				return; //First codon is not incomplete
-			} else if(unknownCount!=3) {
-				//We have an incomplete codon on our hands!
-				for(int i = 0 ; i < 3 ; i++) {
-					states[index+i] = unknownState;
-				}
-			}
-		}
-	}
+
+
 	/**
 	 * Creates a new nucleotide alignment based on the input that has any leading incomplete
 	 * codons (that is, the first codon of the sequence that is not a gap/unknown but is not complete - has
@@ -732,7 +802,30 @@ public class AlignmentUtils {
 	}
 	// PRIVATE METHODS
 
-	private static final void outputChar(PrintWriter out, char c, int number) {
+    private static final void stripLeadingIncompleteCodon(int[] states, int unknownState) {
+        int numberOfCodons = states.length/3;
+        final Nucleotides n = Nucleotides.DEFAULT_INSTANCE;
+        for(int codon = 0 ; codon < numberOfCodons ; codon++) {
+            int unknownCount = 0;
+            final int index = codon*3;
+            for(int i = 0 ; i < 3 ; i++) {
+                if(n.isUnknownState(states[index+i])) {
+                    unknownCount++;
+                }
+            }
+            if(unknownCount==0) {
+                return; //First codon is not incomplete
+            } else if(unknownCount!=3) {
+                //We have an incomplete codon on our hands!
+                for(int i = 0 ; i < 3 ; i++) {
+                    states[index+i] = unknownState;
+                }
+            }
+        }
+    }
+
+
+    private static final void outputChar(PrintWriter out, char c, int number) {
 		for(int i = 0 ; i < number ; i++) {
 			out.print(c);
 		}
@@ -858,9 +951,13 @@ public class AlignmentUtils {
 	}
 
 
-	/**
-	 * @return the consistency of homology assignment between two alignments.
-	 */
+    /**
+     * Computes the overall consistency of homology assignment between two alignments.
+     *
+     * @param a the first alignment.
+     * @param b the second alignment.
+     * @return a double value between 0 and 1 representing the proportion of consistent homology assignments.
+     */
 	public static double getConsistency(Alignment a, Alignment b) {
 
 
@@ -877,9 +974,14 @@ public class AlignmentUtils {
 		return totalBag.consistency();
 	}
 
-	/**
-	 * @return the consistency of the two alignments with respect to the named taxa.
-	 */
+    /**
+     * Computes the consistency of homology assignment for a specific taxon (sequence name) between two alignments.
+     *
+     * @param a    the first alignment.
+     * @param b    the second alignment.
+     * @param name the name of the taxon (sequence identifier) to compute consistency for.
+     * @return a ConsistencyBag object containing the number of matches and possible matches.
+     */
 	private static ConsistencyBag getConsistency(Alignment a, Alignment b, String name) {
 
 		int[][] indices1 = getAlignmentIndices(a);
@@ -911,7 +1013,10 @@ public class AlignmentUtils {
 	/**
 	 * Fills a [length][numsequences] matrix with indices.
 	 * Each indices points to a position in the unaligned sequence, -1 means a gap.
-	 */
+     *
+     * @param a the alignment.
+     * @return a 2D int array with sequence indices.
+     */
 	private static int[][] getAlignmentIndices(Alignment a) {
 
 		int[][] indices = new int[a.getIdCount()][a.getSiteCount()];
@@ -933,7 +1038,12 @@ public class AlignmentUtils {
 		return indices;
 	}
 
-	/**
+    /**
+     * Computes the total number of homology assignments between two sequences in the same alignment.
+     *
+     * @param indices a 2D array of indices for sequences.
+     * @param seqa    index of the first sequence.
+     * @param seqb    index of the second sequence.
 	 * @return the total number of homology assignments between seqa and seqb in this alignment.
 	 */
 	private static int getAlignmentMatches(int[][] indices, int seqa, int seqb) {
@@ -949,7 +1059,15 @@ public class AlignmentUtils {
 		return matches;
 	}
 
-	/**
+    /**
+     * Computes the number of homology matches between two sequences in two different alignments.
+     *
+     * @param indices1 the index matrix for the first alignment.
+     * @param indices2 the index matrix for the second alignment.
+     * @param seqa1    sequence index in the first alignment.
+     * @param seqb1    sequence index of comparison sequence in the first alignment.
+     * @param seqa2    sequence index in the second alignment corresponding to seqa1.
+     * @param seqb2    sequence index in the second alignment corresponding to seqb1.
 	 * @return the number of homology matches between two sequences in
 	 * two alignments.
 	 */

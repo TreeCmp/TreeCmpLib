@@ -55,8 +55,9 @@ public class GapBalancedAlignment extends AbstractAlignment implements java.io.S
 	/**
 	 * The standard GapBalanced constructor
 	 *
-	 * @param Alignment on which to based this gap balanced alignment
-	 * @param the estimated startingCodonPosition of the alignment
+	 * @param base Alignment on which to based this gap balanced alignment
+	 * @param startingCodonPosition the estimated startingCodonPosition of the alignment
+     * @param alignGap              whether gaps should be aligned with respect to codon positions
 	 */
 	public GapBalancedAlignment(Alignment base, int startingCodonPosition, boolean alignGap) {
 		calculateData(base,startingCodonPosition,alignGap, DEFAULT_CODON_LENGTH);
@@ -64,11 +65,11 @@ public class GapBalancedAlignment extends AbstractAlignment implements java.io.S
 	/**
 	 * GapBalanced power user constructor
 	 *
-	 * @param Alignment on which to based this gap balanced alignment
+	 * @param base Alignment on which to based this gap balanced alignment
 	 * @param startingCodonPosition the starting codon position of the alignment
 	 * @param codonLength the length of a codon (to make things general,
 	 * - the author is a Computer Scientist)
-	 * @note Gaps, are "aligned"
+	 * Note: Gaps, are "aligned"
 	 */
 	public GapBalancedAlignment(Alignment base, int startingCodonPosition, int codonLength) {
 		calculateData(base,startingCodonPosition,true, codonLength);
@@ -76,7 +77,7 @@ public class GapBalancedAlignment extends AbstractAlignment implements java.io.S
 	/**
 	 * GapBalanced power user constructor
 	 *
-	 * @param Alignment on which to based this gap balanced alignment
+	 * @param base Alignment on which to based this gap balanced alignment
 	 * @param startingCodonPosition the starting codon position of the alignment
 	 * @param alignGap sometimes a large cap may occur in the middle of a sequence's codon. If this is true than no
 	 * columns can match up in this area (it's hard to explain - for safety choose true!)
@@ -88,7 +89,13 @@ public class GapBalancedAlignment extends AbstractAlignment implements java.io.S
 	}
 
 
-	/** Generates Alignment information by removing sites that have misaligned codon positions */
+	/** Generates Alignment information by removing sites that have misaligned codon positions
+     *
+     * @param base                  the base alignment
+     * @param startingCodonPosition starting codon position (0-based)
+     * @param alignGap              whether to align gaps
+     * @param codonLength           codon length
+     */
 	private void calculateData(Alignment base, int startingCodonPosition, boolean alignGap, int codonLength) {
 		GapIterator gi = new GapIterator(base,startingCodonPosition, alignGap, codonLength);
 		gi.processAllSites();
@@ -139,6 +146,15 @@ class GapIterator {
 	transient boolean acceptSite_ = false;
 	transient int predominateCodonPosition_ = -1;
 	boolean alignGaps_;
+
+    /**
+     * Constructs a codon-aware gap iterator.
+     *
+     * @param base                  base alignment
+     * @param startingCodonPosition starting codon position (0-based)
+     * @param alignGaps             whether gaps should be aligned strictly by codon position
+     * @param codonLength           codon length (default is 3)
+     */
 	public GapIterator(Alignment base, int startingCodonPosition, boolean alignGaps, int codonLength ) {
 		this.base_ = base;
 		this.dataType_ = base.getDataType();
@@ -147,9 +163,9 @@ class GapIterator {
 		this.codonLength_ = codonLength;
 		setup();
 		reset();
-
 	}
 
+    /** Initializes internal buffers and counters. */
 	private void setup() {
 		this.numberOfSites_ = base_.getSiteCount();
 		this.numberOfSequences_ = base_.getSequenceCount();
@@ -159,6 +175,7 @@ class GapIterator {
 		currentCodonSites_ = new int[codonLength_];
 	}
 
+    /** Resets the iterator to the beginning of the alignment. */
 	public void reset() {
 		for(int i = 0 ; i < siteAcceptance_.length ; i++) {
 			siteAcceptance_[i] = false;
@@ -172,22 +189,27 @@ class GapIterator {
 		currentCodonPosition_ = startingCodonPosition_;
 	}
 
+    /** Processes all sites in the alignment. */
 	public final void processAllSites() {
 		while(hasMoreSites()) {
 			processAnotherSite();
 		}
 	}
 
+    /** @return true if there are more sites left to process */
 	public boolean hasMoreSites() {
 		return (currentSite_ < numberOfSites_);
 	}
 
+    /** @return the current site index */
 	public int getCurrentSite() {
 		return currentSite_;
 	}
 
 	/** Proccess a site and sets up instance variables acceptSite_, predominateCodonPosition_, allGaps_
-	*/
+     *
+     * @param siteNumber index of the site to process
+     */
 	private synchronized void processSite(int siteNumber) {
 		acceptSite_ = true;
 		predominateCodonPosition_ = -1;
@@ -279,6 +301,5 @@ class GapIterator {
 		}
 		return data;
 	}
-
 
 }

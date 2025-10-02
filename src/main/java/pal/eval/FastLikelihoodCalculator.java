@@ -58,7 +58,9 @@ public class FastLikelihoodCalculator implements PalObjectListener, LikelihoodCa
 	 * Constructor taking only site pattern. <BR>
 	 * <B>NOTE:</B> setTree and setRateMatrix must both be called (in that order) before
 	 * computeLikelihood.
-	 */
+     *
+     * @param pattern the site pattern to use for likelihood computation
+     */
 	public FastLikelihoodCalculator(SitePattern pattern) {
 		sitePattern_ = pattern;
 		numberOfSites_ = pattern.getNumberOfPatterns();
@@ -67,7 +69,11 @@ public class FastLikelihoodCalculator implements PalObjectListener, LikelihoodCa
 
 	/**
 	 * Constructor taking site pattern, tree and model.
-	 */
+     *
+     * @param pattern the site pattern to use
+     * @param tree the phylogenetic tree to use
+     * @param model the rate matrix (substitution model) to use
+     */
 	public FastLikelihoodCalculator(SitePattern pattern, Tree tree, RateMatrix model) {
 		this(pattern);
 		setTree(tree);

@@ -34,27 +34,30 @@ public class LogParameterizedTree
 	private double[] logDefaults;
 
 
-	/**
-	 * Takes a parameterized object and transforms
-	 * the parameters logarithmically.
-	 */
-	public LogParameterizedTree(ParameterizedTree params)
-	{
-		setBaseTree(params);
+    /**
+     * Constructs a {@code LogParameterizedTree} by wrapping an existing {@code ParameterizedTree}
+     * and transforming its parameters into the logarithmic space.
+     * This is typically done to allow optimization routines to operate on log-transformed values.
+     *
+     * @param params The underlying {@code ParameterizedTree} object whose parameters will be accessed and transformed logarithmically.
+     */
+    public LogParameterizedTree(ParameterizedTree params)
+    {
+        setBaseTree(params);
 
-		this.params = params;
+        this.params = params;
 
 
-		logMins = new double[params.getNumParameters()];
-		logMaxs = new double[params.getNumParameters()];
-		logDefaults = new double[params.getNumParameters()];
+        logMins = new double[params.getNumParameters()];
+        logMaxs = new double[params.getNumParameters()];
+        logDefaults = new double[params.getNumParameters()];
 
-		for (int i = 0; i < logMins.length; i++) {
-			logMins[i] = Math.log(params.getLowerLimit(i));
-			logMaxs[i] = Math.log(params.getUpperLimit(i));
-			logDefaults[i] = Math.log(params.getDefaultValue(i));
-		}
-	}
+        for (int i = 0; i < logMins.length; i++) {
+            logMins[i] = Math.log(params.getLowerLimit(i));
+            logMaxs[i] = Math.log(params.getUpperLimit(i));
+            logDefaults[i] = Math.log(params.getDefaultValue(i));
+        }
+    }
 
 		// interface Parameterized
 

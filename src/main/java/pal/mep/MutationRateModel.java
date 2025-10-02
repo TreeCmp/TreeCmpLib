@@ -27,8 +27,6 @@ import pal.treesearch.*;
 public abstract class MutationRateModel implements Units,
 	Parameterized, Report, Cloneable, Serializable, Summarizable
 {
-
-
 	//
 	// Private and protected stuff
 	//
@@ -89,28 +87,42 @@ public abstract class MutationRateModel implements Units,
 	// functions that define a mutation rate model (left for subclass)
 	//
 
-	/**
-	 * Gets the mutation rate, value of mu(t) at time t.
-	 */
-	public abstract double getMutationRate(double t);
+    /**
+     * Gets the mutation rate at a given time t.
+     *
+     * @param t the time at which to evaluate the mutation rate
+     * @return the mutation rate μ(t)
+     */
+    public abstract double getMutationRate(double t);
 
-	/**
-	 * Returns integral of mutation rate function
-	 * (= integral mu(x) dx from 0 to t).
-	 */
-	public abstract double getExpectedSubstitutions(double t);
+    /**
+     * Returns the integral of the mutation rate function from 0 to t.
+     *
+     * @param t the upper limit of integration
+     * @return the expected number of substitutions (∫ μ(x) dx from 0 to t)
+     */
+    public abstract double getExpectedSubstitutions(double t);
 
-	/**
-	 * Return the time at which expected substitutions has occurred.
-	 */
-	public double getTime(double expectedSubs) {
-		return getEndTime(expectedSubs,0);
-	}
+    /**
+     * Returns the time at which a given expected number of substitutions has occurred,
+     * assuming we start at time 0.
+     *
+     * @param expectedSubs the expected number of substitutions
+     * @return the time t at which the expected substitutions have occurred
+     */
+    public double getTime(double expectedSubs) {
+        return getEndTime(expectedSubs, 0);
+    }
 
-	/**
-	 * Return the end time at which expected substitutions has occurred, given we start at start time
-	 */
-	public abstract double getEndTime(double expectedSubs, double startTime);
+    /**
+     * Returns the end time at which a given expected number of substitutions has occurred,
+     * starting from a specified start time.
+     *
+     * @param expectedSubs the expected number of substitutions
+     * @param startTime the starting time for the calculation
+     * @return the end time at which the expected substitutions have occurred
+     */
+    public abstract double getEndTime(double expectedSubs, double startTime);
 
 	/**
 	 * Linearly scales this mutation rate model.
@@ -120,71 +132,84 @@ public abstract class MutationRateModel implements Units,
 
 	// Parameterized and Report interface is also left for subclass
 
-
 	// general functions
 
-	/**
-	 * Calculates the integral 1/mu(x) dx between start and finish.
-	 */
-	public double getExpectedSubstitutions(double start, double finish)
-	{
-		return getExpectedSubstitutions(finish) - getExpectedSubstitutions(start);
-	}
-	/**
-	 * @throws IllegalArgumentException if units of this Model doenot match
-	 * the units of the TimeOrderCharacterData object (toScale).
-	 * @return a TimeOrderCharacterData scaled to use EXPECTED_SUBSTITUTIONS based on
-	 * this MutationRateModel
-	 */
-	public TimeOrderCharacterData scale(TimeOrderCharacterData toScale) {
-		if(getUnits()!=toScale.getUnits()) {
-			throw new IllegalArgumentException("Incompatible units, expecting "+getUnits()+", found (in toScale) "+toScale.getUnits());
-		}
-		TimeOrderCharacterData scaled = toScale.clone(toScale);
-		double[] times = new double[scaled.getIdCount()];
-		for (int i = 0; i < times.length; i++) {
-			times[i] = getExpectedSubstitutions(scaled.getTime(i));
-		}
-		scaled.setTimes(times,Units.EXPECTED_SUBSTITUTIONS,false);
-		return scaled;
-	}
+    /**
+     * Calculates the integral of 1/μ(x) dx between start and finish.
+     *
+     * @param start the lower limit of integration
+     * @param finish the upper limit of integration
+     * @return the expected number of substitutions between start and finish
+     */
+    public double getExpectedSubstitutions(double start, double finish) {
+        return getExpectedSubstitutions(finish) - getExpectedSubstitutions(start);
+    }
+    /**
+     * Scales a TimeOrderCharacterData object to use EXPECTED_SUBSTITUTIONS
+     * based on this MutationRateModel.
+     *
+     * @param toScale the TimeOrderCharacterData to scale
+     * @return a new TimeOrderCharacterData scaled to EXPECTED_SUBSTITUTIONS
+     * @throws IllegalArgumentException if units of this model do not match
+     *         the units of the TimeOrderCharacterData object
+     */
+    public TimeOrderCharacterData scale(TimeOrderCharacterData toScale) {
+        if(getUnits() != toScale.getUnits()) {
+            throw new IllegalArgumentException(
+                    "Incompatible units, expecting " + getUnits() +
+                            ", found (in toScale) " + toScale.getUnits()
+            );
+        }
+        TimeOrderCharacterData scaled = toScale.clone(toScale);
+        double[] times = new double[scaled.getIdCount()];
+        for (int i = 0; i < times.length; i++) {
+            times[i] = getExpectedSubstitutions(scaled.getTime(i));
+        }
+        scaled.setTimes(times, Units.EXPECTED_SUBSTITUTIONS, false);
+        return scaled;
+    }
 
-	/**
-	 * sets units of measurement.
-	 * @throws IllegalArgumentException if units are ExpectedSubstitutions
-	 *
-	 * @param u units
-	 * @param the maximumMutationRate that is allowable, given the units. This needs to be given intelligently.
-	 */
-	public final void setUnits(int u, double maximumMutationRate)
-	{
-		if(u==Units.EXPECTED_SUBSTITUTIONS) { throw new IllegalArgumentException("Units cannot be Expected Substitutions!"); }
-		units = u;
-		this.maximumMutationRate_ = maximumMutationRate;
-	}
-	/**
-	 * @return the maximum mutation rate as indicated by the user
-	 */
-	protected final double getMaximumMutationRate() { return maximumMutationRate_; }
+    /**
+     * Sets the units of measurement.
+     *
+     * @param u units
+     * @param maximumMutationRate the maximum allowable mutation rate for the given units
+     * @throws IllegalArgumentException if units are EXPECTED_SUBSTITUTIONS
+     */
+    public final void setUnits(int u, double maximumMutationRate) {
+        if (u == Units.EXPECTED_SUBSTITUTIONS) {
+            throw new IllegalArgumentException("Units cannot be Expected Substitutions!");
+        }
+        units = u;
+        this.maximumMutationRate_ = maximumMutationRate;
+    }
 
+    /**
+     * @return the maximum mutation rate as indicated by the user
+     */
+    protected final double getMaximumMutationRate() {
+        return maximumMutationRate_;
+    }
 
-	/**
-	 * returns units of measurement.
-	 */
-	public int getUnits()
-	{
-		return units;
-	}
+    /**
+     * Returns the units of measurement.
+     *
+     * @return the units
+     */
+    public int getUnits() {
+        return units;
+    }
 
-	/**
-	 * Overide if there is any orthogonal hint information available
-	 * @return null
-	 */
-	public OrthogonalHints getOrthogonalHints() {
-		return null;
-	}
+    /**
+     * Override if there is any orthogonal hint information available.
+     *
+     * @return an OrthogonalHints object, or null if none
+     */
+    public OrthogonalHints getOrthogonalHints() {
+        return null;
+    }
 
-	public abstract String toSingleLine();
+    public abstract String toSingleLine();
 
 	public abstract Factory generateFactory();
 // ===========================================================================
@@ -193,9 +218,11 @@ public abstract class MutationRateModel implements Units,
 	 * An interface for objects which generate fresh MutationRAteModels
 	 */
 	public interface Factory {
-		/**
-		 * Request a new MutationRateModel instance
-		 */
+        /**
+         * Requests a new {@link MutationRateModel} instance.
+         *
+         * @return a newly created {@link MutationRateModel}
+         */
 		public MutationRateModel generateNewModel();
 		public ConstraintModel buildConstraintModel(SampleInformation si, MolecularClockLikelihoodModel.Instance likelihoodModel);
 	}

@@ -21,20 +21,30 @@ package pal.util;
 import java.io.*;
 
 public interface AlgorithmCallback {
-	/**
-	 * Should be called intermittedly to check if algorithm should stop (should return null if has output)
-	 */
-	public boolean isPleaseStop();
-	/**
-	 * @param progress between 0..1
-	 */
-	public void updateProgress(double progress);
-	public void clearProgress();
-	/**
-	 * Inform caller of current status
-	 */
-	public void updateStatus(String statusString);
-
+    /**
+     * Checks whether the algorithm should terminate execution prematurely.
+     * This method is called intermittently by the running algorithm to respect external control requests.
+     *
+     * @return {@code true} if the algorithm should cease processing immediately, {@code false} otherwise.
+     * Note: Implementations should also check if the algorithm has already produced a valid output before stopping and return {@code false} if output is available.
+     */
+    public boolean isPleaseStop();
+    /**
+     * Updates the calling environment with the current progress of the algorithm.
+     *
+     * @param progress A double value representing the current completion status, expected to be between 0.0 (start) and 1.0 (complete).
+     */
+    public void updateProgress(double progress);
+    /**
+     * Resets or clears the current progress display (e.g., resets a progress bar to zero).
+     */
+    public void clearProgress();
+    /**
+     * Informs the caller or user interface of the current operational status or phase of the algorithm.
+     *
+     * @param statusString A descriptive string detailing the current activity or status.
+     */
+    public void updateStatus(String statusString);
 	// ==========================================================================
 	// ==== Static utility class
 	/**
@@ -61,16 +71,22 @@ public interface AlgorithmCallback {
 		public static final AlgorithmCallback getSystemOutCallback() {
 		  return new PrintWriterCallback(new PrintWriter(System.out));
 		}
-		/**
-		 * @return an AlgorithmCallback object that is tied to the parent callback object such that
-		 * setting the progress on the sub callback is translated to updating the progress on the parent
-		 * callback but adjust to be between minProgress and maxProgress. Also any calls to updateStatus are
-		 * altered to include a prefix.
-		 *
-		 */
-		public static final AlgorithmCallback getSubCallback(AlgorithmCallback parent, String id, double minProgress, double maxProgress) {
-			return new SubCallback(parent,id,minProgress,maxProgress);
-		}
+        /**
+         * Creates a specialized {@code AlgorithmCallback} object (a sub-callback) that delegates
+         * its progress and status updates to a parent callback, adjusting the values proportionally.
+         * This is typically used when a complex algorithm divides its work into multiple sub-tasks
+         * and needs to map the sub-task's 0-100% completion to a specific segment of the parent task's
+         * progress bar (e.g., mapping 0.0-1.0 to the parent's 0.2 to 0.5 range).
+         *
+         * @param parent The primary {@code AlgorithmCallback} object that will receive the translated progress and status updates.
+         * @param id A string identifier or prefix to be prepended to status messages sent by the sub-callback, providing context about the sub-task.
+         * @param minProgress The minimum progress value (between 0.0 and 1.0) on the parent callback that corresponds to the sub-callback's start (0.0).
+         * @param maxProgress The maximum progress value (between 0.0 and 1.0) on the parent callback that corresponds to the sub-callback's completion (1.0).
+         * @return An {@code AlgorithmCallback} object that wraps the parent and translates progress updates.
+         */
+        public static final AlgorithmCallback getSubCallback(AlgorithmCallback parent, String id, double minProgress, double maxProgress) {
+            return new SubCallback(parent,id,minProgress,maxProgress);
+        }
 		// - - - - - - - - - - - - - - - - - - - - - - - - - - - -- -  -- - - - - -
 		private static final class NullCallback implements AlgorithmCallback {
 			static final AlgorithmCallback INSTANCE = new NullCallback();

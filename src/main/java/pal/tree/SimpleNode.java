@@ -64,7 +64,17 @@ public class SimpleNode implements AttributeNode {
 
 	//serialver -classpath ./classes pal.tree.SimpleNode
 
-	/** I like doing things my self! */
+    /** I like doing things my self!
+     * Custom serialization method used when writing this object to an
+     * {@code ObjectOutputStream}.
+     *
+     * <p>This implementation manually writes a version number and then sequentially writes
+     * the internal state fields (`parent`, `number`, `sequence`, `length`, etc.)
+     * for persistence, overriding the default serialization mechanism.
+     *
+     * @param out The stream to write the object state to.
+     * @throws java.io.IOException If an I/O error occurs during writing to the stream.
+     */
 	private void writeObject(java.io.ObjectOutputStream out) throws java.io.IOException {
 		out.writeByte(3); //Version number
 		out.writeObject(parent);
@@ -147,12 +157,14 @@ public class SimpleNode implements AttributeNode {
 		length = branchLength;
 
 	}
-	/**
-	 * Constructor
-	 * @param children
-	 * @param branchLength
-	 * @throws IllegalArgumentException if only one child!
-	 */
+
+    /**
+     * Constructs a SimpleNode with the specified children and branch length.
+     *
+     * @param children an array of {@link Node} objects to attach as children
+     * @param branchLength the length of the branch connecting this node to its parent
+     * @throws IllegalArgumentException if the number of children is less than two
+     */
 	protected SimpleNode(Node[] children, double branchLength) {
 		this();
 		this.child = children;
@@ -164,17 +176,19 @@ public class SimpleNode implements AttributeNode {
 		}
 		this.length = branchLength;
 	}
+
 	protected SimpleNode(Node[] children) {
 		this(children, BranchLimits.MINARC);
 	}
 
-	/** constructor used to clone a node and all children */
-	public SimpleNode(Node n)
-	{
-		this(n, true);
-	}
-
-
+    /**
+     * Constructs a new SimpleNode by cloning the given node, including all its children.
+     *
+     * @param n the {@link Node} to clone
+     */
+    public SimpleNode(Node n) {
+        this(n, true);
+    }
 
 	public void reset()
 	{
@@ -203,129 +217,167 @@ public class SimpleNode implements AttributeNode {
 		}
 	}
 
-	protected void init(Node n) {
-		init(n, true);
-	}
-	/**
-	 * Initialized node instance variables based on given Node.
-	 * children are ignored.
-	 */
-	protected void init(Node n, boolean keepId) {
-		init(n,keepId,null);
-	}
-	/**
-	 * Initialized node instance variables based on given Node.
-	 * children are ignored.
-	 * @param lm - may be null
-	 */
-	protected void init(Node n, boolean keepId, LabelMapping lm) {
-		parent = null;
-		length = n.getBranchLength();
-		lengthSE = n.getBranchLengthSE();
-		height = n.getNodeHeight();
-		if (keepId) {
-			if(lm!=null) {
-				identifier = lm.getLabelIdentifier(n.getIdentifier());
-			} else {
-				identifier = n.getIdentifier();
-			}
-		} else { identifier = Identifier.ANONYMOUS; }
+    /**
+     * Initialize this node based on another node.
+     * Children are ignored.
+     *
+     * @param n the node to copy data from
+     */
+    protected void init(Node n) {
+        init(n, true);
+    }
 
-		number = n.getNumber();
-		sequence = n.getSequence();
+    /**
+     * Initialize this node based on another node.
+     * Children are ignored.
+     *
+     * @param n the node to copy data from
+     * @param keepId if true, the identifier of the source node is kept;
+     *               otherwise, a new anonymous identifier is assigned
+     */
+    protected void init(Node n, boolean keepId) {
+        init(n, keepId, null);
+    }
 
-		if (n instanceof AttributeNode) {
-			AttributeNode attNode = (AttributeNode)n;
-			Enumeration e = attNode.getAttributeNames();
-			while ((e != null) && e.hasMoreElements()) {
-				String name = (String)e.nextElement();
-				setAttribute(name, attNode.getAttribute(name));
-			}
-		}
+    /**
+     * Initialize this node based on another node.
+     * Children are ignored.
+     *
+     * @param n the node to copy data from
+     * @param keepId if true, the identifier of the source node is kept;
+     *               otherwise, a new anonymous identifier is assigned
+     * @param lm optional LabelMapping used to translate the identifier; may be null
+     */
+    protected void init(Node n, boolean keepId, LabelMapping lm) {
+        parent = null;
+        length = n.getBranchLength();
+        lengthSE = n.getBranchLengthSE();
+        height = n.getNodeHeight();
+        if (keepId) {
+            if (lm != null) {
+                identifier = lm.getLabelIdentifier(n.getIdentifier());
+            } else {
+                identifier = n.getIdentifier();
+            }
+        } else {
+            identifier = Identifier.ANONYMOUS;
+        }
 
-		child = null;
-	}
+        number = n.getNumber();
+        sequence = n.getSequence();
 
-	/**
-	 * Returns the parent node of this node.
-	 */
-	public final Node getParent() {
-		return parent;
-	}
+        if (n instanceof AttributeNode) {
+            AttributeNode attNode = (AttributeNode) n;
+            Enumeration e = attNode.getAttributeNames();
+            while ((e != null) && e.hasMoreElements()) {
+                String name = (String) e.nextElement();
+                setAttribute(name, attNode.getAttribute(name));
+            }
+        }
 
-	/** Set the parent node of this node. */
-	public void setParent(Node node)
-	{
-		parent = node;
-	}
+        child = null;
+    }
 
-	/**
+    /**
+     * Returns the parent node of this node.
+     *
+     * @return the parent node, or null if this node is the root
+     */
+    public final Node getParent() {
+        return parent;
+    }
+
+    /**
+     * Sets the parent node of this node.
+     *
+     * @param node the node to set as parent
+     */
+    public void setParent(Node node) {
+        parent = node;
+    }
+
+    /**
 	 * removes parent.
 	 */
 	public final void removeParent() {
 		parent = null;
 	}
 
-	/**
-	 * Returns the sequence at this node, in the form of a String.
-	 */
-	public String getSequenceString() {
-		return new String(sequence);
-	}
+    /**
+     * Returns the sequence at this node as a String.
+     *
+     * @return the nucleotide/amino-acid sequence of this node
+     */
+    public String getSequenceString() {
+        return new String(sequence);
+    }
 
-	/**
-	 * Returns the sequence at this node, in the form of an array of bytes.
-	 */
-	public byte[] getSequence() {
-		return sequence;
-	}
+    /**
+     * Returns the sequence at this node as an array of bytes.
+     *
+     * @return the nucleotide/amino-acid sequence of this node
+     */
+    public byte[] getSequence() {
+        return sequence;
+    }
 
-	/**
-	 * Sets the sequence at this node, in the form of an array of bytes.
-	 */
-	public void setSequence(byte[] s) {
-		sequence = s;
-	}
+    /**
+     * Sets the sequence at this node.
+     *
+     * @param s an array of bytes representing the nucleotide/amino-acid sequence
+     */
+    public void setSequence(byte[] s) {
+        sequence = s;
+    }
 
-	/**
-	 * Get the length of the branch attaching this node to its parent.
-	 */
-	public final double getBranchLength() {
-		return length;
-	}
+    /**
+     * Gets the length of the branch connecting this node to its parent.
+     *
+     * @return the branch length
+     */
+    public final double getBranchLength() {
+        return length;
+    }
 
-	/**
-	 * Set the length of the branch attaching this node to its parent.
-	 */
-	public final void setBranchLength(double value) {
-		length = value;
-	}
+    /**
+     * Sets the length of the branch connecting this node to its parent.
+     *
+     * @param value the branch length to set
+     */
+    public final void setBranchLength(double value) {
+        length = value;
+    }
 
-	/**
-	 * Get the length SE of the branch attaching this node to its parent.
-	 */
-	public final double getBranchLengthSE() {
-		return lengthSE;
-	}
+    /**
+     * Gets the standard error of the branch length connecting this node to its parent.
+     *
+     * @return the branch length standard error
+     */
+    public final double getBranchLengthSE() {
+        return lengthSE;
+    }
 
-	/**
-	 * Set the length SE of the branch attaching this node to its parent.
-	 */
-	public final void setBranchLengthSE(double value) {
-		lengthSE = value;
-	}
+    /**
+     * Sets the standard error of the branch length connecting this node to its parent.
+     *
+     * @param value the standard error to set
+     */
+    public final void setBranchLengthSE(double value) {
+        lengthSE = value;
+    }
 
-
-	/**
-	 * Get the height of this node relative to the most recent node.
-	 */
-	public final double getNodeHeight() {
-		return height;
-	}
+    /**
+     * Gets the height of this node relative to the most recent node (e.g., the root or its parent).
+     *
+     * @return the node height
+     */
+    public final double getNodeHeight() {
+        return height;
+    }
 
 	/**
 	 * Set the height of this node relative to the most recent node.
-	 * @note corrects children branch lengths
+	 * Note: corrects children branch lengths
 	 */
 	public final void setNodeHeight(double value) {
 		if(value<0) {
@@ -356,20 +408,23 @@ public class SimpleNode implements AttributeNode {
 		}
 	}
 
-	/**
-	 * Returns the identifier for this node.
-	 */
-	public final Identifier getIdentifier() {
-		return identifier;
-	}
+    /**
+     * Returns the identifier of this node.
+     *
+     * @return the identifier object associated with this node
+     */
+    public final Identifier getIdentifier() {
+        return identifier;
+    }
 
-	/**
-	 * Set identifier for this node.
-	 */
-	public final void setIdentifier(Identifier id) {
-		identifier = id;
-		//return identifier;
-	}
+    /**
+     * Sets the identifier for this node.
+     *
+     * @param id the identifier to associate with this node
+     */
+    public final void setIdentifier(Identifier id) {
+        identifier = id;
+    }
 
 	public void setNumber(int n) {
 		number = n;
@@ -395,7 +450,7 @@ public class SimpleNode implements AttributeNode {
 	 * set child node
 	 *
 	 * @param n number
-	 * @node node new child node
+	 * @param node new child node
 	 */
 	public void setChild(int n, Node node)
 	{

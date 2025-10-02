@@ -15,7 +15,7 @@ import pal.math.*;
  * Pareto distribution
  * (scale-free distribution without characteristic length scale).
  *
- * Parameters: shape parameter k>0, scale parameter m>0 ("minimum income")
+ * Parameters: shape parameter k&gt;0, scale parameter m&gt;0 ("minimum income")
  *
  * @version $Id: ParetoDistribution.java,v 1.2 2001/07/13 14:39:13 korbinian Exp $
  *
@@ -30,9 +30,9 @@ public class ParetoDistribution
 	/**
 	 * probability density function of the Pareto distribution
 	 * 
-	 * @param x argument (>=m)
-	 * @param k shape parameter (>0)
-	 * @param m scale parameter (>0, "minimum income")
+	 * @param x argument (&gt;=m)
+	 * @param k shape parameter (&gt;0)
+	 * @param m scale parameter (&gt;0, "minimum income")
 	 *
 	 * @return pdf value
 	 */
@@ -44,9 +44,9 @@ public class ParetoDistribution
 	/**
 	 * cumulative density function of the Pareto distribution
 	 * 
-	 * @param x argument (>=m)
-	 * @param k shape parameter (>0)
-	 * @param m scale parameter (>0, "minimum income")
+	 * @param x argument (&gt;=m)
+	 * @param k shape parameter (&gt;0)
+	 * @param m scale parameter (&gt;0, "minimum income")
 	 *
 	 * @return cdf value
 	 */
@@ -59,9 +59,9 @@ public class ParetoDistribution
 	/**
 	 * quantile (inverse cumulative density function) of the Pareto distribution
 	 * 
-	 * @param p argument (0 < p < 1)
-	 * @param k shape parameter (>0)
-	 * @param m scale parameter (>0, "minimum income")
+	 * @param p argument (0 &lt; p &lt; 1)
+	 * @param k shape parameter (&gt;0)
+	 * @param m scale parameter (&gt;0, "minimum income")
 	 *
 	 * @return icdf value
 	 */
@@ -73,8 +73,8 @@ public class ParetoDistribution
 	/**
 	 * mean of the Pareto distribution
 	 * 
-	 * @param k shape parameter (>0)
-	 * @param m scale parameter (>0, "minimum income")
+	 * @param k shape parameter (&gt;0)
+	 * @param m scale parameter (&gt;0, "minimum income")
 	 *
 	 * @return mean
 	 */
@@ -89,8 +89,8 @@ public class ParetoDistribution
 	/**
 	 * variance of the Pareto distribution
 	 * 
-	 * @param k shape parameter (>0)
-	 * @param m scale parameter (>0, "minimum income")
+	 * @param k shape parameter (&gt;0)
+	 * @param m scale parameter (&gt;0, "minimum income")
 	 *
 	 * @return variance
 	 */
@@ -106,8 +106,8 @@ public class ParetoDistribution
 	 * moments E(X^n) of the Pareto distribution
 	 * 
 	 * @param n moment
-	 * @param k shape parameter (>0)
-	 * @param m scale parameter (>0, "minimum income")
+	 * @param k shape parameter (&gt;0)
+	 * @param m scale parameter (&gt;0, "minimum income")
 	 *
 	 * @return variance
 	 */

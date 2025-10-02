@@ -26,7 +26,9 @@ public class CoalescentException extends Exception {
 
 	/**
 	 * Constructor taking message.
-	 */
+     *
+     * @param s the detail message for this exception
+     */
 	public CoalescentException(String s) {
 		super(s);
 	}

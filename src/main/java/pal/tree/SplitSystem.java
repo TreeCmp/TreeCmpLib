@@ -38,83 +38,110 @@ public class SplitSystem
 		splits = new boolean[splitCount][labelCount];
 	}
 
-	/** get number of splits */
-	public int getSplitCount()
-	{		
-		return splitCount;
-	}
+    /**
+     * Returns the total number of splits (rows) stored in this system.
+     *
+     * @return The number of splits.
+     */
+    public int getSplitCount()
+    {
+        return splitCount;
+    }
 
-	/** get number of labels */
-	public int getLabelCount()
-	{		
-		return labelCount;
-	}
+    /**
+     * Returns the number of labels (taxa or leaves) represented in each split (column count).
+     *
+     * @return The number of labels (taxa) in the system.
+     */
+    public int getLabelCount()
+    {
+        return labelCount;
+    }
 
-	/** get split vector */
-	public boolean[][] getSplitVector()
-	{		
-		return splits;
-	}
+    /**
+     * Returns the 2D boolean array representing the entire split system.
+     * The array is organized as {@code [split_index][label_index]}.
+     *
+     * @return The boolean 2D array where {@code true} indicates a label belongs to one side of the split.
+     */
+    public boolean[][] getSplitVector()
+    {
+        return splits;
+    }
 
-	/** get split */
-	public boolean[] getSplit(int i)
-	{		
-		return splits[i];
-	}
-
-
-	/** get idGroup */
-	public IdGroup getIdGroup()
-	{		
-		return idGroup;
-	}
-
-	/**
-	  + test whether a split is contained in this split system
-	  * (assuming the same leaf order)
-	  *
-	  * @param split split
-	  */
-	public boolean hasSplit(boolean[] split)
-	{
-		for (int i = 0; i < splitCount; i++)
-		{
-			if (SplitUtils.isSame(split, splits[i])) return true;
-		}
-			
-		return false;
-	}
+    /**
+     * Returns the boolean array for a single split at the specified index.
+     *
+     * @param i The zero-based index of the split to retrieve.
+     * @return The boolean array representing the partition of labels for the split.
+     */
+    public boolean[] getSplit(int i)
+    {
+        return splits[i];
+    }
 
 
-	/** print split system */
-	public String toString()
-	{
-		StringWriter sw = new StringWriter();
-		PrintWriter pw = new PrintWriter(sw);
-		
-		for (int i = 0; i < labelCount; i++)
-		{
-			pw.println(idGroup.getIdentifier(i));
-		}
-		pw.println();
-		
-		
-		for (int i = 0; i < splitCount; i++)
-		{
-			for (int j = 0; j < labelCount; j++)
-			{
-				if (splits[i][j] == true)
-					pw.print('*');
-				else
-					pw.print('.');
-			}
-			
-			pw.println();
-		}
+    /**
+     * Returns the IdGroup object containing the identifiers (labels) corresponding to the columns in the split array.
+     *
+     * @return The IdGroup associated with this split system.
+     */
+    public IdGroup getIdGroup()
+    {
+        return idGroup;
+    }
 
-		return sw.toString();
-	}
+    /**
+     * Tests whether a given split is already contained in this split system.
+     * This comparison assumes the input split array uses the same leaf order as the internal system.
+     *
+     * @param split The boolean array representing the split (partition) to test for existence.
+     * @return {@code true} if an identical split is found in the system; otherwise, {@code false}.
+     */
+    public boolean hasSplit(boolean[] split)
+    {
+        for (int i = 0; i < splitCount; i++)
+        {
+            if (SplitUtils.isSame(split, splits[i])) return true;
+        }
 
+        return false;
+    }
+
+
+    /**
+     * Returns a string representation of the split system, listing the labels followed by a matrix
+     * visualization of the splits (where '*' indicates membership to the split's partition and '.' indicates exclusion).
+     *
+     * @return A string containing the formatted split system.
+     */
+    public String toString()
+    {
+        StringWriter sw = new StringWriter();
+        PrintWriter pw = new PrintWriter(sw);
+
+        for (int i = 0; i < labelCount; i++)
+        {
+            pw.println(idGroup.getIdentifier(i));
+        }
+        pw.println();
+
+
+        for (int i = 0; i < splitCount; i++)
+        {
+            for (int j = 0; j < labelCount; j++)
+            {
+                if (splits[i][j] == true)
+                    pw.print('*');
+                else
+                    pw.print('.');
+            }
+
+            pw.println();
+        }
+
+        return sw.toString();
+    }
 	
 	//
 	// Private stuff

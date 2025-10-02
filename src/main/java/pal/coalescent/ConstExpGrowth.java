@@ -22,7 +22,7 @@ import java.io.*;
  *   or
  * (Parameters: N0=present-day population size; r=growth rate; N1: pre-growth
  * ancestral population size).
- * This model is nested with the exponential-growth model (alpha -> 0 or N1 = N0).
+ * This model is nested with the exponential-growth model (alpha -&gt; 0 or N1 = N0).
  * It is similar but not identical to the model used in ExpandingPopulation.
  * 
  *
@@ -71,13 +71,15 @@ public class ConstExpGrowth extends ExponentialGrowth implements Report, Paramet
 	double lx;
 	
 	/**
-	 * Construct demographic model with default settings.
+     * Construct demographic model with default settings.
+     *
+     * @param units units of time (e.g., GENERATIONS or expected substitutions)
 	 * @param parameterization is a combination of bits representing the parameterization. Valid values are:<BR>
 	 * ALPHA_PARAMETERIZATION<BR>
 	 * N1_PARAMETERIZATION<BR>
 	 * ALPHA_PARAMETERIZATION | LX_PARAMETERIZATION<BR>
 	 * N1_PARAMETERIZATION | LX_PARAMETERIZATION<BR>
-	 */
+     */
 	public ConstExpGrowth(int units, int parameterization) {
 	
 		super(units);
@@ -95,12 +97,15 @@ public class ConstExpGrowth extends ExponentialGrowth implements Report, Paramet
 		} else lx = getGrowthPhaseDuration();
 	}
 
-
 	/**
 	 * Construct demographic model of an expanding population.
-	 * 
 	 *
-	 */
+     * @param size present-day population size (N0)
+     * @param growthParam growth parameter (r or lx depending on parameterization)
+     * @param ancestral ancestral population parameter (alpha or N1 depending on parameterization)
+     * @param units units of time (e.g., GENERATIONS or expected substitutions)
+     * @param parameterization bit string specifying the parameterization mode
+     */
 	public ConstExpGrowth(double size, double growthParam, double ancestral, int units, int parameterization) {
 	
 		super(size, growthParam, units);
@@ -124,7 +129,9 @@ public class ConstExpGrowth extends ExponentialGrowth implements Report, Paramet
 
 	/**
 	 * Gets the time of transition from ancestral constant phase to exponential phase.
-	 */
+     *
+     * @return transition time in the units of this demographic model
+     */
 	public double getTransitionTime() {
 		
 		if (isLxParameterized()) return lx; 
@@ -134,7 +141,9 @@ public class ConstExpGrowth extends ExponentialGrowth implements Report, Paramet
 	/**
 	 * returns ancestral parameter. This may be either N1 or alpha
 	 * depending on the parameterization.
-	 */
+     *
+     * @return ancestral population parameter (N1 or alpha)
+     */
 	public double getAncestral() {
 		
 		if (isN1Parameterized()) {
@@ -145,9 +154,10 @@ public class ConstExpGrowth extends ExponentialGrowth implements Report, Paramet
 	}
 
 	/**
-	 * @return the growth parameter. This may be either growth rate
 	 * or growth phase duration depending on the parameterization.
-	 */
+     *
+     * @return growth parameter (r or lx)
+     */
 	public double getGrowthParam() {
 		if (isLxParameterized()) {
 			return lx;
@@ -157,7 +167,9 @@ public class ConstExpGrowth extends ExponentialGrowth implements Report, Paramet
 	
 	/**
 	 * This method overrides superclass to check parameterization.
-	 */
+     *
+     * @return exponential growth rate r
+     */
 	public double getGrowthRate() {
 		if (isLxParameterized()) {
 			calculateRFromLx();
@@ -168,7 +180,9 @@ public class ConstExpGrowth extends ExponentialGrowth implements Report, Paramet
 	/** 
 	 * Sets the ancestral parameter. This may be either N1 or alpha
 	 * depending on the parameterization.
-	 */
+     *
+     * @param ancestral ancestral population value to set
+     */
 	public void setAncestral(double ancestral) {
 		
 		if (isN1Parameterized()) {
@@ -181,7 +195,9 @@ public class ConstExpGrowth extends ExponentialGrowth implements Report, Paramet
 	/** 
 	 * Sets the growth parameter. This may be either growth rate (r) or 
 	 * growth pahse duration (lx) depending on the parameterization.
-	 */
+     *
+     * @param g growth parameter value to set
+     */
 	public void setGrowthParam(double g) {
 		
 		if (isLxParameterized()) {
@@ -193,7 +209,9 @@ public class ConstExpGrowth extends ExponentialGrowth implements Report, Paramet
 	
 	/**
 	 * returns ancestral population size
-	 */
+     *
+     * @return ancestral population size at the start of growth phase
+     */
 	public double getAncestralN0()
 	{
 		if (isN1Parameterized())
@@ -212,7 +230,9 @@ public class ConstExpGrowth extends ExponentialGrowth implements Report, Paramet
 	/**
 	 * Sets the length of the growth phase. This method is only valid
 	 * if ALPHA_LX_PARAMETERIZATION is used.
-	 */
+     *
+     * @param lx length of growth phase
+     */
 	public void setGrowthPhaseDuration(double lx) {
 		
 		if (isLxParameterized()) {
@@ -250,7 +270,7 @@ public class ConstExpGrowth extends ExponentialGrowth implements Report, Paramet
 
 	/**
 	 * Sets the parameterization.
-	 * @param parameterization is a combination of bits representing the parameterization. Valid values are:<BR>
+	 * @param p is a combination of bits representing the parameterization. Valid values are:<BR>
 	 * ALPHA_PARAMETERIZATION<BR>
 	 * N1_PARAMETERIZATION<BR>
 	 * ALPHA_PARAMETERIZATION | LX_PARAMETERIZATION<BR>
@@ -356,7 +376,13 @@ public class ConstExpGrowth extends ExponentialGrowth implements Report, Paramet
 	{
 		return 3;
 	}
-	
+
+    /**
+     * Returns the k-th parameter of the demographic model.
+     *
+     * @param k index of the parameter (0=N0, 1=r, 2=ancestral)
+     * @return value of the specified parameter
+     */
 	public double getParameter(int k)
 	{
 		switch (k)
@@ -372,6 +398,12 @@ public class ConstExpGrowth extends ExponentialGrowth implements Report, Paramet
 		}
 	}
 
+    /**
+     * Returns the upper limit for the k-th parameter.
+     *
+     * @param k index of the parameter
+     * @return upper bound for the parameter
+     */
 	public double getUpperLimit(int k)
 	{
 		double max = 0;
@@ -392,6 +424,12 @@ public class ConstExpGrowth extends ExponentialGrowth implements Report, Paramet
 		return max;
 	}
 
+    /**
+     * Returns the lower limit for the k-th parameter.
+     *
+     * @param k index of the parameter
+     * @return lower bound for the parameter
+     */
 	public double getLowerLimit(int k)
 	{
 		double min = 0;
@@ -405,6 +443,12 @@ public class ConstExpGrowth extends ExponentialGrowth implements Report, Paramet
 		return min;
 	}
 
+    /**
+     * Returns default value for the k-th parameter.
+     *
+     * @param k index of the parameter
+     * @return default value for the parameter
+     */
 	public double getDefaultValue(int k)
 	{
 	
@@ -430,6 +474,12 @@ public class ConstExpGrowth extends ExponentialGrowth implements Report, Paramet
 		}
 	}
 
+    /**
+     * Sets the value of the k-th parameter.
+     *
+     * @param value value to set
+     * @param k index of the parameter
+     */
 	public void setParameter(double value, int k)
 	{
 		switch (k)
@@ -446,6 +496,12 @@ public class ConstExpGrowth extends ExponentialGrowth implements Report, Paramet
 		}
 	}
 
+    /**
+     * Sets the standard error for the k-th parameter.
+     *
+     * @param value standard error to set
+     * @param k index of the parameter
+     */
 	public void setParameterSE(double value, int k)
 	{
 		switch (k)
@@ -461,7 +517,8 @@ public class ConstExpGrowth extends ExponentialGrowth implements Report, Paramet
 			default: break;
 		}
 	}
-	
+
+
 	public String toString()
 	{		
 		OutputTarget out = OutputTarget.openString();

@@ -18,70 +18,95 @@ package pal.misc;
  */
 public interface IdGroup extends java.io.Serializable {
 
-	/**
-	 * Returns the number of identifiers in this group
-	 */
-	int getIdCount();
+    /**
+     * Returns the number of identifiers in this group.
+     *
+     * @return the number of identifiers.
+     */
+    int getIdCount();
 
-	/**
-	 * Returns the ith identifier.
-	 */
-	Identifier getIdentifier(int i);
+    /**
+     * Returns the identifier at the specified index.
+     *
+     * @param i the index of the identifier to return.
+     * @return the Identifier at the given index.
+     * @throws IndexOutOfBoundsException if the index is out of range.
+     */
+    Identifier getIdentifier(int i);
 
-	/**
-	 * Sets the ith identifier.
-	 */
-	void setIdentifier(int i, Identifier id);
+    /**
+     * Sets the identifier at the specified index.
+     *
+     * @param i  the index at which to set the identifier.
+     * @param id the Identifier to set.
+     * @throws IndexOutOfBoundsException if the index is out of range.
+     */
+    void setIdentifier(int i, Identifier id);
 
-	/**
-	 * returns the index of the identifier with the given name.
-	 */
-	int whichIdNumber(String name);
+    /**
+     * Returns the index of the identifier with the given name.
+     *
+     * @param name the name of the identifier to search for.
+     * @return the index of the identifier with the given name, or -1 if not found.
+     */
+    int whichIdNumber(String name);
 
 // ============================================================================
 // =================== Utility Class for IdGroup stuff ========================
 // ============================================================================
 	public static final class Utils{
-		/**
-		 * @return true if <i>sub</i> IdGroup completely contained within <i>full</i>, false otherwise
-		 */
-		public static final boolean isContainedWithin(IdGroup sub, IdGroup full) {
-			for(int i = 0 ; i < sub.getIdCount() ; i++) {
-				boolean found = false;
-				Identifier subID = sub.getIdentifier(i);
-				for(int j = 0 ; j < full.getIdCount() ;j++) {
-					Identifier fullID = full.getIdentifier(j);
-					if(fullID.equals(subID)) {
-						found= true;
-						break;
-					}
-				}
-				if(!found) {
-					return false;
-				}
-			}
-			return true;
-		}
-		/**
-		 * @return true if <i>id1</i> and <i>id2</i> share exactly the same identifiers (.equals() based, not reference base). The order is not important.
-		 */
-		public static final boolean isEqualIgnoringOrder(IdGroup id1, IdGroup id2) {
-			return(isContainedWithin(id1,id2)&&isContainedWithin(id2,id1));
-		}
+    /**
+     * Checks if all identifiers in the <i>sub</i> group are contained within the <i>full</i> group.
+     *
+     * @param sub the {@link IdGroup} to check for containment
+     * @param full the {@link IdGroup} that should contain all identifiers from {@code sub}
+     * @return {@code true} if every identifier in {@code sub} is also in {@code full}, {@code false} otherwise
+     */
+    public static final boolean isContainedWithin(IdGroup sub, IdGroup full) {
+        for (int i = 0; i < sub.getIdCount(); i++) {
+            boolean found = false;
+            Identifier subID = sub.getIdentifier(i);
+            for (int j = 0; j < full.getIdCount(); j++) {
+                Identifier fullID = full.getIdentifier(j);
+                if (fullID.equals(subID)) {
+                    found = true;
+                    break;
+                }
+            }
+            if (!found) {
+                return false;
+            }
+        }
+        return true;
+    }
 
-		/**
-		 * A convenience implementation of whichIdNumber that can be used by
-		 * IdGroup implementations
-		 * @return -1 if <i>s</i> not in <i>group</i>
-		 */
-		public static final int whichIdNumber(IdGroup group, String s) {
-			for(int i = 0 ; i < group.getIdCount() ; i++ ) {
-				if(s.equals(group.getIdentifier(i).getName())) {
-					return i;
-				}
-			}
-			return -1;
-		}
+    /**
+     * Checks if two {@link IdGroup} objects contain exactly the same identifiers, ignoring order.
+     * Equality is based on {@link Identifier#equals(Object)}.
+     *
+     * @param id1 the first {@link IdGroup}
+     * @param id2 the second {@link IdGroup}
+     * @return {@code true} if both groups contain exactly the same identifiers, {@code false} otherwise
+     */
+    public static final boolean isEqualIgnoringOrder(IdGroup id1, IdGroup id2) {
+        return isContainedWithin(id1, id2) && isContainedWithin(id2, id1);
+    }
 
-	}
+    /**
+     * Finds the index of a given identifier name in an {@link IdGroup}.
+     *
+     * @param group the {@link IdGroup} to search
+     * @param s the name of the identifier to find
+     * @return the index of the identifier with name {@code s}, or {@code -1} if not found
+     */
+    public static final int whichIdNumber(IdGroup group, String s) {
+        for (int i = 0; i < group.getIdCount(); i++) {
+            if (s.equals(group.getIdentifier(i).getName())) {
+                return i;
+            }
+        }
+        return -1;
+    }
+
+}
 }

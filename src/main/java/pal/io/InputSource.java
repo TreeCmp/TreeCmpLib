@@ -29,9 +29,9 @@ public class InputSource extends PushbackReader
 	 * open file for reading
 	 *
 	 * @param name file name
-	 *
 	 * @return input stream
-	 */
+     * @throws FileNotFoundException if the file does not exist or cannot be opened
+     */
 	public static InputSource openFile(String name)
 		throws FileNotFoundException
 	{

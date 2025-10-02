@@ -37,61 +37,78 @@ public class PivotNode extends AbstractParentableConstrainedNode implements Gene
 	private final OptimisationHandler optimistaionHandler_;
 
 
-	/**
-	 * The subtree constructor with a connection to the rest of the tree
-	 * @param tree the PAL node tree to base this tree on
-	 * @param parentConnection The connection with the rest of tree (must be free, otherwise this shouldn't be the pivot)
-	 * @param tool A general construction tool object for objtaining/building various components
-	 * @param groupConstraints The constraints object that manages the leaf constraints
-	 */
-	public PivotNode(Node tree, FreeBranch parentConnection, GeneralConstructionTool tool, GeneralConstraintGroupManager constraintGroupManager, GeneralConstraintGroupManager.Store store) {
-		super(tree,tool,store, constraintGroupManager);
-		this.freeConnection_ = parentConnection;
+    /**
+     * The primary constructor for creating a {@code PivotNode}, which serves as a boundary
+     * between an internally constrained subtree and the rest of the tree (which is free/unconstrained).
+     *
+     * This node manages the transition between two different calculation contexts (free vs. constrained).
+     *
+     * @param tree The PAL node structure representing the root of the subtree to be managed by this PivotNode.
+     * @param parentConnection The {@code FreeBranch} connecting this node to the rest of the unconstrained tree. Must be free; otherwise, this node shouldn't be the pivot. Null if this PivotNode is the root of the entire constrained structure.
+     * @param tool A {@code GeneralConstructionTool} object for obtaining/building various components and managing calculation indices.
+     * @param constraintGroupManager The {@code GeneralConstraintGroupManager} that manages the constraints (e.g., molecular clock) for the subtree rooted here.
+     * @param store The constraint group manager store.
+     */
+    public PivotNode(Node tree, FreeBranch parentConnection, GeneralConstructionTool tool, GeneralConstraintGroupManager constraintGroupManager, GeneralConstraintGroupManager.Store store) {
+        super(tree,tool,store, constraintGroupManager);
+        this.freeConnection_ = parentConnection;
 
-		if(parentConnection!=null) {
-			this.freeInternal_ = tool.allocateNewFreeInternalCalculator();
-		} else {
-			this.freeInternal_ = null;
-		}
-		this.constraintGroupManager_ = constraintGroupManager;
+        if(parentConnection!=null) {
+            this.freeInternal_ = tool.allocateNewFreeInternalCalculator();
+        } else {
+            this.freeInternal_ = null;
+        }
+        this.constraintGroupManager_ = constraintGroupManager;
 
-		this.leftAscendedentPattern_ = new PatternInfo(tool.getNumberOfSites(),true);
-		this.leftAscendentPatternValid_ = false;
+        this.leftAscendedentPattern_ = new PatternInfo(tool.getNumberOfSites(),true);
+        this.leftAscendentPatternValid_ = false;
 
-		this.rightAscendedentPattern_ = new PatternInfo(tool.getNumberOfSites(),true);
-		this.rightAscendentPatternValid_ = false;
-		if(freeConnection_==null) {
-		  this.nonRootOptimistaionHandler_ = null;
-			this.rootOptimistaionHandler_	= new RootOptimisationHandler(tool,getConstrainedInternal());
-			this.optimistaionHandler_ = rootOptimistaionHandler_;
-			this.partialSubTreeShiftOptimisationHandler_ =new RootPartialSubTreeShiftOptimisationHandler(tool,getConstrainedInternal());
-			subTreeShiftOptimisationHandler_ = new RootSubTreeShiftOptimisationHandler(tool,getConstrainedInternal());
-		} else {
-		  this.nonRootOptimistaionHandler_ = new NonRootOptimisationHandler(tool,getConstrainedInternal());
-			this.rootOptimistaionHandler_	= null;
-			this.optimistaionHandler_ = nonRootOptimistaionHandler_;
-			this.partialSubTreeShiftOptimisationHandler_ = null;
-			subTreeShiftOptimisationHandler_ = null;
-		}
-		//Add ourselves to the constraint group manager (as we are a "group leader")
-		recursivelySetChildrenParentPivot(this);
-		constraintGroupManager_.addGroupLeader(this);
-  }
-	public void postSetupNotify(ConstraintModel.GroupManager groupConstraints) {
-		setupInternalNodeHeights(groupConstraints);
+        this.rightAscendedentPattern_ = new PatternInfo(tool.getNumberOfSites(),true);
+        this.rightAscendentPatternValid_ = false;
+        if(freeConnection_==null) {
+            this.nonRootOptimistaionHandler_ = null;
+            this.rootOptimistaionHandler_  = new RootOptimisationHandler(tool,getConstrainedInternal());
+            this.optimistaionHandler_ = rootOptimistaionHandler_;
+            this.partialSubTreeShiftOptimisationHandler_ =new RootPartialSubTreeShiftOptimisationHandler(tool,getConstrainedInternal());
+            subTreeShiftOptimisationHandler_ = new RootSubTreeShiftOptimisationHandler(tool,getConstrainedInternal());
+        } else {
+            this.nonRootOptimistaionHandler_ = new NonRootOptimisationHandler(tool,getConstrainedInternal());
+            this.rootOptimistaionHandler_  = null;
+            this.optimistaionHandler_ = nonRootOptimistaionHandler_;
+            this.partialSubTreeShiftOptimisationHandler_ = null;
+            subTreeShiftOptimisationHandler_ = null;
+        }
+        //Add ourselves to the constraint group manager (as we are a "group leader")
+        recursivelySetChildrenParentPivot(this);
+        constraintGroupManager_.addGroupLeader(this);
+    }
 
-	}
+    /**
+     * Notifies the PivotNode that the constraints within its managed group have been fully set up (parameter wise).
+     *
+     * @param groupConstraints The constraints object that manages the leaf constraints.
+     * Note: This triggers the calculation of internal node heights within the constrained subtree.
+     */
+    public void postSetupNotify(ConstraintModel.GroupManager groupConstraints) {
+        setupInternalNodeHeights(groupConstraints);
+
+    }
 
 
-	/**
-	 * The root constructor, only used when the whole tree is constrained
-	 * @param tool A general construction tool object for objtaining/building various components
-	 * @param subTree The subtree
-	 * @param groupConstraints The constraints object that manages the leaf constraints
-	 */
-	public PivotNode(Node subTree, GeneralConstructionTool tool, GeneralConstraintGroupManager groupManager, GeneralConstraintGroupManager.Store store) {
-		this(subTree, null, tool,  groupManager,store);
-  }
+    /**
+     * The convenience constructor for creating a {@code PivotNode} when the entire tree
+     * is constrained, meaning this node represents the root of the whole structure.
+     *
+     * This calls the primary constructor with {@code parentConnection} set to {@code null}.
+     *
+     * @param subTree The PAL node structure representing the root of the entire constrained tree.
+     * @param tool A {@code GeneralConstructionTool} object for obtaining/building various components.
+     * @param groupManager The {@code GeneralConstraintGroupManager} for the constrained tree.
+     * @param store The constraint group manager store.
+     */
+    public PivotNode(Node subTree, GeneralConstructionTool tool, GeneralConstraintGroupManager groupManager, GeneralConstraintGroupManager.Store store) {
+        this(subTree, null, tool,  groupManager,store);
+    }
 	// ==================================================================================================
 	// ===== Root Access stuff ============================================================================
 	// ==================================================================================================

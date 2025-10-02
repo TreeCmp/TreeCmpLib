@@ -17,8 +17,10 @@ package pal.datatype;
 public class StateRemover extends SimpleDataType implements java.io.Serializable {
 	DataType toAdjust_;
 
-	int[] originalToAdjusted_; /** A translation array -> originalToAdjusted_["original State"] = "adjusted state" */
-	int[] adjustedToOriginal_; /** A translation array -> originalToAdjusted_["adjusted State"] = "original state" */
+    /** A translation array -&gt; originalToAdjusted_["original State"] = "adjusted state" */
+	int[] originalToAdjusted_;
+    /** A translation array -&gt; originalToAdjusted_["adjusted State"] = "original state" */
+	int[] adjustedToOriginal_;
 
 	public StateRemover(DataType toAdjust, int[] statesToRemove) {
 		this.toAdjust_ = toAdjust;
@@ -52,13 +54,15 @@ public class StateRemover extends SimpleDataType implements java.io.Serializable
 		return adjustedToOriginal_.length;
 	}
 
-	/**
-		* @retrun true if this state is an unknown state
-		*/
+    /**
+     * Checks whether the given state is considered an unknown state.
+     *
+     * @param state the state index to check
+     * @return true if this state is an unknown state
+     */
 	protected final boolean isUnknownStateImpl(final int state) {
 		return(state>=adjustedToOriginal_.length)||state<0;
 	}
-
 
 	protected int getStateImpl(char c)	{
 		int unadjustedState = toAdjust_.getState(c);
@@ -70,7 +74,10 @@ public class StateRemover extends SimpleDataType implements java.io.Serializable
 
 	/**
 	 * Get character corresponding to a given state
-	 */
+     *
+     * @param state the state index
+     * @return the character representing the state, or {@link #UNKNOWN_CHARACTER} if the state is invalid
+     */
 	protected char getCharImpl(final int state)
 	{
 		if(state>adjustedToOriginal_.length) {

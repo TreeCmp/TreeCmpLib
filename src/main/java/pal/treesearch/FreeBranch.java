@@ -37,90 +37,111 @@ public final class FreeBranch implements RootAccess, GeneralOptimisable  {
 
 	private Object annotation_ = null;
 
-	/**
-	 * The starting constructor for building from a given tree
-	 * @param n The normal PAL node structure to base this tree on
-	 * @param tool to aid in construction
-	 */
-	public FreeBranch(Node n,  GeneralConstructionTool tool, GeneralConstraintGroupManager.Store store) {
-		if(n.getChildCount()!=2) {
-			throw new IllegalArgumentException("Base tree must be bificating");
-		}
-		this.index_ = tool.allocateNextConnectionIndex();
-		Node l = n.getChild(0);
-		Node r = n.getChild(1);
-		this.branchLength_ = l.getBranchLength()+r.getBranchLength();
+    /**
+     * The starting constructor for building the {@code FreeBranch} structure from the root of a given PAL tree.
+     * This constructor assumes the input node represents the root, combining its two children's branch lengths
+     * to form the initial branch length.
+     *
+     * @param n The normal PAL Node structure to base this branch on (expected to be the root).
+     * @param tool The construction tool used to aid in building the branch and node objects and allocating connection indices.
+     * @param store The store managing general constraint groups, used during node creation.
+     * @throws IllegalArgumentException If the base tree node is not bifurcating (does not have exactly two children).
+     */
+    public FreeBranch(Node n,  GeneralConstructionTool tool, GeneralConstraintGroupManager.Store store) {
+        if(n.getChildCount()!=2) {
+            throw new IllegalArgumentException("Base tree must be bificating");
+        }
+        this.index_ = tool.allocateNextConnectionIndex();
+        Node l = n.getChild(0);
+        Node r = n.getChild(1);
+        this.branchLength_ = l.getBranchLength()+r.getBranchLength();
 
-		leftNode_ = tool.createFreeNode(l, this,store);
-		rightNode_ = tool.createFreeNode(r, this,store);
+        leftNode_ = tool.createFreeNode(l, this,store);
+        rightNode_ = tool.createFreeNode(r, this,store);
 
-		this.centerPattern_ = new PatternInfo(tool.getNumberOfSites(),true);
-		this.centerPatternValid_ = false;
-	  this.optimisationHandler_ = new OptimisationHandler(tool);
-	}
-	/**
-	 * Continuing recurison constructor for a given tree
-	 * @param n The PAL node structure to base sub tree on
-	 * @param parent The parent node (sub tree in other direction)
-	 * @param tool to aid in construction
-	 */
-	public FreeBranch(Node n, FreeNode parent, GeneralConstructionTool tool, GeneralConstraintGroupManager.Store store) {
-		this.index_ = tool.allocateNextConnectionIndex();
-		this.branchLength_ = n.getBranchLength();
-		this.rightNode_ = parent;
-		this.leftNode_ = tool.createFreeNode(n,this,store);
-		this.centerPattern_ = new PatternInfo(tool.getNumberOfSites(),true);
-		this.centerPatternValid_ = false;
-		this.optimisationHandler_ = new OptimisationHandler(tool);
+        this.centerPattern_ = new PatternInfo(tool.getNumberOfSites(),true);
+        this.centerPatternValid_ = false;
+        this.optimisationHandler_ = new OptimisationHandler(tool);
+    }
+    /**
+     * The continuing recursion constructor used for building a subtree of the {@code FreeBranch} structure.
+     * This constructor is typically called recursively for non-root nodes of the source PAL tree.
+     *
+     * @param n The PAL Node structure to base the sub-branch on. Its branch length becomes the new {@code FreeBranch} length.
+     * @param parent The parent {@code FreeNode} that connects this branch (representing the subtree in the other direction).
+     * @param tool The construction tool used to aid in building the branch and node objects and allocating connection indices.
+     * @param store The store managing general constraint groups, used during node creation.
+     */
+    public FreeBranch(Node n, FreeNode parent, GeneralConstructionTool tool, GeneralConstraintGroupManager.Store store) {
+        this.index_ = tool.allocateNextConnectionIndex();
+        this.branchLength_ = n.getBranchLength();
+        this.rightNode_ = parent;
+        this.leftNode_ = tool.createFreeNode(n,this,store);
+        this.centerPattern_ = new PatternInfo(tool.getNumberOfSites(),true);
+        this.centerPatternValid_ = false;
+        this.optimisationHandler_ = new OptimisationHandler(tool);
 
-	}
+    }
 
-	/**
-	 * A generic constructor given two already defined left and right children
-	 * @param left The left node
-	 * @param right The right node
-	 * @param branchLength The length of connection
-	 * @param tool to aid in construction
-	 */
-	public FreeBranch(FreeNode left, FreeNode right, double branchLength, GeneralConstructionTool tool) {
-		this.index_ = tool.allocateNextConnectionIndex();
-		this.branchLength_ = branchLength;
-		this.rightNode_ = right;
-		this.leftNode_ = left;
-		this.centerPattern_ = new PatternInfo(tool.getNumberOfSites(),true);
-		this.centerPatternValid_ = false;
-		this.optimisationHandler_ = new OptimisationHandler(tool);
-	}
+    /**
+     * A generic constructor for creating a new {@code FreeBranch} that connects two already defined {@code FreeNode} objects.
+     *
+     * @param left The left node to be connected.
+     * @param right The right node to be connected.
+     * @param branchLength The length of the connection (branch).
+     * @param tool The construction tool used to allocate a unique connection index for this branch.
+     */
+    public FreeBranch(FreeNode left, FreeNode right, double branchLength, GeneralConstructionTool tool) {
+        this.index_ = tool.allocateNextConnectionIndex();
+        this.branchLength_ = branchLength;
+        this.rightNode_ = right;
+        this.leftNode_ = left;
+        this.centerPattern_ = new PatternInfo(tool.getNumberOfSites(),true);
+        this.centerPatternValid_ = false;
+        this.optimisationHandler_ = new OptimisationHandler(tool);
+    }
 
-	public void setAnnotation(Object annotation) {	  this.annotation_ = annotation;		}
-	/**
-	 *
-	 * @return The "right" node of this connection.
-	 */
-	public final FreeNode getLeft() { return leftNode_; }
-	/**
-	 *
-	 * @return The "left" node of this connection.
-	 */
-	public final FreeNode getRight() { return rightNode_; }
+    /**
+     * Sets an arbitrary annotation object to be associated with this branch.
+     *
+     * @param annotation The object to store as annotation.
+     */
+    public void setAnnotation(Object annotation) {    this.annotation_ = annotation;      }
+    /**
+     * Retrieves the "left" {@code FreeNode} connected by this branch.
+     *
+     * @return The left {@code FreeNode} of this connection.
+     */
+    public final FreeNode getLeft() { return leftNode_; }
+    /**
+     * Retrieves the "right" {@code FreeNode} connected by this branch.
+     *
+     * @return The right {@code FreeNode} of this connection.
+     */
+    public final FreeNode getRight() { return rightNode_; }
 
-	/**
-	 * Mark this node, or in other words store information on left and right nodes and branch length for later retreival (via undoToMark())
-	 */
-	public final void mark() {
-		this.markBranchLength_ = branchLength_;
-		this.markLeftNode_ = leftNode_;		this.markRightNode_ = rightNode_;
-	}
-	/**
-	 * @return The pattern info object for the left node leading to this connection
-	 */
-	public final PatternInfo getLeftPatternInfo(GeneralConstructionTool tool) {		return leftNode_.getPatternInfo(tool, this);	}
-	/**
-	 * @return The pattern info object for the right node leading to this connection
-	 */
-	public final PatternInfo getRightPatternInfo(GeneralConstructionTool tool) {	return rightNode_.getPatternInfo(tool, this);	}
-
-
+    /**
+     * Marks the current state of the branch by storing the current branch length and references
+     * to the left and right nodes. This state can later be restored using {@code undoToMark()}.
+     */
+    public final void mark() {
+        this.markBranchLength_ = branchLength_;
+        this.markLeftNode_ = leftNode_;       this.markRightNode_ = rightNode_;
+    }
+    /**
+     * Retrieves the {@code PatternInfo} object associated with the left node, relative to this connection.
+     *
+     * @param tool The construction tool used to retrieve the pattern information if necessary.
+     * @return The pattern info object for the left node.
+     */
+    public final PatternInfo getLeftPatternInfo(GeneralConstructionTool tool) {    return leftNode_.getPatternInfo(tool, this);   }
+    /**
+     * Retrieves the {@code PatternInfo} object associated with the right node, relative to this connection.
+     *
+     * @param tool The construction tool used to retrieve the pattern information if necessary.
+     * @return The pattern info object for the right node.
+     */
+    public final PatternInfo getRightPatternInfo(GeneralConstructionTool tool) {    return rightNode_.getPatternInfo(tool, this);  }
 	public final PatternInfo getPatternInfo(GeneralConstructionTool tool, FreeNode caller) {
 	  if(caller==leftNode_) {
 		  return rightNode_.getPatternInfo(tool,this);
@@ -130,17 +151,22 @@ public final class FreeBranch implements RootAccess, GeneralOptimisable  {
 		}
 		throw new IllegalArgumentException("Unknown caller!");
 	}
-	/**
-	 *
-	 * @return The pattern info across this connection (for use if this connection is the "root" of the likelihood calculation)
-	 */
-	public final PatternInfo getCenterPatternInfo(GeneralConstructionTool tool) {
-		if(!centerPatternValid_) {
-			tool.build(centerPattern_, getLeftPatternInfo(tool),getRightPatternInfo(tool));
-			centerPatternValid_ = true;
-		}
-		return centerPattern_;
-	}
+    /**
+     * Retrieves the combined {@code PatternInfo} across this connection (branch).
+     * This information is used when this branch is temporarily treated as the
+     * "root" during the likelihood calculation, combining the data from both the
+     * left and right subtrees.
+     *
+     * @param tool The construction tool, which is used to build the pattern if it is not yet valid (cached).
+     * @return The combined {@code PatternInfo} object for this branch's connection.
+     */
+    public final PatternInfo getCenterPatternInfo(GeneralConstructionTool tool) {
+        if(!centerPatternValid_) {
+            tool.build(centerPattern_, getLeftPatternInfo(tool),getRightPatternInfo(tool));
+            centerPatternValid_ = true;
+        }
+        return centerPattern_;
+    }
 
 	public final void undoToMark() {
 		if(markLeftNode_==null) {
@@ -182,48 +208,60 @@ public final class FreeBranch implements RootAccess, GeneralOptimisable  {
 	 */
 	public FreeBranch getRightRightBranch() {		return rightNode_.getRightBranch(this);		}
 
-	/**
-	 * @return connection that by attaching to we would undo this operation, null if operation no successful
-	 */
-	public FreeBranch attachTo(FreeBranch attachmentPoint, FreeBranch[] store) {
+    /**
+     * Attaches this branch to a specified {@code attachmentPoint} branch in the tree,
+     * effectively performing a topological change (likely a Subtree Pruning and Regrafting operation).
+     *
+     * The method prunes the subtree currently attached via this branch and re-grafts it at the new attachment point.
+     *
+     * @param attachmentPoint The existing {@code FreeBranch} in the tree where this branch (and its connected subtree) will be attached.
+     * @param store An array of size 3 (or more) used internally to store references to the branches involved in the topological change
+     * ({@code this}, the redundant branch, and {@code attachmentPoint}) before fixing up connections on the {@code used} node.
+     * @return The {@code FreeBranch} that was structurally left behind after the operation,
+     * which allows the calling code to potentially undo this operation by reattaching to it. Returns {@code null} if the operation fails,
+     * specifically if the branch is already directly connected to the attachment point.
+     * @throws IllegalArgumentException If an internal assertion about the branch structure fails.
+     * @throws RuntimeException If an internal assertion about the extractable node fails.
+     */
+    public FreeBranch attachTo(FreeBranch attachmentPoint, FreeBranch[] store) {
 
-		final FreeNode used = (leftNode_.hasConnection(attachmentPoint, this) ? leftNode_ : rightNode_ );
-		if(used.hasDirectConnection(attachmentPoint)) {
-			return null;
-		}
-		final FreeBranch redundant = used.extract(this);
-		final FreeBranch reattachment;
-		final FreeBranch leftUsed = used.getLeftBranch(this);
-		final FreeBranch rightUsed = used.getRightBranch(this);
+        final FreeNode used = (leftNode_.hasConnection(attachmentPoint, this) ? leftNode_ : rightNode_ );
+        if(used.hasDirectConnection(attachmentPoint)) {
+            return null;
+        }
+        final FreeBranch redundant = used.extract(this);
+        final FreeBranch reattachment;
+        final FreeBranch leftUsed = used.getLeftBranch(this);
+        final FreeBranch rightUsed = used.getRightBranch(this);
 
-		if(leftUsed==redundant) {
-			reattachment = rightUsed;
-		} else if(rightUsed == redundant) {
-			reattachment = leftUsed;
-		} else {
-			throw new IllegalArgumentException("Assertion error");
-		}
-		if(redundant==null) {
-			throw new RuntimeException("Assertion error : I should be able to extract from one of my nodes!");
-		}
+        if(leftUsed==redundant) {
+            reattachment = rightUsed;
+        } else if(rightUsed == redundant) {
+            reattachment = leftUsed;
+        } else {
+            throw new IllegalArgumentException("Assertion error");
+        }
+        if(redundant==null) {
+            throw new RuntimeException("Assertion error : I should be able to extract from one of my nodes!");
+        }
 
-		FreeNode attachmentOldRight = attachmentPoint.rightNode_;
-		//We will attach the old right to redundant, and move in the used node to the attachment point
-		attachmentPoint.swapNode(attachmentOldRight,used);
-		redundant.swapNode(redundant.getOther(used),attachmentOldRight);
+        FreeNode attachmentOldRight = attachmentPoint.rightNode_;
+        //We will attach the old right to redundant, and move in the used node to the attachment point
+        attachmentPoint.swapNode(attachmentOldRight,used);
+        redundant.swapNode(redundant.getOther(used),attachmentOldRight);
 
-		//Fix up old right to have correct attachments
-		attachmentOldRight.swapConnection(attachmentPoint,redundant);
+        //Fix up old right to have correct attachments
+        attachmentOldRight.swapConnection(attachmentPoint,redundant);
 
-		//c.swapNode();
-		//Fix up the used connections
-		store[0] = this;
-		store[1] = redundant;
-		store[2] = attachmentPoint;
-		used.setConnectingBranches(store,3);
+        //c.swapNode();
+        //Fix up the used connections
+        store[0] = this;
+        store[1] = redundant;
+        store[2] = attachmentPoint;
+        used.setConnectingBranches(store,3);
 
-		return reattachment;
-	}
+        return reattachment;
+    }
 	public Node buildPALNodeBase() {
 		Node[] children = new Node[] {
 			leftNode_.buildPALNodeBase(branchLength_/2,this),
@@ -261,24 +299,40 @@ public final class FreeBranch implements RootAccess, GeneralOptimisable  {
 		return c.index_;
 	}
 
-	/**
-	 * Does nothing to fix up tree structure
-	 */
-	public void setNodes(FreeNode left, FreeNode right) {
-		this.leftNode_ = left;		this.rightNode_ = right;
-	}
-	/**
-	 * @note does not change the nodes connection information. Leaves tree in an inconsitent state
-	 */
-	public void swapNode(FreeNode nodeToReplace, FreeNode replacement) {
-		if(nodeToReplace==leftNode_) {
-			leftNode_ = replacement;
-		} else if(nodeToReplace==rightNode_) {
-			rightNode_ = replacement;
-		} else {
-			throw new RuntimeException("Unknown node to replace");
-		}
-	}
+    /**
+     * Sets the left and right {@code FreeNode} objects connected by this branch.
+     * This method directly assigns the node references and **does nothing to update**
+     * the internal connection information within the assigned nodes themselves,
+     * potentially leaving the overall tree structure in an inconsistent state.
+     *
+     * @param left The {@code FreeNode} to set as the left connection.
+     * @param right The {@code FreeNode} to set as the right connection.
+     * @deprecated This method is low-level and inherently unsafe; use higher-level topological methods to maintain tree consistency.
+     */
+    public void setNodes(FreeNode left, FreeNode right) {
+        this.leftNode_ = left;    this.rightNode_ = right;
+    }
+    /**
+     * Replaces one connected {@code FreeNode} with another {@code FreeNode} on this branch.
+     *
+     * <p>Note: This method only updates the reference held by this branch (the parent).
+     * It **does not change the connection information** stored within the nodes themselves,
+     * leaving the tree in an inconsistent state. Higher-level methods must be called immediately
+     * to fix the connections on the replaced and replacement nodes.</p>
+     *
+     * @param nodeToReplace The currently connected {@code FreeNode} that is to be replaced (must be either left or right node).
+     * @param replacement The new {@code FreeNode} that will take the place of the old node.
+     * @throws RuntimeException If the {@code nodeToReplace} is not one of the nodes currently connected by this branch.
+     */
+    public void swapNode(FreeNode nodeToReplace, FreeNode replacement) {
+        if(nodeToReplace==leftNode_) {
+            leftNode_ = replacement;
+        } else if(nodeToReplace==rightNode_) {
+            rightNode_ = replacement;
+        } else {
+            throw new RuntimeException("Unknown node to replace");
+        }
+    }
 	public final ConditionalProbabilityStore getLeftFlatConditionalProbabilities( GeneralConstructionTool tool ) {
 		return leftNode_.getFlatConditionalProbabilities(this,tool);
 	}
@@ -356,21 +410,31 @@ public final class FreeBranch implements RootAccess, GeneralOptimisable  {
 	public final void doNNI(MersenneTwisterFast r) {
 		doNNI(r.nextBoolean(),r.nextBoolean());
 	}
-	/**
-	 * Does not reconstruct patterns
-	 */
-	public boolean doNNI(boolean leftSwapLeft, boolean rightSwapLeft) {
-		FreeBranch first = leftSwapLeft ? leftNode_.getLeftBranch(this) : leftNode_.getRightBranch(this);
-		if(first==null) {
-			return false;
-		}
-		FreeBranch second = rightSwapLeft ? rightNode_.getLeftBranch(this) : rightNode_.getRightBranch(this);
-		if(second==null) {
-			return false;
-		}
-		leftNode_.swapConnection(first,rightNode_,second);
-		return true;
-	}
+    /**
+     * Performs a single step of the Nearest Neighbour Interchange (NNI) operation
+     * on the two subtrees connected by this branch. NNI swaps two subtrees that are
+     * "nearest neighbours" to explore different tree topologies.
+     *
+     * <p>The operation swaps the specified connection from the left node with the specified connection from the right node
+     * across this central branch.</p>
+     *
+     * @param leftSwapLeft If {@code true}, the NNI swap involves the left-most branch of the left node; otherwise, it involves the right-most branch.
+     * @param rightSwapLeft If {@code true}, the NNI swap involves the left-most branch of the right node; otherwise, it involves the right-most branch.
+     * @return {@code true} if the NNI operation was successfully performed (the swap occurred), {@code false} if one of the specified branches to swap was {@code null} and the operation could not be completed.
+     * Note: This method only modifies the tree's topology by swapping connections. **It does not automatically trigger the reconstruction or invalidation of cached likelihood patterns (Conditional Probability Stores).**
+     */
+    public boolean doNNI(boolean leftSwapLeft, boolean rightSwapLeft) {
+        FreeBranch first = leftSwapLeft ? leftNode_.getLeftBranch(this) : leftNode_.getRightBranch(this);
+        if(first==null) {
+            return false;
+        }
+        FreeBranch second = rightSwapLeft ? rightNode_.getLeftBranch(this) : rightNode_.getRightBranch(this);
+        if(second==null) {
+            return false;
+        }
+        leftNode_.swapConnection(first,rightNode_,second);
+        return true;
+    }
 	public double calculateLogLikelihood(  GeneralConstructionTool tool) {
 		UnconstrainedLikelihoodModel.External calculator = tool.obtainFreeExternalCalculator();
 		PatternInfo pi = getCenterPatternInfo(tool);

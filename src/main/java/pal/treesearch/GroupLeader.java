@@ -18,12 +18,17 @@ public interface GroupLeader {
 
 	public void obtainLeafInformation(HeightInformationUser user);
 
-	/**
-	 * Tell the group leader that the groupConstraints have been set up (parameter wise),
-	 * and that internal node heights for example may be calculated
-	 */
-	public void postSetupNotify(ConstraintModel.GroupManager groupConstraints);
-
+    /**
+     * Notifies the group leader (the manager of a set of constrained nodes) that the initial
+     * setup of parameters (such as branch lengths or rates) related to the group's constraints
+     * has been completed.
+     *
+     * This signal allows the group manager to proceed with subsequent calculations,
+     * such as determining internal node heights or other group-dependent values.
+     *
+     * @param groupConstraints The {@code GroupManager} instance that is being notified of the completion of the setup phase.
+     */
+    public void postSetupNotify(ConstraintModel.GroupManager groupConstraints);
 //	public void recursivelyMarkHeights(double[] currentHeightComponents);
 //
 //	public void recursivelyUpdateHeightFromMark(double[] heightComponentsDifferences);

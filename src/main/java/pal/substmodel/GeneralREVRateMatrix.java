@@ -52,7 +52,7 @@ public class GeneralREVRateMatrix implements NeoRateMatrix {
 	 * The general constructor
 	 * <br>Constraint ordering example, for nucleotide data
 	 * <code>
-	 * -> + A C G T
+	 * -&gt; + A C G T
 	 *    A * 0 1 2
 	 *    C * * 3 4
 	 *    G * * * 5
@@ -70,7 +70,7 @@ public class GeneralREVRateMatrix implements NeoRateMatrix {
 	 * The general constructor
 	 * <br>Constraint ordering example, for nucleotide data
 	 * <code>
-	 * -> + A C G T
+	 * -&gt; + A C G T
 	 *    A * 0 1 2
 	 *    C * * 3 4
 	 *    G * * * 5
@@ -89,7 +89,7 @@ public class GeneralREVRateMatrix implements NeoRateMatrix {
 	 * The general constructor
 	 * <br>Constraint ordering example, for nucleotide data
 	 * <code>
-	 * -> + A C G T
+	 * -&gt; + A C G T
 	 *    A * 0 1 2
 	 *    C * * 3 4
 	 *    G * * * 5
@@ -224,7 +224,7 @@ public class GeneralREVRateMatrix implements NeoRateMatrix {
 	 * Create a rate matrix equivalent to the GTR model
 	 * Parameters laid out
 	 *  * <code>
-	 * -> + A C G T
+	 * -&gt; + A C G T
 	 *    A * a b c
 	 *    C * * d e
 	 *    G * * * 1

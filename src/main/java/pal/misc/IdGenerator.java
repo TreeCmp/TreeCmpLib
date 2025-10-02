@@ -19,23 +19,27 @@ import pal.io.*;
  */
 public class IdGenerator {
 
-	/**
-	 * generates a group of unique identifiers numbered from zero.
-	 */
-	public static IdGroup createIdGroup(int size) {
-	
-		int width = (int)Math.ceil(Math.log(size) / Math.log(10.0));
-	
-		IdGroup idGroup = new SimpleIdGroup(size);
-	
-		String name;
-		for (int i = 0; i < size; i++) {
-			name = (new Integer(i)).toString();
-			name = FormattedOutput.space(width - name.length(), '0') + name;
-			idGroup.setIdentifier(i, new Identifier(name));
-		}
-	
-		return idGroup;
-	}	
+    /**
+     * Generates a group of unique {@link Identifier} objects numbered from zero.
+     * Each identifier is a zero-padded string according to the total size.
+     *
+     * @param size the number of identifiers to generate
+     * @return an {@link IdGroup} containing {@code size} unique identifiers named "000", "001", ..., up to {@code size-1} with zero-padding
+     */
+    public static IdGroup createIdGroup(int size) {
+
+        int width = (int) Math.ceil(Math.log(size) / Math.log(10.0));
+
+        IdGroup idGroup = new SimpleIdGroup(size);
+
+        String name;
+        for (int i = 0; i < size; i++) {
+            name = Integer.toString(i);
+            name = FormattedOutput.space(width - name.length(), '0') + name;
+            idGroup.setIdentifier(i, new Identifier(name));
+        }
+
+        return idGroup;
+    }
 }
 

@@ -74,9 +74,7 @@ public class AlignmentDistanceMatrix extends DistanceMatrix implements Serializa
 	 * compute maximum-likelihood distances
 	 *
 	 * @param sp site pattern
-	 * @param m  evolutionary model
-	 * @param immediateCompute - signifies whether to calculate distances from within constructor
-	 *	(if no should call recompute() at some point!)
+	 * @param m evolutionary model
 	 */
 	public AlignmentDistanceMatrix(SitePattern sp, SubstitutionModel m)
 	{
@@ -96,34 +94,39 @@ public class AlignmentDistanceMatrix extends DistanceMatrix implements Serializa
 
 
 
-	/**
-	 * recompute observed distances under new site pattern
-	 *
-	 * @param sp site pattern
-	 * @note no longer maintains previous model!
-	 */
-	public void recompute(SitePattern sp, AlgorithmCallback callback)	{
-		recompute(sp,null,callback);
-	}
-	/**
-	 * recompute maximum-likelihood distances under new site pattern
-	 *
-	 * @param sp site pattern
-	 */
-	public void recompute(SitePattern sp, SubstitutionModel model) {
-		recompute(sp,model,null);
-	}
+    /**
+     * Recomputes observed distances using a new site pattern.
+     * <p>Note: This no longer maintains the previous model.</p>
+     *
+     * @param sp the site pattern containing aligned sequences
+     * @param callback optional callback for progress updates; may be null
+     */
+    public void recompute(SitePattern sp, AlgorithmCallback callback) {
+        recompute(sp, null, callback);
+    }
 
-	/**
-	 * recompute maximum-likelihood distances under new site pattern
-	 *
-	 * @param sp site pattern
-	 */
-	public void recompute(SitePattern sp, SubstitutionModel model,  AlgorithmCallback callback)
-	{
-		setIdGroup(sp);
-		setDistances(computeDistances(sp,model, callback));
-	}
+    /**
+     * Recomputes maximum-likelihood distances using a new site pattern and a given substitution model.
+     *
+     * @param sp the site pattern containing aligned sequences
+     * @param model the substitution model to use; may be null
+     */
+    public void recompute(SitePattern sp, SubstitutionModel model) {
+        recompute(sp, model, null);
+    }
+
+    /**
+     * Recomputes maximum-likelihood distances using a new site pattern and optional substitution model,
+     * with an optional callback for progress reporting.
+     *
+     * @param sp the site pattern containing aligned sequences
+     * @param model the substitution model to use; may be null
+     * @param callback optional callback for progress updates; may be null
+     */
+    public void recompute(SitePattern sp, SubstitutionModel model, AlgorithmCallback callback) {
+        setIdGroup(sp);
+        setDistances(computeDistances(sp, model, callback));
+    }
 
 	private static final double[][] computeDistances(SitePattern sp, SubstitutionModel m, AlgorithmCallback callback) {
 		int numSeqs = sp.getSequenceCount();

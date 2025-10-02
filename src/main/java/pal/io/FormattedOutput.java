@@ -26,20 +26,21 @@ public class FormattedOutput implements Serializable
 	// Public stuff
 	//
 
-	/**
-	 * create instance of this class
-	 * (note that there is no public constructor
-	 * as this class is a singleton)
-	 */
-	public synchronized static FormattedOutput getInstance()
-	{
-		if (singleton == null)
-		{
-			singleton = new FormattedOutput();
-		}
-
-		return singleton;
-	}
+    /**
+     * Returns the singleton instance of {@link FormattedOutput}.
+     * <p>
+     * This class uses the singleton pattern, so only one instance can exist.
+     * The constructor is private to enforce this.
+     * This method is synchronized to ensure thread safety.
+     *
+     * @return the singleton instance of {@link FormattedOutput}
+     */
+    public synchronized static FormattedOutput getInstance() {
+        if (singleton == null) {
+            singleton = new FormattedOutput();
+        }
+        return singleton;
+    }
 
 	/**
 	 * print decimal number with a prespecified number
@@ -60,16 +61,24 @@ public class FormattedOutput implements Serializable
 		return s.length();
 	}
 
-	/**
-	 * Returns a decimal string representation of a number with
-	 * constrained width.
-	 */
-	public synchronized String getDecimalString(double number, int width) {
-		nf.setMinimumFractionDigits(width);
-		nf.setMaximumFractionDigits(width);
+    /**
+     * Returns a decimal string representation of a number with a specified
+     * number of fraction digits.
+     * <p>
+     * The output string will have exactly {@code width} digits after the
+     * decimal point. The method is synchronized to ensure thread safety
+     * when using the internal {@link java.text.NumberFormat} instance.
+     *
+     * @param number the number to format
+     * @param width the number of digits to display after the decimal point
+     * @return a string representation of {@code number} with {@code width} decimal places
+     */
+    public synchronized String getDecimalString(double number, int width) {
+        nf.setMinimumFractionDigits(width);
+        nf.setMaximumFractionDigits(width);
 
-		return nf.format(number);
-	}
+        return nf.format(number);
+    }
 
 	private static final double round(double number, int sf) {
 		double decimals = Math.floor(Math.log(number) / Math.log(10.0));
@@ -163,7 +172,7 @@ public class FormattedOutput implements Serializable
 	/**
 	 * print whitespace of length of a string displaying a given integer
 	 *
-	 * @param output stream
+	 * @param out stream
 	 * @param maxNum number
 	 */
 	public void displayIntegerWhite(PrintWriter out, int maxNum)
@@ -193,7 +202,8 @@ public class FormattedOutput implements Serializable
 	 *
 	 * @param size length of the string required
 	 * @param c   character
-	 */
+     * @return a string of length {@code size} consisting of the character {@code c}
+     */
 	public static String space(int size, char c) {
 		StringBuffer sb = new StringBuffer();
 		for (int i = 0; i < size; i++) {
@@ -201,7 +211,6 @@ public class FormattedOutput implements Serializable
 		}
 		return new String(sb);
 	}
-
 
 	//
 	// Private stuff

@@ -38,21 +38,21 @@ import java.io.*;
  *	support for unreading tokens or for moving bi-directionally through the stream</p>
  *	<p>NB: in this implementation, the token #NEXUS is considered special and when
  *	read by the parser, it will return one token: '#NEXUS' not two: '#' and 'NEXUS'.
- *	This token has special meaning and is reflected in it having its own token type<br/></p>
+ *	This token has special meaning and is reflected in it having its own token type<br></p>
  *	
  *	<h3>Usage</h3>
  *	<code>
- *	NexusTokenizer ntp = new NexusTokenizer(new PushbackReader(new FileReader("afile")));<br/>
- *	ntp.setReadWhiteSpace(false);<br/>&nbsp;&nbsp;&nbsp;&nbsp;// ignore whitespace
- *	ntp.setIgnoreComments(true);<br/>&nbsp;&nbsp;&nbsp;&nbsp; // ignore comments
- *	ntp.setWordModification(NexusTokenizer.WORD_UPPERCASE);<br/> // all tokens in uppercase
- *	String nToken = ntp.readToken();<br/>
- *	<br/>
- *	while(nToken != null) {<br/>
- *	&nbsp;&nbsp;&nbsp;&nbsp;System.out.println("Token: " + nToken);<br/>
- *	&nbsp;&nbsp;&nbsp;&nbsp;System.out.println("Col:   " + ntp.getCol());<br/>
- *	&nbsp;&nbsp;&nbsp;&nbsp;System.out.println("Row:   " + ntp.getRow());<br/>
- *	}<br/>
+ *	NexusTokenizer ntp = new NexusTokenizer(new PushbackReader(new FileReader("afile")));<br>
+ *	ntp.setReadWhiteSpace(false);<br>&nbsp;&nbsp;&nbsp;&nbsp;// ignore whitespace
+ *	ntp.setIgnoreComments(true);<br>&nbsp;&nbsp;&nbsp;&nbsp; // ignore comments
+ *	ntp.setWordModification(NexusTokenizer.WORD_UPPERCASE);<br> // all tokens in uppercase
+ *	String nToken = ntp.readToken();<br>
+ *	<br>
+ *	while(nToken != null) {<br>
+ *	&nbsp;&nbsp;&nbsp;&nbsp;System.out.println("Token: " + nToken);<br>
+ *	&nbsp;&nbsp;&nbsp;&nbsp;System.out.println("Col:   " + ntp.getCol());<br>
+ *	&nbsp;&nbsp;&nbsp;&nbsp;System.out.println("Row:   " + ntp.getRow());<br>
+ *	}<br>
  *	</code>
  *	
  *
@@ -434,13 +434,14 @@ public final class NexusTokenizer {
 	 *		<li>WHITESPACE_TOKEN</li>
 	 *		<li>HEADER_TOKEN</li>
 	 *	</ul>
-	 *
+     * @param tokenType the type of token to seek (WORD_TOKEN, PUNCTUATION_TOKEN,
+     *                  NEWLINE_TOKEN, WHITESPACE_TOKEN, or HEADER_TOKEN)
 	 * @return                          returns	a <code>String</code> token or 
 	 *									<code>null</code> if EOF is reached 
 	 *									(i.e. no more tokens to read)
 	 * @exception  IOException			I/O errors
 	 * @exception  NexusParseException	Thrown by parsing errors or if 
-	 *									tokenType == WHITESPACE_TOKEN && 
+	 *									tokenType == WHITESPACE_TOKEN &amp;&amp;
 	 *									readWhiteSpace() == false
 	 */
 	public synchronized String seek(int tokenType) throws IOException, NexusParseException {
@@ -471,13 +472,14 @@ public final class NexusTokenizer {
 	
 	/**
 	 *	Seeks through the stream to find the token argument.
-	 *
+     *
+     * @param token the string token to seek
 	 * @return                          returns	a <code>String</code> token or 
 	 *									<code>null</code> if token is not found 
 	 *									(i.e. EOF is reached)
 	 * @exception  IOException			I/O errors
 	 * @exception  NexusParseException	Thrown by parsing errors or if 
-	 *									token is whitespace && 
+	 *									token is whitespace &amp;&amp;
 	 *									readWhiteSpace() == false
 	 */
 	public synchronized String seek(String token) throws IOException, NexusParseException {
@@ -504,8 +506,7 @@ public final class NexusTokenizer {
 		
 		return nToken;
 	}
-	
-	
+
 	/**
 	 *	Returns the last read token. Each call to <code>readToken()</code> stores the
 	 *	returned token so that it can be retrieved again. However, each consuming

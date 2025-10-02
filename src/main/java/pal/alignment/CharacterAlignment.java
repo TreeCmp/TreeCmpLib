@@ -27,27 +27,43 @@ public interface CharacterAlignment extends Serializable, IdGroup, Report,
 	TableReport {
       double MISSING=Double.NaN;
 
-        /**
-	 * Return name of the trait for this trait number
-	 */
-        String getTraitName(int trait);
+    /**
+     * Returns the name of the trait corresponding to the given trait index.
+     *
+     * @param trait the trait index.
+     * @return the name of the trait as a String.
+     */
+    String getTraitName(int trait);
 
-        /**
-	 * Return name of the environments for this trait number
-	 */
-        String getEnvironmentName(int trait);
+    /**
+     * Returns the name of the environment corresponding to the given trait index.
+     *
+     * @param trait the trait index.
+     * @return the environment name as a String.
+     */
+    String getEnvironmentName(int trait);
 
-        /**
-	 * Return the trait value for a given sequence (taxon) and trait number
-	 */
-        double getTrait(int seq, int trait);
+    /**
+     * Returns the value of a specific trait for a given sequence (taxon).
+     *
+     * @param seq   the sequence (taxon) index.
+     * @param trait the trait index.
+     * @return the trait value as a double.
+     */
+    double getTrait(int seq, int trait);
 
-	/**
-	 * Return number of sequences(taxa) in this alignment
-	 */
-	int getSequenceCount();
+    /**
+     * Returns the number of sequences (taxa) in this alignment or trait dataset.
+     *
+     * @return the number of sequences as an integer.
+     */
+    int getSequenceCount();
 
-      	/** Return number of traits for each sequence in this alignment
-	 */
-	int getTraitCount();
+    /**
+     * Returns the number of traits for each sequence in this alignment or dataset.
+     *
+     * @return the number of traits as an integer.
+     */
+    int getTraitCount();
 }
+

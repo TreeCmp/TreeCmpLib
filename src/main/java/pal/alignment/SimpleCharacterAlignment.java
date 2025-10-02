@@ -30,7 +30,7 @@ public class SimpleCharacterAlignment implements CharacterAlignment, Serializabl
 	/** names of the traits */
 	protected String[] traitNames;
 
-		/** names of the traits */
+    /** names of the traits */
 	protected String[] environmentNames;
 
 	/** number of sequences */
@@ -43,20 +43,21 @@ public class SimpleCharacterAlignment implements CharacterAlignment, Serializabl
 	protected IdGroup idGroup;
 
 
-	 public SimpleCharacterAlignment() {
+    public SimpleCharacterAlignment() {
 	}
 
 	/**
 	 * Constructor for SimpleCharacterAlignment.  Environment names if be set to default NA.
-	 * @param group array of taxa identifiers
-	 * @param traitValues matrix of trait values
-	 * @param traitNames array of trait names
-	 */
+     *
+     * @param ids array of taxa identifiers
+     * @param traitValues matrix of trait values [sequence][trait]
+     * @param traitNames array of trait names
+     */
 	public SimpleCharacterAlignment(Identifier[] ids, double[][] traitValues, String[] traitNames) {
 		this(new SimpleIdGroup(ids),traitValues, traitNames);
 	}
 
-		/**
+    /**
 	 * Constructor for SimpleCharacterAlignment.  Environment names if be set to default NA.
 	 * @param group taxa names
 	 * @param traitValues matrix of trait values
@@ -113,46 +114,61 @@ public class SimpleCharacterAlignment implements CharacterAlignment, Serializabl
 		numTraits=1;
 	}
 
-		/**
-		* Return the trait value for a given sequence (taxon) and trait number
-		*
-		*         */
-		public double getTrait(int seq, int trait) {
-			return traitValues[seq][trait];
-		}
+    /**
+    * Return the trait value for a given sequence (taxon) and trait number
+    *
+     * @param seq index of the sequence (taxon)
+     * @param trait index of the trait
+     * @return value of the trait for the given sequence
+     */
+    public double getTrait(int seq, int trait) {
+        return traitValues[seq][trait];
+    }
 
-			/**
+    /**
 	 * Return number of traits in this alignment
-	 */
+     *
+     * @return number of traits
+     */
 	public final int getLength() {
 		return numTraits;
 	}
 
 	/**
 	 * Return number of taxa or sequences in this alignment
-	 */
+     *
+     * @return number of sequences
+     */
 	public final int getSequenceCount() {
 		return numSeqs;
 	}
 
 
-				/** Return number of trait for each taxon in this alignment
-	 */
+    /** Return number of trait for each taxon in this alignment
+     *
+     * @return number of traits
+     */
 	public final int getTraitCount() {
 		return numTraits;
 	}
 
-				/**
+    /**
 	 * Return name of the trait for this trait number
-	 */
-				public String getTraitName(int trait) {
+     *
+     * @param trait trait index
+     * @return trait name
+     */
+    public String getTraitName(int trait) {
 						return traitNames[trait];
 					}
 
-				/**
+	/**
 	 * Return name of the environments for this trait number
-	 */
-				public String getEnvironmentName(int trait){
+     *
+     * @param trait trait index
+     * @return environment name
+     */
+	public String getEnvironmentName(int trait){
 						return environmentNames[trait];
 					}
 
@@ -162,7 +178,10 @@ public class SimpleCharacterAlignment implements CharacterAlignment, Serializabl
 	public int getIdCount() { return idGroup.getIdCount(); }
 	public int whichIdNumber(String name) { return idGroup.whichIdNumber(name); }
 
-			/** returns representation of this alignment as a string */
+    /** returns representation of this alignment as a string
+     *
+     * @return string representation of the alignment
+     */
 	public String toString() {
 
 		StringWriter sw = new StringWriter();
@@ -198,40 +217,46 @@ public class SimpleCharacterAlignment implements CharacterAlignment, Serializabl
 
 
 
-						 //Implementation of TableReport Interface
-		 /**
-		 * Return column names for the table
-		 */
-		public Object[] getTableColumnNames() {
-			String[] basicLabels=new String[getTraitCount()+1];
-			basicLabels[0]="Taxa";
-			for(int c=0; c<getTraitCount(); c++)
-					{basicLabels[c+1]=getTraitName(c)+"."+getEnvironmentName(c);}
-			return basicLabels;
-			}
+    //Implementation of TableReport Interface
+     /**
+      * Return column names for the table
+      *
+      * @return array of column names
+      */
+    public Object[] getTableColumnNames() {
+        String[] basicLabels=new String[getTraitCount()+1];
+        basicLabels[0]="Taxa";
+        for(int c=0; c<getTraitCount(); c++)
+                {basicLabels[c+1]=getTraitName(c)+"."+getEnvironmentName(c);}
+        return basicLabels;
+        }
 
-		/**
-		 * Return data for the table
-		 */
-		public Object[][] getTableData() {
-			Object[][] data;
+    /**
+     * Return data for the table
+     *
+     * @return 2D array with table data
+     */
+    public Object[][] getTableData() {
+        Object[][] data;
 //      java.text.NumberFormat nf=new java.text.DecimalFormat();
 //      nf.setMaximumFractionDigits(8);
-			int i=0, labelOffset;
-			data=new String[getSequenceCount()][getTraitCount()+1];
-			for(int r=0; r<getSequenceCount(); r++)
-				{data[r][0]=getIdentifier(r).getName();
-				for(int c=0; c<getTraitCount(); c++)
-					{data[r][c+1]=""+getTrait(r,c);}
-				}
-			return data;
-			}
+        int i=0, labelOffset;
+        data=new String[getSequenceCount()][getTraitCount()+1];
+        for(int r=0; r<getSequenceCount(); r++)
+            {data[r][0]=getIdentifier(r).getName();
+            for(int c=0; c<getTraitCount(); c++)
+                {data[r][c+1]=""+getTrait(r,c);}
+            }
+        return data;
+    }
 
-		/**
-		 * Return the name for the title of the ANOVA
-		 */
-		public String getTableTitle() {
-			return "Phenotypes";
-		}
+    /**
+     * Return the name for the title of the ANOVA
+     *
+     * @return table title
+     */
+    public String getTableTitle() {
+        return "Phenotypes";
+    }
 
 }

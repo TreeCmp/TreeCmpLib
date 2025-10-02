@@ -18,23 +18,43 @@ package pal.math;
  */
 
 public interface OrderEnumerator {
-	/**
-	 * If hasMore returns false reset should be called
-	 */
-	boolean hasMore();
-	/**
-	 * The next value in the enumeration
-	 */
-	int getNext();
-	/**
-	 * Reset back to starting state, may have a differnet number of values, and a different ordering after a reset!
-	 */
-	void reset();
+    /**
+     * Checks whether there are more values to enumerate.
+     * <p>
+     * If this method returns {@code false}, the {@link #reset()} method
+     * should be called before attempting to enumerate again.
+     *
+     * @return {@code true} if more values are available, {@code false} otherwise
+     */
+    boolean hasMore();
 
+    /**
+     * Returns the next value in the enumeration.
+     *
+     * @return the next integer value in the sequence
+     * @throws java.util.NoSuchElementException if no more values are available
+     */
+    int getNext();
+
+    /**
+     * Resets this enumerator back to its starting state.
+     * <p>
+     * After a reset, the enumerator may produce a different number of values
+     * and/or a different ordering compared to the previous run.
+     */
+    void reset();
+
+    /**
+     * A factory interface for creating {@link OrderEnumerator} instances.
+     */
 	public static interface OEFactory {
 		/**
 		 * For generating an ordering from 0..size-1. Enumerator doesn't have to actually produce
-		 */
+         *
+         * @param size the number of values to be enumerated
+         * @return a new {@link OrderEnumerator} for the given size
+         * @throws IllegalArgumentException if {@code size} is negative
+         */
 		public OrderEnumerator createOrderEnumerator(int size);
 	}
 
@@ -68,7 +88,7 @@ public interface OrderEnumerator {
 		}
 		/**
 		 * @param primary The primary OrderEnumerator, one index is taken from this enumertor than an entire sequence of the secondary is taken
-		 * @param secondar The primary OrderEnumerator, the entire sequence of a secondary enumerator is taken for every single index from the primary enumerator
+		 * @param secondary The primary OrderEnumerator, the entire sequence of a secondary enumerator is taken for every single index from the primary enumerator
 		 *
 		 * @return an OrderEnumerator object that combines two sub enumerators
 		 */
@@ -77,7 +97,7 @@ public interface OrderEnumerator {
 		}
 		/**
 		 * @param primary The primary OrderEnumerator
-		 * @param secondar The primary OrderEnumerator
+		 * @param secondary The primary OrderEnumerator
 		 *
 		 * @return an OrderEnumerator object that combines two sub enumerators, by alternating between outputs
 		 */
@@ -90,19 +110,27 @@ public interface OrderEnumerator {
 		public static final OrderEnumerator getZero() {
 			return ZERO;
 		}
-		/**
+        /**
+         * Returns an {@link OrderEnumerator} that restricts the values produced by a base enumerator
+         * to a specific range.
+         *
+         * @param toRestrict the base {@link OrderEnumerator} to restrict
 		 * @param minimum minmim value released
 		 * @param range range of values released (that is values go between minimum (inclusive) and minimum+range(exclusive)
 		 *
 		 * @return an OrderEnumerator that is restricted in indexes it returns based on base Enumerator
-		 *
 		 */
 		public static final OrderEnumerator getRestricted(OrderEnumerator toRestrict, int minimum, int range) {
 			return new Restricted(toRestrict,minimum, range);
 		}
 
-		/**
-		 * @return OrderEnumerator that always returns 0 (zero)
+        /**
+         * Returns a new {@link OrderEnumerator} that adjusts the values of the given enumerator
+         * by a fixed amount.
+         *
+         * @param toAdjust the underlying {@link OrderEnumerator} whose values will be adjusted
+         * @param adjustmentFactor the amount to add to each value returned by the underlying enumerator
+         * @return OrderEnumerator that always returns 0 (zero)
 		 */
 		public static final OrderEnumerator getAdjusted(OrderEnumerator toAdjust, int adjustmentFactor) {
 			return new Adjust(toAdjust,adjustmentFactor);
@@ -136,38 +164,53 @@ public interface OrderEnumerator {
 		public static final OrderEnumerator.OEFactory getShuffledFactory() {
 			return Shuffled.Factory.INSTANCE;
 		}
-		/**
+        /**
+         * Returns a factory for producing {@link OrderEnumerator} instances that adjust
+         * the values of a base enumerator by a fixed amount.
+         *
+         * @param toAdjust the base {@link OrderEnumerator.OEFactory} to adjust
 		 * @param adjustmentFactor If to adjust returns x, adjusted will return x+adjustmentFactory (it's that simple)
 		 * @return an OrderEnumerator that returns indexes adjusted from a base enumerator
-		 *
 		 */
 		public static final OrderEnumerator.OEFactory getAdjustedFactory(OrderEnumerator.OEFactory toAdjust, int adjustmentFactor) {
 			return new Adjust.Factory(toAdjust,adjustmentFactor);
 		}
-		/**
-		 * @param minimum minmim value released
-		 * @param range range of values released (that is values go between minimum (inclusive) and minimum+range(exclusive)
-		 *
-		 * @return an OrderEnumerator that is restricted in indexes it returns based on base Enumerator
-		 *
-		 */
-		public static final OrderEnumerator.OEFactory getRestrictedFactory(OrderEnumerator.OEFactory toRestrict, int minimum, int range) {
-			return new Restricted.Factory(toRestrict,minimum, range);
-		}
+        /**
+         * Returns a factory for {@link OrderEnumerator} that restricts the values produced
+         * by a base enumerator to a specific range.
+         *
+         * @param toRestrict the base {@link OrderEnumerator.OEFactory} to restrict
+         * @param minimum the minimum value (inclusive) that can be returned
+         * @param range the number of values allowed; values will range from minimum (inclusive) to minimum + range (exclusive)
+         * @return an {@link OrderEnumerator.OEFactory} that only produces values within the specified range
+         */
+        public static final OrderEnumerator.OEFactory getRestrictedFactory(OrderEnumerator.OEFactory toRestrict, int minimum, int range) {
+            return new Restricted.Factory(toRestrict, minimum, range);
+        }
 
-		/**
-		 * @return an OrderEnumerator object that alternates outputs between two base enumerator
-		 */
-		public static final OrderEnumerator.OEFactory getAlternatingFactory(OrderEnumerator.OEFactory primary, OrderEnumerator.OEFactory secondary) {
-			return new Alternate.Factory(primary,secondary);
-		}
-		/**
-		 * @return an OrderEnumerator object that alternates outputs between two base enumerator
-		 * (takes one from primary, than all from secondary, one from primary, all from secondary)
-		 */
-		public static final OrderEnumerator.OEFactory getBiasAlternatingFactory(OrderEnumerator.OEFactory primary, OrderEnumerator.OEFactory secondary) {
-			return new BiasAlternate.Factory(primary,secondary);
-		}
+        /**
+         * Returns a factory for {@link OrderEnumerator} that alternates outputs
+         * between two base enumerators.
+         *
+         * @param primary the primary {@link OrderEnumerator.OEFactory} to use
+         * @param secondary the secondary {@link OrderEnumerator.OEFactory} to use
+         * @return an {@link OrderEnumerator.OEFactory} that alternates values from primary and secondary enumerators
+         */
+        public static final OrderEnumerator.OEFactory getAlternatingFactory(OrderEnumerator.OEFactory primary, OrderEnumerator.OEFactory secondary) {
+            return new Alternate.Factory(primary, secondary);
+        }
+
+        /**
+         * Returns a factory for {@link OrderEnumerator} that alternates outputs
+         * with a bias: takes one value from primary, then all remaining from secondary, repeatedly.
+         *
+         * @param primary the primary {@link OrderEnumerator.OEFactory} to use
+         * @param secondary the secondary {@link OrderEnumerator.OEFactory} to use
+         * @return an {@link OrderEnumerator.OEFactory} that alternates values in a biased pattern between primary and secondary
+         */
+        public static final OrderEnumerator.OEFactory getBiasAlternatingFactory(OrderEnumerator.OEFactory primary, OrderEnumerator.OEFactory secondary) {
+            return new BiasAlternate.Factory(primary, secondary);
+        }
 		//=======================================================
 
 		/**
@@ -260,10 +303,14 @@ public interface OrderEnumerator {
 			int top_;
 			int next_;
 			boolean hasMore_;
-			/**
-			 * @param adjusment amount - how much adjust a value by, should be positive
+            /**
+             * Constructs a Restricted enumerator that adjusts values from another enumerator.
+             *
+			 * @param toAdjust - how much adjust a value by, should be positive
 			 *    (for example adjustment of 1 will mean when sub returns 5, this will return 6)
-			 */
+             * @param minimum the minimum value that can be returned
+             * @param range the range of allowed values (maximum = minimum + range)
+             */
 			public Restricted(OrderEnumerator toAdjust, int minimum, int range) {
 				this.toAdjust_ = toAdjust;
 				this.minimum_ = minimum;
@@ -308,10 +355,14 @@ public interface OrderEnumerator {
 		private static class Adjust implements OrderEnumerator {
 			OrderEnumerator toAdjust_;
 			int adjustmentAmount_;
-			/**
-			 * @param adjusment amount - how much adjust a value by, should be positive
+            /**
+             * Constructs an Adjust enumerator that offsets values from another enumerator.
+             *
+			 * @param toAdjust amount - how much adjust a value by, should be positive
 			 *    (for example adjustment of 1 will mean when sub returns 5, this will return 6)
-			 */
+             * @param adjustmentAmount the amount to add to each value returned by the underlying enumerator;
+             *        must be positive
+             */
 			public Adjust(OrderEnumerator toAdjust, int adjustmentAmount) {
 				this.toAdjust_ = toAdjust;
 				this.adjustmentAmount_ = adjustmentAmount;

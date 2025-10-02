@@ -13,7 +13,7 @@ package pal.distance;
  *               Differs from DistanceMatrixAccess as generates different DistanceMatrix objects
  * @author Matthew Goode
  * @version 1.0
- * @note originally part of DistanceMatrixSource
+ * Note: originally part of DistanceMatrixSource
  * @see DistanceMatrixAccess
  */
 import pal.alignment.*;
@@ -29,9 +29,15 @@ public interface DistanceMatrixGenerator {
 		public static DistanceMatrixGenerator createEvolutionary(Alignment a, SubstitutionModel sm) {
 			return new Evolutionary(a,sm);
 		}
-		/**
-		 * Silly idea stuff
-		 */
+
+    /**
+     * Creates a parametric distance matrix generator using a given tree, substitution model, and number of sites.
+     *
+     * @param baseTree the phylogenetic tree used as the base for generating distances
+     * @param sm the substitution model to use for sequence evolution
+     * @param numberOfSites the number of sites to simulate
+     * @return a new instance of {@link DistanceMatrixGenerator} configured with the given parameters
+     */
 		public static DistanceMatrixGenerator createParametric(Tree baseTree, SubstitutionModel sm, int numberOfSites) {
 			return new Parametric(baseTree,sm,numberOfSites);
 		}

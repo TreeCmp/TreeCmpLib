@@ -29,7 +29,6 @@ public class ClockTree extends ParameterizedTree.ParameterizedTreeBase  implemen
 
 	public ClockTree() {}
 
-
 	/**
 	 * take any tree and afford it with an interface
 	 * suitable for a clock-like tree (parameters
@@ -38,7 +37,11 @@ public class ClockTree extends ParameterizedTree.ParameterizedTreeBase  implemen
 	 * <em>This parameterisation of a clock-tree, ensuring that
 	 * all parameters are independent of each other is due to
 				 * Andrew Rambaut (personal communication).</em>
-	 */
+     *
+     * @param t the input {@link Tree} to wrap as a clock-like tree
+     * @throws IllegalArgumentException if the root node of the tree
+     *                                  has fewer than two children
+     */
 	public ClockTree(Tree t)
 	{
 		setBaseTree(t);
@@ -154,7 +157,9 @@ public class ClockTree extends ParameterizedTree.ParameterizedTreeBase  implemen
 
 	/**
 	 * Obtain a ParameterizedTree.Factory for generating Clock trees
-	 */
+     * @return the default {@link ParameterizedTree.Factory} instance
+     *         used to create clock-like parameterized trees
+     */
 	public static final ParameterizedTree.Factory getParameterizedTreeFactory() {
 		return TreeFactory.DEFAULT_INSTANCE;
 	}

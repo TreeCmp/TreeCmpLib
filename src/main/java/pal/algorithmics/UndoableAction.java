@@ -10,12 +10,14 @@ package pal.algorithmics;
  */
 import java.util.*;
 public interface UndoableAction {
-  /**
-   * Perform an action
-   * @param currentscore The current score before doing the action
-   * @param desparationValue An indication by the processing machines of willingness to do more extreme actions. A value of 0 means not desparate at all, a value of 1 means very desparate
-   * @return the current score after doing the action (or the input score if not successful)
-   */
+    /**
+     * Perform an action.
+     *
+     * @param currentScore     The current score before doing the action.
+     * @param desparationValue An indication by the processing machines of willingness to do more extreme actions.
+     *                         A value of 0 means not desperate at all, a value of 1 means very desperate.
+     * @return the current score after doing the action (or the input score if not successful).
+     */
   public double doAction(double currentScore, double desparationValue);
 
   /**
@@ -43,42 +45,49 @@ public interface UndoableAction {
 // -=-=-==-=--=-==--=-==--=-==---==-=--=-=-=-=-==-=-=-=-=-=-=--==-=-=--==-=--=-
 
   public static final class Utils {
-    /**
-     * Create an action that selects uniformly from a number of sub actions
-     * @param subActions
-     * @return
-     */
+      /**
+       * Create an action that selects uniformly from a number of sub-actions.
+       *
+       * @param subActions an array of UndoableAction objects from which one will be selected uniformly.
+       * @return a new UndoableAction that represents the uniform selection of one of the sub-actions.
+       */
     public static final UndoableAction getSimpleUniformSelection(UndoableAction[] subActions) {
       return new Multi(subActions);
     }
-/**
-     * Create an action that selects uniformly from a number of sub actions
-     * @param subActions
-     * @param acitionProportions
-     * @throws IllegalArgumentException if action array and proportion arrays are different lengths
-     * @return
-     */
+      /**
+       * Create an action that selects from sub-actions with given proportions.
+       *
+       * @param subActions        An array of UndoableAction objects to select from.
+       * @param actionProportions An array of doubles representing the proportion for each sub-action.
+       * @return a new UndoableAction that selects according to the specified proportions.
+       * @throws IllegalArgumentException if the action array and proportion arrays are of different lengths.
+       */
     public static final UndoableAction getDistributedSelection(UndoableAction[] subActions, double[] actionProportions) {
       if(subActions.length>actionProportions.length) {
         throw new IllegalArgumentException("Actions and proportion array different lengths");
       }
       return new DistributedMulti(subActions, actionProportions);
     }
-		/**
-     * Create an action that combines multiple actions
-     * @param subActions The actions that are do in turn.
-     * @return An action that performs all the sub actions
-     */
+  /**
+   * Create an action that combines multiple actions in sequence.
+   *
+   * @param subActions The actions that are performed in turn.
+   * @return An UndoableAction that performs all the sub-actions in sequence.
+   */
     public static final UndoableAction getCombined(UndoableAction[] subActions) {
       return new Combined(subActions);
     }
-    /**
-     * A simple tool for change actions when things get desparate
-     * @param primaryAction The main action to do when things are going well
-     * @param desparateAction The action to do when things get desparate. The desperation value for the desparate action will be scaled according to how much over the limit we are
-     * @param desparationLimit The desparate value at which we start doing the desparate action
-     * @param desparationInterval The time between desparate actions when we cross the cutoff (a value of one will mean do all the time after desparation value has crossed cutoff)
-     */
+      /**
+       * A simple tool for changing actions when things get desperate.
+       *
+       * @param primaryAction       The main action to perform when things are going well.
+       * @param desparateAction     The action to perform when things get desperate. The desperation value for this action
+       *                            will be scaled according to how much over the limit we are.
+       * @param desparationLimit    The desperation value at which we start performing the desperate action.
+       * @param desparationInterval The interval between desperate actions once the cutoff is crossed.
+       *                            A value of 1 means perform the desperate action continuously after crossing the limit.
+       * @return An UndoableAction that handles primary and desperate actions according to the desperation logic.
+       */
     public static final UndoableAction getSimpleDesparation(UndoableAction primaryAction, UndoableAction desparateAction, double desparationLimit, int desparationInterval) {
       return new SimpleDesparation(primaryAction,desparateAction,desparationLimit,desparationInterval);
     }

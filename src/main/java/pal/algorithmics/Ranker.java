@@ -35,9 +35,11 @@ public class Ranker {
 	public final double getBestScore() { return numberInStore_==0? 0 : store_[0].getScore(); }
 	/**
 	 * Enquire to the merits of adding an object with a particular score
-	 * @param score The score in question
-	 * @return true if an object with such a score is going to make a difference to the current state of this ranker
-	 */
+     *
+     * @param score       The score in question.
+     * @param maximising  If true, higher scores are considered better; if false, lower scores are considered better.
+     * @return true if an object with such a score is going to make a difference to the current state of this ranker.
+     */
 	public final boolean isWorthAdding(final double score, boolean maximising) {
 		return (numberInStore_!=store_.length) || (numberInStore_==0) ||
 					 (maximising ? score > worstScore_: score < worstScore_ );
@@ -56,8 +58,10 @@ public class Ranker {
 	/**
 	 * Add in (if it's good enough) a new object based on a score
 	 * If an object has equality with an object already in the store that object is replaced by the new version
-	 * @param object The object to add in
-	 * @param score The score of the object
+     *
+     * @param object      The object to add in.
+     * @param score       The score of the object.
+     * @param maximising  If true, higher scores are considered better; if false, lower scores are considered better.
 	 */
 	public void add(Object object, double score, boolean maximising) {
 		int insertionPoint = numberInStore_;

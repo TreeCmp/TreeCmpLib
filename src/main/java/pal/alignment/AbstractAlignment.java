@@ -85,119 +85,155 @@ abstract public class AbstractAlignment implements Alignment, Serializable, IdGr
 	/** sequence alignment at (sequence, site) */
 	abstract public char getData(int seq, int site);
 
-	/**
-	 * returns true if there is a gap in the give position.
-	 */
-	public boolean isGap(int seq, int site) {
-		return dataType.isGapChar(getData(seq, site));
-	}
+    /**
+     * Returns true if there is a gap at the given sequence and site position.
+     *
+     * @param seq  the index of the sequence.
+     * @param site the index of the site within the sequence.
+     * @return true if the character at the given position is a gap, false otherwise.
+     * @throws IndexOutOfBoundsException if seq or site is out of range.
+     */
+    public boolean isGap(int seq, int site) {
+        return dataType.isGapChar(getData(seq, site));
+    }
 
-	/** Guess data type */
-	public void guessDataType()
-	{
-		dataType = AlignmentUtils.getSuitableInstance(this);
-	}
-	/**
-	 * Same as getDataType().getChar(state)
-	 */
-	protected final char getChar(int state) {		return dataType.getChar(state); 	}
+    /**
+     * Guess and set the data type for this alignment based on its content.
+     */
+    public void guessDataType() {
+        dataType = AlignmentUtils.getSuitableInstance(this);
+    }
 
-	/**
-	 * Same as getDataType().getState(char)
-	 */
-	protected final int getState(char c) {		return dataType.getState(c); 	}
-	/**
-	 * Same as getDataType().isUnknownState(state)
-	 */
-	protected final boolean isUnknownState(int state) {		return dataType.isUnknownState(state); 	}
+    /**
+     * Returns the character corresponding to a given state according to the data type.
+     *
+     * @param state the state index.
+     * @return the character representing the state.
+     */
+    protected final char getChar(int state) {
+        return dataType.getChar(state);
+    }
 
-	/** Returns the datatype of this alignment */
-	public final DataType getDataType()
-	{
-		return dataType;
-	}
+    /**
+     * Returns the state index corresponding to a given character according to the data type.
+     *
+     * @param c the character.
+     * @return the state index representing the character.
+     */
+    protected final int getState(char c) {
+        return dataType.getState(c);
+    }
 
-	/** Sets the datatype of this alignment */
-	public final void setDataType(DataType d)
-	{
-		dataType = d;
-	}
+    /**
+     * Checks if the given state represents an unknown value according to the data type.
+     *
+     * @param state the state index.
+     * @return true if the state is unknown, false otherwise.
+     */
+    protected final boolean isUnknownState(int state) {
+        return dataType.isUnknownState(state);
+    }
 
-	/** returns representation of this alignment as a string */
-	public String toString() {
+    /**
+     * Returns the data type of this alignment.
+     *
+     * @return the DataType of the alignment.
+     */
+    public final DataType getDataType() {
+        return dataType;
+    }
 
-		StringWriter sw = new StringWriter();
-		AlignmentUtils.print(this, new PrintWriter(sw));
+    /**
+     * Sets the data type of this alignment.
+     *
+     * @param d the DataType to set.
+     */
+    public final void setDataType(DataType d) {
+        dataType = d;
+    }
 
-		return sw.toString();
-	}
+    /**
+     * Returns a string representation of this alignment.
+     *
+     * @return a string representing the alignment.
+     */
+    public String toString() {
+        StringWriter sw = new StringWriter();
+        AlignmentUtils.print(this, new PrintWriter(sw));
+        return sw.toString();
+    }
 
-	// interface Report
+    /**
+     * Reports the alignment using the provided PrintWriter.
+     *
+     * @param out the PrintWriter to write the report to.
+     */
+    public void report(PrintWriter out) {
+        AlignmentUtils.report(this, out);
+    }
 
-	public void report(PrintWriter out)
-	{
-		AlignmentUtils.report(this, out);
-	}
+    /**
+     * Fills a matrix with the state indices of each character in the alignment.
+     * Gaps are represented by -1.
+     *
+     * @return a 2D array [numSequences][numSites] with state indices.
+     */
+    public int[][] getStates() {
+        int[][] indices = new int[numSeqs][numSites];
+        for (int i = 0; i < numSeqs; i++) {
+            for (int j = 0; j < numSites; j++) {
+                indices[i][j] = dataType.getState(getData(i, j));
+                if (indices[i][j] >= dataType.getNumStates()) {
+                    indices[i][j] = -1;
+                }
+            }
+        }
+        return indices;
+    }
 
+    /**
+     * Returns the number of sites (columns) in this alignment.
+     *
+     * @return the number of sites.
+     */
+    public final int getLength() {
+        return numSites;
+    }
 
-	/**
-	 * Fills a [numsequences][length] matrix with indices.
-	 * Each index represents the sequence state, -1 means a gap.
-	 */
-	public int[][] getStates() {
+    /**
+     * Returns the number of sequences in this alignment.
+     *
+     * @return the number of sequences.
+     */
+    public final int getSequenceCount() {
+        return numSeqs;
+    }
 
-		int[][] indices = new int[numSeqs][numSites];
+    /**
+     * Returns the number of sites for each sequence in this alignment.
+     *
+     * @return the number of sites.
+     */
+    public final int getSiteCount() {
+        return numSites;
+    }
 
-		for (int i = 0; i < numSeqs; i++) {
-			int seqcounter = 0;
+    /**
+     * Returns a string representing a single sequence (including gaps) from this alignment.
+     *
+     * @param seq the index of the sequence.
+     * @return the aligned sequence as a string.
+     * @throws IndexOutOfBoundsException if seq is out of range.
+     */
+    public String getAlignedSequenceString(int seq) {
+        char[] data = new char[numSites];
+        for (int i = 0; i < numSites; i++) {
+            data[i] = getData(seq, i);
+        }
+        return new String(data);
+    }
 
-			for (int j = 0; j < numSites; j++) {
-
-				indices[i][j] = dataType.getState(getData(i, j));
-
-				if (indices[i][j] >= dataType.getNumStates()) {
-					indices[i][j] = -1;
-				}
-			}
-		}
-
-		return indices;
-	}
-
-		/**
-	 * Return number of sites in this alignment
-	 */
-	public final int getLength() {
-		return numSites;
-	}
-
-	/**
-	 * Return number of sequences in this alignment
-	 */
-	public final int getSequenceCount() {
-		return numSeqs;
-	}
-
-	/**
-	 * Return number of sites for each sequence in this alignment
-	 * @note for people who like accessor methods over public instance variables...
-	 */
-	public final int getSiteCount() {
-		return numSites;
-	}
-	/**
-	 * Returns a string representing a single sequence (including gaps)
-	 * from this alignment.
-	 */
-	public String getAlignedSequenceString(int seq) {
-		char[] data = new char[numSites];
-		for (int i = 0; i < numSites; i++) {
-			data[i] = getData(seq, i);
-		}
-		return new String(data);
-	}
-
-	//IdGroup interface
+    //IdGroup interface
 	public Identifier getIdentifier(int i) {return idGroup.getIdentifier(i);}
 	public void setIdentifier(int i, Identifier ident) { idGroup.setIdentifier(i, ident); }
 	public int getIdCount() { return idGroup.getIdCount(); }

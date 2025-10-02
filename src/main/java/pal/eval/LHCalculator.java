@@ -19,7 +19,7 @@ package pal.eval;
  * </p>
  * @author Matthew Goode
  * @version 1.0
- * @note needs to have the use of the word likelihood altered in certain cases (to conditional probability)
+ * Note: needs to have the use of the word likelihood altered in certain cases (to conditional probability)
  *
  */
 import pal.datatype.*;
@@ -37,20 +37,22 @@ public interface LHCalculator {
      * @param leftConditionalProbabilities Implementations must not overwrite or change
      * @param rightConditionalProbabilities Implementations must not overwrite or change
      * @param resultStore Where to stick the created categoryPatternState information
-     * @note calls to getLastConditionalProbabilities() does not have to be valid after call this method
+     * Note: calls to getLastConditionalProbabilities() does not have to be valid after call this method
      */
     public void calculateFlat( PatternInfo centerPattern, ConditionalProbabilityStore leftConditionalProbabilities, ConditionalProbabilityStore rightConditionalProbabilities, ConditionalProbabilityStore resultStore );
 
-    /**
-     *
-     * @param distance
-     * @param model
-     * @param centerPattern the pattern information
-     * @param leftConditionalProbabilities Implementations must not overwrite or change
-     * @param rightConditionalProbabilities Implementations must not overwrite or change
-     * @param resultStore Where to stick the created categoryPatternState information
-     * @note calls to getLastConditionalProbabilities() does not have to be valid after call this method
-     */
+      /**
+       * Computes the extended conditional probabilities for a given branch distance.
+       * <p>This method combines information from left and right child nodes to populate
+       * the result store with the conditional probabilities for each category and pattern state.</p>
+       *
+       * @param distance the branch length separating the parent from its children
+       * @param model the {@link SubstitutionModel} describing evolutionary changes
+       * @param centerPattern the {@link PatternInfo} representing the site pattern at the parent node
+       * @param leftConditionalProbabilities the conditional probabilities from the left child; implementations must not overwrite or modify this
+       * @param rightConditionalProbabilities the conditional probabilities from the right child; implementations must not overwrite or modify this
+       * @param resultStore the {@link ConditionalProbabilityStore} where the computed conditional probabilities will be stored
+       */
     public void calculateExtended( double distance, SubstitutionModel model,
                                    PatternInfo centerPattern,
                                    ConditionalProbabilityStore
@@ -59,101 +61,106 @@ public interface LHCalculator {
                                    rightConditionalProbabilities,
                                    ConditionalProbabilityStore resultStore );
 
-    /**
-     * Extend the conditionals back in time by some distance, with some model
-		 * @param distance The distance to extend by
-     * @param model The model to use
-     * @param conditionalProbabilities The probabilities to extend
-     */
-    public void calculateSingleExtendedDirect(
-																		double distance, SubstitutionModel model,
-																		int numberOfPatterns,
-                                    ConditionalProbabilityStore conditionalProbabilities
-                                  );
-		/**
-     * Extend the conditionals back in time by some distance, with some model
-		 * @param distance The distance to extend by
-     * @param model The model to use
-     * @param baseConditionalProbabilities The probabilities to extend
-     * @param resultConditionalProbabilities The probabilities to extend
-     */
-    public void calculateSingleExtendedIndirect(
-																		double distance, SubstitutionModel model,
-																		int numberOfPatterns,
-                                    ConditionalProbabilityStore baseConditionalProbabilities,
-                                    ConditionalProbabilityStore resultConditionalProbabilities
-                                  );
+      /**
+       * Extend the conditional probabilities back in time for a single node over a given distance, using the specified substitution model.
+       * This version directly modifies the given conditional probabilities.
+       *
+       * @param distance the evolutionary distance (branch length) to extend
+       * @param model the {@link SubstitutionModel} used for the extension
+       * @param numberOfPatterns the number of site patterns
+       * @param conditionalProbabilities the {@link ConditionalProbabilityStore} to be extended (modified in place)
+       */
+      public void calculateSingleExtendedDirect(double distance, SubstitutionModel model,
+                                                int numberOfPatterns,
+                                                ConditionalProbabilityStore conditionalProbabilities);
 
-    /**
-     * Calculate the likelihood given two sub trees (left, right) and their flat (unextend) likeihood probabilities
-     * @param distance
-     * @param model
-     * @param centerPattern the pattern information
-     * @param leftFlatConditionalProbabilities
-     * @param rightFlatConditionalProbabilities
-		 * @param tempStore may be used internally to calculate likelihood
-		 * @return the log likelihood
-     */
-    public double calculateLogLikelihood( double distance, SubstitutionModel model,
-                                       PatternInfo centerPattern,
-                                       ConditionalProbabilityStore leftFlatConditionalProbabilities,
-                                       ConditionalProbabilityStore rightFlatConditionalProbabilities,
-                                       ConditionalProbabilityStore tempStore
-                                       );
+      /**
+       * Extend the conditional probabilities back in time for a single node over a given distance, using the specified substitution model.
+       * This version reads from a base store and writes results into a separate store.
+       *
+       * @param distance the evolutionary distance (branch length) to extend
+       * @param model the {@link SubstitutionModel} used for the extension
+       * @param numberOfPatterns the number of site patterns
+       * @param baseConditionalProbabilities the {@link ConditionalProbabilityStore} containing the base probabilities to extend
+       * @param resultConditionalProbabilities the {@link ConditionalProbabilityStore} where the extended probabilities will be stored
+       */
+      public void calculateSingleExtendedIndirect(double distance, SubstitutionModel model,
+                                                  int numberOfPatterns,
+                                                  ConditionalProbabilityStore baseConditionalProbabilities,
+                                                  ConditionalProbabilityStore resultConditionalProbabilities);
 
-    /**
-     * Calculate the likelihood given two sub trees (left, right) and their extended likeihood probabilities
-     * @param model
-     * @param centerPattern the pattern information
-     * @param leftConditionalProbabilities
-     * @param rightConditionalProbabilities
-     * @return the Log likelihood
-     */
-    public double calculateLogLikelihood( SubstitutionModel model, PatternInfo centerPattern,
-                                       ConditionalProbabilityStore leftConditionalProbabilities,
-                                       ConditionalProbabilityStore rightConditionalProbabilities );
+      /**
+       * Calculate the log-likelihood given two subtrees (left and right) and their flat (unextended) likelihood probabilities.
+       *
+       * @param distance the branch length separating the parent from its children
+       * @param model the {@link SubstitutionModel} describing evolutionary changes
+       * @param centerPattern the {@link PatternInfo} representing the site pattern at the parent node
+       * @param leftFlatConditionalProbabilities the flat conditional probabilities from the left child
+       * @param rightFlatConditionalProbabilities the flat conditional probabilities from the right child
+       * @param tempStore a temporary store that may be used internally during computation
+       * @return the log-likelihood of the parent node given its children
+       */
+      public double calculateLogLikelihood(double distance, SubstitutionModel model,
+                                           PatternInfo centerPattern,
+                                           ConditionalProbabilityStore leftFlatConditionalProbabilities,
+                                           ConditionalProbabilityStore rightFlatConditionalProbabilities,
+                                           ConditionalProbabilityStore tempStore);
 
-    /**
-     * Calculate the likelihood given the conditional probabilites at the root
-     * @param model The substitution model used
-     * @param patternWeights the weights of each pattern
-		 * @param numberOfPatterns the number of patterns
-     * @param conditionalProbabilities The conditionals
-     * @return the Log likelihood
-     */
-    public double calculateLogLikelihoodSingle( SubstitutionModel model, int[] patternWeights, int numberOfPatterns,
-                                       ConditionalProbabilityStore conditionalProbabilityStore);
+      /**
+       * Calculate the log-likelihood given two subtrees (left and right) and their extended likelihood probabilities.
+       *
+       * @param model the {@link SubstitutionModel} describing evolutionary changes
+       * @param centerPattern the {@link PatternInfo} representing the site pattern at the parent node
+       * @param leftConditionalProbabilities the extended conditional probabilities from the left child
+       * @param rightConditionalProbabilities the extended conditional probabilities from the right child
+       * @return the log-likelihood of the parent node given its children
+       */
+      public double calculateLogLikelihood(SubstitutionModel model, PatternInfo centerPattern,
+                                           ConditionalProbabilityStore leftConditionalProbabilities,
+                                           ConditionalProbabilityStore rightConditionalProbabilities);
 
+      /**
+       * Calculate the log-likelihood given the conditional probabilities at the root.
+       *
+       * @param model the {@link SubstitutionModel} used
+       * @param patternWeights the weights of each site pattern
+       * @param numberOfPatterns the number of site patterns
+       * @param conditionalProbabilityStore the conditional probabilities at the root
+       * @return the log-likelihood of the root given its conditional probabilities
+       */
+      public double calculateLogLikelihoodSingle(SubstitutionModel model, int[] patternWeights, int numberOfPatterns,
+                                                 ConditionalProbabilityStore conditionalProbabilityStore);
 
-    /**
-     * Calculate the conditional probabilities of each pattern for each category
-     * @param model
-     * @param centerPattern the pattern information
-     * @param leftConditionalProbabilities
-     * @param rightConditionalProbabilities
-     * @param categoryPatternLogLikelihoodStore after call will hold a matrix of values in the form [cat][pattern], where [cat][pattern] represents the site probability under a particular category/class, *not* multiplied by the category probability or pattern weights
-     */
-    public SiteDetails calculateSiteDetailsRooted( SubstitutionModel model,
-      PatternInfo centerPattern,
-      ConditionalProbabilityStore leftConditionalProbabilitiesStore,
-      ConditionalProbabilityStore rightConditionalProbabilitiesStore
-      );
+      /**
+       * Calculate the conditional probabilities of each pattern for each category for a rooted node.
+       *
+       * @param model the {@link SubstitutionModel} used
+       * @param centerPattern the {@link PatternInfo} representing the site pattern at the parent node
+       * @param leftConditionalProbabilitiesStore the conditional probabilities from the left child
+       * @param rightConditionalProbabilitiesStore the conditional probabilities from the right child
+       * @return a {@link SiteDetails} object containing a matrix [category][pattern] representing the site probabilities under each category (not multiplied by category probability or pattern weights)
+       */
+      public SiteDetails calculateSiteDetailsRooted(SubstitutionModel model,
+                                                    PatternInfo centerPattern,
+                                                    ConditionalProbabilityStore leftConditionalProbabilitiesStore,
+                                                    ConditionalProbabilityStore rightConditionalProbabilitiesStore);
 
-		/**
-     * Calculate the conditional probabilities of each pattern for each category
-     * @param distance The distance between the two nodes
-		 * @param model
-     * @param centerPattern the pattern information
-     * @param leftConditionalProbabilities
-     * @param rightConditionalProbabilities
-     * @param categoryPatternLogLikelihoodStore after call will hold a matrix of values in the form [cat][pattern], where [cat][pattern] represents the site probability under a particular category/class, *not* multiplied by the category probability or pattern weights
-     */
-		public SiteDetails calculateSiteDetailsUnrooted( double distance, SubstitutionModel model,
-	    PatternInfo centerPattern,
-      ConditionalProbabilityStore leftConditionalProbabilitiesStore,
-      ConditionalProbabilityStore rightConditionalProbabilitiesStore,
-			ConditionalProbabilityStore tempStore
-    );
+      /**
+       * Calculate the conditional probabilities of each pattern for each category for an unrooted node.
+       *
+       * @param distance the branch length between the two nodes
+       * @param model the {@link SubstitutionModel} used
+       * @param centerPattern the {@link PatternInfo} representing the site pattern at the parent node
+       * @param leftConditionalProbabilitiesStore the conditional probabilities from the left child
+       * @param rightConditionalProbabilitiesStore the conditional probabilities from the right child
+       * @param tempStore a temporary store for intermediate computation
+       * @return a {@link SiteDetails} object containing a matrix [category][pattern] representing the site probabilities under each category (not multiplied by category probability or pattern weights)
+       */
+      public SiteDetails calculateSiteDetailsUnrooted(double distance, SubstitutionModel model,
+                                                      PatternInfo centerPattern,
+                                                      ConditionalProbabilityStore leftConditionalProbabilitiesStore,
+                                                      ConditionalProbabilityStore rightConditionalProbabilitiesStore,
+                                                      ConditionalProbabilityStore tempStore);
   } //End of class External
 // =================================================================================================
 // ================= Internal ======================================================================
@@ -169,26 +176,51 @@ public interface LHCalculator {
      * @param leftConditionalProbabilities Implementations should be allowed to overwrite in certain cases
      * @param rightConditionalProbabilities Implementations should be allowed to overwrite in certain cases
      * @return true if results built from cached information
-     * @note An assumption may be made that after a call to this method the leftConditionals and rightConditionals are not used again!
+     * Note: An assumption may be made that after a call to this method the leftConditionals and rightConditionals are not used again!
      */
     public ConditionalProbabilityStore calculateFlat( PatternInfo centerPattern, ConditionalProbabilityStore leftConditionalProbabilities, ConditionalProbabilityStore rightConditionalProbabilities );
 
-    /**
-     *
-     * @param distance
-     * @param model
-     * @param centerPattern the pattern information
-     * @param leftConditionalProbabilities
-     * @param rightConditionalProbabilities
-     * @param modelChangedSinceLastCall this should be true if the substituion model has altered since the last call to this method on this particular object, false otherwise
-     * @return resulting conditional probabilities
-     * @note An assumption may be made that after a call to this method the leftConditionals and rightConditionals are not used again!
-     */
-    public ConditionalProbabilityStore calculateExtended( double distance, SubstitutionModel model, PatternInfo centerPattern, final ConditionalProbabilityStore leftConditionalProbabilities,
-      final ConditionalProbabilityStore rightConditionalProbabilities, boolean modelChangedSinceLastCall );
+      /**
+       * Extends the conditional probabilities back in time by a given distance using a substitution model.
+       *
+       * @param distance the evolutionary distance to extend by
+       * @param model the substitution model to use for the extension
+       * @param centerPattern the pattern information for the central node
+       * @param leftConditionalProbabilities the conditional probabilities for the left subtree
+       * @param rightConditionalProbabilities the conditional probabilities for the right subtree
+       * @param modelChangedSinceLastCall true if the substitution model has changed since the last call on this object; false otherwise
+       * @return a {@link ConditionalProbabilityStore} containing the resulting conditional probabilities
+       * Note: after calling this method, it is assumed that the left and right conditional probability stores are no longer used
+       */
+      public ConditionalProbabilityStore calculateExtended(
+              double distance,
+              SubstitutionModel model,
+              PatternInfo centerPattern,
+              final ConditionalProbabilityStore leftConditionalProbabilities,
+              final ConditionalProbabilityStore rightConditionalProbabilities,
+              boolean modelChangedSinceLastCall
+      );
 
-    public ConditionalProbabilityStore calculatePostExtendedFlat( double distance, SubstitutionModel model, PatternInfo centerPattern, final ConditionalProbabilityStore leftConditionalProbabilities,
-      final ConditionalProbabilityStore rightConditionalProbabilities, boolean modelChangedSinceLastCall );
+      /**
+       * Computes post-extended flat conditional probabilities for a given distance and model.
+       *
+       * @param distance the evolutionary distance to extend by
+       * @param model the substitution model to use
+       * @param centerPattern the pattern information for the central node
+       * @param leftConditionalProbabilities the conditional probabilities for the left subtree
+       * @param rightConditionalProbabilities the conditional probabilities for the right subtree
+       * @param modelChangedSinceLastCall true if the substitution model has changed since the last call on this object; false otherwise
+       * @return a {@link ConditionalProbabilityStore} containing the resulting flat conditional probabilities
+       * Note: after calling this method, it is assumed that the left and right conditional probability stores are no longer used
+       */
+      public ConditionalProbabilityStore calculatePostExtendedFlat(
+              double distance,
+              SubstitutionModel model,
+              PatternInfo centerPattern,
+              final ConditionalProbabilityStore leftConditionalProbabilities,
+              final ConditionalProbabilityStore rightConditionalProbabilities,
+              boolean modelChangedSinceLastCall
+      );
 
   } //End of Internal
 
@@ -198,7 +230,7 @@ public interface LHCalculator {
 	/**
 	 * A LHCalculator.Leaf object is attached to each leaf node and can be used to calculated conditional probabilities across the related branch.
 	 * Allows for quick implementations as well as implementations that cope correctly with ambiguous characters
-	 * @note Should not be made serializable!
+	 * Note: Should not be made serializable!
 	 */
 	public static interface Leaf {
 		public ConditionalProbabilityStore getFlatConditionalProbabilities();
@@ -234,25 +266,29 @@ public interface LHCalculator {
 
 		public boolean isAllowCaching();
 
-    /**
-     * An obscure method, primarily used by the High Accuracy calculator
-     * @param parentGenerator A reference to an encompasing generator (that may for example
-     * wish to impose it's own choice on the creation of ConditionalProbabilityStores)
-     * @throws IllegalArgumentException Generator does not allow being a subserviant generator
-     * @return
-     */
-    public External createNewExternal( Generator parentGenerator ) throws IllegalArgumentException;
+      /**
+       * Creates a new {@link External} conditional probability object.
+       * Primarily used by high-accuracy likelihood calculators.
+       *
+       * @param parentGenerator a reference to the encompassing {@link Generator} that may
+       *                        impose its own choices on the creation of {@link ConditionalProbabilityStore}s
+       * @return a newly created {@link External} object
+       * @throws IllegalArgumentException if this generator does not allow being a subservient generator
+       */
+      public External createNewExternal(Generator parentGenerator) throws IllegalArgumentException;
 
-    /**
-     * An obscure method, primarily used by the High Accuracy calculator
-     * @param parentGenerator A reference to an encompasing generator (that may for example
-     * wish to impose it's own choice on the creation of ConditionalProbabilityStores)
-     * @throws IllegalArgumentException Generator does not allow being a subserviant generator
-     * @return
-     */
-    public Internal createNewInternal( Generator patentGenerator ) throws IllegalArgumentException;
+      /**
+       * Creates a new {@link Internal} conditional probability object.
+       * Primarily used by high-accuracy likelihood calculators.
+       *
+       * @param parentGenerator a reference to the encompassing {@link Generator} that may
+       *                        impose its own choices on the creation of {@link ConditionalProbabilityStore}s
+       * @return a newly created {@link Internal} object
+       * @throws IllegalArgumentException if this generator does not allow being a subservient generator
+       */
+      public Internal createNewInternal(Generator parentGenerator) throws IllegalArgumentException;
 
-    public ConditionalProbabilityStore createAppropriateConditionalProbabilityStore( boolean isForLeaf );
+      public ConditionalProbabilityStore createAppropriateConditionalProbabilityStore( boolean isForLeaf );
 
   }
 // ======================================================================================

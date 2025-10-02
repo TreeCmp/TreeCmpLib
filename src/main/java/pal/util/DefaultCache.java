@@ -48,46 +48,53 @@ public class DefaultCache implements DoubleKeyCache {
 		return sdk.getValue();
 
 	}
-	/**
-	 * @return the object with the key nearest to given value.
-	 * if no objects within the given tolerance exist then
-	 * null is returned.
-	 */
-	public DoubleKey getNearest(DoubleKey d, double tolerance) {
+    /**
+     * Searches the internal sorted list for the {@code DoubleKey} object whose key is numerically
+     * the closest to the key of the given reference object ({@code d}).
+     *
+     * The search employs a binary search to find the exact match or the nearest potential insertion point,
+     * and then checks the nearest neighbor(s) against the specified tolerance.
+     *
+     * @param d The {@code DoubleKey} object providing the target key value for comparison.
+     * @param tolerance The maximum allowed absolute difference between the target key and the found object's key.
+     * @return The {@code DoubleKey} object from the list that has the key nearest to the target value and is within the given tolerance.
+     * Returns {@code null} if the list is empty, no exact match is found, or the nearest object's key is outside the specified tolerance.
+     */
+    public DoubleKey getNearest(DoubleKey d, double tolerance) {
 
-		if (list.isEmpty()) return null;
+        if (list.isEmpty()) return null;
 
-		index = binarySearch(list, d);
+        index = binarySearch(list, d);
 
-		if (index >= 0) return (DoubleKey)list.get(index);
+        if (index >= 0) return (DoubleKey)list.get(index);
 
-		// convert failed index to nearest insertion point;
-		index = -index-1;
+        // convert failed index to nearest insertion point;
+        index = -index-1;
 
-		if (index == 0) {
-			nearest = (DoubleKey)list.get(0);
-		} else if (index == list.size()) {
-			nearest = (DoubleKey)list.get(list.size()-1);
-		} else {
-			nearBelow = (DoubleKey)list.get(index - 1);
-			nearAbove = (DoubleKey)list.get(index);
-			distToBelow = Math.abs(nearBelow.getKey() - d.getKey());
-			distToAbove = Math.abs(nearAbove.getKey() - d.getKey());
-			if (distToBelow < distToAbove) {
-				if (distToBelow < tolerance) {
-					return nearBelow;
-				} else return null;
-			} else {
-				if (distToAbove < tolerance) {
-					return nearAbove;
-				} else return null;
-			}
-		}
-		dist = Math.abs(nearest.getKey() - d.getKey());
-		if (dist < tolerance) {
-			return nearest;
-		} else return null;
-	}
+        if (index == 0) {
+            nearest = (DoubleKey)list.get(0);
+        } else if (index == list.size()) {
+            nearest = (DoubleKey)list.get(list.size()-1);
+        } else {
+            nearBelow = (DoubleKey)list.get(index - 1);
+            nearAbove = (DoubleKey)list.get(index);
+            distToBelow = Math.abs(nearBelow.getKey() - d.getKey());
+            distToAbove = Math.abs(nearAbove.getKey() - d.getKey());
+            if (distToBelow < distToAbove) {
+                if (distToBelow < tolerance) {
+                    return nearBelow;
+                } else return null;
+            } else {
+                if (distToAbove < tolerance) {
+                    return nearAbove;
+                } else return null;
+            }
+        }
+        dist = Math.abs(nearest.getKey() - d.getKey());
+        if (dist < tolerance) {
+            return nearest;
+        } else return null;
+    }
 	public void addDoubleKey(double relatedKey, Object o) {
 		addDoubleKey(new SimpleDoubleKey(relatedKey,o));
 	}

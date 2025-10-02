@@ -28,11 +28,10 @@ public class OrthogonalLineFunction implements UnivariateFunction
 	/**
 	 * construct univariate function from multivariate function
 	 *
-	 *
 	 * @param func multivariate function
-	 * @param the initial arguments to the base MultivariateFunction (may be null)
 	 * @param selectedDimension The selected dimension/argument that the line "runs" along
-	 */
+     * @param initialArguments initial arguments to the base MultivariateFunction (may be null)
+     */
 	public OrthogonalLineFunction(MultivariateFunction func, int selectedDimension, double[] initialArguments )	{
 		f = func;
 		numArgs = f.getNumArguments();

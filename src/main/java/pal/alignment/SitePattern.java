@@ -34,7 +34,7 @@ public class SitePattern extends AbstractAlignment
 	/** number of site patterns */
 	public int numPatterns;
 
-	/** site -> site pattern */
+	/** site -&gt; site pattern */
 	public int[] alias;
 
 	/** weights of each site pattern */
@@ -90,7 +90,7 @@ public class SitePattern extends AbstractAlignment
 	 * @param numSeqs number of sequences
 	 * @param idGroup sequence identifiers
 	 * @param numPatterns number of site patterns
-	 * @param alias link site -> site pattern
+	 * @param alias link site -&gt; site pattern
 	 * @param weight frequency of a site pattern
 	 * @param pattern site patterns
 	 */
@@ -109,18 +109,23 @@ public class SitePattern extends AbstractAlignment
 
 		AlignmentUtils.estimateFrequencies(this);  // Bernard Suh <bsuh@tigr.org>
 	}
-	/**
-	 * Accessor method for weight
-	 */
-	public int[] getSiteWeights() {
-		return weight;
-	}
-	/**
-	 * Accessor method for numPatterns
-	 */
-	public int getNumberOfPatterns() {
-		return numPatterns;
-	}
+    /**
+     * Accessor method for site weights.
+     *
+     * @return array of site weights
+     */
+    public int[] getSiteWeights() {
+        return weight;
+    }
+
+    /**
+     * Accessor method for number of patterns.
+     *
+     * @return number of patterns
+     */
+    public int getNumberOfPatterns() {
+        return numPatterns;
+    }
 
 	//
 	// Private stuff

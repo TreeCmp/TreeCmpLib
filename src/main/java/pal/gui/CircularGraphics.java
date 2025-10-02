@@ -51,27 +51,52 @@ public class CircularGraphics {
 		fm_ = g_.getFontMetrics(font_);
 	}
 
-	/** For drawing arbitary lines */
+    /**
+     * Draws a line between two points specified in polar coordinates.
+     *
+     * @param angle1  the angle of the first point (in radians)
+     * @param radius1 the radius of the first point
+     * @param angle2  the angle of the second point (in radians)
+     * @param radius2 the radius of the second point
+     */
 	public void drawLine( double angle1, double radius1, double angle2, double radius2) {
 		g_.drawLine(getScreenX(angle1,radius1), getScreenY(angle1, radius1), getScreenX(angle2,radius2),getScreenY(angle2,radius2) );
 	}
 
-	/** For drawing arbitary lines */
+    /**
+     * Draws a line along a given angle between two radii.
+     *
+     * @param angle       the angle along which to draw the line (in radians)
+     * @param radiusStart the starting radius of the line
+     * @param radiusEnd   the ending radius of the line
+     */
 	public void drawLine( double angle, double radiusStart, double radiusEnd) {
 		g_.drawLine(getScreenX(angle,radiusStart), getScreenY(angle, radiusStart), getScreenX(angle,radiusEnd),getScreenY(angle,radiusEnd) );
 	}
 
-	/** For drawing arbitary lines */
+    /**
+     * Draws a line along a given angle aligned to a degree grid.
+     *
+     * @param angle       the angle along which to draw the line (in radians)
+     * @param radiusStart the starting radius of the line
+     * @param radiusEnd   the ending radius of the line
+     */
 	public void drawLineDegreeAlign( double angle, double radiusStart, double radiusEnd) {
 		angle = ((int)(angle*360/worldAngle_))*worldAngle_/360;
 		g_.drawLine(getScreenX(angle,radiusStart), getScreenY(angle, radiusStart), getScreenX(angle,radiusEnd),getScreenY(angle,radiusEnd) );
 	}
+
 	private final double convertRadius(double radius) {
 		//return radius;
 		return worldRadius_ - radius;
 	}
 
-	/** For drawing arbitary lines */
+    /** For drawing arbitary lines
+     *
+     * @param angleStart the starting angle of the arc (in radians)
+     * @param angleEnd   the ending angle of the arc (in radians)
+     * @param radius     the radius at which the arc is drawn (in the same units as the polar coordinate system)
+     */
 	public void drawArc( double angleStart, double angleEnd, double radius) {
 		int actualRadius = (int)(screenRadius*convertRadius(radius)/worldRadius_);
 		if(actualRadius<1) {
@@ -102,7 +127,6 @@ public class CircularGraphics {
 	public void setColor(Color c) {
 		g_.setColor(c);
 	}
-
 
 	public void drawString(String s, double angle, double radius) {
 		int sX =getScreenX(angle,radius);

@@ -34,13 +34,14 @@ public class SkylinePlot implements Report, Units, Serializable
 	//
 	// Public stuff
 	//
-	
 
 	/**
 	 * Construct skyline plot from tree
-	 *
-	 * @param epsilon smoothing parameter (if set < 0 then epsilon will be optimized)
-	 */
+	 **
+     * @param tree    the tree from which coalescent intervals will be extracted
+     * @param epsilon smoothing parameter (if set &lt; 0 then epsilon will be optimized)
+     * @throws IllegalArgumentException if the coalescent intervals are not binary
+     */
 	public SkylinePlot(Tree tree, double epsilon)
 	{
 		this(IntervalsExtractor.extractFromClockTree(tree), epsilon);
@@ -50,8 +51,10 @@ public class SkylinePlot implements Report, Units, Serializable
 	/**
 	 * Construct skyline plot from given coalescent intervals
 	 * 
-	 * @param epsilon smoothing parameter (if set < 0 then epsilon will be optimized)
-	 */
+	 * @param epsilon smoothing parameter (if set &lt; 0 then epsilon will be optimized)
+     * @param ci      the coalescent intervals to use for skyline plot estimation
+     * @throws IllegalArgumentException if {@code ci} is not binary (contains multiple coalescent events per interval)
+     */
 	public SkylinePlot(CoalescentIntervals ci, double epsilon)
 	{
 		if (!ci.isBinaryCoalescent())
@@ -95,7 +98,6 @@ public class SkylinePlot implements Report, Units, Serializable
 		}
 	}
 
-	
 	public String toString()
 	{		
 		OutputTarget out = OutputTarget.openString();
@@ -191,7 +193,9 @@ public class SkylinePlot implements Report, Units, Serializable
 
 	/**
 	 * Compute generalized skyline plot
-	 */
+     *
+     * @param epsilon the smoothing parameter; intervals smaller than this value will be pooled.
+     */
 	public void computeGeneralized(double epsilon)
 	{
 		params = 0;
@@ -261,9 +265,7 @@ public class SkylinePlot implements Report, Units, Serializable
 		// Because most "clock-like" trees are not properly
 		// clock-like for a variety of reasons, i.e. the heights
 		// of the tips are not exactly zero.
-		
-		
-		
+
 		eps = eps - delta;
 		while(eps > MINEPS)
 		{
@@ -283,7 +285,9 @@ public class SkylinePlot implements Report, Units, Serializable
 
 	/**
 	 * Compute log-likelihood
-	 */
+     *
+     * @return the log-likelihood value
+     */
 	public double getLogLikelihood()
 	{
 		double logL = 0.0;
@@ -304,7 +308,9 @@ public class SkylinePlot implements Report, Units, Serializable
 
 	/**
 	 * Compute AICC-corrected log-likelihood
-	 */
+     *
+     * @return the AICC-corrected log-likelihood
+     */
 	public double getAICC()
 	{
 		double logL = getLogLikelihood();
@@ -314,7 +320,11 @@ public class SkylinePlot implements Report, Units, Serializable
 
 	/**
 	 * Find interval corresponding to a specific time
-	 */
+     *
+     * @param time the time to find the interval for; must be non-negative
+     * @return the index of the interval corresponding to {@code time}
+     * @throws IllegalArgumentException if {@code time} is negative
+     */
 	public double findInterval(double time)
 	{
 		if (time < 0) throw new IllegalArgumentException("Negative values for time are not allowed");
@@ -330,16 +340,19 @@ public class SkylinePlot implements Report, Units, Serializable
 	/**
 	 * Returns the largest value of time defined in this plot 
 	 * (= maximum value for epsilon)
-	 */
+     *
+     * @return the maximum time in the skyline plot
+     */
 	public double getMaxTime()
 	{
 		return maxTime;
 	}
 
-
 	/**
 	 * Returns the largest estimate of population size.
-	 */
+     *
+     * @return the maximum population size
+     */
 	public double getMaxPopulationSize() {
 		double max = 0.0;
 		for (int i = 0; i < size; i++) {
@@ -353,47 +366,59 @@ public class SkylinePlot implements Report, Units, Serializable
 
 	/**
 	 * Returns the coalescent intervals in this skyline plot.
-	 */
+     *
+     * @return the coalescent intervals
+     */
 	public CoalescentIntervals getIntervals() {
 		return ci;
 	}
 
 	/**
 	 * Returns the number of intervals in this skyline plot.
-	 */
+     *
+     * @return the number of intervals
+     */
 	public int getSize() {
 		return size;
 	}
 	
 	/**
 	 * Returns the number of composite intervals (=number of parameters).
-	 */
+     *
+     * @return the number of parameters
+     */
 	public int getParameterCount() {
 		return params;
 	}
 
 	/**
 	 * Returns epsilon
-	 */
+     *
+     * @return the epsilon value
+     */
 	public double getEpsilon() {
 		return eps;
 	}
 	
 	/**
 	 * Returns the population size in interval i.
-	 */
+     *
+     * @param i the interval index
+     * @return the estimated population size in interval {@code i}
+     */
 	public double getPopulationSize(int i) {
 		return populationSize[i];
 	}
 
 	/**
 	 * Returns unit of time.
-	 */
+     *
+     * @return the time unit (e.g., generations or expected substitutions)
+     */
 	public int getUnits()
 	{
 		return ci.getUnits();
 	}
-
 
 	// private
 	

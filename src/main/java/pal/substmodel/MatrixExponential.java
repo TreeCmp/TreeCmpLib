@@ -51,12 +51,10 @@ public class MatrixExponential implements	Cloneable, java.io.Serializable
 	/** transition probability matrix */
 	private final double[][] transProb;
 
-
-
 	/**
 	 * create module
 	 *
-	 * @param r rate matrix
+	 * @param dimension rate matrix
 	 */
 	public MatrixExponential(int dimension)	{
 		this.dimension_ = dimension;
@@ -121,15 +119,18 @@ public class MatrixExponential implements	Cloneable, java.io.Serializable
 		updateByRelativeRates(r.getRelativeRates());
 	}
 
-	/**
-	 * A utility method for speed, transfers trans prob information quickly
-	 * into store
-	 */
-	public final void getTransitionProbabilities(double[][] probabilityStore) {
-		// this check should be changed to an assertion once we adopt Java 1.4
-		if (probabilityStore == null) throw new RuntimeException("Assertion Error: probabilityStore == null");
-		pal.misc.Utils.copy(transProb,probabilityStore);
-	}
+    /**
+     * A utility method designed for speed; it transfers the pre-calculated transition probability
+     * information quickly into the provided storage matrix.
+     *
+     * @param probabilityStore The 2D array where the transition probabilities will be copied.
+     * @throws RuntimeException if the provided {@code probabilityStore} array is {@code null}.
+     */
+    public final void getTransitionProbabilities(double[][] probabilityStore) {
+        // this check should be changed to an assertion once we adopt Java 1.4
+        if (probabilityStore == null) throw new RuntimeException("Assertion Error: probabilityStore == null");
+        pal.misc.Utils.copy(transProb,probabilityStore);
+    }
 	private final void setIdentity() {
 		for(int i = 0 ; i < transProb.length ; i++) {
 			final double[] row = transProb[i];
@@ -171,7 +172,7 @@ public class MatrixExponential implements	Cloneable, java.io.Serializable
 	 * compute transition probabilities for a expected distance
 	 * using the prespecified rate matrix
 	 *
-	 * @note the resulting matrix works [to][from] as opposed to [from][to]
+	 * Note: the resulting matrix works [to][from] as opposed to [from][to]
 	 *
 	 * @param arc expected distance
 	 */

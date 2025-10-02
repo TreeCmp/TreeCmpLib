@@ -21,17 +21,16 @@ public class GammaFunction
 	//
 	// Public stuff
 	//
-		
 
 	// Gamma function
 
 	/**
-	 * log Gamma function: ln(gamma(alpha)) for alpha>0, accurate to 10 decimal places
+	 * log Gamma function: ln(gamma(alpha)) for alpha&gt;0, accurate to 10 decimal places
 	 *
-	 * @param alpha argument
-	 * 
-	 * @param function value
-	 */
+     *
+     * @param alpha argument
+     * @return ln(Gamma(alpha))
+     */
 	public static double lnGamma(double alpha)
 	{
 		// Pike MC & Hill ID (1966) Algorithm 291: Logarithm of the gamma function.
@@ -95,7 +94,7 @@ public class GammaFunction
 	 *
 	 * @param a parameter
 	 * @param x argument
-	 * @param double lnGammaA precomputed lnGamma(a) 
+	 * @param lnGammaA lnGammaA precomputed lnGamma(a)
 	 *
 	 * @return function value
 	 */
@@ -103,7 +102,6 @@ public class GammaFunction
 	{
 		return incompleteGamma(x, a, lnGammaA);
 	}
-
 
 	/**
 	 * Returns the incomplete gamma ratio I(x,alpha) where x is the upper 

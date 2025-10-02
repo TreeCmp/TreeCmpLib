@@ -17,7 +17,7 @@ import java.util.*;
 public class PalEventMulticaster {
 	/** For managing PalObjectListeners
 	 *  Usage: PalObjectListener current = null;
-	 *          ... <emph>Adding</emph> <br>
+	 *          ... <em>Adding</em> <br>
 	 *          current = PalEventMultiCaster.add(current, toAdd); <br>
 	 *          ... Usage <br>
 	 *          <code>
@@ -27,8 +27,12 @@ public class PalEventMulticaster {
 	 *          </code>
 	 *          ... Removal <br>
 	 *          current = PalEventMultiCaster.remove(current,toAdd);
-	 *  @see #remove
-	 */
+     *
+     * @param old the existing listener chain, may be null
+     * @param toAdd the listener to add
+     * @return the updated listener chain
+     * @see #remove(PalObjectListener, PalObjectListener)
+     */
 	public static final PalObjectListener add(PalObjectListener old, PalObjectListener toAdd) {
 		if(old==null) {
 			return toAdd;
@@ -54,10 +58,14 @@ public class PalEventMulticaster {
 	 *            }
 	 *          </code>
 	 *
-	 *          ... <emph>Removal</emph> <br>
+	 *          ... <em>Removal</em> <br>
 	 *          current = PalEventMultiCaster.remove(current,toAdd);
-	 *   @see #add
-	 */
+     *
+     * @param old the existing listener chain
+     * @param toRemove the listener to remove
+     * @return the updated listener chain, or null if empty
+     * @see #add(PalObjectListener, PalObjectListener)
+     */
 	public static final PalObjectListener remove(PalObjectListener old, PalObjectListener toRemove) {
 		if(old==toRemove) {
 			return null;
@@ -70,7 +78,7 @@ public class PalEventMulticaster {
 
 	/** For managing ExternalParamterListeners
 	 *  Usage: ExternalParamterListener current = null;
-	 *          ... <emph>Adding</emph> <br>
+	 *          ... <em>Adding</em> <br>
 	 *          current = PalEventMultiCaster.add(current, toAdd); <br>
 	 *          ... Usage <br>
 	 *          <code>
@@ -80,8 +88,12 @@ public class PalEventMulticaster {
 	 *          </code>
 	 *          ... Removal <br>
 	 *          current = PalEventMultiCaster.remove(current,toAdd);
-	 *  @see #remove
-	 */
+     *
+     * @param old the existing listener chain, may be null
+     * @param toAdd the listener to add
+     * @return the updated listener chain
+     * @see #remove(ExternalParameterListener, ExternalParameterListener)
+     */
 	public static final ExternalParameterListener add(ExternalParameterListener old, ExternalParameterListener toAdd) {
 		if(old==null) {
 			return toAdd;
@@ -103,10 +115,14 @@ public class PalEventMulticaster {
 	 *          current = PalEventMultiCaster.add(current, toAdd); <br>
 	 *          ... Usage <br>
 	 *          current.structureChanged(pe); <br>
-	 *          ... <emph>Removal</emph> <br>
+	 *          ... <em>Removal</em> <br>
 	 *          current = PalEventMultiCaster.remove(current,toAdd);
-	 *   @see #add
-	 */
+     *
+     * @param old the existing listener chain
+     * @param toRemove the listener to remove
+     * @return the updated listener chain, or null if empty
+     * @see #add(ExternalParameterListener, ExternalParameterListener)
+     */
 	public static final ExternalParameterListener remove(ExternalParameterListener old, ExternalParameterListener toRemove) {
 		if(old==toRemove) {
 			return null;

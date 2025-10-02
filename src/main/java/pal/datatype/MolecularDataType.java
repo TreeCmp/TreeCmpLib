@@ -17,21 +17,29 @@ package pal.datatype;
 
 public interface MolecularDataType extends DataType {
 
-	/**
-	 * @param molecularStates an array of states corresponding to states of <emph>this</emph> datatype
-	 * @return the corresponding IUPAC states
-	 */
+    /**
+     * @param molecularStates an array of states corresponding to states of <em>this</em> datatype
+     * @return the corresponding IUPAC states
+     */
 	int[] getNucleotideStates(int[] molecularStates);
 
-	/**
-	 * @param the IUPAC nucleotidestates
-	 * @returns the input converted to states of <emph>this</emph> data type
-	 */
+    /**
+     * Converts the given IUPAC nucleotide states to states of this data type.
+     *
+     * @param nucleotideStates the IUPAC nucleotide states
+     * @param startingIndex the starting index in the array to begin conversion
+     * @return the input converted to states of <em>this</em> data type
+     */
 	int[] getMolecularStatesFromIUPACNucleotides(int[] nucleotideStates, int startingIndex);
-	/**
-	 * @param the Simple nucleotide states (eg 0,1,2,3 or A,C,G,T)
-	 * @returns the input converted to states of <emph>this</emph> data type
-	 */
+
+    /**
+     * Converts the given simple nucleotide states (e.g., 0,1,2,3 or A,C,G,T)
+     * to states of this data type.
+     *
+     * @param nucleotideStates the simple nucleotide states
+     * @param startingIndex the starting index in the array to begin conversion
+     * @return the input converted to states of <em>this</em> data type
+     */
 	int[] getMolecularStatesFromSimpleNucleotides(int[] nucleotideStates, int startingIndex);
 
 	/**

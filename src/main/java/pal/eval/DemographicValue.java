@@ -19,7 +19,7 @@ import pal.misc.*;
  * @version $Id: DemographicValue.java,v 1.6 2002/04/16 05:37:05 matt Exp $
  *
  * @author Alexei Drummond
- * @authro Korbinian Strimmer
+ * @author Korbinian Strimmer
  */
 public class DemographicValue implements MultivariateFunction
 {
@@ -46,60 +46,59 @@ public class DemographicValue implements MultivariateFunction
 		//mvm = new ConjugateGradientSearch();
 	}
 
-	/**
-	 * Returns the demographic model of this likelihood value
-	 */
-	public DemographicModel getDemographicModel() {
-		return model;
-	}
+    /**
+     * Returns the demographic model associated with this likelihood computation.
+     *
+     * @return the current demographic model
+     */
+    public DemographicModel getDemographicModel() {
+        return model;
+    }
 
-	/**
-	 * Returns the coalescent tree of this likelihood value.
-	 */
-	public CoalescentIntervals getCoalescentIntervals() {
-		return intervals;
-	}
+    /**
+     * Returns the coalescent intervals (tree) associated with this likelihood value.
+     *
+     * @return the coalescent intervals
+     */
+    public CoalescentIntervals getCoalescentIntervals() {
+        return intervals;
+    }
 
-	/**
-	 * define coalescent tree.
-	 *
-	 * @param t tree
-	 */
-	public void setCoalescentIntervals(CoalescentIntervals ci)
-	{
-		intervals = ci;
-	}
+    /**
+     * Sets the coalescent intervals (tree) for this likelihood computation.
+     *
+     * @param ci the coalescent intervals to set
+     */
+    public void setCoalescentIntervals(CoalescentIntervals ci) {
+        intervals = ci;
+    }
 
-	/**
-	 * compute log-likelihood
-	 * for current model
-	 *
-	 * return negative log-likelihood
-	 */
-	public double compute()
-	{
-		computeLogLikelihood();
+    /**
+     * Computes the log-likelihood for the current demographic model.
+     *
+     * @return the negative log-likelihood of the data under the current model
+     */
+    public double compute() {
+        computeLogLikelihood();
+        return -logL;
+    }
 
-		return -logL;
-	}
-
-	/**
-	 * optimize log-likelihood
-	 * using default optimizer
-	 *
-	 * return minimum negative log-likelihood
-	 */
-	public double optimize()
-	{
-		return optimize(mvm);
-	}
+    /**
+     * Optimizes the likelihood using the default optimizer.
+     *
+     * @return the minimum negative log-likelihood after optimization
+     */
+    public double optimize() {
+        return optimize(mvm);
+    }
 
 	/**
 	 * optimize log-likelihood value and compute corresponding SEs
 	 * given an optimizer
 	 *
-	 * @return minimimum negative log-likelihood value
-	 */
+     * @param givenMvm the {@link MultivariateMinimum} optimizer to use for finding the parameter values
+     * @return the minimum negative log-likelihood value after optimization
+     */
 	public double optimize(MultivariateMinimum givenMvm)
 	{
 		double[] estimate = new double[numParams];

@@ -23,75 +23,92 @@ import pal.datatype.*;
  *
  * @author Ed Buckler
  */
-public class NumericDataType extends SimpleDataType
-{
-	public static final DataType DEFAULT_INSTANCE = new NumericDataType();
+public class NumericDataType extends SimpleDataType {
+    public static final DataType DEFAULT_INSTANCE = new NumericDataType();
 
-	int numberOfNumericStates=10000;
+    int numberOfNumericStates = 10000;
 
-	public NumericDataType () { }
+    public NumericDataType() {
+    }
 
-	public NumericDataType (int numberOfStates) {
-		this.numberOfNumericStates = numberOfStates;
-	}
+    public NumericDataType(int numberOfStates) {
+        this.numberOfNumericStates = numberOfStates;
+    }
 
-				// Get number of bases
-	public int getNumStates() {	return numberOfNumericStates;	}
+    // Get number of bases
+    public int getNumStates() {
+        return numberOfNumericStates;
+    }
 
-	/**
-	* @return true if this state is an unknown state
-	*/
-	protected boolean isUnknownStateImpl(int state) {
-		return((state>=numberOfNumericStates)||(state<0));
-	}
+    /**
+     * @return true if this state is an unknown state
+     */
+    protected boolean isUnknownStateImpl(int state) {
+        return ((state >= numberOfNumericStates) || (state < 0));
+    }
 
-	/**
-	 * get state corresponding to a character
-	 * @param c character
-	 * @return state
-	 */
-	protected int getStateImpl(char c)	{
-		if(c==UNKNOWN_CHARACTER) {
-			return numberOfNumericStates;
-		}
-		int state = getNumericIndexFromNumericChar(c);
-		if(state<0||state>numberOfNumericStates) {
-			state=numberOfNumericStates;
-		}
-		return state;
-	}
+    /**
+     * get state corresponding to a character
+     *
+     * @param c character
+     * @return state
+     */
+    protected int getStateImpl(char c) {
+        if (c == UNKNOWN_CHARACTER) {
+            return numberOfNumericStates;
+        }
+        int state = getNumericIndexFromNumericChar(c);
+        if (state < 0 || state > numberOfNumericStates) {
+            state = numberOfNumericStates;
+        }
+        return state;
+    }
 
-	/**
-	 * Get character corresponding to a given state
-	 */
-	protected char getCharImpl(final int state) {
-		if(state>=numberOfNumericStates||state<0) {
-			return UNKNOWN_CHARACTER;
-		}
-		return getNumericCharFromNumericIndex(state);
-	}
+    /**
+     * Get character corresponding to a given state
+     */
+    protected char getCharImpl(final int state) {
+        if (state >= numberOfNumericStates || state < 0) {
+            return UNKNOWN_CHARACTER;
+        }
+        return getNumericCharFromNumericIndex(state);
+    }
 
-	/**
-	 * Returns a unique ascii character for any given numeric size
-	 */
-	public final char getNumericCharFromNumericIndex(int index) {
-		return (char)(index + 64);
-	}
+    /**
+     * Returns a unique ASCII character corresponding to a given numeric index.
+     *
+     * @param index the numeric index (starting from 1)
+     * @return a unique ASCII character representing the numeric index
+     */
+    public final char getNumericCharFromNumericIndex(int index) {
+        return (char) (index + 64);
+    }
 
-	/**
-	 * Returns numeric index (size) from a unique ascii character
-	 */
-	public final int getNumericIndexFromNumericChar(char c) {
-		return (int)(c - 64);
-	}
+    /**
+     * Returns the numeric index corresponding to a given ASCII character.
+     *
+     * @param c the ASCII character representing a numeric index
+     * @return the numeric index corresponding to the character
+     */
+    public final int getNumericIndexFromNumericChar(char c) {
+        return (int) (c - 64);
+    }
 
-	/** String describing the data type */
-	public String getDescription()	{
-		return "Numeric";
-	}
+    /**
+     * Returns a string describing this data type.
+     *
+     * @return a description of the data type ("Numeric")
+     */
+    public String getDescription() {
+        return "Numeric";
+    }
 
-	/** Get numerical code describing the data type */
-	public int getTypeID() {
-		return NUMERIC;
-	}
+    /**
+     * Returns the numerical code identifying this data type.
+     *
+     * @return the type ID of the data type (NUMERIC)
+     */
+    public int getTypeID() {
+        return NUMERIC;
+    }
 }

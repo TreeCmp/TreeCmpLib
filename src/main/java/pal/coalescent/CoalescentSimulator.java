@@ -22,9 +22,11 @@ public class CoalescentSimulator {
 	/**
 	 * Simulates a set of CoalescentIntervals from a genealogy assuming
 	 * contemporaneous tips.
+     *
 	 * @param numLines the number of tips in the sample genealogy
 	 * @param model the demographic model to use
-	 */
+     * @return a CoalescentIntervals object containing the simulated intervals and lineage counts
+     */
 	public CoalescentIntervals simulateIntervals(int numLines, DemographicModel model) {
 	
 		CoalescentIntervals ci = new CoalescentIntervals(numLines-1);

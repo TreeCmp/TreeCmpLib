@@ -40,22 +40,33 @@ public class ReadAlignment extends AbstractAlignment
 	// Public stuff
 	//
 
-	/** read from stream */
-	public ReadAlignment(PushbackReader input)
-		throws AlignmentParseException, IOException
-	{
-		readFile(input);
-	}
+    /**
+     * Reads aligned sequence data from a PushbackReader.
+     *
+     * @param input the PushbackReader to read sequences from
+     * @throws AlignmentParseException if the alignment format is invalid
+     * @throws IOException if an I/O error occurs
+     */
+    public ReadAlignment(PushbackReader input)
+            throws AlignmentParseException, IOException
+    {
+        readFile(input);
+    }
 
-	/** read from file */
-	public ReadAlignment(String file)
-		throws AlignmentParseException, IOException
-	{
-		PushbackReader input = InputSource.openFile(file);
-		readFile(input);
-		input.close();
-	}
-
+    /**
+     * Reads aligned sequence data from a file.
+     *
+     * @param file the filename to read sequences from
+     * @throws AlignmentParseException if the alignment format is invalid
+     * @throws IOException if an I/O error occurs
+     */
+    public ReadAlignment(String file)
+            throws AlignmentParseException, IOException
+    {
+        PushbackReader input = InputSource.openFile(file);
+        readFile(input);
+        input.close();
+    }
 
 	// Implementation of abstract Alignment method
 

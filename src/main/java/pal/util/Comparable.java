@@ -25,11 +25,19 @@ public interface Comparable
 	 * A negative number indicates that the object is "smaller" than
 	 * the parameter, a positive number means it is "larger" and zero
 	 * indicates that the objects are equal.
-	 */
+     *
+     * @param o the object to be compared
+     * @return a negative integer if this object is less than {@code o},
+     *         zero if they are equal,
+     *         a positive integer if this object is greater than {@code o}
+     */
 	int compareTo(Object o);
 
 	/**
 	 * Returns true if this object is equal to the given object.
-	 */
+     *
+     * @param o the reference object with which to compare
+     * @return {@code true} if this object is equal to the specified object, {@code false} otherwise
+     */
 	boolean equals(Object o);
 }

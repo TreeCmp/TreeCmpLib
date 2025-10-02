@@ -12,7 +12,7 @@ package pal.substmodel;
  * <p>Description: A grouping of rate matrices (to provide a model of substitution heteoregeneity)</p>
  * @author Matthew Goode
  * @version 1.0
- * @note There is no reference to parameters here. Paramerization should be managed by an external resource (for example, have a separate object that manages the parameters).
+ * Note: There is no reference to parameters here. Paramerization should be managed by an external resource (for example, have a separate object that manages the parameters).
  */
 import pal.misc.*;
 import pal.datatype.*;

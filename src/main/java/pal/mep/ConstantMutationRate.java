@@ -73,43 +73,61 @@ public class ConstantMutationRate extends MutationRateModel implements Report, S
 		}
 	}
 
-	/**
-	 * Construct demographic model with default settings
-	 * @param maximumMutationRate The maximum Mutation rate should be selected
-	 * wisely - too small and it might not include the "true" rate, too high and
-	 * the optimisers may have trouble optimising
-	 */
-	public ConstantMutationRate(int units, double maximumMutationRate) {
-		this(DEFAULT_RATE_VALUE,units,maximumMutationRate);
-	}
-	/**
-	 * Construct mutation rate model of a give rate in given units
-	 * @param maximumMutationRate The maximum Mutation rate should be selected
-	 * wisely - too small and it might not include the "true" rate, too high and
-	 * the optimisers may have trouble optimising
-	 */
-	public ConstantMutationRate(double rate, int units, double maximumMutationRate) {
-		this(rate,units,0,maximumMutationRate);
-	}
+    /**
+     * Constructs a mutation rate model with a default rate and a specified maximum mutation rate.
+     *
+     * @param units the time or sequence units in which the mutation rate is measured
+     * @param maximumMutationRate the maximum mutation rate; should be chosen carefully —
+     *                            too small may exclude the true rate, too large may
+     *                            make optimisation unstable
+     */
+    public ConstantMutationRate(int units, double maximumMutationRate) {
+        this(DEFAULT_RATE_VALUE, units, maximumMutationRate);
+    }
 
-	/**
-	 * Construct mutation rate model of a give rate in given units, with a given range of possible values
-	 */
-	public ConstantMutationRate(double rate, int units, double minimumMu, double maximumMu) {
-		this(rate,units,minimumMu,maximumMu,true);
-	}
-	/**
-	 * Construct mutation rate model of a give rate in given units, with a given range of possible values
-	 * @param parameterize If true, gives rate as a parameter, otherwise has no parameters
-	 */
-	private ConstantMutationRate(double rate, int units, double minimumMu, double maximumMu, boolean parameterize) {
-		super(units,maximumMu);
-		mu = Math.max(Math.min(maximumMu,rate),minimumMu);
-		this.parameterize_ = parameterize;
-		this.minimumMutationRate_ = minimumMu;
-	}
+    /**
+     * Constructs a mutation rate model with the given rate and maximum mutation rate.
+     *
+     * @param rate the initial mutation rate
+     * @param units the time or sequence units in which the mutation rate is measured
+     * @param maximumMutationRate the maximum mutation rate; should be chosen carefully —
+     *                            too small may exclude the true rate, too large may
+     *                            make optimisation unstable
+     */
+    public ConstantMutationRate(double rate, int units, double maximumMutationRate) {
+        this(rate, units, 0, maximumMutationRate);
+    }
 
-	protected ConstantMutationRate(ConstantMutationRate toCopy) {
+    /**
+     * Constructs a mutation rate model with the given rate, units, and a specified range of possible values.
+     *
+     * @param rate the initial mutation rate
+     * @param units the time or sequence units in which the mutation rate is measured
+     * @param minimumMu the minimum allowed mutation rate
+     * @param maximumMu the maximum allowed mutation rate
+     */
+    public ConstantMutationRate(double rate, int units, double minimumMu, double maximumMu) {
+        this(rate, units, minimumMu, maximumMu, true);
+    }
+
+    /**
+     * Constructs a mutation rate model with the given rate, units, and a specified range of possible values,
+     * optionally parameterized.
+     *
+     * @param rate the initial mutation rate
+     * @param units the time or sequence units in which the mutation rate is measured
+     * @param minimumMu the minimum allowed mutation rate
+     * @param maximumMu the maximum allowed mutation rate
+     * @param parameterize if {@code true}, the rate is exposed as a parameter; otherwise, the model has no parameters
+     */
+    private ConstantMutationRate(double rate, int units, double minimumMu, double maximumMu, boolean parameterize) {
+        super(units, maximumMu);
+        mu = Math.max(Math.min(maximumMu, rate), minimumMu);
+        this.parameterize_ = parameterize;
+        this.minimumMutationRate_ = minimumMu;
+    }
+
+    protected ConstantMutationRate(ConstantMutationRate toCopy) {
 		super(toCopy);
 		this.mu = toCopy.mu;
 		this.muSE = toCopy.muSE;
@@ -138,13 +156,15 @@ public class ConstantMutationRate extends MutationRateModel implements Report, S
 		throw new RuntimeException("Assertion error: unknown summary type :"+summaryType);
 	}
 
-	/**
-	 * returns initial population size.
-	 */
-	public double getMu()
-	{
-		return mu;
-	}
+    /**
+     * Returns the current mutation rate (μ).
+     *
+     * @return the mutation rate
+     */
+    public double getMu() {
+        return mu;
+    }
+
 
 	public void setMu(double m) {
 		mu = m;
@@ -247,26 +267,45 @@ public class ConstantMutationRate extends MutationRateModel implements Report, S
 
 	/**
 	 * Generate a MutationRateModel.Factory class for a ConstantMutationRate
-	 * @note rate is fixed
-	 */
+	 * Note: rate is fixed
+     *
+     * @param rate  the fixed mutation rate
+     * @param units the time units for the rate
+     * @return a factory that produces ConstantMutationRate models with a fixed rate
+     */
 	public static final Factory getFixedFactory(double rate, int units) {
 		return new RateFactory(rate,units,false,rate);
 	}
 	/**
 	 * Generate a MutationRateModel.Factory class for a ConstantMutationRate
-	 */
+     *
+     * @param units the time units for the rate
+     * @param maximumMutationRate the maximum possible mutation rate
+     * @return a factory that produces ConstantMutationRate models with a free rate
+     */
 	public static final Factory getFreeFactory(int units, double maximumMutationRate) {
 		return new RateFactory(maximumMutationRate/2,units,true,maximumMutationRate);
 	}
 	/**
 	 * Generate a MutationRateModel.Factory class for a ConstantMutationRate
-	 */
+     *
+     * @param initialRate the starting mutation rate
+     * @param units the time units for the rate
+     * @param maximumMutationRate the maximum possible mutation rate
+     * @return a factory that produces ConstantMutationRate models with a free rate
+     */
 	public static final Factory getFreeFactory(double initialRate, int units, double maximumMutationRate) {
 		return new RateFactory(initialRate,units,true,maximumMutationRate);
 	}
 	/**
 	 * Generate a MutationRateModel.Factory class for a ConstantMutationRate
-	 */
+     *
+     * @param initialRate the starting mutation rate
+     * @param units the time units for the rate
+     * @param minimumRate the minimum possible mutation rate
+     * @param maximumRate the maximum possible mutation rate
+     * @return a factory that produces ConstantMutationRate models with a free rate
+     */
 	public static final Factory getFreeFactory(double initialRate, int units, double minimumRate, double maximumRate) {
 		return new RateFactory(initialRate,units,true,minimumRate,maximumRate);
 	}
@@ -275,7 +314,11 @@ public class ConstantMutationRate extends MutationRateModel implements Report, S
 		return new RateFactory(mu,getUnits(),parameterize_,getMaximumMutationRate());
 	}
 
-	/**
+    /**
+     * Create a {@link ConstantMutationRate} with a fixed mutation rate (non-parameterized).
+     *
+     * @param rate  the fixed mutation rate
+     * @param units the time units for the rate
 	 * @return A ConstantMutationRate with a fixed rate (no parameters)
 	 */
 	public static final ConstantMutationRate createFixed(double rate, int units) {

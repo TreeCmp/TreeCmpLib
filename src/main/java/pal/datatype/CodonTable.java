@@ -17,7 +17,7 @@ package pal.datatype;
  * @author Matthew Goode
  * @author Alexei Drummond
  *
- * @note
+ * Note:
  *   <ul>
  *     <li> 19 August 2003 - Added getAminoAcidStateFromIUPACStates()
  *   </ul>
@@ -78,68 +78,112 @@ public interface CodonTable extends java.io.Serializable {
 
 	/**
 	 * Returns the char associated with AminoAcid represented by 'codon'
-	 * @note char is as defined by AminoAcids.java
-	 * @see AminoAcids
+	 * Note: char is as defined by AminoAcids.java
+     *
+     * @param codon a char array of length 3 representing the codon
 	 * @return state for '?' if codon unknown or wrong length
+     * @see AminoAcids
 	 */
 	char getAminoAcidChar(char[] codon);
 
 	/**
 	 * Returns the state associated with AminoAcid represented by 'codon'
-	 * @note state is as defined by AminoAcids.java
-	 * @see AminoAcids
+	 * Note: state is as defined by AminoAcids.java
+     *
+     * @param codon a char array of length 3 representing the codon
 	 * @return '?' if codon unknown or wrong length
+     * @see AminoAcids
 	 */
 	int getAminoAcidState(char[] codon);
 
-	/**
+    /**
+     * Returns all possible codons for a given amino acid state.
+     *
+     * @param aminoAcidState the amino acid state
 	 * @return all the possible codons for a given amino acid
 	 */
 	char[][] getCodonsFromAminoAcidState(int aminoAcidState);
 
-	/*
+    /**
+     * Returns all possible codons for a given amino acid character.
+     *
+     * @param aminoAcidChar the amino acid character
 	 * @return all the possible codons for a given amino acid
 	 */
 	char[][] getCodonsFromAminoAcidChar(char aminoAcidChar);
 
-	/** Returns the amino acid char at the corresponding codonIndex */
+	/** Returns the amino acid char at the corresponding codonIndex
+     *
+     * @param codonIndex the codon index
+     * @return the amino acid character
+     */
 	char getAminoAcidCharFromCodonIndex(int codonIndex);
 
-	/** Returns the amino acid state at the corresponding codonIndex */
+    /** Returns the amino acid state at the corresponding codonIndex
+     *
+     * @param codonIndex the codon index
+     * @return the amino acid state
+     */
 	int getAminoAcidStateFromCodonIndex(int codonIndex);
 
-	/*
-	 * @returns three IUPAC states representing the given amino acid
-	 * @note The returned array should not be altered, and implementations
+    /**
+     * Returns three IUPAC nucleotide states representing the given amino acid.
+     * The returned array should not be altered, and may be ambiguous.
+     *
+     * @param aminoAcid the amino acid state
+	 * @return three IUPAC states representing the given amino acid
+	 * Note: The returned array should not be altered, and implementations
 	 *       should attempt to implement this as efficiently as possible
-	 * @note the returned array may not be enough to accurately reconstruct the amino acid (as it may be too ambiguous)
+	 * Note: the returned array may not be enough to accurately reconstruct the amino acid (as it may be too ambiguous)
 	*/
 	int[] getIUPACStatesFromAminoAcidState(int aminoAcid);
-	int[] getStatesFromAminoAcidState(int aminoAcid);
 
-	/**
+    /**
+     * Returns the nucleotide states representing the given amino acid.
+     *
+     * @param aminoAcid the amino acid state
+     * @return an array of nucleotide states
+     */
+    int[] getStatesFromAminoAcidState(int aminoAcid);
+
+    /**
+     * Returns the amino acid state given an array of nucleotide states.
+     * The array should have size 3.
+     *
+     * @param states an array of nucleotide states
 	 * @return The AminoAcid states given the nucleotides states (array should be of size 3)
 	 */
 	int getAminoAcidStateFromStates(int[] states);
 
+    /**
+     * Returns the codon states of terminator amino acids.
+     *
+     * @return an array of codon states corresponding to terminator amino acids
+     */
+    int[] getTerminatorIndexes();
 
-	/**
-	 * @return the codon states of terminator amino acids.
-	 */
-	int[] getTerminatorIndexes();
+    /**
+     * Returns the number of terminator amino acids.
+     *
+     * @return the number of terminator amino acids
+     */
+    int getNumberOfTerminatorIndexes();
 
-	/**
-	 * Returns the number of terminator amino acids.
-	 */
-	int getNumberOfTerminatorIndexes();
+    /**
+     * Returns the type ID of this organism.
+     * The type corresponds to one of the defined organism type constants.
+     *
+     * @return the organism type ID
+     */
+    int getOrganismTypeID();
 
-	/**
-	 * @return the type of this organism (see defined type constants)
-	 */
-	int getOrganismTypeID();
+    /**
+     * Determines whether two codons code for the same amino acid (synonymous).
+     *
+     * @param codonIndexOne the index of the first codon
+     * @param codonIndexTwo the index of the second codon
+     * @return {@code true} if both codons map to the same amino acid, {@code false} otherwise
+     */
+    boolean isSynonymous(int codonIndexOne, int codonIndexTwo);
 
-	/**
-	 * @return true if the amino acids that map to two codons are the same (synonymous). False otherwise
-	 */
-	boolean isSynonymous(int codonIndexOne, int codonIndexTwo);
 }

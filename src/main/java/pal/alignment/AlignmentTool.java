@@ -30,7 +30,7 @@ public final class AlignmentTool {
 	 * A simple approach to creating a bootstrap replicate
 	 * @param base The original alignment
 	 * @return A bootstrap replicate of the input alignment
-	 * @note disadvantages - looses ability rebootstrap replicate (see BootstrappedAlignment.bootstrap())
+	 * Note: disadvantages - looses ability rebootstrap replicate (see BootstrappedAlignment.bootstrap())
 	 */
 	public static final Alignment createBootstrapReplicate(Alignment base){
 	  return new BootstrappedAlignment(base);

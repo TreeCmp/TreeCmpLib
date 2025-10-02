@@ -26,128 +26,180 @@ import pal.io.*;
 
 public interface Node extends Serializable {
 
-	/** Returns the parent node of this node. */
-	Node getParent();
+    /**
+     * Returns the parent node of this node.
+     *
+     * @return the parent {@link Node}, or null if this node is the root
+     */
+    Node getParent();
 
-	/** Set the parent node of this node. */
-	void setParent(Node node);
+    /**
+     * Sets the parent node of this node.
+     *
+     * @param node the {@link Node} to set as parent
+     */
+    void setParent(Node node);
 
-	/** Returns the sequence at this node, in the form an array of bytes. */
-	byte[] getSequence();
+    /**
+     * Returns the sequence associated with this node.
+     *
+     * @return a byte array representing the sequence at this node
+     */
+    byte[] getSequence();
 
-	/** Sets the sequence using an array of bytes. */
-	void setSequence(byte[] array);
+    /**
+     * Sets the sequence for this node.
+     *
+     * @param array a byte array representing the sequence
+     */
+    void setSequence(byte[] array);
 
-	/** return the index of this node */
-	int getNumber();
+    /**
+     * Returns the index number of this node.
+     *
+     * @return an integer representing the node index
+     */
+    int getNumber();
 
-	/** set the index of this node */
-	void setNumber(int number);
+    /**
+     * Sets the index number of this node.
+     *
+     * @param number the integer index to assign to this node
+     */
+    void setNumber(int number);
 
-	/** Get the length of the branch attaching this node to its parent. */
-	double getBranchLength();
+    /**
+     * Returns the branch length connecting this node to its parent.
+     *
+     * @return the branch length as a double
+     */
+    double getBranchLength();
 
-	/**
-	 * Set the length of the branch attaching this node to its parent.
-	 */
-	void setBranchLength(double value);
+    /**
+     * Sets the branch length connecting this node to its parent.
+     *
+     * @param value the branch length to assign
+     */
+    void setBranchLength(double value);
 
-	/** Get the length SE of the branch attaching this node to its parent. */
-	double getBranchLengthSE();
+    /**
+     * Returns the standard error (SE) of the branch length.
+     *
+     * @return the branch length SE as a double
+     */
+    double getBranchLengthSE();
 
-	/** Set the length SE of the branch attaching this node to its parent. */
-	void setBranchLengthSE(double value);
+    /**
+     * Sets the standard error (SE) of the branch length.
+     *
+     * @param value the branch length SE to assign
+     */
+    void setBranchLengthSE(double value);
 
-	/** Get the height of this node relative to the most recent node. */
-	double getNodeHeight();
+    /**
+     * Returns the height of this node relative to the most recent node.
+     *
+     * @return the node height as a double
+     */
+    double getNodeHeight();
 
-	/**
-	 * Set the height of this node relative to the most recent node.
-	 */
-	void setNodeHeight(double value);
+    /**
+     * Sets the height of this node relative to the most recent node.
+     *
+     * @param value the height to assign
+     */
+    void setNodeHeight(double value);
 
-	/**
-	 * Set the height of this node relative to the most recent node.
-	 * @param adjustChildBranchLengths if true
-	 */
-	void setNodeHeight(double value,boolean adjustChildBranchLengths);
+    /**
+     * Sets the height of this node relative to the most recent node,
+     * optionally adjusting child branch lengths to maintain tree consistency.
+     *
+     * @param value                    the height to assign
+     * @param adjustChildBranchLengths if true, the lengths of child branches
+     *                                 are adjusted to maintain relative distances
+     */
+    void setNodeHeight(double value, boolean adjustChildBranchLengths);
 
-	///** Set the height SE of this node relative to the most recent node. */
-	//void setNodeHeightSE(double value);
+    /**
+     * Returns the identifier of this node.
+     *
+     * @return the {@link Identifier} associated with this node
+     */
+    Identifier getIdentifier();
 
-	///** Get the height SE of this node relative to the most recent node. */
-	//double getNodeHeightSE();
+    /**
+     * Sets the identifier of this node.
+     *
+     * @param id the {@link Identifier} to assign
+     */
+    void setIdentifier(Identifier id);
 
+    /**
+     * Returns the number of children this node has.
+     *
+     * @return an integer count of child nodes
+     */
+    int getChildCount();
 
-	/** Returns the identifier for this node. */
-	Identifier getIdentifier();
+    /**
+     * check whether this node is an external node
+     *
+     * @return result (true or false)
+     */
+    boolean isLeaf();
 
-	/** Set identifier for this node. */
-	void setIdentifier(Identifier id);
+    /**
+     * check whether this node is a root node
+     *
+     * @return result (true or false)
+     */
+    boolean isRoot();
 
-	/**
-	 * Returns the number of children this node has.
-	 */
-	int getChildCount();
+    /**
+     * get child node
+     *
+     * @param n number of child
+     * @return child node
+     */
+    Node getChild(int n);
 
-	/**
-	 * check whether this node is an external node
-	 *
-	 * @return result (true or false)
-	 */
-	boolean isLeaf();
+    /**
+     * set child node
+     *
+     * @param n    number
+     * @param node new child node
+     */
+    void setChild(int n, Node node);
 
-	/**
-	 * check whether this node is a root node
-	 *
-	 * @return result (true or false)
-	 */
-	boolean isRoot();
+    /**
+     * add new child node
+     *
+     * @param c new child node
+     */
+    void addChild(Node c);
 
-	/**
-	 * get child node
-	 *
-	 * @param n number of child
-	 *
-	 * @return child node
-	 */
-	Node getChild(int n);
+    /**
+     * add new child node (insertion at a specific position)
+     *
+     * @param c   new child node
+     * @param pos position
+     */
+    void insertChild(Node c, int pos);
 
-	/**
-	 * set child node
-	 *
-	 * @param n number
-	 * @node node new child node
-	 */
-	void setChild(int n, Node node);
+    /**
+     * Removes a child node by its index.
+     *
+     * @param n the index of the child to be removed (0-based)
+     * @return the {@link Node} that was removed
+     * @throws IndexOutOfBoundsException if the index is invalid
+     */
+    Node removeChild(int n);
 
-	/**
-	 * add new child node
-	 *
-	 * @param c new child node
-	 */
-	void addChild(Node c);
-
-	/**
-	 * add new child node (insertion at a specific position)
-	 *
-	 * @param c new child node
-	+ @param pos position
-	 */
-	void insertChild(Node c, int pos);
-
-
-	/**
-	 * remove child
-	 *
-	 * @param n number of child to be removed
-	 */
-	Node removeChild(int n);
-
-	/**
-	 * remove child
-	 *
-	 * @param n child Node to be removed
-	 */
-	Node removeChild(Node n);
+    /**
+     * Removes a specific child node.
+     *
+     * @param n the {@link Node} to remove
+     * @return the {@link Node} that was removed, or null if the node was not a child
+     */
+    Node removeChild(Node n);
 }

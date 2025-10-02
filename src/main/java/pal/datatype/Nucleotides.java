@@ -8,7 +8,6 @@
 
 package pal.datatype;
 
-
 /**
  * implements DataType for nucleotides
  *
@@ -65,7 +64,10 @@ public class Nucleotides extends SimpleDataType implements MolecularDataType {
 		this(false);
 	}
 
-	/** If isRNA is true than getChar(state) will return a U instead of a T */
+	/** If isRNA is true than getChar(state) will return a U instead of a T
+     *
+     * @param isRNA true if the nucleotides should be treated as RNA (use 'U'); false for DNA (use 'T')
+     */
 	public Nucleotides(boolean isRNA) {
 		this.isRNA_ = isRNA;
 		conversionTable_ = (isRNA_ ? RNA_CONVERSION_TABLE : DNA_CONVERSION_TABLE );
@@ -144,10 +146,16 @@ public class Nucleotides extends SimpleDataType implements MolecularDataType {
 		return 0;
 	}
 
-	/**
-	 * @return true if A->G, G->A, C->T, or T->C
-	 * if firstState equals secondState returns FALSE!
-	 */
+    /**
+     * Checks if a nucleotide change between two states is a transition.
+     * A transition is defined as A↔G or C↔T (U).
+     * If {@code firstState} equals {@code secondState}, this returns false.
+     *
+     * @param firstState the starting nucleotide state
+     * @param secondState the ending nucleotide state
+     * @return true if A-&gt;G, G-&gt;A, C-&gt;T, or T-&gt;C
+     * if firstState equals secondState returns FALSE!
+     */
 	public final boolean isTransitionByState(int firstState, int secondState) {
 		switch(firstState) {
 			case A_STATE: {
@@ -178,8 +186,14 @@ public class Nucleotides extends SimpleDataType implements MolecularDataType {
 		return false;
 	}
 
-	/**
-	 * @return true if A->G, G->A, C->T, or T->C
+    /**
+     * Checks if a nucleotide change between two characters is a transition.
+     * A transition is defined as A↔G or C↔T (U).
+     * If {@code firstChar} equals {@code secondChar}, this returns false.
+     *
+     * @param firstChar the starting nucleotide character
+     * @param secondChar the ending nucleotide character
+	 * @return true if A-&gt;G, G-&gt;A, C-&gt;T, or T-&gt;C
 	 * if firstState equals secondState returns FALSE!
 	 * (I've renamed things to avoid confusion between java typing of ints and chars)
 	*/
@@ -192,47 +206,68 @@ public class Nucleotides extends SimpleDataType implements MolecularDataType {
 //================ ResidueDataType stuff ===================
 //==========================================================
 
-	/**
-	 * @return a copy of the input
-	 */
-	public int[] getNucleotideStates(int[] residueStates) {
-		return pal.misc.Utils.getCopy(residueStates);
-	}
-
-	/**
-	 * @return the input
-	 */
-	public int getRelavantLength(int numberOfStates) {
-		return numberOfStates;
-	}
-
-	/**
-	 * @return a copy of the input
-	 */
-	public int[] getMolecularStatesFromSimpleNucleotides(int[] nucleotideStates, int startingIndex) {
-		return pal.misc.Utils.getCopy(nucleotideStates,startingIndex);
-	}
-	/**
-	 * @return a copy of the input
-	 */
-	public int[] getMolecularStatesFromIUPACNucleotides(int[] nucleotideStates, int startingIndex) {
-		return pal.misc.Utils.getCopy(nucleotideStates, startingIndex);
-	}
-
-	/**
-	 * @return false Nucleotide data will suffice
-	 */
-	public boolean isCreatesIUPACNuecleotides() {
-		return false;
-	}
+    /**
+     * Returns a copy of the given array of nucleotide states.
+     *
+     * @param residueStates the input array of residue (amino acid) states
+     * @return a new array containing a copy of the input nucleotide states
+     */
+    public int[] getNucleotideStates(int[] residueStates) {
+        return pal.misc.Utils.getCopy(residueStates);
+    }
 
 
-	/**
-	 * @return 1
-	 */
-	public final int getNucleotideLength() {
-		return 1;
-	}
+    /**
+     * Returns the relevant length for the given number of states.
+     *
+     * @param numberOfStates the number of states
+     * @return the input value (numberOfStates)
+     */
+    public int getRelavantLength(int numberOfStates) {
+        return numberOfStates;
+    }
+
+    /**
+     * Returns a copy of a sequence of simple nucleotide states starting from a given index.
+     *
+     * @param nucleotideStates the input array of simple nucleotide states
+     * @param startingIndex the index to start copying from
+     * @return a new array containing a copy of the input starting from startingIndex
+     */
+    public int[] getMolecularStatesFromSimpleNucleotides(int[] nucleotideStates, int startingIndex) {
+        return pal.misc.Utils.getCopy(nucleotideStates, startingIndex);
+    }
+
+    /**
+     * Returns a copy of a sequence of IUPAC nucleotide states starting from a given index.
+     *
+     * @param nucleotideStates the input array of IUPAC nucleotide states
+     * @param startingIndex the index to start copying from
+     * @return a new array containing a copy of the input starting from startingIndex
+     */
+    public int[] getMolecularStatesFromIUPACNucleotides(int[] nucleotideStates, int startingIndex) {
+        return pal.misc.Utils.getCopy(nucleotideStates, startingIndex);
+    }
+
+    /**
+     * Indicates whether this data type requires IUPAC nucleotide states.
+     *
+     * @return false, as simple nucleotide data is sufficient
+     */
+    public boolean isCreatesIUPACNuecleotides() {
+        return false;
+    }
+
+    /**
+     * Returns the length of a single nucleotide.
+     *
+     * @return 1, since a nucleotide is represented by a single position
+     */
+    public final int getNucleotideLength() {
+        return 1;
+    }
+
+
 // ====================================================================
 // === Static utility methods
 	/**

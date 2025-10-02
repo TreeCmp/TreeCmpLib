@@ -67,17 +67,23 @@ public class IUPACNucleotides extends SimpleDataType implements MolecularDataTyp
 		this.isRNA_ = isRNA;
 		conversionTable_ = (isRNA_ ? RNA_CONVERSION_TABLE : DNA_CONVERSION_TABLE );
 	}
-	/**
-	 * Get number of states.
-	 */
+
+    /**
+     * Gets the number of valid states for this data type.
+     *
+     * @return the number of states (here: 15)
+     */
 	public int getNumStates()
 	{
 		return 15;
 	}
 
-	/**
-	 * @retrun true if this state is an unknown state
-	 */
+    /**
+     * Checks whether the given state is considered an unknown state.
+     *
+     * @param state the state index to check
+     * @return true if the state is outside the valid range (i.e., negative or ≥ number of states), false otherwise
+     */
 	protected boolean isUnknownStateImpl(final int state) {
 		return((state>=getNumStates())||(state<0));
 	}
@@ -241,27 +247,47 @@ public class IUPACNucleotides extends SimpleDataType implements MolecularDataTyp
 
 	}
 
-	/**
-	 * @return true if the iupacState is an state which includes the
-	 * possibility of being of a nucleotide state
-	 */
+    /**
+     * Checks if the given IUPAC state includes the possibility of being a specific nucleotide state.
+     *
+     * @param iupacState the IUPAC state to check
+     * @param nucleotideState the nucleotide state to test for inclusion (0=A,1=C,2=G,3=T)
+     * @return true if the iupacState includes the nucleotideState, false otherwise
+     */
 	public static final boolean isNucleotideState(int iupacState, int nucleotideState) {
 		return ALL_STATE_COMPS[nucleotideState][iupacState];
 	}
+
+    /**
+     * Gets the recommended state to use for unknown nucleotides.
+     *
+     * @return the integer representing the unknown state (-1)
+     */
 	public int getRecommendedUnknownState() { return -1; }
-	/**
+
+    /**
 	 * @param inclusion should be a number constructed as follows
 	 * 1. start at zero
 	 * 2. if maybe A add 1
 	 * 3. if maybe C add 2
 	 * 4. if maybe G add 4
 	 * 5. if maybe T add 8
-	 *
-	 */
+     * @return the IUPAC state corresponding to the inclusion code
+     */
 	public static final int getIUPACState(int inclusion) {
 		return IUPAC_CONV[inclusion];
 	}
-	public static final int getIUPACState(boolean maybeA, boolean maybeC, boolean maybeG, boolean maybeT) {
+
+    /**
+     * Constructs an IUPAC state integer from booleans indicating which nucleotides are possible.
+     *
+     * @param maybeA true if A is possible
+     * @param maybeC true if C is possible
+     * @param maybeG true if G is possible
+     * @param maybeT true if T is possible
+     * @return the IUPAC state corresponding to the given possibilities
+     */
+    public static final int getIUPACState(boolean maybeA, boolean maybeC, boolean maybeG, boolean maybeT) {
 		int index = 0;
 		if(maybeA) { index+=1; }
 		if(maybeC) { index+=2; }
@@ -269,19 +295,26 @@ public class IUPACNucleotides extends SimpleDataType implements MolecularDataTyp
 		if(maybeT) { index+=8; }
 		return IUPAC_CONV[index];
 	}
+
 	/**
 	 * Converts an IUPAC State to either a A,T,G,C state (eg. if state represents either C or G, state becomes C - an arbitary choice is made to take "lowest" letter)
-	 */
+     *
+     * @param state the IUPAC state to convert
+     * @return the simple nucleotide state, or -1 if invalid
+     */
 	public static final int getSimpleState(int state) {
 		if(state<0||state>=SIMPLE_STATE_CONV.length) {
 			return -1;
 		}
 		return SIMPLE_STATE_CONV[state];
 	}
+
 	/**
 	 * Converts an IUPAC State array to either a A,T,G,C state (eg. if state represents either C or G, state becomes C - an arbitary choice is made to take "lowest" letter)
-	 * @return new array containing only simple states (orignal is not altered)
-	 */
+     *
+     * @param states the array of IUPAC states
+     * @return new array containing only simple states (A, C, G, T), invalid states become -1
+     */
 	public static final int[] getSimpleStates(int[] states) {
 		int[] newStates = new int[states.length];
 		int state;
@@ -295,11 +328,15 @@ public class IUPACNucleotides extends SimpleDataType implements MolecularDataTyp
 		}
 		return newStates;
 	}
+
 	/**
 	 * Converts an IUPAC State array to either a A,T,G,C state (eg. if state represents either C or G, state becomes C - an arbitary choice is made to take "lowest" letter)
-	 * @param staringIndex amount to skip at beginning of input array
-	 * @return new array containing only simple states (orignal is not altered)
-	 */
+     *
+     * @param states the array of IUPAC states
+     * @param startingIndex the number of elements to skip at the beginning
+     * @return new array containing only simple states (A, C, G, T) starting from startingIndex,
+     *         invalid states become -1
+     */
 	public static final int[] getSimpleStates(int[] states, int startingIndex) {
 		int[] newStates = new int[states.length-startingIndex];
 		int state;

@@ -30,7 +30,13 @@ public class SerialCoalescentSimulator implements Serializable{
 	 * @param tocd the time order character data determining the
 	 * order and time in which samples are added.
 	 * @param model the demographic model to use
-	 */
+     * @param createTree  if {@code true}, a coalescent tree will be built alongside the intervals;
+     *                    if {@code false}, no tree is created
+     * @return a {@link CoalescentIntervals} object containing the simulated intervals and
+     *         number of lineages at each interval
+     * @throws IllegalArgumentException if the root node of the created tree would have fewer than two children
+     * @throws NullPointerException if {@code tocd} or {@code model} is {@code null}
+     */
 	public CoalescentIntervals simulateIntervals(
 		TimeOrderCharacterData tocd,
 		DemographicModel model,

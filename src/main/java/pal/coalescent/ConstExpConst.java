@@ -23,7 +23,7 @@ import java.io.*;
  *   or
  * (Parameters: N0=present-day population size; r=growth rate; N1: pre-growth
  * ancestral population size).
- * This model is nested with the exponential-growth model (alpha -> 0 and tx -> 0).
+ * This model is nested with the exponential-growth model (alpha -&gt; 0 and tx -&gt; 0).
  * 
  * @version $Id: ConstExpConst.java,v 1.2 2002/02/16 00:51:43 alexi Exp $
  *
@@ -46,7 +46,10 @@ public class ConstExpConst extends ConstExpGrowth
 
 	/**
 	 * Construct demographic model with default settings.
-	 */
+     *
+     * @param units units of time (e.g., GENERATIONS or expected substitutions)
+     * @param parameterization bit string specifying the parameterization mode
+     */
 	public ConstExpConst(int units, int parameterization) {
 	
 		super(units, parameterization);
@@ -59,7 +62,14 @@ public class ConstExpConst extends ConstExpGrowth
 
 	/**
 	 * Construct demographic model of constexpconst population.
-	 */
+     *
+     * @param size present-day population size (N0)
+     * @param growth growth parameter (growth rate r or growth duration lx, depending on parameterization)
+     * @param ancestral ancestral parameter (N1 or alpha, depending on parameterization)
+     * @param timeX time of transition from initial constant phase to exponential phase
+     * @param units units of time (e.g., GENERATIONS or expected substitutions)
+     * @param parameterization bit string specifying the parameterization mode
+     */
 	public ConstExpConst(
 			double size, 
 			double growth, 
@@ -75,7 +85,9 @@ public class ConstExpConst extends ConstExpGrowth
 
 	/**
 	 * Makes a copy of this demographic model.
-	 */
+     *
+     * @return a deep copy of this {@code ConstExpConst} object
+     */
 	public Object clone() {
 		return new ConstExpConst(getN0(), getGrowthParam(), getAncestral(), 
 getTimeX(), getUnits(), getParameterization()); 

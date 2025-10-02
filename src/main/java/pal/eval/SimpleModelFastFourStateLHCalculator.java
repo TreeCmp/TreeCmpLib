@@ -478,22 +478,31 @@ public class SimpleModelFastFourStateLHCalculator implements LHCalculator {
   } //End of class InternalImpl
 
 // =--==--=-=-==-=--==--=-==-=-=-=-=--==-=--=
-  /**
-   *
-   * @param fallbackFactory A LHCalculator.Factory that can be used if the number of states is not four
-   * @return
-   */
-  public static final Factory getFactory( Factory fallbackFactory ) {
-    return new SimpleFactory( fallbackFactory );
-  }
+    /**
+     * Returns a factory for creating likelihood calculators.
+     * <p>
+     * If the number of states is not four, the provided {@code fallbackFactory} will be used
+     * to create an appropriate calculator.
+     * </p>
+     *
+     * @param fallbackFactory a {@link Factory} instance used when the number of states is not four
+     * @return a {@link Factory} capable of creating likelihood calculators
+     */
+    public static final Factory getFactory(Factory fallbackFactory) {
+        return new SimpleFactory(fallbackFactory);
+    }
 
-  /**
-   *
-   * @return
-   */
-  public static final Factory getFactory() {
-    return new SimpleFactory( FastFourStateLHCalculator.getFactory() );
-  }
+    /**
+     * Returns a factory for creating likelihood calculators, assuming a four-state model.
+     * <p>
+     * Internally, this uses {@link FastFourStateLHCalculator#getFactory()} as the default factory.
+     * </p>
+     *
+     * @return a {@link Factory} capable of creating four-state likelihood calculators
+     */
+    public static final Factory getFactory() {
+        return new SimpleFactory(FastFourStateLHCalculator.getFactory());
+    }
 
 // -=-=--==-=-=-=---=-==-=--==-=-=-=-
   private static final class SimpleFactory implements Factory {

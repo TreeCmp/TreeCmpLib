@@ -876,12 +876,19 @@ public class TreeCmpUtils {
     }
 
     /**
-     * Note that in order to use the method
-     * both the input trees must be rooted binary trees.
-     * @param tree1
-     * @param tree2
-     * @param idGroup
-     * @return
+     * Calculates the **Maximum Agreement Subtree (MAST)** size intersection matrix
+     * between two rooted binary trees, `tree1` and `tree2`.
+     *
+     * <p>The method uses dynamic programming, iterating over nodes in post-order,
+     * to compute the size of the MAST between all pairs of subtrees in `tree1` and `tree2`.
+     *
+     * <p>Note that in order to use the method, both the input trees must be **rooted binary trees**.
+     *
+     * @param tree1 The first rooted binary tree.
+     * @param tree2 The second rooted binary tree.
+     * @param idGroup The object managing the identifiers (names/aliases) of the leaves in both trees.
+     * @return An {@code IntersectInfoMatrix} containing the size of the MAST for all
+     * pairs of subtrees (defined by their root nodes) from {@code tree1} and {@code tree2}.
      */
     public static IntersectInfoMatrix calcMastIntersectMatrix(Tree tree1, Tree tree2, IdGroup idGroup) {
         int intT1Num = tree1.getInternalNodeCount();
@@ -955,12 +962,16 @@ public class TreeCmpUtils {
     }
 
     /**
+     * Calculates the depth of all nodes in a tree, where depth is measured by the **number of edges** from the root.
      *
-     * @param t
-     * @param preOrderNodes
-     * @param externalNodesDepthTab
-     * @param internalNodesDepthTab
-     * @param idGroup
+     * <p>The results are stored in two separate arrays for external (leaf) and internal nodes.
+     * The method requires nodes to be provided in pre-order for sequential depth calculation.
+     *
+     * @param t The tree for which node depths are to be calculated.
+     * @param preOrderNodes An array of nodes from {@code t} arranged in pre-order traversal sequence.
+     * @param externalNodesDepthTab The output array to store depths of external (leaf) nodes. Uses mapped external identifiers as indices.
+     * @param internalNodesDepthTab The output array to store depths of internal nodes. Uses node numbers as indices.
+     * @param idGroup The object managing the leaf identifiers, used to map leaf numbers to array indices.
      */
     public static void calcNodeDepth(Tree t, Node[] preOrderNodes, short[] externalNodesDepthTab, short[] internalNodesDepthTab, IdGroup idGroup) {
         int parentNum, curNodeNum;
@@ -989,12 +1000,16 @@ public class TreeCmpUtils {
     }
 
     /**
+     * Calculates the depth of all nodes in a tree, where depth is measured by the **sum of branch lengths** from the root.
      *
-     * @param t
-     * @param preOrderNodes
-     * @param externalNodesDepthTab
-     * @param internalNodesDepthTab
-     * @param idGroup
+     * <p>The results are stored in two separate arrays for external (leaf) and internal nodes.
+     * The method requires nodes to be provided in pre-order for sequential depth calculation.
+     *
+     * @param t The tree for which node depths are to be calculated.
+     * @param preOrderNodes An array of nodes from {@code t} arranged in pre-order traversal sequence.
+     * @param externalNodesDepthTab The output array to store depths of external (leaf) nodes. Uses mapped external identifiers as indices.
+     * @param internalNodesDepthTab The output array to store depths of internal nodes. Uses node numbers as indices.
+     * @param idGroup The object managing the leaf identifiers, used to map leaf numbers to array indices.
      */
     public static void calcNodeDepth(Tree t, Node[] preOrderNodes, double[] externalNodesDepthTab, double[] internalNodesDepthTab, IdGroup idGroup) {
         int parentNum, curNodeNum;

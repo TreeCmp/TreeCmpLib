@@ -30,7 +30,13 @@ public class Genotype {
     return alignment[i];
   }
 
-    /** sequence alignment at (sequence, site, allele) */
+    /** sequence alignment at (sequence, site, allele)
+     *
+     * @param seq    the sequence (taxon) index
+     * @param site   the site (column) index within the alignment
+     * @param allele the allele index (e.g., 0 for the first allele, 1 for the second, etc.)
+     * @return the alignment character at the specified sequence, site, and allele
+     */
   public char getData(int seq, int site, int allele) {
     return alignment[allele].getData(seq,site);
     }

@@ -48,10 +48,11 @@ public class ConstantPopulation extends DemographicModel implements Report, Summ
 	/** standard error of population size */
 	public double N0SE = 0.0;
 
-
 	/**
 	 * Construct demographic model with default settings
-	 */
+     *
+     * @param units the units of measurement for the population (e.g., generations, years)
+     */
 	public ConstantPopulation(int units) {
 
 		super();
@@ -64,13 +65,14 @@ public class ConstantPopulation extends DemographicModel implements Report, Summ
 
 	/**
 	 * Construct demographic model of a constant population size.
-	 */
+     *
+     * @param size the constant population size
+     * @param units the units of measurement for the population (e.g., generations, years)
+     */
 	public ConstantPopulation(double size, int units) {
 		super();
 		N0 = size;
 		setUnits(units);
-
-
 	}
 
 	public Object clone()
@@ -96,12 +98,13 @@ public class ConstantPopulation extends DemographicModel implements Report, Summ
 
 	/**
 	 * returns initial population size.
-	 */
+     *
+     * @return the population size (N0)
+     */
 	public double getN0()
 	{
 		return N0;
 	}
-
 
 	// Implementation of abstract methods
 

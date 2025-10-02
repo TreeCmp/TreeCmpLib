@@ -26,9 +26,14 @@ import pal.mep.*;
 public class SUPGMADistanceMatrix extends DistanceMatrix {
 
 
-	/**
-	 * Uses date/time information and a constant rate to correct distance matrices.
-	 */
+    /**
+     * Constructs a SUPGMADistanceMatrix by applying corrections based on date/time information
+     * and a constant evolutionary rate (defined by the DeltaModel) to a raw distance matrix.
+     *
+     * @param raw The original (uncorrected) DistanceMatrix.
+     * @param tocd The TimeOrderCharacterData containing the temporal information (sampling times or ordinals) for the taxa.
+     * @param deltaModel The DeltaModel used to calculate the expected substitutions (time correction offsets).
+     */
 	public SUPGMADistanceMatrix(DistanceMatrix raw, TimeOrderCharacterData tocd, DeltaModel deltaModel) {
 		super(raw);
 		DeltaModel.Instance deltaModelInstance = deltaModel.generateInstance(tocd);

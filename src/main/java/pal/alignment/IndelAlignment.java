@@ -47,6 +47,8 @@ public class IndelAlignment extends AbstractAlignment {
 
 	/**
 	 * Basic constructor.
+     * @param a        the underlying {@link Alignment} from which the indel
+     *                 information is derived
 	 * @param anchored sets to score anchored indels as same position
 	 */
 	public IndelAlignment(Alignment a, boolean anchored) {

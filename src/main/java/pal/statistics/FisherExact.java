@@ -36,12 +36,15 @@ public class FisherExact {
       {f[i]=f[i-1]+Math.log(i);}
   }
 
-  /**
-   * calculates the P-value for this specific state
-   *
-   * @param a,b,c,d are the four cells in a 2x2 matrix
-   * @return the P-value
-   */
+    /**
+     * Calculates the P-value for a specific state based on cell counts in a 2x2 contingency matrix.
+     *
+     * @param a The count in the top-left cell of the 2x2 matrix.
+     * @param b The count in the top-right cell of the 2x2 matrix.
+     * @param c The count in the bottom-left cell of the 2x2 matrix.
+     * @param d The count in the bottom-right cell of the 2x2 matrix.
+     * @return The calculated P-value, or {@code Double.NaN} if the total count {@code n} exceeds {@code maxSize}.
+     */
   public final double getP(int a, int b, int c, int d) {
     int n=a+b+c+d;
     if(n>maxSize)
@@ -51,13 +54,17 @@ public class FisherExact {
     return Math.exp(p);
   }
 
-  /**
-   * calculates the one tail P-value for the Fisher Exact test
-   * This
-   *
-   * @param a,b,c,d are the four cells in a 2x2 matrix
-   * @return the P-value
-   */
+    /**
+     * Calculates the one-tailed P-value for the Fisher's Exact Test.
+     * This sums the probabilities of the current 2x2 matrix and all matrices
+     * that are more extreme in the observed direction.
+     *
+     * @param a The count in the top-left cell of the 2x2 matrix.
+     * @param b The count in the top-right cell of the 2x2 matrix.
+     * @param c The count in the bottom-left cell of the 2x2 matrix.
+     * @param d The count in the bottom-right cell of the 2x2 matrix.
+     * @return The calculated one-tailed P-value, or {@code Double.NaN} if the total count {@code n} exceeds {@code maxSize}.
+     */
   public final double getCumlativeP(int a, int b, int c, int d) {
     int min,i;
     int n=a+b+c+d;

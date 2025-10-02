@@ -26,26 +26,38 @@ public class TreeRestricter {
 		this.root_ = construct(root, names, inclusion,true);
 		this.units_ = units;
 	}
-	/**
-	 * @param root The root of the tree
-	 * @param units the units of the tree
-	 * @param names the names of the nodes to either exclude, or include
-	 * @param inclusion if true the names supplied mark leaves to include, else mark leaves to exclude
-	 */
-	public TreeRestricter(Tree t, String[] names, boolean inclusion) {
-		this(t.getRoot(),t.getUnits(),names,inclusion);
-	}
-	private static final boolean isAccept(String query, String[] names, boolean inclusion) {
-		boolean found = false;
-		for(int i = 0 ; i < names.length ; i++) {
-			if(query.equals(names[i])) {
-				found = true;
-				break;
-			}
-		}
-		if(inclusion) { return found; }
-		return !found;
-	}
+    /**
+     * Constructs a {@code TreeRestricter} based on an existing tree, defining a subset of leaves
+     * to either include or exclude in the resulting restricted tree.
+     *
+     * @param t The source {@code Tree} object from which the restriction will be performed.
+     * @param names The array of string names of the nodes to either exclude or include.
+     * @param inclusion If {@code true}, the names supplied mark leaves to **include** in the restricted tree;
+     * if {@code false}, they mark leaves to **exclude**.
+     */
+    public TreeRestricter(Tree t, String[] names, boolean inclusion) {
+        this(t.getRoot(),t.getUnits(),names,inclusion);
+    }
+    /**
+     * Determines whether a given node name (query) should be **accepted** (kept) based on the provided list of names and the inclusion/exclusion flag.
+     *
+     * @param query The name of the node (leaf) being checked for acceptance.
+     * @param names The list of names used for comparison (inclusion or exclusion).
+     * @param inclusion If {@code true}, the query is accepted only if it is **found** in {@code names};
+     * if {@code false}, the query is accepted only if it is **not found** in {@code names}.
+     * @return {@code true} if the node name should be accepted (kept in the restricted tree); otherwise, {@code false}.
+     */
+    private static final boolean isAccept(String query, String[] names, boolean inclusion) {
+        boolean found = false;
+        for(int i = 0 ; i < names.length ; i++) {
+            if(query.equals(names[i])) {
+                found = true;
+                break;
+            }
+        }
+        if(inclusion) { return found; }
+        return !found;
+    }
 	public final Node generateNode() {
 		return root_.constructPAL();
 	}

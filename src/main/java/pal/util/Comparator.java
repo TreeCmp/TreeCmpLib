@@ -20,17 +20,25 @@ package pal.util;
  */
 public interface Comparator
 {
-	/**
-	 * Returns a number representing the ordering relationship that
-	 * the two objects have.
-	 * A negative number indicates that the first object is "smaller" than
-	 * the second object, a positive number means it is "larger" and zero
-	 * indicates that the objects are equal.
-	 */
-	int compare(Object o1, Object o2);
+    /**
+     * Compares two objects to establish their relative ordering.
+     * This method defines the **total ordering** imposed by this Comparator.
+     *
+     * @param o1 The first object to be compared.
+     * @param o2 The second object to be compared.
+     * @return A negative integer if the first object (o1) is considered "less than" the second (o2),
+     * a positive integer if o1 is "greater than" o2, and zero if o1 and o2 are considered equal
+     * in terms of this defined ordering.
+     */
+    int compare(Object o1, Object o2);
 
-	/**
-	 * Returns true if the two objects are equal.
-	 */
-	boolean equals(Object o1, Object o2);
+    /**
+     * Indicates whether some other object is "equal to" this one, based on the definition
+     * of equality established by this Comparator.
+     *
+     * @param o1 The first object to test for equality.
+     * @param o2 The second object to test for equality.
+     * @return true if the two specified objects are considered equal by this Comparator; false otherwise.
+     */
+    boolean equals(Object o1, Object o2);
 }

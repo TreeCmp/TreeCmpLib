@@ -18,12 +18,10 @@ import java.io.*;
  * Hasegawa-Kishino-Yano model of nucleotide evolution
  * <i>Hasegawa, M., H. Kishino, and T. Yano. 1985. Dating of the human-ape splitting by a molecular clock of mitchondrial DNA. J. Mol. Evol. 22:160-174. </i>
  * @version $Id: HKY.java,v 1.11 2003/11/30 05:29:22 matt Exp $
- * <p>
  * <em>Parameters</em>
  * <ol>
  *  <li> Kappa </li> <!-- 0 -->
  * </ol>
- * </p>
  * @author Korbinian Strimmer
  * @author Alexei Drummond
  */
