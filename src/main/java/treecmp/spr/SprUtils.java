@@ -27,6 +27,111 @@ public class SprUtils {
 
 public static int num = 0;
 
+    /**
+     * Generates the NNI (Nearest Neighbor Interchange) neighborhood of a given phylogenetic tree.
+     * Each internal edge of the tree can produce up to two alternative topologies via NNI moves.
+     *
+     * @param tree the input phylogenetic tree
+     * @return an array of trees representing the NNI neighbors
+     */
+    public static Tree[] generateRNNiNeighbours(Tree tree) {
+        IdGroup idGroup = TreeUtils.getLeafIdGroup(tree);
+        Set<TreeHolder> nniTreeSet = new HashSet<>();
+
+        int intNum = tree.getInternalNodeCount();
+
+        // Iterujemy po węzłach wewnętrznych (poza korzeniem)
+        for (int i = 0; i < intNum; i++) {
+            Node node = tree.getInternalNode(i);
+            if (node.isRoot()) continue;
+
+            Node parent = node.getParent();
+            if (parent == null) continue;
+
+            // Node musi mieć dwóch potomków, parent też (binarne drzewo)
+            if (node.getChildCount() < 2 || parent.getChildCount() < 2) continue;
+
+            Node a = node.getChild(0);
+            Node b = node.getChild(1);
+
+            // znajdź rodzeństwo node w parent
+            Node c = (parent.getChild(0) == node) ? parent.getChild(1) : parent.getChild(0);
+
+            // 2 możliwe zamiany NNI
+            Tree t1 = createNNITree(tree, node, parent, a, c);
+            Tree t2 = createNNITree(tree, node, parent, b, c);
+
+            if (t1 != null) nniTreeSet.add(new TreeRootedHolder(t1, idGroup));
+            if (t2 != null) nniTreeSet.add(new TreeRootedHolder(t2, idGroup));
+        }
+
+        int n = nniTreeSet.size();
+        Tree[] nniTreeArray = new Tree[n];
+        int idx = 0;
+        for (TreeHolder th : nniTreeSet) {
+            nniTreeArray[idx++] = th.tree;
+        }
+        return nniTreeArray;
+    }
+
+    /**
+     * Creates a new tree obtained by performing a single NNI (Nearest Neighbor Interchange) move
+     * along the edge connecting {@code parent} and {@code node}.
+     *
+     * The move consists of swapping a child from {@code node} with the sibling of {@code node}
+     * (a child of {@code parent}), creating a new tree topology.
+     *
+     * @param tree the original tree
+     * @param node the internal node on one side of the edge
+     * @param parent the parent node on the other side of the edge
+     * @param swapFromNode the child of {@code node} to be swapped
+     * @param swapFromParent the sibling of {@code node} under {@code parent} to be swapped
+     * @return a new tree with the modified topology, or {@code null} if the operation fails
+     */
+    private static Tree createNNITree(Tree tree, Node node, Node parent, Node swapFromNode, Node swapFromParent) {
+        try {
+            // skopiuj drzewo
+            Tree newTree = (Tree) tree.clone();
+
+            // znajdź odpowiednie węzły w kopii po numerach
+            Node newNode = findNodeByNumber(newTree.getRoot(), node.getNumber());
+            Node newParent = findNodeByNumber(newTree.getRoot(), parent.getNumber());
+            Node newSwapFromNode = findNodeByNumber(newTree.getRoot(), swapFromNode.getNumber());
+            Node newSwapFromParent = findNodeByNumber(newTree.getRoot(), swapFromParent.getNumber());
+
+            if (newNode == null || newParent == null || newSwapFromNode == null || newSwapFromParent == null) {
+                return null;
+            }
+
+            // wykonaj zamianę: odpinamy i przepinamy poddrzewa
+            newNode.removeChild(newSwapFromNode);
+            newParent.removeChild(newSwapFromParent);
+
+            newNode.addChild(newSwapFromParent);
+            newParent.addChild(newSwapFromNode);
+
+            return newTree;
+        } catch (Exception e) {
+            e.printStackTrace();
+            return null;
+        }
+    }
+
+    /**
+     * Recursively searches for a node with the given number in the subtree rooted at {@code root}.
+     *
+     * @param root the root of the subtree in which to search
+     * @param number the node number to match
+     * @return the node with the specified number, or {@code null} if not found
+     */
+    private static Node findNodeByNumber(Node root, int number) {
+        if (root.getNumber() == number) return root;
+        for (int i = 0; i < root.getChildCount(); i++) {
+            Node found = findNodeByNumber(root.getChild(i), number);
+            if (found != null) return found;
+        }
+        return null;
+    }
     public static Tree[] generateRSprNeighbours(Tree tree){
 
         int extNum = tree.getExternalNodeCount();
