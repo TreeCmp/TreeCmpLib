@@ -6,7 +6,7 @@
 
     <groupId>io.github.treecmp</groupId>
     <artifactId>treecmplib</artifactId>
-    <version>1.0.0</version>
+    <version>1.0.1</version>
     <name>TreeCmpLib</name>
     <description>A Java library for comparing phylogenetic trees using various distance metrics.</description>
     <url>https://github.com/TreeCmp/TreeCmpLib</url>
