@@ -8,6 +8,8 @@ import pal.tree.Node;
 import pal.tree.Tree;
 import pal.tree.TreeUtils;
 import treecmp.common.TreeCmpException;
+import treecmp.heuristics.spr.SprUtils;
+import treecmp.heuristics.TreeUnootedHolder;
 import treecmp.metrics.Metric;
 import treecmp.metrics.topological.RFMetric;
 import treecmp.util.TreeCreator;

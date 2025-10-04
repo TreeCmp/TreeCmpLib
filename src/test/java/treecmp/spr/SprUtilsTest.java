@@ -9,6 +9,7 @@ import static org.junit.jupiter.api.Assertions.*;
 import pal.tree.Node;
 import pal.tree.Tree;
 import treecmp.common.TreeCmpException;
+import treecmp.heuristics.spr.SprUtils;
 import treecmp.metrics.Metric;
 import treecmp.metrics.topological.RFMetric;
 import treecmp.util.TreeCreator;

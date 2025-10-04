@@ -5,6 +5,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import pal.tree.Tree;
 import treecmp.common.TreeCmpException;
+import treecmp.heuristics.spr.UsprHeuristicMPUMetric;
 import treecmp.metrics.Metric;
 import treecmp.util.TreeCreator;
 
