@@ -10,6 +10,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import treecmp.common.TreeCmpException;
+import treecmp.heuristics.TreeNeighborhoodUtils;
 import treecmp.metrics.*;
 import treecmp.metrics.topological.*;
 import pal.tree.Tree;
@@ -20,6 +21,7 @@ import pal.tree.Tree;
  */
 public abstract class SprHeuristicRfcBaseMetric extends BaseMetric implements Metric {
 
+    private TreeNeighborhoodUtils tnu = getTreeNeighborhoodUtils();
     private Metric m = getMetric();
     private Metric mRF = new RFClusterMetric();
     protected boolean reduceCommonBinarySubtreesTrees = false;
@@ -60,7 +62,7 @@ public abstract class SprHeuristicRfcBaseMetric extends BaseMetric implements Me
             Tree currentStepTree = t1;
             double bestDist1 = Double.POSITIVE_INFINITY, bestDist2 = Double.POSITIVE_INFINITY;
             do {
-                treeList = SprUtils.generateRSprNeighbours(currentStepTree);
+                treeList = tnu.generateNeighbours(currentStepTree);
                 bestDist = Double.POSITIVE_INFINITY;
                 bestTreeList.clear();
                 tempDist = 0;
@@ -114,5 +116,6 @@ public abstract class SprHeuristicRfcBaseMetric extends BaseMetric implements Me
         return bestTree;
     }
 
+    protected abstract TreeNeighborhoodUtils getTreeNeighborhoodUtils();
     protected abstract Metric getMetric();
 }

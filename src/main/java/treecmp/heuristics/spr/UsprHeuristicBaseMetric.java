@@ -12,6 +12,7 @@ import pal.io.InputSource;
 import pal.tree.ReadTree;
 import pal.tree.TreeParseException;
 import treecmp.common.TreeCmpException;
+import treecmp.heuristics.TreeNeighborhoodUtils;
 import treecmp.metrics.*;
 import pal.tree.Tree;
 
@@ -26,11 +27,11 @@ public abstract class UsprHeuristicBaseMetric extends BaseMetric implements Metr
         this.rooted = false;
     }
 
-
     private Metric m = getMetric();
+    private TreeNeighborhoodUtils tnu = getTreeNeighborhoodUtils();
     protected boolean reduceCommonBinarySubtreesTrees = false;
-    
-        public double getDistance(Tree tree1, Tree tree2, int...indexes) {
+
+    public double getDistance(Tree tree1, Tree tree2, int...indexes) {
         double dist = 0;
         double startDist = 0;
         //  OutputTarget out = OutputTarget.openString();
@@ -66,7 +67,7 @@ public abstract class UsprHeuristicBaseMetric extends BaseMetric implements Metr
             Tree currentStepTree = t1;
             double bestDist1 = Double.POSITIVE_INFINITY, bestDist2 = Double.POSITIVE_INFINITY;
             do {
-                treeList = SprUtils.generateUSprNeighbours(currentStepTree);
+                treeList = tnu.generateNeighbours(currentStepTree);
                 bestDist = Double.POSITIVE_INFINITY;
                 tempDist = 0;
                 sprDist++;
@@ -105,8 +106,10 @@ public abstract class UsprHeuristicBaseMetric extends BaseMetric implements Metr
             e.printStackTrace();
         }
 
-            return dist;
+        return dist;
     }
 
+    protected abstract TreeNeighborhoodUtils getTreeNeighborhoodUtils();
     protected abstract Metric getMetric();
+
 }

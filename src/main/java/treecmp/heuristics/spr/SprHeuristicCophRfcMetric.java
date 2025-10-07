@@ -5,6 +5,7 @@
 
 package treecmp.heuristics.spr;
 
+import treecmp.heuristics.TreeNeighborhoodUtils;
 import treecmp.metrics.topological.CopheneticL2Metric;
 import treecmp.metrics.Metric;
 
@@ -15,8 +16,11 @@ import treecmp.metrics.Metric;
  */
 public class SprHeuristicCophRfcMetric extends SprHeuristicRfcBaseMetric{
 
- @Override
- protected Metric getMetric(){
+    @Override
+    protected TreeNeighborhoodUtils getTreeNeighborhoodUtils(){ return new USprUtils(); }
+
+    @Override
+    protected Metric getMetric(){
     return new CopheneticL2Metric();
  }
 }

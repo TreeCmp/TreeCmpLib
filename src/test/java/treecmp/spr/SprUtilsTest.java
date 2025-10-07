@@ -10,6 +10,7 @@ import pal.tree.Node;
 import pal.tree.Tree;
 import treecmp.common.TreeCmpException;
 import treecmp.heuristics.spr.SprUtils;
+import treecmp.heuristics.spr.USprUtils;
 import treecmp.metrics.Metric;
 import treecmp.metrics.topological.RFMetric;
 import treecmp.util.TreeCreator;
@@ -34,7 +35,8 @@ class SprUtilsTest {
         Tree[] treeList;
         //int neighSizeExpResult = instance.calcSprNeighbours(baseTree);
         int neighSizeExpResult = 12;
-        treeList = SprUtils.generateRSprNeighbours(baseTree);
+        SprUtils sprUtils = new SprUtils();
+        treeList = sprUtils.generateNeighbours(baseTree);
         assertEquals(neighSizeExpResult, treeList.length);
     }
 
@@ -45,7 +47,8 @@ class SprUtilsTest {
         Tree[] treeList;
         //int neighSizeExpResult = instance.calcSprNeighbours(baseTree);
         int neighSizeExpResult = 26;
-        treeList = SprUtils.generateRSprNeighbours(baseTree);
+        SprUtils sprUtils = new SprUtils();
+        treeList = sprUtils.generateNeighbours(baseTree);
         assertEquals(neighSizeExpResult, treeList.length);
     }
 
@@ -56,7 +59,8 @@ class SprUtilsTest {
         Tree[] treeList;
         //int neighSizeExpResult = instance.calcSprNeighbours(baseTree);
         int neighSizeExpResult = 24;
-        treeList = SprUtils.generateRSprNeighbours(baseTree);
+                SprUtils sprUtils = new SprUtils();
+        treeList = sprUtils.generateNeighbours(baseTree);
         assertEquals(neighSizeExpResult, treeList.length);
     }
 
@@ -67,7 +71,8 @@ class SprUtilsTest {
         Tree[] treeList;
         //int neighSizeExpResult = instance.calcSprNeighbours(baseTree);
         int neighSizeExpResult = 34812;
-        treeList = SprUtils.generateRSprNeighbours(baseTree);
+        SprUtils sprUtils = new SprUtils();
+        treeList = sprUtils.generateNeighbours(baseTree);
         assertEquals(neighSizeExpResult, treeList.length);
     }
 
@@ -83,7 +88,8 @@ class SprUtilsTest {
         //int neighSizeExpResult = instance.calcUsprNeighbours(baseTree);
 
         int neighSizeExpResult = 12;
-        treeList = SprUtils.generateUSprNeighbours(baseTree);
+        USprUtils usprUtils = new USprUtils();
+        treeList = usprUtils.generateNeighbours(baseTree);
         assertEquals(neighSizeExpResult, treeList.length);
     }
 
@@ -95,7 +101,8 @@ class SprUtilsTest {
         //int neighSizeExpResult = instance.calcUsprNeighbours(baseTrees[0]);
         int neighSizeExpResult = 12;
         for(Tree bt: baseTrees) {
-            treeList = SprUtils.generateUSprNeighbours(bt);
+                    USprUtils usprUtils = new USprUtils();
+        treeList = usprUtils.generateNeighbours(bt);
             assertEquals(neighSizeExpResult, treeList.length);
         }
     }
@@ -108,7 +115,8 @@ class SprUtilsTest {
         //int neighSizeExpResult = instance.calcUsprNeighbours(baseTrees[0]);
         int neighSizeExpResult = 30;
         for(Tree bt: baseTrees) {
-            treeList = SprUtils.generateUSprNeighbours(bt);
+                    USprUtils usprUtils = new USprUtils();
+        treeList = usprUtils.generateNeighbours(bt);
             assertEquals(neighSizeExpResult, treeList.length);
         }
     }
@@ -121,7 +129,8 @@ class SprUtilsTest {
         Tree[] treeList;
         //int neighSizeExpResult = instance.calcUsprNeighbours(baseTree);
         int neighSizeExpResult = 30;
-        treeList = SprUtils.generateUSprNeighbours(baseTree);
+                USprUtils usprUtils = new USprUtils();
+        treeList = usprUtils.generateNeighbours(baseTree);
         assertEquals(neighSizeExpResult, treeList.length);
     }
 
@@ -132,7 +141,8 @@ class SprUtilsTest {
         Tree[] treeList;
         //int neighSizeExpResult = instance.calcUsprNeighbours(baseTree);
         int neighSizeExpResult = 56;
-        treeList = SprUtils.generateUSprNeighbours(baseTree);
+                USprUtils usprUtils = new USprUtils();
+        treeList = usprUtils.generateNeighbours(baseTree);
         assertEquals(neighSizeExpResult, treeList.length);
     }
 
@@ -144,7 +154,8 @@ class SprUtilsTest {
         //int neighSizeExpResult = instance.calcUsprNeighbours(baseTrees[0]);
         int neighSizeExpResult = 56;
         for(Tree bt: baseTrees) {
-            treeList = SprUtils.generateUSprNeighbours(bt);
+                    USprUtils usprUtils = new USprUtils();
+        treeList = usprUtils.generateNeighbours(bt);
             assertEquals(neighSizeExpResult, treeList.length);
         }
     }
@@ -157,7 +168,8 @@ class SprUtilsTest {
         Tree[] treeList;
         //int neighSizeExpResult = instance.calcUsprNeighbours(baseTree);
         int neighSizeExpResult = 90;
-        treeList = SprUtils.generateUSprNeighbours(baseTree);
+                USprUtils usprUtils = new USprUtils();
+        treeList = usprUtils.generateNeighbours(baseTree);
         assertEquals(neighSizeExpResult, treeList.length);
     }
 
@@ -168,7 +180,8 @@ class SprUtilsTest {
         Tree[] treeList;
         //int neighSizeExpResult = instance.calcUsprNeighbours(baseTree);
         int neighSizeExpResult = 37442;
-        treeList = SprUtils.generateUSprNeighbours(baseTree);
+                USprUtils usprUtils = new USprUtils();
+        treeList = usprUtils.generateNeighbours(baseTree);
         assertEquals(neighSizeExpResult, treeList.length);
     }
 
@@ -178,7 +191,8 @@ class SprUtilsTest {
         Tree baseTrees[] = TreeCreator.getSomeUnrootedTreesWith_7_Labels();
         Tree[] treeList;
         for(Tree bt: baseTrees) {
-            treeList = SprUtils.generateUSprNeighbours(bt);
+                    USprUtils usprUtils = new USprUtils();
+        treeList = usprUtils.generateNeighbours(bt);
             for (Tree t : treeList) {
                 assertEquals(3, t.getRoot().getChildCount());
             }
@@ -191,7 +205,8 @@ class SprUtilsTest {
         Tree baseTree = TreeCreator.getUnrootedTreeWith_50_Labels();
         //Tree baseTree = TreeCreator.getUnrootrdTreeWith_100_Labels();
         Tree[] treeList;
-        treeList = SprUtils.generateUSprNeighbours(baseTree);
+                USprUtils usprUtils = new USprUtils();
+        treeList = usprUtils.generateNeighbours(baseTree);
         for (Tree t : treeList) {
             assertEquals(3, t.getRoot().getChildCount());
         }
@@ -203,7 +218,8 @@ class SprUtilsTest {
         Metric rf = new RFMetric();
         Tree baseTree = TreeCreator.getTreeFromString("(((1,2),(3,4)),5,6);");
         Tree[] treeList;
-        treeList = SprUtils.generateUSprNeighbours(baseTree);
+                USprUtils usprUtils = new USprUtils();
+        treeList = usprUtils.generateNeighbours(baseTree);
         for (int i = 0; i < treeList.length; i++) {
             for (int j = 0; j < treeList.length; j++) {
                 if (i != j) {
@@ -225,7 +241,8 @@ class SprUtilsTest {
         Tree baseTree = TreeCreator.getTreeFromString("(1,2,(3,(4,(5,6))));");
         Tree neightbourTree = TreeCreator.getTreeFromString("(((1,2),5),6,(3,4));");
         Tree[] treeList;
-        treeList = SprUtils.generateUSprNeighbours(baseTree);
+                USprUtils usprUtils = new USprUtils();
+        treeList = usprUtils.generateNeighbours(baseTree);
         boolean foundWantedTree = false;
         for (Tree tree : treeList) {
             try {
@@ -246,7 +263,8 @@ class SprUtilsTest {
         Tree baseTree = TreeCreator.getTreeFromString("(1,2,(3,(4,(5,6))));");
         Tree neightbours[] = TreeCreator.getAll_30_NeightboursOfSome_6_Labels_Tree();
         Tree[] treeList;
-        treeList = SprUtils.generateUSprNeighbours(baseTree);
+                USprUtils usprUtils = new USprUtils();
+        treeList = usprUtils.generateNeighbours(baseTree);
         for (Tree neightbourTree : neightbours) {
             boolean foundWantedTree = false;
             for (Tree tree : treeList) {
@@ -271,7 +289,8 @@ class SprUtilsTest {
         Node s = baseTree.getExternalNode(0);
         Node t = baseTree.getExternalNode(1);
         Tree expTree = TreeCreator.getTreeFromString("(((((2,4),5),(3,6)),7),1,8);");
-        Tree result = SprUtils.createUsprTree(baseTree, s, t);
+        SprUtils sprUtils = new SprUtils();
+        Tree result = sprUtils.createUsprTree(baseTree, s, t);
         Metric rf = new RFMetric();
         try {
             assertEquals(0.0, rf.getDistance(expTree, result));
@@ -286,7 +305,8 @@ class SprUtilsTest {
         Node s = baseTree.getExternalNode(0);
         Node t = baseTree.getExternalNode(2);
         Tree expTree = TreeCreator.getTreeFromString("(2,0,(1,(3,(4,5))));");
-        Tree result = SprUtils.createUsprTree(baseTree, s, t);
+        USprUtils usprUtils = new USprUtils();
+        Tree result = usprUtils.createUsprTree(baseTree, s, t);
         Metric rf = new RFMetric();
         try {
             assertEquals(0.0, rf.getDistance(expTree, result));
@@ -301,7 +321,8 @@ class SprUtilsTest {
         Node s = baseTree.getExternalNode(0);
         Node t = baseTree.getExternalNode(3);
         Tree expTree = TreeCreator.getTreeFromString("(2,1,((0,3),(4,5)));");
-        Tree result = SprUtils.createUsprTree(baseTree, s, t);
+        USprUtils usprUtils = new USprUtils();
+        Tree result = usprUtils.createUsprTree(baseTree, s, t);
         Metric rf = new RFMetric();
         try {
             assertEquals(0.0, rf.getDistance(expTree, result));
@@ -316,7 +337,8 @@ class SprUtilsTest {
         Node s = baseTree.getExternalNode(3);
         Node t = baseTree.getExternalNode(0);
         Tree expTree = TreeCreator.getTreeFromString("(((2,(1,4)),3),5,6);");
-        Tree result = SprUtils.createUsprTree(baseTree, s, t);
+        USprUtils usprUtils = new USprUtils();
+        Tree result = usprUtils.createUsprTree(baseTree, s, t);
         Metric rf = new RFMetric();
         try {
             assertEquals(0.0, rf.getDistance(expTree, result));
@@ -332,7 +354,8 @@ class SprUtilsTest {
         Node s = baseTree.getInternalNode(0);
         Node t = baseTree.getExternalNode(0);
         Tree expTree = TreeCreator.getTreeFromString("(4,5,(0,(1,(2,3))));");
-        Tree result = SprUtils.createUsprTree(baseTree, s, t);
+        USprUtils usprUtils = new USprUtils();
+        Tree result = usprUtils.createUsprTree(baseTree, s, t);
         Metric rf = new RFMetric();
         try {
             assertEquals(0.0, rf.getDistance(expTree, result));
@@ -347,7 +370,8 @@ class SprUtilsTest {
         Node s = baseTree.getInternalNode(1);
         Node t = baseTree.getExternalNode(0);
         Tree expTree = TreeCreator.getTreeFromString("(4,5,(3,(0,(1,2))));");
-        Tree result = SprUtils.createUsprTree(baseTree, s, t);
+        USprUtils usprUtils = new USprUtils();
+        Tree result = usprUtils.createUsprTree(baseTree, s, t);
         Metric rf = new RFMetric();
         try {
             assertEquals(0.0, rf.getDistance(expTree, result));
@@ -362,7 +386,8 @@ class SprUtilsTest {
         Node s = baseTree.getInternalNode(2);
         Node t = baseTree.getExternalNode(4);
         Tree expTree = TreeCreator.getTreeFromString("(((0,1),4),(2,3),5);");
-        Tree result = SprUtils.createUsprTree(baseTree, s, t);
+        USprUtils usprUtils = new USprUtils();
+        Tree result = usprUtils.createUsprTree(baseTree, s, t);
         Metric rf = new RFMetric();
         try {
             assertEquals(0.0, rf.getDistance(expTree, result));
@@ -377,7 +402,8 @@ class SprUtilsTest {
         Node s = baseTree.getInternalNode(2);
         Node t = baseTree.getExternalNode(5);
         Tree expTree = TreeCreator.getTreeFromString("(((0,1),5),(2,3),4);");
-        Tree result = SprUtils.createUsprTree(baseTree, s, t);
+        USprUtils usprUtils = new USprUtils();
+        Tree result = usprUtils.createUsprTree(baseTree, s, t);
         Metric rf = new RFMetric();
         try {
             assertEquals(0.0, rf.getDistance(expTree, result));
@@ -392,7 +418,8 @@ class SprUtilsTest {
         Node s = baseTree.getExternalNode(4);
         Node t = baseTree.getInternalNode(2);
         Tree expTree = TreeCreator.getTreeFromString("(((0,1),4),(5,3),2);");
-        Tree result = SprUtils.createUsprTree(baseTree, s, t);
+        USprUtils usprUtils = new USprUtils();
+        Tree result = usprUtils.createUsprTree(baseTree, s, t);
         Metric rf = new RFMetric();
         try {
             assertEquals(0.0, rf.getDistance(expTree, result));
@@ -407,7 +434,8 @@ class SprUtilsTest {
         Node s = baseTree.getInternalNode(0);
         Node t = baseTree.getExternalNode(1);
         Tree expTree = TreeCreator.getTreeFromString("(4,5,(1,(0,(3,2))));");
-        Tree result = SprUtils.createUsprTree(baseTree, s, t);
+        USprUtils usprUtils = new USprUtils();
+        Tree result = usprUtils.createUsprTree(baseTree, s, t);
         Metric rf = new RFMetric();
         try {
             assertEquals(0.0, rf.getDistance(expTree, result));
@@ -422,7 +450,8 @@ class SprUtilsTest {
         Node s = baseTree.getInternalNode(7); //((2,3),((5,6),(1,((7,8),(9,10)))))
         Node t = baseTree.getExternalNode(3); //5.0
         Tree expTree = TreeCreator.getTreeFromString("(0,(((6,((1,((7,8),(9,10))),(2,3))),5),4),11);");
-        Tree result = SprUtils.createUsprTree(baseTree, s, t);
+        USprUtils usprUtils = new USprUtils();
+        Tree result = usprUtils.createUsprTree(baseTree, s, t);
         Metric rf = new RFMetric();
         try {
             assertEquals(0.0, rf.getDistance(expTree, result));
@@ -437,7 +466,8 @@ class SprUtilsTest {
         Node s = baseTree.getExternalNode(0);
         Node t = baseTree.getInternalNode(0);
         Tree expTree = TreeCreator.getTreeFromString("((1,((2,3),4)),5,6);");
-        Tree result = SprUtils.createUsprTree(baseTree, s, t);
+        USprUtils usprUtils = new USprUtils();
+        Tree result = usprUtils.createUsprTree(baseTree, s, t);
         Metric rf = new RFMetric();
         try {
             assertEquals(0.0, rf.getDistance(expTree, result));
@@ -452,7 +482,8 @@ class SprUtilsTest {
         Node s = baseTree.getExternalNode(1);
         Node t = baseTree.getInternalNode(0);
         Tree expTree = TreeCreator.getTreeFromString("(2,0,(3,(1,(4,5))));");
-        Tree result = SprUtils.createUsprTree(baseTree, s, t);
+        USprUtils usprUtils = new USprUtils();
+        Tree result = usprUtils.createUsprTree(baseTree, s, t);
         Metric rf = new RFMetric();
         try {
             assertEquals(0.0, rf.getDistance(expTree, result));
@@ -467,7 +498,8 @@ class SprUtilsTest {
         Node s = baseTree.getExternalNode(2);
         Node t = baseTree.getInternalNode(0);
         Tree expTree = TreeCreator.getTreeFromString("(0,1,(3,(2,(4,5))));");
-        Tree result = SprUtils.createUsprTree(baseTree, s, t);
+        USprUtils usprUtils = new USprUtils();
+        Tree result = usprUtils.createUsprTree(baseTree, s, t);
         Metric rf = new RFMetric();
         try {
             assertEquals(0.0, rf.getDistance(expTree, result));
@@ -482,7 +514,8 @@ class SprUtilsTest {
         Node s = baseTree.getExternalNode(0);
         Node t = baseTree.getInternalNode(1);
         Tree expTree = TreeCreator.getTreeFromString("(2,1,(0,(3,(4,5))));");
-        Tree result = SprUtils.createUsprTree(baseTree, s, t);
+        USprUtils usprUtils = new USprUtils();
+        Tree result = usprUtils.createUsprTree(baseTree, s, t);
         Metric rf = new RFMetric();
         try {
             assertEquals(0.0, rf.getDistance(expTree, result));
@@ -497,7 +530,8 @@ class SprUtilsTest {
         Node s = baseTree.getExternalNode(1);
         Node t = baseTree.getInternalNode(1);
         Tree expTree = TreeCreator.getTreeFromString("(2,0,(1,(3,(4,5))));");
-        Tree result = SprUtils.createUsprTree(baseTree, s, t);
+        USprUtils usprUtils = new USprUtils();
+        Tree result = usprUtils.createUsprTree(baseTree, s, t);
         Metric rf = new RFMetric();
         try {
             assertEquals(0.0, rf.getDistance(expTree, result));
@@ -512,7 +546,8 @@ class SprUtilsTest {
         Node s = baseTree.getExternalNode(4);
         Node t = baseTree.getInternalNode(1);
         Tree expTree = TreeCreator.getTreeFromString("(0,1,(2,(4,(3,5))));");
-        Tree result = SprUtils.createUsprTree(baseTree, s, t);
+        USprUtils usprUtils = new USprUtils();
+        Tree result = usprUtils.createUsprTree(baseTree, s, t);
         Metric rf = new RFMetric();
         try {
             assertEquals(0.0, rf.getDistance(expTree, result));
@@ -527,7 +562,8 @@ class SprUtilsTest {
         Node s = baseTree.getExternalNode(5);
         Node t = baseTree.getInternalNode(1);
         Tree expTree = TreeCreator.getTreeFromString("(0,1,(2,(5,(3,4))));");
-        Tree result = SprUtils.createUsprTree(baseTree, s, t);
+        USprUtils usprUtils = new USprUtils();
+        Tree result = usprUtils.createUsprTree(baseTree, s, t);
         Metric rf = new RFMetric();
         try {
             assertEquals(0.0, rf.getDistance(expTree, result));
@@ -542,7 +578,8 @@ class SprUtilsTest {
         Node s = baseTree.getExternalNode(3);
         Node t = baseTree.getInternalNode(2);
         Tree expTree = TreeCreator.getTreeFromString("(0,1,(3,(2,(4,5))));");
-        Tree result = SprUtils.createUsprTree(baseTree, s, t);
+        USprUtils usprUtils = new USprUtils();
+        Tree result = usprUtils.createUsprTree(baseTree, s, t);
         Metric rf = new RFMetric();
         try {
             assertEquals(0.0, rf.getDistance(expTree, result));
@@ -557,7 +594,8 @@ class SprUtilsTest {
         Node s = baseTree.getExternalNode(4);
         Node t = baseTree.getInternalNode(2);
         Tree expTree = TreeCreator.getTreeFromString("(0,1,(4,(2,(3,5))));");
-        Tree result = SprUtils.createUsprTree(baseTree, s, t);
+        USprUtils usprUtils = new USprUtils();
+        Tree result = usprUtils.createUsprTree(baseTree, s, t);
         Metric rf = new RFMetric();
         try {
             assertEquals(0.0, rf.getDistance(expTree, result));
@@ -572,7 +610,8 @@ class SprUtilsTest {
         Node s = baseTree.getExternalNode(5);
         Node t = baseTree.getInternalNode(2);
         Tree expTree = TreeCreator.getTreeFromString("(0,1,(5,(2,(3,4))));");
-        Tree result = SprUtils.createUsprTree(baseTree, s, t);
+        USprUtils usprUtils = new USprUtils();
+        Tree result = usprUtils.createUsprTree(baseTree, s, t);
         Metric rf = new RFMetric();
         try {
             assertEquals(0.0, rf.getDistance(expTree, result));
@@ -587,7 +626,8 @@ class SprUtilsTest {
         Node s = baseTree.getInternalNode(0);
         Node t = baseTree.getInternalNode(2);
         Tree expTree = TreeCreator.getTreeFromString("(0,1,((2,3),(4,5)));");
-        Tree result = SprUtils.createUsprTree(baseTree, s, t);
+        USprUtils usprUtils = new USprUtils();
+        Tree result = usprUtils.createUsprTree(baseTree, s, t);
         Metric rf = new RFMetric();
         try {
             assertEquals(0.0, rf.getDistance(expTree, result));
@@ -601,7 +641,8 @@ class SprUtilsTest {
         Tree baseTree = TreeCreator.getTreeFromString("(0,1,(2,(3,(4,5))));");
         Tree unwantedTree = TreeCreator.getTreeFromString("(0,1,(2,(3,(4,5))));");
         Tree[] treeList;
-        treeList = SprUtils.generateUSprNeighbours(baseTree);
+                USprUtils usprUtils = new USprUtils();
+        treeList = usprUtils.generateNeighbours(baseTree);
 
         boolean foundWantedTree = false;
         Metric rf = new RFMetric();
@@ -622,7 +663,8 @@ class SprUtilsTest {
         Tree baseTree = TreeCreator.getTreeFromString("(1,2,(3,(4,(5,6))));");
         Tree wantedTrees[] = TreeCreator.getAll_30_NeightboursOfSome_6_Labels_Tree();
         Tree[] treeList;
-        treeList = SprUtils.generateUSprNeighbours(baseTree);
+        USprUtils usprUtils = new USprUtils();
+        treeList = usprUtils.generateNeighbours(baseTree);
 
         for(Tree wantedTree : wantedTrees) {
 

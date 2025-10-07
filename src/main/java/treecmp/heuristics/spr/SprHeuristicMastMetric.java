@@ -5,6 +5,7 @@
 
 package treecmp.heuristics.spr;
 
+import treecmp.heuristics.TreeNeighborhoodUtils;
 import treecmp.metrics.Metric;
 import treecmp.metrics.topological.RMASTMetric;
 
@@ -12,10 +13,15 @@ import treecmp.metrics.topological.RMASTMetric;
  *
  * @author Damian
  */
-public class SprHeuristicMastMetric extends SprHeuristicBaseMetric{
+public class SprHeuristicMastMetric extends SprHeuristicBaseMetric {
 
- @Override
-protected Metric getMetric(){
+    @Override
+    protected TreeNeighborhoodUtils getTreeNeighborhoodUtils(){
+        return new SprUtils();
+    }
+
+    @Override
+    protected Metric getMetric(){
     return new RMASTMetric();
  }
 }

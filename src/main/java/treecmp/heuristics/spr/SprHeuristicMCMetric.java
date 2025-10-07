@@ -5,6 +5,7 @@
 
 package treecmp.heuristics.spr;
 
+import treecmp.heuristics.TreeNeighborhoodUtils;
 import treecmp.metrics.topological.MatchingClusterMetricO3;
 import treecmp.metrics.Metric;
 
@@ -12,10 +13,15 @@ import treecmp.metrics.Metric;
  *
  * @author Damian
  */
-public class SprHeuristicMCMetric extends SprHeuristicBaseMetric{
+public class SprHeuristicMCMetric extends SprHeuristicBaseMetric {
 
- @Override
-protected Metric getMetric(){
+    @Override
+    protected TreeNeighborhoodUtils getTreeNeighborhoodUtils(){
+        return new SprUtils();
+    }
+
+    @Override
+    protected Metric getMetric(){
     return new MatchingClusterMetricO3();
  }
 }

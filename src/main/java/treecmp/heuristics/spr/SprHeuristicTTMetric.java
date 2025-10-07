@@ -5,6 +5,7 @@
 
 package treecmp.heuristics.spr;
 
+import treecmp.heuristics.TreeNeighborhoodUtils;
 import treecmp.metrics.Metric;
 import treecmp.metrics.topological.TripletMetric;
 
@@ -12,10 +13,15 @@ import treecmp.metrics.topological.TripletMetric;
  *
  * @author Damian
  */
-public class SprHeuristicTTMetric extends SprHeuristicBaseMetric{
+public class SprHeuristicTTMetric extends SprHeuristicBaseMetric {
 
- @Override
-protected Metric getMetric(){
+    @Override
+    protected TreeNeighborhoodUtils getTreeNeighborhoodUtils(){
+        return new SprUtils();
+    }
+
+    @Override
+    protected Metric getMetric(){
     return new TripletMetric();
  }
 }

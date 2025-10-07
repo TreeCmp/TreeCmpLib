@@ -5,6 +5,7 @@
 
 package treecmp.heuristics.spr;
 
+import treecmp.heuristics.TreeNeighborhoodUtils;
 import treecmp.metrics.Metric;
 import treecmp.metrics.topological.NodalL2SplittedMetric;
 
@@ -12,10 +13,15 @@ import treecmp.metrics.topological.NodalL2SplittedMetric;
  *
  * @author Damian
  */
-public class SprHeuristicNSMetric extends SprHeuristicBaseMetric{
+public class SprHeuristicNSMetric extends SprHeuristicBaseMetric {
 
- @Override
-protected Metric getMetric(){
+    @Override
+    protected TreeNeighborhoodUtils getTreeNeighborhoodUtils(){
+        return new SprUtils();
+    }
+
+    @Override
+    protected Metric getMetric(){
     return new NodalL2SplittedMetric();
  }
 }

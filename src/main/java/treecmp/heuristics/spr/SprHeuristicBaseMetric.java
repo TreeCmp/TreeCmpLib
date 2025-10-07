@@ -4,12 +4,14 @@
  */
 package treecmp.heuristics.spr;
 
+import pal.tree.Tree;
+import treecmp.common.TreeCmpException;
+import treecmp.heuristics.TreeNeighborhoodUtils;
+import treecmp.metrics.BaseMetric;
+import treecmp.metrics.Metric;
+
 import java.util.logging.Level;
 import java.util.logging.Logger;
-
-import treecmp.common.TreeCmpException;
-import treecmp.metrics.*;
-import pal.tree.Tree;
 
 /**
  *
@@ -17,10 +19,16 @@ import pal.tree.Tree;
  */
 public abstract class SprHeuristicBaseMetric extends BaseMetric implements Metric {
 
+    SprHeuristicBaseMetric() {
+        super();
+        this.rooted = true;
+    }
+
     private Metric m = getMetric();
+    private TreeNeighborhoodUtils tnu = getTreeNeighborhoodUtils();
     protected boolean reduceCommonBinarySubtreesTrees = false;
-    
-        public double getDistance(Tree tree1, Tree tree2, int...indexes) {
+
+    public double getDistance(Tree tree1, Tree tree2, int...indexes) {
         double dist = 0;
         double startDist = 0;
         //  OutputTarget out = OutputTarget.openString();
@@ -55,7 +63,7 @@ public abstract class SprHeuristicBaseMetric extends BaseMetric implements Metri
             Tree currentStepTree = t1;
             double bestDist1 = Double.POSITIVE_INFINITY, bestDist2 = Double.POSITIVE_INFINITY;
             do {
-                treeList = SprUtils.generateRSprNeighbours(currentStepTree);
+                treeList = tnu.generateNeighbours(currentStepTree);
                 bestDist = Double.POSITIVE_INFINITY;
                 tempDist = 0;
                 sprDist++;
@@ -84,5 +92,7 @@ public abstract class SprHeuristicBaseMetric extends BaseMetric implements Metri
         return dist;
     }
 
+    protected abstract TreeNeighborhoodUtils getTreeNeighborhoodUtils();
     protected abstract Metric getMetric();
+
 }

@@ -30,7 +30,8 @@ public class NniUtilsTest {
         Tree[] treeList;
         //int neighSizeExpResult = instance.calcSprNeighbours(baseTree);
         int neighSizeExpResult = 4;
-        treeList = NniUtils.generateRNniNeighbours(baseTree);
+        NniUtils nniUtils = new NniUtils();
+        treeList = nniUtils.generateNeighbours(baseTree);
         assertEquals(neighSizeExpResult, treeList.length);
     }
 

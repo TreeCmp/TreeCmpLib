@@ -5,6 +5,7 @@
 
 package treecmp.heuristics.spr;
 
+import treecmp.heuristics.TreeNeighborhoodUtils;
 import treecmp.metrics.Metric;
 import treecmp.metrics.topological.QuartetMetricLong;
 
@@ -13,6 +14,9 @@ import treecmp.metrics.topological.QuartetMetricLong;
  * @author Damian
  */
 public class UsprHeuristicQTMetric extends UsprHeuristicBaseMetric {
+
+    @Override
+    protected TreeNeighborhoodUtils getTreeNeighborhoodUtils(){ return new USprUtils(); }
 
     @Override
     protected Metric getMetric(){
