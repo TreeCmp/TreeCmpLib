@@ -7,6 +7,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 import pal.tree.Tree;
+import pal.tree.TreeTool;
 import treecmp.heuristics.nni.NniUtils;
 import treecmp.util.TreeCreator;
 
@@ -25,13 +26,19 @@ public class NniUtilsTest {
      */
     @Test
     public void testGenerateRNniNeighboursShouldReturnExactly_12_Neighbours_testing_one_4_labels_tree() {
-        NniUtils instance = new NniUtils();
         Tree baseTree = TreeCreator.getTreeFromString("((1,2),(3,4));");
-        Tree[] treeList;
-        //int neighSizeExpResult = instance.calcSprNeighbours(baseTree);
+        NniUtils nniUtils = new NniUtils(false);
+        Tree[] treeList = nniUtils.generateNeighbours(baseTree);
         int neighSizeExpResult = 4;
-        NniUtils nniUtils = new NniUtils();
-        treeList = nniUtils.generateNeighbours(baseTree);
+        assertEquals(neighSizeExpResult, treeList.length);
+    }
+
+    @Test
+    public void testGenerateNniNeighboursShouldReturnExactly_12_Neighbours_testing_one_4_labels_tree() {
+        Tree baseTree = TreeCreator.getTreeFromString("((1,2),3,4);");
+        NniUtils nniUtils = new NniUtils(true);
+        Tree[] treeList = nniUtils.generateNeighbours(baseTree);
+        int neighSizeExpResult = 2;
         assertEquals(neighSizeExpResult, treeList.length);
     }
 

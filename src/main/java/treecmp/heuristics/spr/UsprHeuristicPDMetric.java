@@ -13,7 +13,11 @@ import treecmp.metrics.topological.NodalL2Metric;
  *
  * @author Damian
  */
-public class UsprHeuristicPDMetric extends UsprHeuristicBaseMetric {
+public class UsprHeuristicPDMetric extends HeuristicBaseMetric {
+
+    protected UsprHeuristicPDMetric() {
+        super(true);
+    }
 
     @Override
     protected TreeNeighborhoodUtils getTreeNeighborhoodUtils(){ return new USprUtils(); }

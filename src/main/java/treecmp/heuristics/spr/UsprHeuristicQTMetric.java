@@ -13,7 +13,11 @@ import treecmp.metrics.topological.QuartetMetricLong;
  *
  * @author Damian
  */
-public class UsprHeuristicQTMetric extends UsprHeuristicBaseMetric {
+public class UsprHeuristicQTMetric extends HeuristicBaseMetric {
+
+    public UsprHeuristicQTMetric() {
+        super(true);
+    }
 
     @Override
     protected TreeNeighborhoodUtils getTreeNeighborhoodUtils(){ return new USprUtils(); }

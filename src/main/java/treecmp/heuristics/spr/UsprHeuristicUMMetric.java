@@ -13,7 +13,11 @@ import treecmp.metrics.topological.UMASTMetric;
  *
  * @author Damian
  */
-public class UsprHeuristicUMMetric extends UsprHeuristicBaseMetric {
+public class UsprHeuristicUMMetric extends HeuristicBaseMetric {
+
+    public UsprHeuristicUMMetric() {
+        super(true);
+    }
 
     @Override
     protected TreeNeighborhoodUtils getTreeNeighborhoodUtils(){ return new USprUtils(); }

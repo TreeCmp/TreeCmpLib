@@ -23,6 +23,8 @@ import pal.tree.NodeUtils;
 import pal.tree.SplitSystem;
 import pal.tree.Tree;
 
+import java.util.Map;
+import java.util.HashMap;
 import java.util.ArrayList;
 import java.util.BitSet;
 
@@ -226,7 +228,8 @@ public class SplitDist {
         int n = t.getExternalNodeCount();
         int internal = t.getInternalNodeCount();
         int size = internal - 1;
-        BitSet[] splits = new BitSet[size];
+
+        Map<Integer, BitSet> splitMap = new HashMap<>();
 
         Node curNode = t.getExternalNode(0);
 
@@ -249,19 +252,27 @@ public class SplitDist {
                         bs.set(leafId);
                     } else {
                         childInd = child.getNumber();
-                        bs.or(splits[childInd]);
+                        BitSet childSplit = splitMap.get(childInd);
+                        if (childSplit != null) {
+                            bs.or(childSplit);
+                        }
                     }
                 }
-                splits[ind] = bs;
+                splitMap.put(ind, bs);
             }
             curNode = NodeUtils.postorderSuccessor(curNode);
         }
 
-        // standardize split (i.e. first index is alway true)
-	for(i=0;i<size;i++){
+        BitSet[] splits = new BitSet[splitMap.size()];
+        int k = 0;
+        for (BitSet bs : splitMap.values()) {
+            splits[k++] = bs;
+        }
+
+        for (i = 0; i < splits.length; i++) {
             if (splits[i].get(0) == false)
                 splits[i].flip(0, n);
-	}
+        }
 
         return splits;
     }

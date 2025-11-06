@@ -13,7 +13,11 @@ import treecmp.metrics.Metric;
  *
  * @author Damian
  */
-public class UsprHeuristicMPUMetric extends UsprHeuristicBaseMetric {
+public class UsprHeuristicMPUMetric extends HeuristicBaseMetric {
+
+    public UsprHeuristicMPUMetric() {
+        super(true);
+    }
 
     @Override
     protected TreeNeighborhoodUtils getTreeNeighborhoodUtils(){ return new USprUtils(); }

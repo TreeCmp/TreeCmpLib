@@ -13,7 +13,11 @@ import treecmp.metrics.topological.NodalL2SplittedMetric;
  *
  * @author Damian
  */
-public class SprHeuristicNSMetric extends SprHeuristicBaseMetric {
+public class SprHeuristicNSMetric extends HeuristicBaseMetric {
+
+    protected SprHeuristicNSMetric() {
+        super(true);
+    }
 
     @Override
     protected TreeNeighborhoodUtils getTreeNeighborhoodUtils(){

@@ -20,25 +20,22 @@ import pal.tree.Tree;
  *
  * @author Damian
  */
-public abstract class UsprHeuristicBaseMetric extends BaseMetric implements Metric {
+public abstract class HeuristicBaseMetric extends BaseMetric implements Metric {
 
-    UsprHeuristicBaseMetric() {
+    protected HeuristicBaseMetric(boolean rooted) {
         super();
-        this.rooted = false;
+        this.rooted = rooted;
+        this.m = getMetric();
+        this.tnu = getTreeNeighborhoodUtils();
     }
 
     private Metric m = getMetric();
     private TreeNeighborhoodUtils tnu = getTreeNeighborhoodUtils();
     protected boolean reduceCommonBinarySubtreesTrees = false;
 
-    public double getDistance(Tree tree1, Tree tree2, int...indexes) {
+    public double getDistance(Tree tree1, Tree tree2, int... indexes) {
         double dist = 0;
         double startDist = 0;
-        //  OutputTarget out = OutputTarget.openString();
-        //   TreeUtils.printNH(tree1,out,false,false);
-        //   out.close();
-        //   System.out.println(super.getName());
-        //   System.out.print(out.getString());
 
         try {
             startDist = m.getDistance(tree1, tree2);
@@ -48,28 +45,30 @@ public abstract class UsprHeuristicBaseMetric extends BaseMetric implements Metr
 
             Tree t1 = tree1;
             Tree t2 = tree2;
-            //todo: sprawdzić czy to działa dla nieukorzenionych drzew
             if (reduceCommonBinarySubtreesTrees) {
                 int startLeafNum = tree1.getExternalNodeCount();
                 //  System.out.println("Number of leaves: " + startLeafNum);
+
                 Tree[] reducedTrees = SubtreeUtils.reduceCommonBinarySubtreesEx(tree1, tree2, null);
+
                 t1 = reducedTrees[0];
                 t2 = reducedTrees[1];
                 int reducedLeafNum = t1.getExternalNodeCount();
                 //   System.out.println("Number of leaves after reduction: " + reducedLeafNum);
             }
 
-            int sprDist = 0;
+            int sprDist = 0; // Lub nniDist, to tylko nazwa zmiennej
             Tree[] treeList;
             Tree bestTree = null;
             Tree tempTree = null;
             double bestDist, tempDist;
             Tree currentStepTree = t1;
             double bestDist1 = Double.POSITIVE_INFINITY, bestDist2 = Double.POSITIVE_INFINITY;
+
             do {
                 treeList = tnu.generateNeighbours(currentStepTree);
+
                 bestDist = Double.POSITIVE_INFINITY;
-                tempDist = 0;
                 sprDist++;
                 for (int i = 0; i < treeList.length; i++) {
                     tempTree = treeList[i];
@@ -79,9 +78,13 @@ public abstract class UsprHeuristicBaseMetric extends BaseMetric implements Metr
                         bestTree = tempTree;
                     }
                 }
-                //todo:poprawić
-                // zapisuję do stringu i odczytuje bo inaczej powstają błędy
-                // w postaci wierzchołków wewnętrznych stopnia 1
+
+                // TODO: warto to zbadać
+                if (bestTree == null) {
+                    // Nie znaleziono lepszego sąsiada, utknęliśmy
+                    return Double.POSITIVE_INFINITY;
+                }
+
                 {
                     String bestTreeString = bestTree.toString();
                     InputSource is = InputSource.openString(bestTreeString);
@@ -98,12 +101,8 @@ public abstract class UsprHeuristicBaseMetric extends BaseMetric implements Metr
             } while (bestDist != 0);
 
             dist = (double) sprDist;
-        } catch (TreeCmpException ex) {
-            Logger.getLogger(SprHeuristicBaseMetric.class.getName()).log(Level.SEVERE, null, ex);
-        } catch (TreeParseException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
+        } catch (TreeCmpException | TreeParseException | IOException ex) {
+            Logger.getLogger(HeuristicBaseMetric.class.getName()).log(Level.SEVERE, null, ex);
         }
 
         return dist;

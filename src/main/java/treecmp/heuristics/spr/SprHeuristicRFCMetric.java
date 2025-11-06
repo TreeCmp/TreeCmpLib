@@ -13,7 +13,11 @@ import treecmp.metrics.topological.RFClusterMetric;
  *
  * @author Damian
  */
-public class SprHeuristicRFCMetric extends SprHeuristicBaseMetric {
+public class SprHeuristicRFCMetric extends HeuristicBaseMetric {
+
+    public SprHeuristicRFCMetric() {
+        super(true);
+    }
 
     @Override
     protected TreeNeighborhoodUtils getTreeNeighborhoodUtils(){

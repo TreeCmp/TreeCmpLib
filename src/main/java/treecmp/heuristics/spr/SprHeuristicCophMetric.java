@@ -13,7 +13,11 @@ import treecmp.metrics.Metric;
  *
  * @author Damian
  */
-public class SprHeuristicCophMetric extends SprHeuristicBaseMetric {
+public class SprHeuristicCophMetric extends HeuristicBaseMetric {
+
+    protected SprHeuristicCophMetric() {
+        super(true);
+    }
 
     @Override
     protected TreeNeighborhoodUtils getTreeNeighborhoodUtils(){

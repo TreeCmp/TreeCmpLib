@@ -13,7 +13,11 @@ import treecmp.metrics.topological.RFMetric;
  *
  * @author Damian
  */
-public class UsprHeuristicRFMetric extends UsprHeuristicBaseMetric {
+public class UsprHeuristicRFMetric extends HeuristicBaseMetric {
+
+    public UsprHeuristicRFMetric() {
+        super(true);
+    }
 
     @Override
     protected TreeNeighborhoodUtils getTreeNeighborhoodUtils(){ return new USprUtils(); }
