@@ -28,7 +28,7 @@ public abstract class BaseRFIncrementalMetricTest {
         // Zamiast "new RFCluster...", wywołujemy metodę abstrakcyjną
         metric = createMetricInstance();
 
-        t1 = TestTreeFactory.fiveLeavesBaseTree();
+        t1 = TestTreeFactory.fiveLeavesRootedBaseTree();
         t2 = TestTreeFactory.fiveLeavesTargetTree();
     }
 

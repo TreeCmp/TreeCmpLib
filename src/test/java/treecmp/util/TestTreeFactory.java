@@ -7,7 +7,18 @@ import pal.tree.TreeParseException;
 
 public class TestTreeFactory {
 
-    public static Tree fiveLeavesBaseTree() {
+    public static Tree fourLeavesUnrootedBaseTree() {
+        return parseNewick("((1,2),3,4);");
+    }
+
+    public static Tree fiveLeavesUnrootedBaseTree() {
+        return parseNewick("(((1,2),3),4,5);");
+    }
+    public static Tree sixLeavesUnrootedBaseTree() {
+        return parseNewick("((((1,2),3),4),5,6);");
+    }
+
+    public static Tree fiveLeavesRootedBaseTree() {
         return parseNewick("((((1,2),3),4),5);");
     }
 
@@ -61,6 +72,10 @@ public class TestTreeFactory {
     public static Tree fourLeavesZeroWeightedTree2() {
         String newick = "((2:0,3:0):0,(1:0,4:0):0):0;";
         return parseNewick(newick);
+    }
+
+    public static Tree sixLeavesRootedBaseTree() {
+        return parseNewick("(((((1,2),3),4),5),6);");
     }
 
     public static Tree tenLeavesBinaryRootedTree1() {
