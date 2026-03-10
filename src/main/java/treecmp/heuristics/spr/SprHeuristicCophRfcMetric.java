@@ -14,7 +14,7 @@ import treecmp.metrics.Metric;
  *
  * @author Damian
  */
-public class SprHeuristicCophRfcMetric extends SprHeuristicRfcBaseMetric{
+public class SprHeuristicCophRfcMetric extends SprHeuristicRfcBaseMetric {
 
     @Override
     protected TreeNeighborhoodUtils getTreeNeighborhoodUtils(){ return new USprUtils(); }

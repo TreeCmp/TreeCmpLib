@@ -6,6 +6,7 @@
 package treecmp.heuristics.spr;
 
 import treecmp.heuristics.TreeNeighborhoodUtils;
+import treecmp.heuristics.base.HeuristicBaseMetric;
 import treecmp.metrics.topological.CopheneticL2Metric;
 import treecmp.metrics.Metric;
 

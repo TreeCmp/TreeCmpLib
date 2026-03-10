@@ -13,7 +13,7 @@ import treecmp.metrics.topological.RMASTMetric;
  *
  * @author Damian
  */
-public class SprHeuristicMastRfcMetric extends SprHeuristicRfcBaseMetric{
+public class SprHeuristicMastRfcMetric extends SprHeuristicRfcBaseMetric {
 
     @Override
     protected TreeNeighborhoodUtils getTreeNeighborhoodUtils(){ return new USprUtils(); }

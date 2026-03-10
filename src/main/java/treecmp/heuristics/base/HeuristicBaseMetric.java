@@ -2,7 +2,7 @@
  * To change this template, choose Tools | Templates
  * and open the template in the editor.
  */
-package treecmp.heuristics.spr;
+package treecmp.heuristics.base;
 
 import java.io.IOException;
 import java.util.logging.Level;
@@ -13,6 +13,7 @@ import pal.tree.ReadTree;
 import pal.tree.TreeParseException;
 import treecmp.common.TreeCmpException;
 import treecmp.heuristics.TreeNeighborhoodUtils;
+import treecmp.heuristics.spr.SubtreeUtils;
 import treecmp.metrics.*;
 import pal.tree.Tree;
 

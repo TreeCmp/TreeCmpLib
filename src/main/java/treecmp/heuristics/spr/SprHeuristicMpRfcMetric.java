@@ -14,7 +14,7 @@ import treecmp.metrics.topological.MatchingPairMetric;
  *
  * @author Damian
  */
-public class SprHeuristicMpRfcMetric extends SprHeuristicRfcBaseMetric{
+public class SprHeuristicMpRfcMetric extends SprHeuristicRfcBaseMetric {
 
     @Override
     protected TreeNeighborhoodUtils getTreeNeighborhoodUtils(){ return new USprUtils(); }

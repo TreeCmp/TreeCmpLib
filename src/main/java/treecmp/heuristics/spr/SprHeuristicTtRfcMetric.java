@@ -13,7 +13,7 @@ import treecmp.metrics.topological.TripletMetric;
  *
  * @author Damian
  */
-public class SprHeuristicTtRfcMetric extends SprHeuristicRfcBaseMetric{
+public class SprHeuristicTtRfcMetric extends SprHeuristicRfcBaseMetric {
 
     @Override
     protected TreeNeighborhoodUtils getTreeNeighborhoodUtils(){ return new USprUtils(); }
