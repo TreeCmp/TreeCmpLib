@@ -17,6 +17,7 @@ import treecmp.common.TreeCmpException;
 import treecmp.heuristics.TreeNeighborhoodUtils;
 import treecmp.heuristics.TreeRootedHolder;
 import treecmp.heuristics.TreeUnootedHolder;
+import treecmp.heuristics.moves.NniMove;
 import treecmp.heuristics.spr.BestTreeChooser;
 import treecmp.heuristics.spr.TreeValuePair;
 import treecmp.metrics.topological.RFClusterMetric;
@@ -33,6 +34,113 @@ public class NniUtils extends TreeNeighborhoodUtils {
         this.unrooted = unrooted;
     }
 
+    // W NniUtils.java
+    public NniMove[] generateNniMoves(Tree tree) {
+        List<NniMove> moves = new ArrayList<>();
+        int internalNodeCount = tree.getInternalNodeCount();
+
+        for (int i = 0; i < internalNodeCount; i++) {
+            Node parent = tree.getInternalNode(i);
+
+            // ZMIANA: Pozwalamy na ruchy w korzeniu dla drzew nieukorzenionych
+            if (!unrooted && parent.isRoot()) continue;
+
+            for (int j = 0; j < parent.getChildCount(); j++) {
+                Node child = parent.getChild(j);
+                if (!child.isLeaf()) {
+                    addMovesForInternalEdge(parent, child, moves);
+                }
+            }
+        }
+        return moves.toArray(new NniMove[0]);
+    }
+
+    private void addMovesForInternalEdge(Node parent, Node child, List<NniMove> moves) {
+        // W drzewie nieukorzenionym parent może mieć kilka innych dzieci (rodzeństwa dla 'child')
+        for (int i = 0; i < parent.getChildCount(); i++) {
+            Node sibling = parent.getChild(i);
+            if (sibling == child) continue;
+
+            // Każde rodzeństwo to potencjalny partner do zamiany z wnukami
+            Node grandchild1 = child.getChild(0);
+            Node grandchild2 = child.getChild(1);
+
+            moves.add(new NniMove(sibling, grandchild1));
+            moves.add(new NniMove(sibling, grandchild2));
+        }
+    }
+
+    private Node findSibling(Node parent, Node child) {
+        for (int i = 0; i < parent.getChildCount(); i++) {
+            Node n = parent.getChild(i);
+            if (n != child) return n;
+        }
+        return null;
+    }
+
+    /**
+     * Tworzy nową kopię drzewa z zaaplikowanym ruchem NNI.
+     * Wykorzystywane przez klasyczne heurystyki (nieinkrementalne).
+     */
+    private Tree createNniTree(Tree baseTree, NniMove move) {
+        // Kopiujemy całą strukturę drzewa
+        Tree resultTree = baseTree.getCopy();
+
+        // W kopii drzewa musimy odnaleźć węzły o tych samych numerach
+        Node movingInCopy = findNodeInTree(resultTree, move.movingSubtree);
+        Node partnerInCopy = findNodeInTree(resultTree, move.swapPartner);
+
+        // Wykonujemy fizyczną zamianę wskaźników wewnątrz kopii
+        performNodeSwap(movingInCopy, partnerInCopy);
+
+        return resultTree;
+    }
+
+    /**
+     * Zmienia strukturę istniejącego drzewa w miejscu.
+     * Wykorzystywane przez IncrementalHeuristicBaseMetric po wybraniu najlepszego ruchu.
+     */
+    public Tree applyPhysicalMove(Tree tree, NniMove move) {
+        // W tej wersji nie kopiujemy drzewa - operujemy na oryginale
+        performNodeSwap(move.movingSubtree, move.swapPartner);
+
+        // Po zmianach topologii w PAL warto odświeżyć listy węzłów (node lists)
+        // W Twoim kodzie robisz to przez toString i ReadTree
+        return tree;
+    }
+
+    /**
+     * Logika niskopoziomowa zamiany dzieci między dwoma rodzicami.
+     */
+    private void performNodeSwap(Node node1, Node node2) {
+        Node p1 = node1.getParent();
+        Node p2 = node2.getParent();
+
+        if (p1 == null || p2 == null) return;
+
+        // Znajdujemy pozycje dzieci u ich rodziców
+        int idx1 = findChildPos(node1, p1);
+        int idx2 = findChildPos(node2, p2);
+
+        // Zamiana wskaźników (PAL setChild zazwyczaj aktualizuje też wskaźnik getParent)
+        p1.setChild(idx1, node2);
+        p2.setChild(idx2, node1);
+    }
+
+    /**
+     * Metoda pomocnicza do znajdowania węzła w skopiowanym drzewie na podstawie numeru.
+     */
+    private Node findNodeInTree(Tree tree, Node originalNode) {
+        int num = originalNode.getNumber();
+        if (originalNode.isLeaf()) {
+            return tree.getExternalNode(num);
+        } else {
+            return tree.getInternalNode(num);
+        }
+    }
+
+
+
     /**
      * Generates the NNI (Nearest Neighbor Interchange) neighborhood for the given tree.
      *
@@ -46,7 +154,13 @@ public class NniUtils extends TreeNeighborhoodUtils {
      */
     @Override
     public Tree[] generateNeighbours(Tree tree) {
-        return this.generateNniNeighboursInternal(tree, this.unrooted);
+        // Zachowujemy kompatybilność wsteczną dla starych heurystyk
+        NniMove[] moves = generateNniMoves(tree);
+        Tree[] neighbours = new Tree[moves.length];
+        for (int i = 0; i < moves.length; i++) {
+            neighbours[i] = createNniTree(tree, moves[i]);
+        }
+        return neighbours;
     }
 
     private Tree[] generateNniNeighboursInternal(Tree tree, boolean unrooted) {

@@ -9,9 +9,9 @@ import treecmp.metrics.topological.RFClusterMetric;
  * Klasyczna heurystyka (Steepest Descent / zachłanna) dla metryki RFCluster
  * używająca pełnego przeglądu otoczenia (R)NNI.
  */
-public class NniHeuristicRFCMetric extends HeuristicBaseMetric {
+public class RNniHeuristicRFCMetric extends HeuristicBaseMetric {
 
-    public NniHeuristicRFCMetric() {
+    public RNniHeuristicRFCMetric() {
         // super(true) oznacza, że heurystyka operuje na drzewach ukorzenionych
         super(true);
     }

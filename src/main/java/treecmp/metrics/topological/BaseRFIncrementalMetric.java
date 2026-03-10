@@ -65,72 +65,104 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
 
     @Override
     public double applyNni(NniMove move) {
-        // 0. Identyfikujemy węzeł, którego klaster FAKTYCZNIE się zmienia (Rodzic węzła odchodzącego)
-        Node changingParent = move.movingSubtree.getParent();
-        if (changingParent == null) {
-            throw new IllegalStateException("Ruch NNI jest nieprawidłowy: przemieszczany węzeł nie ma rodzica.");
-        }
-
-        // Pobieramy bity wędrujących poddrzew (najpierw z wirtualnego cache, potem z fizycznego)
-        BitSet leavingBits = activeVirtualSplits.get(move.movingSubtree);
-        if (leavingBits == null) leavingBits = nodeBitSets.get(move.movingSubtree);
-
-        BitSet enteringBits = activeVirtualSplits.get(move.swapPartner);
-        if (enteringBits == null) enteringBits = nodeBitSets.get(move.swapPartner);
-
-        if (leavingBits == null || enteringBits == null) {
-            throw new IllegalStateException("Node cache miss inside NNI update.");
-        }
-
-        // 1. Zapisz obecny stan na stosy (dla O(1) Undo)
-        // UWAGA: Zapisujemy changingParent, bo to on ulega zmianie, a nie sam movingSubtree!
+        // 1. Zapisujemy stan przed zmianą na stosie historii (do undo)
         sharedSplitsHistory.push(sharedSplitsCount);
-        movingNodeHistory.push(changingParent);
-        BitSet previousActive = activeVirtualSplits.get(changingParent);
-        activeSplitHistory.push(previousActive);
 
-        // 2. Odkryj stary split rodzica (z poprzednich wirtualnych ruchów lub z fizycznego drzewa)
-        BitSet oldSplitRaw = previousActive;
-        if (oldSplitRaw == null) {
-            oldSplitRaw = nodeBitSets.get(changingParent);
-        }
-        BitSet oldSplit = normalizeSplit(oldSplitRaw);
+        // Pobieramy oba węzły tworzące krawędź wewnętrzną (rodziców zamienianych poddrzew)
+        Node pMoving = move.movingSubtree.getParent();
+        Node pPartner = move.swapPartner.getParent();
 
-        // 3. Skonstruuj nowy split rodzica matematycznie: (StarySplit \ Odchodzący) U Przychodzący
-        BitSet newSplitRaw = (BitSet) oldSplitRaw.clone();
-        newSplitRaw.andNot(leavingBits); // Usuwamy to, co odpinamy
-        newSplitRaw.or(enteringBits);    // Dodajemy to, co przypinamy
+        // Rejestrujemy oba węzły w historii zmian
+        movingNodeHistory.push(pMoving);
+        activeSplitHistory.push(activeVirtualSplits.get(pMoving));
 
-        BitSet newSplit = normalizeSplit(newSplitRaw);
+        movingNodeHistory.push(pPartner);
+        activeSplitHistory.push(activeVirtualSplits.get(pPartner));
 
-        // 4. Zaktualizuj licznik wspólnych klastrów
-        if (targetSplits.contains(oldSplit)) sharedSplitsCount--;
-        if (targetSplits.contains(newSplit)) sharedSplitsCount++;
+        // 2. Pobieramy maski bitowe poddrzew, które "wędrują"
+        BitSet bitsMoving = getVirtualOrPhysicalBitSet(move.movingSubtree);
+        BitSet bitsPartner = getVirtualOrPhysicalBitSet(move.swapPartner);
 
-        // 5. Zaktualizuj wirtualną mapę dla TEGO węzła (rodzica) na potrzeby kolejnych ruchów
-        activeVirtualSplits.put(changingParent, newSplitRaw);
+        // 3. Aktualizujemy oba węzły wewnętrzne krawędzi
+        updateNodeBitSet(pMoving, bitsMoving, bitsPartner);
+        updateNodeBitSet(pPartner, bitsPartner, bitsMoving);
 
+        // 4. Obliczamy nowy dystans
         updateCurrentDistance();
         return currentDistance;
     }
 
+    /**
+     * Zwraca BitSet (maskę klastra/splitu) dla węzła.
+     * Najpierw sprawdza, czy istnieje tymczasowa (wirtualna) wersja dla obecnego ruchu,
+     * a jeśli nie, zwraca wersję z oryginalnego drzewa.
+     */
+    protected BitSet getVirtualOrPhysicalBitSet(Node node) {
+        // 1. Sprawdź, czy węzeł jest w mapie aktywnych zmian (Virtual)
+        if (activeVirtualSplits.containsKey(node)) {
+            return activeVirtualSplits.get(node);
+        }
+
+        // 2. Jeśli nie, weź bitset wyliczony podczas inicjalizacji (Physical)
+        BitSet physical = nodeBitSets.get(node);
+
+        if (physical == null) {
+            // To nie powinno się zdarzyć, jeśli initCalculationState działa poprawnie
+            throw new IllegalStateException("Brak bitsetu dla węzła: " + node.getNumber());
+        }
+
+        return physical;
+    }
+
+    private void updateNodeBitSet(Node node, BitSet leaving, BitSet entering) {
+        BitSet oldRaw = activeVirtualSplits.get(node);
+        if (oldRaw == null) oldRaw = nodeBitSets.get(node);
+
+        // 1. Normalizacja starego stanu (ważne dla unrooted!)
+        BitSet oldNormalized = normalizeSplit((BitSet) oldRaw.clone());
+
+        // 2. Obliczenie nowego stanu wirtualnego
+        BitSet newRaw = (BitSet) oldRaw.clone();
+        newRaw.andNot(leaving);
+        newRaw.or(entering);
+
+        // 3. Normalizacja nowego stanu - bez tego contains() zawiedzie
+        BitSet newNormalized = normalizeSplit((BitSet) newRaw.clone());
+
+        // 4. Aktualizacja licznika
+        if (targetSplits.contains(oldNormalized)) {
+            sharedSplitsCount--;
+        }
+        if (targetSplits.contains(newNormalized)) {
+            sharedSplitsCount++;
+        }
+
+        activeVirtualSplits.put(node, newRaw);
+    }
+
     @Override
     public void undoNni(NniMove move) {
-        // --- Błyskawiczne przywracanie stanu w O(1) ---
-        // Zdejmujemy ze stosu dokładnie to, co zapisaliśmy
-        sharedSplitsCount = sharedSplitsHistory.pop();
-        Node movingNode = movingNodeHistory.pop();
-        BitSet previousActive = activeSplitHistory.pop();
+        // Przywracamy licznik
+        this.sharedSplitsCount = sharedSplitsHistory.pop();
 
-        if (previousActive == null) {
-            activeVirtualSplits.remove(movingNode);
-        } else {
-            activeVirtualSplits.put(movingNode, previousActive);
-        }
+        // Przywracamy stan drugiego węzła (pPartner)
+        Node p2 = movingNodeHistory.pop();
+        BitSet b2 = activeSplitHistory.pop();
+        if (b2 == null) activeVirtualSplits.remove(p2);
+        else activeVirtualSplits.put(p2, b2);
+
+        // Przywracamy stan pierwszego węzła (pMoving)
+        Node p1 = movingNodeHistory.pop();
+        BitSet b1 = activeSplitHistory.pop();
+        if (b1 == null) activeVirtualSplits.remove(p1);
+        else activeVirtualSplits.put(p1, b1);
 
         updateCurrentDistance();
     }
-
+    private void updateVirtualMap(Node n, BitSet b) {
+        if (b == null) activeVirtualSplits.remove(n);
+        else activeVirtualSplits.put(n, b);
+    }
     @Override
     public double getCurrentDistance() {
         return currentDistance;
@@ -189,33 +221,43 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
         buildNodeBitSetsRec(tree.getRoot(), mapping, store, true);
     }
 
-    private BitSet buildNodeBitSetsRec(Node node, Map<String, Integer> leafMap, Set<BitSet> store, boolean fillCache) {
+    protected BitSet buildNodeBitSetsRec(Node node, Map<String, Integer> leafMap, Set<BitSet> store, boolean fillCache) {
         BitSet bs = new BitSet();
         if (node.isLeaf()) {
             String name = node.getIdentifier().getName();
-            if (leafMap.containsKey(name)) {
-                bs.set(leafMap.get(name));
-            }
+            if (leafMap.containsKey(name)) bs.set(leafMap.get(name));
         } else {
             for (int i = 0; i < node.getChildCount(); i++) {
                 bs.or(buildNodeBitSetsRec(node.getChild(i), leafMap, store, fillCache));
             }
 
-            if (!node.isRoot()) {
-                BitSet normalized = normalizeSplit((BitSet) bs.clone());
-                int card = normalized.cardinality();
-                int total = allLeavesMask.cardinality();
-                if (card > 1 && card < total - 1) {
-                    store.add(normalized);
-                }
+            // POPRAWKA: Sprawdzamy split również dla korzenia (szczególnie ważne dla unrooted 4-leaves)
+            BitSet normalized = normalizeSplit((BitSet) bs.clone());
+            int card = normalized.cardinality();
+            int total = allLeavesMask.cardinality();
+
+            // Split jest wewnętrzny, jeśli dzieli liście na co najmniej dwie grupy (2 <= card <= N-2)
+            if (card >= 2 && card <= total - 2) {
+                store.add(normalized);
             }
         }
-
-        // To była nasza wczesniejsza poprawka - zapisuj wszystko!
-        if (fillCache) {
-            nodeBitSets.put(node, (BitSet) bs.clone());
-        }
-
+        if (fillCache) nodeBitSets.put(node, (BitSet) bs.clone());
         return bs;
     }
+
+    /**
+     * Trwale zatwierdza wirtualne zmiany (activeVirtualSplits) jako nową bazę fizyczną.
+     * Czyści historię ruchów, przygotowując metrykę na nową iterację heurystyki.
+     */
+    public void commitNni() {
+        // Przenosimy wirtualne klastry/splity do głównego cache'u
+        nodeBitSets.putAll(activeVirtualSplits);
+
+        // Czyścimy stan wirtualny i historię - nowa iteracja zaczyna z "czystą kartą"
+        activeVirtualSplits.clear();
+        sharedSplitsHistory.clear();
+        movingNodeHistory.clear();
+        activeSplitHistory.clear();
+    }
+
 }

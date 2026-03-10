@@ -11,6 +11,11 @@ public class TestTreeFactory {
         return parseNewick("((1,2),3,4);");
     }
 
+    public static Tree fourLeavesUnrootedTargetTree() {
+        // Drzewo oddalone o dokładnie 1 krok NNI od powyższego
+        return parseNewick("((1,3),2,4);");
+    }
+
     public static Tree fiveLeavesUnrootedBaseTree() {
         return parseNewick("(((1,2),3),4,5);");
     }
