@@ -1,4 +1,4 @@
-package treecmp.metrics.util;
+package treecmp.util;
 
 import pal.tree.ReadTree;
 import pal.tree.Tree;
@@ -6,6 +6,22 @@ import pal.io.InputSource;
 import pal.tree.TreeParseException;
 
 public class TestTreeFactory {
+
+    public static Tree fiveLeavesBaseTree() {
+        return parseNewick("((((1,2),3),4),5);");
+    }
+
+    public static Tree fiveLeavesTargetTree() {
+        return parseNewick("((((1,3),2),4),5);");
+    }
+
+    public static Tree fourLeavesRootBoundaryBaseTree() {
+        return parseNewick("((1,2),(3,4));");
+    }
+
+    public static Tree fourLeavesRootBoundaryTargetTree() {
+        return parseNewick("((1,3),(2,4));");
+    }
 
     public static Tree fourLeavesTree1() {
         String newick = "((A,B),(C,D));";

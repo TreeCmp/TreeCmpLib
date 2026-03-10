@@ -1,7 +1,7 @@
 package treecmp.metrics.weighted;
 
 import org.junit.jupiter.api.Test;
-import treecmp.metrics.util.TestTreeFactory;
+import treecmp.util.TestTreeFactory;
 
 import static org.junit.jupiter.api.Assertions.*;
 
