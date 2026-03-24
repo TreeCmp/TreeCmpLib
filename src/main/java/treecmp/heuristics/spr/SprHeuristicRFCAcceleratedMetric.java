@@ -1,63 +1,80 @@
 package treecmp.heuristics.spr;
 
 import pal.tree.Tree;
+import pal.tree.TreeUtils;
+import treecmp.heuristics.base.IncrementalHeuristicBaseMetric;
+import treecmp.heuristics.moves.TreeMove;
+import treecmp.heuristics.moves.SprMove;
+import treecmp.heuristics.nni.NniUtils;
 import treecmp.metrics.topological.RFClusterIncrementalMetric;
 
-/**
- * Zoptymalizowana heurystyka SPR dla metryki Robinson-Foulds.
- * Zamiast generować fizyczne obiekty drzew dla całego otoczenia (co zajmuje pamięć i czas),
- * wykorzystuje IncrementalMetric oraz SprNeighborhoodWalker do błyskawicznego
- * przeszukania przestrzeni sąsiadów.
- */
-public class SprHeuristicRFCAcceleratedMetric extends RFClusterIncrementalMetric {
+public class SprHeuristicRFCAcceleratedMetric extends IncrementalHeuristicBaseMetric {
 
-    private final RFClusterIncrementalMetric incMetric;
     private final SprNeighborhoodWalker walker;
+    private final NniUtils nniUtils;
 
     public SprHeuristicRFCAcceleratedMetric() {
-        // Wywołujemy pusty konstruktor z SprHeuristicBaseMetric (jeśli istnieje, super() wywoła się domyślnie)
-        super();
-
-        // Inicjalizujemy nasze narzędzia bezpośrednio tutaj
-        this.incMetric = new RFClusterIncrementalMetric();
+        super(true, new RFClusterIncrementalMetric());
         this.walker = new SprNeighborhoodWalker();
+        this.nniUtils = new NniUtils(true);
     }
 
-    /**
-     * Główna metoda heurystyki.
-     * Zwraca najmniejszą odległość RF, jaką można uzyskać wykonując jeden ruch SPR na drzewie t1,
-     * w odniesieniu do drzewa t2.
-     */
     @Override
-    public double getDistance(Tree t1, Tree t2, int... indexes) {
-        // KROK 1: Inicjalizacja stanu (Stateful Init) - to jest O(N) lub O(N^2) jednorazowo
-        incMetric.initCalculationState(t1, t2);
-
-        // Zmienna na wynik (musimy użyć tablicy lub Atomic, bo jesteśmy w lambdzie)
-        // [0] -> Aktualne minimum
-        final double[] minDistance = { Double.MAX_VALUE };
-
-        // Opcjonalnie: możemy sprawdzić odległość dla samego t1 (bez ruchu)
-        double initialDist = incMetric.getCurrentDistance();
-        minDistance[0] = initialDist;
-
-        // KROK 2: Uruchomienie Walkera
-        // Walker "symuluje" całe otoczenie SPR poprzez serię ruchów NNI.
-        // Dla każdego odwiedzonego wirtualnie sąsiada wołana jest lambda.
-        walker.walk(t1, incMetric, (currentDist) -> {
-
-            // To jest "Hot Loop" - wykonuje się tysiące razy.
-            // Dzięki RFIncrementalMetric obliczenie currentDist trwa ułamki mikrosekund.
-            if (currentDist < minDistance[0]) {
-                minDistance[0] = currentDist;
-            }
+    protected void searchNeighborhood(Tree currentTree) {
+        // Używamy this.incMetric z klasy bazowej
+        walker.walk(currentTree, this.incMetric, (currentDist, movingNode, targetNode) -> {
+            System.out.println("Move check: " + currentDist);
+            checkImprovement(currentDist, new SprMove(movingNode, targetNode));
         });
-
-        return minDistance[0];
     }
 
     @Override
-    public String getName() {
-        return "SPR_RFC_Accelerated";
+    protected Tree applyPhysicalMove(Tree tree, TreeMove move) {
+        if (move instanceof SprMove) {
+            SprMove sm = (SprMove) move;
+            Tree newTree = new SprUtils().createSprTree(tree, sm.movingNode, sm.targetNode);
+            if (newTree != null) {
+                if (newTree instanceof pal.tree.SimpleTree) {
+                    ((pal.tree.SimpleTree) newTree).createNodeList();
+                }
+                return newTree;
+            }
+        }
+        return tree;
+    }
+
+    @Override
+    protected double commitMoveToMetric(TreeMove move) {
+        return this.incMetric.getCurrentDistance();
+    }
+
+    @Override
+    public double getDistance(Tree tree1, Tree tree2, int... indexes) {
+        Tree currentTree = tree1;
+        this.improved = true;
+        int totalSteps = 0;
+
+        this.incMetric.initCalculationState(currentTree, tree2);
+        double currentDist = this.incMetric.getCurrentDistance();
+
+        while (this.improved && currentDist > 0) {
+            this.improved = false;
+            this.bestDist = currentDist;
+            this.bestMove = null;
+
+            searchNeighborhood(currentTree);
+
+            if (this.improved && this.bestMove != null) {
+                currentTree = applyPhysicalMove(currentTree, this.bestMove);
+                totalSteps++;
+
+                // todo: sprawdzić czy to jest potrzebne
+                TreeUtils.computeParentPointers(currentTree.getRoot());
+
+                this.incMetric.initCalculationState(currentTree, tree2);
+                currentDist = this.incMetric.getCurrentDistance();
+            }
+        }
+        return (currentDist == 0) ? (double) totalSteps : Double.POSITIVE_INFINITY;
     }
 }

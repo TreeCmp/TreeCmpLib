@@ -9,6 +9,8 @@ import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
 import pal.tree.Tree;
+import treecmp.util.TestTreeFactory;
+
 // Pamiętaj o zaimportowaniu klasy, która w Twoim projekcie parsuje stringi na drzewa, np.:
 // import treecmp.common.TreeCreator;
 
@@ -51,13 +53,16 @@ class SprHeuristicRFAcceleratedMetricTest {
     }
 
     @Test
-    void testDistanceShouldBeZeroIfTargetIsExactlyOneSprMoveAway() {
-        Tree baseTree = TreeCreator.getTreeFromString("((1,2),3,4);");
-        Tree targetTree = TreeCreator.getTreeFromString("((1,3),2,4);");
+    void testDistanceShouldBeOneIfTargetIsExactlyOneSprMoveAway() {
+        // Korzystamy z fabryki - czyste, w pełni binarne drzewa ukorzenione
+        Tree baseTree = TestTreeFactory.fourLeavesBalancedTree1();
+        Tree targetTree = TestTreeFactory.fourLeavesCaterpillarTree1();
+
         SprHeuristicRFCAcceleratedMetric metric = new SprHeuristicRFCAcceleratedMetric();
         double dist = metric.getDistance(baseTree, targetTree);
-        assertEquals(0.0, dist, DELTA,
-                "If the target is in the SPR environment, the minimum RF distance found must be 0.0");
+
+        assertEquals(1.0, dist, DELTA,
+                "If the target is in the SPR environment, the minimum SPR distance found must be 1.0");
     }
 
     @Test
@@ -72,15 +77,36 @@ class SprHeuristicRFAcceleratedMetricTest {
     // --- GENERATOR DANYCH (Data Provider) ---
     static Stream<Arguments> provideTreePairsForTesting() {
         return Stream.of(
-                // Rozmiar 5 (Idealna bifurkacja: podział na (lewa) i (5))
-                Arguments.of("((((1,2),3),4),5);", "((((1,3),2),4),5);", "Drzewa małe (5 liści)"),
+                // --- ROZMIAR 5 ---
 
-                // Rozmiar 6
-                Arguments.of("((((1,2),3),4),(5,6));", "((((1,4),2),3),(5,6));", "Drzewa małe (6 liści)"),
+                // Test 1: Dystans 1 - Prosta rotacja typu caterpillar
+                Arguments.of("((((1,2),3),4),5);", "((((1,2),4),3),5);", "5 liści: Proste przesunięcie liścia 3 (d=1)"),
 
-                // Rozmiar 8
-                Arguments.of("(((((1,2),3),4),5),((6,7),8));", "(((((1,3),2),4),5),((6,7),8));", "Drzewa średnie (8 liści - topologia A)"),
-                Arguments.of("(((1,2),(3,4)),((5,6),(7,8)));", "(((1,3),(2,4)),((5,6),(7,8)));", "Drzewa średnie (8 liści - topologia B)"),
+                // Test 2: Dystans 2 - Zmiana z caterpillar na zbalansowane
+                // Częsty błąd: Algorytmy mogą błędnie uznać to za 1 ruch
+                Arguments.of("((((1,2),3),4),5);", "(((1,2),3),(4,5));", "5 liści: Przesunięcie klastra (4,5) (d=1) - UWAGA: zależy od korzenia"),
+
+                // Test 3: Dystans 2 - Zamiana liści w głębokim klastrze
+                Arguments.of("((((1,2),3),4),5);", "((((1,3),2),4),5);", "5 liści: Zamiana 2 i 3 (d=1)"),
+
+                // Test 4: Dystans 2 - Bardziej złożona reorganizacja
+                Arguments.of("((((1,2),3),4),5);", "((1,4),((2,3),5));", "5 liści: Silna reorganizacja (d=2)"),
+
+
+                // --- ROZMIAR 6 ---
+
+                // Test 5: Dystans 1 - Przesunięcie całego poddrzewa (cherry)
+                Arguments.of("((((1,2),3),4),(5,6));", "(((1,2),3),(4,(5,6)));", "6 liści: Przesunięcie wiśni (5,6) o jeden poziom (d=1)"),
+
+                // Test 6: Dystans 2 - Klasyczna "pułapka kwartetu" (Rooted vs Unrooted)
+                // Jeśli algorytm zwróci 1, oznacza to, że traktuje drzewo jako nieukorzenione.
+                Arguments.of("(((1,2),(3,4)),(5,6));", "(((1,3),(2,4)),(5,6));", "6 liści: Pułapka kwartetu (rSPR=2, uSPR=1)"),
+
+                // Test 7: Dystans 2 - Przesunięcie wewnętrzne
+                Arguments.of("((((1,2),3),4),(5,6));", "(((1,2),(5,6)),(3,4));", "6 liści: Zamiana miejscami poddrzew (d=2)"),
+
+                // Test 8: Dystans 3 - Maksymalne skomplikowanie dla 6 liści (Wersja Binarna)
+                Arguments.of("(((1,2),(3,4)),(5,6));", "(((1,6),(2,4)),(3,5));", "6 liści: Maksymalna odległość (d=3)"),
 
                 // Rozmiar 10
                 Arguments.of("((((((1,2),3),4),5),6),(((7,8),9),10));", "((((((1,3),2),4),5),6),(((7,8),9),10));", "Drzewa średnie (10 liści)"),

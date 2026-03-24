@@ -70,8 +70,8 @@ public abstract class BaseRFIncrementalMetricTest {
 
     @Test
     void testMoveAtRootBoundary() {
-        Tree rootBoundaryBase = TestTreeFactory.fourLeavesRootBoundaryBaseTree();
-        Tree rootBoundaryTarget = TestTreeFactory.fourLeavesRootBoundaryTargetTree();
+        Tree rootBoundaryBase = TestTreeFactory.fourLeavesBalancedTree1();
+        Tree rootBoundaryTarget = TestTreeFactory.fourLeavesBalancedTree2();
 
         metric.initCalculationState(rootBoundaryBase, rootBoundaryTarget);
 

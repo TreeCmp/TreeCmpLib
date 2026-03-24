@@ -1318,4 +1318,22 @@ public class TreeUtils
         if(changes==0) { return baseTree; }
         return new SimpleTree(baseTree,lm);
     }
+
+    /**
+     * Ręcznie uzupełnia brakujące wskaźniki na rodziców w strukturze drzewa PAL.
+     * Jest to niezbędne, aby metoda getParent() nie zwracała null.
+     */
+    public static void computeParentPointers(Node node) {
+        for (int i = 0; i < node.getChildCount(); i++) {
+            Node child = node.getChild(i);
+            // Próbujemy ustawić rodzica - większość klas w PAL (np. SimpleNode) to wspiera
+            if (child instanceof pal.tree.SimpleNode) {
+                ((pal.tree.SimpleNode) child).setParent(node);
+            }
+            // Rekurencyjnie idziemy w dół drzewa
+            if (!child.isLeaf()) {
+                computeParentPointers(child);
+            }
+        }
+    }
 }

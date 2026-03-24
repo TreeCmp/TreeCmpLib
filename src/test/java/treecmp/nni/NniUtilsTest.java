@@ -127,7 +127,7 @@ public class NniUtilsTest {
         @Test
         public void testGenerateRNniNeighboursReturnsExactly4TreesFor4Leaves() {
             // Arrange: Drzewo ukorzenione z dwiema bifurkacjami pod korzeniem
-            Tree baseTree = TestTreeFactory.fourLeavesRootBoundaryBaseTree(); // ((1,2),(3,4));
+            Tree baseTree = TestTreeFactory.fourLeavesBalancedTree1(); // ((1,2),(3,4));
 
             // Act
             Tree[] neighbours = rnniUtils.generateNeighbours(baseTree);

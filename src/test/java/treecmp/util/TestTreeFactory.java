@@ -31,12 +31,16 @@ public class TestTreeFactory {
         return parseNewick("((((1,3),2),4),5);");
     }
 
-    public static Tree fourLeavesRootBoundaryBaseTree() {
+    public static Tree fourLeavesBalancedTree1() {
         return parseNewick("((1,2),(3,4));");
     }
 
-    public static Tree fourLeavesRootBoundaryTargetTree() {
+    public static Tree fourLeavesBalancedTree2() {
         return parseNewick("((1,3),(2,4));");
+    }
+
+    public static Tree fourLeavesCaterpillarTree1() {
+        return parseNewick("(((1,2),3),4);");
     }
 
     public static Tree fourLeavesTree1() {

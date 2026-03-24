@@ -34,7 +34,14 @@ public class NniUtils extends TreeNeighborhoodUtils {
         this.unrooted = unrooted;
     }
 
-    // W NniUtils.java
+    private Node findSibling(Node parent, Node child) {
+        for (int i = 0; i < parent.getChildCount(); i++) {
+            Node n = parent.getChild(i);
+            if (n != child) return n;
+        }
+        return null;
+    }
+
     public NniMove[] generateNniMoves(Tree tree) {
         List<NniMove> moves = new ArrayList<>();
         int internalNodeCount = tree.getInternalNodeCount();
@@ -42,11 +49,13 @@ public class NniUtils extends TreeNeighborhoodUtils {
         for (int i = 0; i < internalNodeCount; i++) {
             Node parent = tree.getInternalNode(i);
 
-            // ZMIANA: Pozwalamy na ruchy w korzeniu dla drzew nieukorzenionych
-            if (!unrooted && parent.isRoot()) continue;
+            // USUNIĘTO BŁĘDNY WARUNEK: if (unrooted && parent.isRoot()) continue;
+            // Korzeń musi być przetwarzany, by nie zgubić krawędzi w małych drzewach!
 
             for (int j = 0; j < parent.getChildCount(); j++) {
                 Node child = parent.getChild(j);
+
+                // Krawędź wewnętrzna to taka, gdzie oba węzły NIE są liśćmi.
                 if (!child.isLeaf()) {
                     addMovesForInternalEdge(parent, child, moves);
                 }
@@ -56,7 +65,7 @@ public class NniUtils extends TreeNeighborhoodUtils {
     }
 
     private void addMovesForInternalEdge(Node parent, Node child, List<NniMove> moves) {
-        // W drzewie nieukorzenionym parent może mieć kilka innych dzieci (rodzeństwa dla 'child')
+        // W drzewie nieukorzenionym parent (korzeń) może mieć 3 dzieci.
         for (int i = 0; i < parent.getChildCount(); i++) {
             Node sibling = parent.getChild(i);
             if (sibling == child) continue;
@@ -67,15 +76,15 @@ public class NniUtils extends TreeNeighborhoodUtils {
 
             moves.add(new NniMove(sibling, grandchild1));
             moves.add(new NniMove(sibling, grandchild2));
-        }
-    }
 
-    private Node findSibling(Node parent, Node child) {
-        for (int i = 0; i < parent.getChildCount(); i++) {
-            Node n = parent.getChild(i);
-            if (n != child) return n;
+            // KLUCZOWA POPRAWKA DLA DRZEW NIEUKORZENIONYCH:
+            // Jeśli rodzicem jest korzeń (stopień 3), to zamiana z pierwszym rodzeństwem
+            // generuje już 2 unikalne topologie NNI. Zamiana z drugim rodzeństwem
+            // wygenerowałaby duplikaty. Dlatego przerywamy pętlę!
+            if (unrooted && parent.isRoot()) {
+                break;
+            }
         }
-        return null;
     }
 
     /**
