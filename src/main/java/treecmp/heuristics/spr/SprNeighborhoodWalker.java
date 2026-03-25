@@ -2,97 +2,76 @@ package treecmp.heuristics.spr;
 
 import pal.tree.Node;
 import pal.tree.Tree;
-import treecmp.heuristics.moves.NniMove;
-import treecmp.metrics.IncrementalMetric;
+import treecmp.metrics.topological.BaseRFIncrementalMetric;
 
 import java.util.ArrayList;
+import java.util.BitSet;
 import java.util.List;
-import java.util.function.Consumer;
 
 public class SprNeighborhoodWalker {
 
-    public void walk(Tree baseTree, IncrementalMetric metric, Consumer<Double> resultConsumer) {
-        // 1. Pobieramy wszystkie węzły z PAL-a
-        // PAL nie ma wygodnego iteratora po wszystkim, więc robimy travers lub używamy helperów
-        // Zakładam, że masz metodę pomocniczą lub po prostu rekurencję.
+    private SprUtils sprUtils = new SprUtils();
+
+    public void walk(Tree baseTree, BaseRFIncrementalMetric metric, SprVisitor visitor) {
         List<Node> allNodes = getAllNodes(baseTree);
 
         for (Node pruneNode : allNodes) {
-            if (pruneNode.isRoot()) continue; // Korzenia nie odcinamy
+            if (pruneNode.isRoot() || pruneNode.getParent() == null) continue;
 
-            Node originalParent = pruneNode.getParent();
+            BitSet movingBits = metric.getCluster(pruneNode);
+            Node oldParent = pruneNode.getParent();
 
-            // Rozpoczynamy spacer.
-            // pruneNode - to co przenosimy
-            // originalParent - miejsce, gdzie aktualnie jesteśmy podpięci
-            // null - skąd przyszliśmy (by nie wracać)
-            traverseRegraftLocations(pruneNode, originalParent, null, metric, resultConsumer);
+            // 1. GLOBALNE ODCIĘCIE NNI: Ścieżka od dziadka do korzenia traci wędrujące bity
+            int pruneDepth = 0;
+            Node curr = oldParent.getParent();
+            while (curr != null && !curr.isRoot()) {
+                metric.applyNniStep(curr, movingBits, null); // Ściągamy bity z węzła
+                pruneDepth++;
+                curr = curr.getParent();
+            }
+
+            // 2. SPACER W DÓŁ: Szukamy punktów wpięcia w całym drzewie
+            traverseRegraft(pruneNode, movingBits, baseTree.getRoot(), metric, visitor);
+
+            // 3. COFNIĘCIE ODCIĘCIA (Backtracking stosu NNI)
+            for (int i = 0; i < pruneDepth; i++) {
+                metric.undoNniStep();
+            }
         }
     }
 
-    private void traverseRegraftLocations(Node movingSubtree,
-                                          Node currentAttachPoint,
-                                          Node cameFrom,
-                                          IncrementalMetric metric,
-                                          Consumer<Double> resultConsumer) {
+    private void traverseRegraft(Node pruneNode, BitSet movingBits, Node currentNode, BaseRFIncrementalMetric metric, SprVisitor visitor) {
+        // A. EWALUACJA WPIĘCIA (Zanim węzeł currentNode otrzyma bity!)
+        // Omijamy stary punkt odcięcia i jego rodzica
+        if (currentNode != pruneNode && currentNode != pruneNode.getParent()) {
+            if (sprUtils.isValidSprMove(pruneNode, currentNode)) {
 
-        // Musimy znaleźć sąsiadów 'currentAttachPoint', na których możemy przeskoczyć.
-        // W PAL sąsiedzi to: Ojciec oraz Dzieci.
-        List<Node> neighbors = getPalNeighbors(currentAttachPoint);
+                // Używamy korekty, aby podać perfekcyjny dystans SPR bazując na stosie NNI
+                double dist = metric.evaluateExactSprDistance(pruneNode, currentNode, movingBits);
+                visitor.visit(dist, pruneNode, currentNode);
 
-        for (Node neighbor : neighbors) {
-            // 1. Nie wracamy tam skąd przyszliśmy (DFS)
-            if (neighbor == cameFrom) continue;
+                // Optymalizacja: jeśli znaleźliśmy cel, możemy przerwać
+                if (dist == 0) return;
+            }
+        }
 
-            // 2. Nie wchodzimy w 'movingSubtree' (bo ono jest wirtualnie odcięte i je niesiemy)
-            if (neighbor == movingSubtree) continue;
+        // B. WEJŚCIE GŁĘBIEJ W DRZEWO
+        if (!currentNode.isLeaf()) {
+            // Tymczasowo dodajemy wędrujące bity do currentNode (krok NNI) na czas wizytowania jego dzieci
+            metric.applyNniStep(currentNode, null, movingBits);
 
-            // 3. UWAGA SPECJALNA: Jeśli currentAttachPoint jest korzeniem globalnym,
-            // a my przyszliśmy z jednego dziecka i idziemy do drugiego,
-            // to relacja NNI może wyglądać inaczej.
-            // Jednak w SPR "spacer" polega na zamianie miejscami poddrzewa przenoszonego
-            // z poddrzewem znajdującym się na krawędzi sąsiedniej.
+            for (int i = 0; i < currentNode.getChildCount(); i++) {
+                Node child = currentNode.getChild(i);
+                if (child == pruneNode) continue; // Nie wchodzimy do odciętej gałęzi
 
-            // Konstrukcja ruchu: Zamieniamy 'movingSubtree' z 'neighbor'
-            // To symuluje przejście przez krawędź (currentAttachPoint, neighbor)
-            NniMove move = new NniMove(movingSubtree, neighbor);
+                traverseRegraft(pruneNode, movingBits, child, metric, visitor);
+            }
 
-            // Aplikuj (O(n))
-            double dist = metric.applyNni(move);
-
-            // Zgłoś wynik
-            resultConsumer.accept(dist);
-
-            // Rekurencja (Idź dalej w głąb)
-            traverseRegraftLocations(movingSubtree, neighbor, currentAttachPoint, metric, resultConsumer);
-
-            // Wycofaj (O(n))
-            metric.undoNni(move);
+            // Zdejmujemy bity przy wychodzeniu z węzła (Backtracking)
+            metric.undoNniStep();
         }
     }
 
-    /**
-     * Helper do wyciągania sąsiadów w grafie nieskierowanym z węzła PAL.
-     */
-    private List<Node> getPalNeighbors(Node node) {
-        List<Node> neighbors = new ArrayList<>(3);
-
-        // Dodaj ojca (jeśli istnieje)
-        if (node.getParent() != null) {
-            neighbors.add(node.getParent());
-        }
-
-        // Dodaj dzieci
-        int childCount = node.getChildCount();
-        for (int i = 0; i < childCount; i++) {
-            neighbors.add(node.getChild(i));
-        }
-        return neighbors;
-    }
-
-    /**
-     * Helper do pobrania wszystkich węzłów z drzewa PAL (DFS/BFS).
-     */
     private List<Node> getAllNodes(Tree tree) {
         List<Node> list = new ArrayList<>();
         collectNodes(tree.getRoot(), list);
