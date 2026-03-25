@@ -4,8 +4,43 @@ import pal.tree.ReadTree;
 import pal.tree.Tree;
 import pal.io.InputSource;
 import pal.tree.TreeParseException;
+import pal.tree.TreeTool;
+
+import java.util.Random;
 
 public class TestTreeFactory {
+
+    /**
+     * Generuje powtarzalne, losowe drzewo binarne o zadanej liczbie liści.
+     * Wykorzystuje TreeTool do stworzenia topologii NJ z losowej macierzy.
+     */
+    public static Tree randomBinaryTree(int numLeaves, long seed) {
+        // 1. Tworzymy nazwy liści: L1, L2, L3...
+        String[] names = new String[numLeaves];
+        for (int i = 0; i < numLeaves; i++) {
+            names[i] = "L" + (i + 1);
+        }
+
+        // 2. Generujemy losową macierz dystansów opartą na ziarnie (seed)
+        // Gwarantuje to, że benchmark będzie zawsze powtarzalny.
+        double[][] matrix = new double[numLeaves][numLeaves];
+        Random rng = new Random(seed);
+
+        for (int i = 0; i < numLeaves; i++) {
+            for (int j = i + 1; j < numLeaves; j++) {
+                // Losowy dystans między liśćmi
+                double dist = rng.nextDouble() * 10.0;
+                matrix[i][j] = matrix[j][i] = dist;
+            }
+        }
+
+        // 3. Tworzymy drzewo algorytmem Neighbor Joining (zawsze binarne)
+        Tree rootedTree = TreeTool.createNeighbourJoiningTree(matrix, names);
+
+        // 4. Zastosowanie Twojej zasady: Unrooted (używamy splitów)
+        // TreeTool.getUnrooted usuwa korzeń, tworząc trifurkację w bazie.
+        return TreeTool.getUnrooted(rootedTree);
+    }
 
     public static Tree fourLeavesUnrootedBaseTree() {
         return parseNewick("((1,2),3,4);");
@@ -136,6 +171,23 @@ public class TestTreeFactory {
     public static Tree hundredLeavesBinaryUnrootedTree2() {
         String newick = "(((1,(13,((17,(24,93)),(34,88)))),((14,(86,((42,(47,99)),97))),79)),85,(3,((23,(((((37,((((11,((7,(10,63)),65)),(((((8,27),(36,((35,70),92))),(((53,61),(89,((19,41),91))),72)),(38,((57,(25,59)),90))),74)),(39,(30,44))),55)),45),((((66,((9,(40,52)),95)),((((51,((48,73),80)),(58,((49,((56,81),(((((((6,(((26,29),54),((15,68),96))),20),((12,(((18,78),(2,94)),((28,43),((22,(16,76)),62)))),((((32,46),((31,98),100)),33),69))),21),(4,75)),5),83))),84))),71),77)),60),87)),50),82)),(64,67))));";
         return parseNewick(newick);
+    }
+
+
+    public static Tree hundredLeavesTree1() {
+        return randomBinaryTree(100, 12345L);
+    }
+
+    public static Tree hundredLeavesTree2() {
+        return randomBinaryTree(100, 67890L);
+    }
+
+    public static Tree fiveHundredLeavesTree1() {
+        return randomBinaryTree(500, 111L);
+    }
+
+    public static Tree fiveHundredLeavesTree2() {
+        return randomBinaryTree(500, 222L);
     }
 
     private static Tree parseNewick(String newick) {
