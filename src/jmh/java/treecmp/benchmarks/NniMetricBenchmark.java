@@ -25,7 +25,7 @@ public class NniMetricBenchmark {
      * JMH automatycznie uruchomi benchmark dla każdej z tych wartości.
      * To pozwoli nam zobaczyć, jak algorytmy skalują się wraz ze wzrostem drzewa.
      */
-    @Param({"10", "100", "500"})
+    @Param({"4","5","6","7","8","9","10", "100", "500"})
     public int treeSize;
 
     private Tree t1;
@@ -35,22 +35,37 @@ public class NniMetricBenchmark {
 
     @Setup(Level.Trial)
     public void setup() {
-        // Logika wyboru drzewa na podstawie parametru treeSize
-        if (treeSize == 10) {
-            t1 = TestTreeFactory.randomBinaryTree(10, 12345L);
-            t2 = TestTreeFactory.randomBinaryTree(10, 67890L);
-        } else if (treeSize == 100) {
-            t1 = TestTreeFactory.hundredLeavesTree1();
-            t2 = TestTreeFactory.hundredLeavesTree2();
-        } else if (treeSize == 500) {
-            t1 = TestTreeFactory.fiveHundredLeavesTree1();
-            t2 = TestTreeFactory.fiveHundredLeavesTree2();
-        }
+        t1 = TestTreeFactory.randomUnrootedTree(treeSize, 12345L);
+        t2 = TestTreeFactory.randomUnrootedTree(treeSize, 67890L);
 
         classicMetric = new NniHeuristicRFMetric();
         incrementalMetric = new NniIncrementalHeuristicRFMetric();
 
-        System.out.println("\n[SETUP] Przygotowano drzewa o rozmiarze: " + treeSize);
+        // 2. WERYFIKACJA WYNIKÓW I WYDRUK
+        System.out.println("\n" + "=".repeat(50));
+        System.out.println(" WERYFIKACJA NNI DLA ROZMIARU: " + treeSize);
+        System.out.println("-".repeat(50));
+
+        // Pomiar czasu dla Classic (jednorazowy w Setup)
+        long startClassic = System.nanoTime();
+        double distClassic = classicMetric.getDistance(t1, t2);
+        long timeClassic = System.nanoTime() - startClassic;
+
+        // Pomiar czasu dla Incremental (jednorazowy w Setup)
+        long startIncr = System.nanoTime();
+        double distIncr = incrementalMetric.getDistance(t1, t2);
+        long timeIncr = System.nanoTime() - startIncr;
+
+        System.out.printf("Classic NNI     : %.2f (czas: %,d ns)%n", distClassic, timeClassic);
+        System.out.printf("Incremental NNI : %.2f (czas: %,d ns)%n", distIncr, timeIncr);
+
+        // Sprawdzenie poprawności
+        if (Math.abs(distClassic - distIncr) < 1e-9) {
+            System.out.println("** STATUS: WYNIKI IDENTYCZNE **");
+        } else {
+            System.out.println("!! STATUS: RÓŻNE WYNIKI NNI !!");
+        }
+        System.out.println("=".repeat(50) + "\n");
     }
 
     @Benchmark

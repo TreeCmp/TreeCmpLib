@@ -1,45 +1,87 @@
 package treecmp.util;
 
+import pal.distance.DistanceMatrix;
+import pal.misc.IdGroup;
+import pal.misc.SimpleIdGroup;
 import pal.tree.ReadTree;
 import pal.tree.Tree;
 import pal.io.InputSource;
 import pal.tree.TreeParseException;
 import pal.tree.TreeTool;
 
+import java.util.HashMap;
+import java.util.Map;
 import java.util.Random;
 
 public class TestTreeFactory {
 
-    /**
-     * Generuje powtarzalne, losowe drzewo binarne o zadanej liczbie liści.
-     * Wykorzystuje TreeTool do stworzenia topologii NJ z losowej macierzy.
-     */
-    public static Tree randomBinaryTree(int numLeaves, long seed) {
-        // 1. Tworzymy nazwy liści: L1, L2, L3...
-        String[] names = new String[numLeaves];
-        for (int i = 0; i < numLeaves; i++) {
-            names[i] = "L" + (i + 1);
+    // Cache, który przechowuje IdGroup dla danego rozmiaru
+    private static final Map<Integer, IdGroup> idGroupCache = new HashMap<>();
+
+    private static IdGroup getOrCreateIdGroup(int size) {
+        if (!idGroupCache.containsKey(size)) {
+            String[] names = new String[size];
+            for (int i = 0; i < size; i++) names[i] = "L" + (i + 1);
+            idGroupCache.put(size, new SimpleIdGroup(names));
         }
+        return idGroupCache.get(size);
+    }
 
-        // 2. Generujemy losową macierz dystansów opartą na ziarnie (seed)
-        // Gwarantuje to, że benchmark będzie zawsze powtarzalny.
+    public static Tree randomRootedBinaryTree(int numLeaves, long seed) {
+        IdGroup sharedIdGroup = getOrCreateIdGroup(numLeaves);
+
+        // 1. Generujemy macierz dystansów
         double[][] matrix = new double[numLeaves][numLeaves];
-        Random rng = new Random(seed);
-
+        java.util.Random rng = new java.util.Random(seed);
         for (int i = 0; i < numLeaves; i++) {
             for (int j = i + 1; j < numLeaves; j++) {
-                // Losowy dystans między liśćmi
-                double dist = rng.nextDouble() * 10.0;
-                matrix[i][j] = matrix[j][i] = dist;
+                matrix[i][j] = matrix[j][i] = rng.nextDouble() * 10.0;
             }
         }
 
-        // 3. Tworzymy drzewo algorytmem Neighbor Joining (zawsze binarne)
-        Tree rootedTree = TreeTool.createNeighbourJoiningTree(matrix, names);
+        // 2. Tworzymy bazowe drzewo NJ (PAL stworzy tu trifurkację w korzeniu)
+        DistanceMatrix dm = new DistanceMatrix(matrix, sharedIdGroup);
+        Tree njTree = TreeTool.createNeighbourJoiningTree(dm);
 
-        // 4. Zastosowanie Twojej zasady: Unrooted (używamy splitów)
-        // TreeTool.getUnrooted usuwa korzeń, tworząc trifurkację w bazie.
-        return TreeTool.getUnrooted(rootedTree);
+        // 3. NAPRAWA: Przekształcamy trifurkację w bifurkację (korzeń binarny)
+        // Metoda ta wstawia nowy węzeł korzenia, który ma dokładnie 2 dzieci.
+        Tree binaryRootedTree = TreeTool.getMidPointRooted(njTree);
+
+        // 4. Weryfikacja (opcjonalna, dla pewności)
+        if (binaryRootedTree.getRoot().getChildCount() != 2) {
+            throw new RuntimeException("Błąd: Wygenerowane drzewo nie jest binarne w korzeniu!");
+        }
+
+        return binaryRootedTree;
+    }
+
+    public static Tree randomUnrootedTree(int numLeaves, long seed) {
+        // 1. Najpierw tworzymy drzewo UKORZENIONE (tak jak poprzednio)
+        String[] names = new String[numLeaves];
+        for (int i = 0; i < numLeaves; i++) names[i] = "L" + (i + 1);
+
+        double[][] matrix = new double[numLeaves][numLeaves];
+        java.util.Random rng = new java.util.Random(seed);
+        for (int i = 0; i < numLeaves; i++) {
+            for (int j = i + 1; j < numLeaves; j++) {
+                matrix[i][j] = matrix[j][i] = rng.nextDouble() * 10.0;
+            }
+        }
+
+        // 2. Tworzymy bazowe drzewo algorytmem NJ
+        Tree rooted = TreeTool.createNeighbourJoiningTree(matrix, names);
+
+        // 3. KLUCZOWE: Używamy TreeTool, aby usunąć korzeń.
+        // To przekształca strukturę bifurkacyjną korzenia w trifurkację (split).
+        return TreeTool.getUnrooted(rooted);
+    }
+
+    private static String[] getNamesFromIdGroup(IdGroup idGroup) {
+        String[] names = new String[idGroup.getIdCount()];
+        for (int i = 0; i < names.length; i++) {
+            names[i] = idGroup.getIdentifier(i).getName();
+        }
+        return names;
     }
 
     public static Tree fourLeavesUnrootedBaseTree() {
@@ -173,23 +215,6 @@ public class TestTreeFactory {
         return parseNewick(newick);
     }
 
-
-    public static Tree hundredLeavesTree1() {
-        return randomBinaryTree(100, 12345L);
-    }
-
-    public static Tree hundredLeavesTree2() {
-        return randomBinaryTree(100, 67890L);
-    }
-
-    public static Tree fiveHundredLeavesTree1() {
-        return randomBinaryTree(500, 111L);
-    }
-
-    public static Tree fiveHundredLeavesTree2() {
-        return randomBinaryTree(500, 222L);
-    }
-
     private static Tree parseNewick(String newick) {
             pal.io.InputSource in1 = InputSource.openString(newick);
         try {
@@ -198,4 +223,6 @@ public class TestTreeFactory {
             throw new RuntimeException(e);
         }
     }
+
+
 }

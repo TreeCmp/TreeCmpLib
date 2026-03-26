@@ -23,7 +23,7 @@ public class SprHeuristicRFCAcceleratedMetric extends IncrementalHeuristicBaseMe
     protected void searchNeighborhood(Tree currentTree) {
         // Używamy this.incMetric z klasy bazowej
         walker.walk(currentTree, this.incMetric, (currentDist, movingNode, targetNode) -> {
-            System.out.println("Move check: " + currentDist);
+            //System.out.println("Move check: " + currentDist);
             checkImprovement(currentDist, new SprMove(movingNode, targetNode));
         });
     }
