@@ -14,7 +14,7 @@ import treecmp.util.TestTreeFactory;
 // Pamiętaj o zaimportowaniu klasy, która w Twoim projekcie parsuje stringi na drzewa, np.:
 // import treecmp.common.TreeCreator;
 
-import treecmp.heuristics.spr.SprHeuristicRFCAcceleratedMetric;
+import treecmp.heuristics.spr.acc.SprHeuristicRFCAcceleratedMetric;
 import treecmp.heuristics.spr.SprHeuristicRFCMetric;
 import treecmp.util.TreeCreator;
 

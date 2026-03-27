@@ -1,29 +1,31 @@
-package treecmp.heuristics.spr;
+package treecmp.heuristics.spr.acc;
 
 import pal.tree.Tree;
 import pal.tree.TreeUtils;
 import treecmp.heuristics.base.IncrementalHeuristicBaseMetric;
 import treecmp.heuristics.moves.TreeMove;
 import treecmp.heuristics.moves.SprMove;
-import treecmp.heuristics.nni.NniUtils;
-import treecmp.metrics.topological.RFClusterIncrementalMetric;
+import treecmp.heuristics.spr.SprUtils;
+import treecmp.metrics.IncrementalMetric;
+import treecmp.metrics.topological.BaseRFIncrementalMetric; // W zależności od ostatecznego interfejsu Walkera
 
-public class SprHeuristicRFCAcceleratedMetric extends IncrementalHeuristicBaseMetric {
+public abstract class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetric {
 
-    private final SprNeighborhoodWalker walker;
-    private final NniUtils nniUtils;
+    protected final SprNeighborhoodWalker walker;
+    protected final SprUtils sprUtils;
 
-    public SprHeuristicRFCAcceleratedMetric() {
-        super(true, new RFClusterIncrementalMetric());
+    public SprIncrementalHeuristicMetric(boolean rooted, IncrementalMetric metric) {
+        super(rooted, metric);
         this.walker = new SprNeighborhoodWalker();
-        this.nniUtils = new NniUtils(true);
+        this.sprUtils = new SprUtils();
     }
 
     @Override
     protected void searchNeighborhood(Tree currentTree) {
-        // Używamy this.incMetric z klasy bazowej
-        walker.walk(currentTree, this.incMetric, (currentDist, movingNode, targetNode) -> {
-            //System.out.println("Move check: " + currentDist);
+        // Walker robi całą czarną robotę. My tylko wyłapujemy wyniki w wizytatorze.
+        // Uwaga: Rzutowanie na BaseRFIncrementalMetric zależy od tego, jak ostatecznie
+        // zdefiniujesz parametry w SprNeighborhoodWalker.walk()
+        walker.walk(currentTree, (BaseRFIncrementalMetric) this.incMetric, (currentDist, movingNode, targetNode) -> {
             checkImprovement(currentDist, new SprMove(movingNode, targetNode));
         });
     }
@@ -32,7 +34,7 @@ public class SprHeuristicRFCAcceleratedMetric extends IncrementalHeuristicBaseMe
     protected Tree applyPhysicalMove(Tree tree, TreeMove move) {
         if (move instanceof SprMove) {
             SprMove sm = (SprMove) move;
-            Tree newTree = new SprUtils().createSprTree(tree, sm.movingNode, sm.targetNode);
+            Tree newTree = sprUtils.createSprTree(tree, sm.movingNode, sm.targetNode);
             if (newTree != null) {
                 if (newTree instanceof pal.tree.SimpleTree) {
                     ((pal.tree.SimpleTree) newTree).createNodeList();
@@ -68,7 +70,7 @@ public class SprHeuristicRFCAcceleratedMetric extends IncrementalHeuristicBaseMe
                 currentTree = applyPhysicalMove(currentTree, this.bestMove);
                 totalSteps++;
 
-                // todo: sprawdzić czy to jest potrzebne
+                // Przeliczamy rodziców, bo biblioteka PAL gubi wskaźniki po przebudowie
                 TreeUtils.computeParentPointers(currentTree.getRoot());
 
                 this.incMetric.initCalculationState(currentTree, tree2);

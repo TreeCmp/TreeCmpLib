@@ -6,7 +6,7 @@ import java.util.concurrent.TimeUnit;
 
 import pal.tree.Tree;
 import treecmp.heuristics.spr.SprHeuristicRFCMetric;
-import treecmp.heuristics.spr.SprHeuristicRFCAcceleratedMetric;
+import treecmp.heuristics.spr.acc.SprHeuristicRFCAcceleratedMetric;
 import treecmp.util.TestTreeFactory;
 
 @BenchmarkMode(Mode.AverageTime)

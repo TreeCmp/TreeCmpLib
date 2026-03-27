@@ -5,7 +5,7 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 import pal.tree.Tree;
-import treecmp.heuristics.nni.NniIncrementalHeuristicRFMetric; // Nasza nowa klasa
+import treecmp.heuristics.nni.acc.NniIncrementalHeuristicRFMetric; // Nasza nowa klasa
 import treecmp.util.TestTreeFactory;
 
 class NniIncrementalHeuristicRFMetricTest {

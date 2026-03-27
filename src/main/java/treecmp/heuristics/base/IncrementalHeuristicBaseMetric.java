@@ -3,20 +3,21 @@ package treecmp.heuristics.base;
 import pal.tree.Tree;
 import treecmp.heuristics.moves.TreeMove;
 import treecmp.metrics.BaseMetric;
+import treecmp.metrics.IncrementalMetric;
 import treecmp.metrics.topological.BaseRFIncrementalMetric;
 
 public abstract class IncrementalHeuristicBaseMetric extends BaseMetric {
 
-    protected boolean improved;
+    protected final boolean rooted;
+    protected final IncrementalMetric incMetric;
+
     protected double bestDist;
-    protected TreeMove bestMove;
+    protected treecmp.heuristics.moves.TreeMove bestMove;
+    protected boolean improved;
 
-    protected final BaseRFIncrementalMetric incMetric;
-
-    protected IncrementalHeuristicBaseMetric(boolean isRooted, BaseRFIncrementalMetric incMetric) {
-        super();
-        this.setRooted(isRooted);
-        this.incMetric = incMetric;
+    public IncrementalHeuristicBaseMetric(boolean rooted, IncrementalMetric metric) {
+        this.rooted = rooted;
+        this.incMetric = metric;
     }
 
     protected void checkImprovement(double currentDist, TreeMove move) {

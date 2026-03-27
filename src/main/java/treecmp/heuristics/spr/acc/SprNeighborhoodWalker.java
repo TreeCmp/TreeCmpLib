@@ -1,7 +1,9 @@
-package treecmp.heuristics.spr;
+package treecmp.heuristics.spr.acc;
 
 import pal.tree.Node;
 import pal.tree.Tree;
+import treecmp.heuristics.spr.SprUtils;
+import treecmp.heuristics.spr.SprVisitor;
 import treecmp.metrics.topological.BaseRFIncrementalMetric;
 
 import java.util.ArrayList;

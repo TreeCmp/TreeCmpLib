@@ -10,7 +10,7 @@ import java.util.concurrent.TimeUnit;
 
 import pal.tree.Tree;
 import treecmp.heuristics.nni.NniHeuristicRFMetric;
-import treecmp.heuristics.nni.NniIncrementalHeuristicRFMetric;
+import treecmp.heuristics.nni.acc.NniIncrementalHeuristicRFMetric;
 import treecmp.util.TestTreeFactory;
 
 @BenchmarkMode(Mode.AverageTime)

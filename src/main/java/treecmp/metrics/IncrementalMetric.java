@@ -43,4 +43,12 @@ public interface IncrementalMetric extends Metric {
      * @return The current distance.
      */
     double getCurrentDistance();
+
+    /**
+     * Zatwierdza aktualny stan metryki po serii wirtualnych ruchów.
+     * Metoda ta powinna np. wyczyścić stosy historii (undo) i zaktualizować
+     * główne struktury danych (np. mapy klastrów), aby obecny wirtualny stan
+     * stał się nowym stanem bazowym.
+     */
+    void commit();
 }
