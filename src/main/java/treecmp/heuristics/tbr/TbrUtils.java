@@ -20,6 +20,9 @@ public class TbrUtils extends TreeNeighborhoodUtils {
         int neighSize = calcSprNeighbours(tree) * intNum;
         Set<treecmp.heuristics.TreeHolder> tbrTreeSet = new HashSet<>((4 * neighSize) / 3);
 
+        // ZABEZPIECZENIE: Pobieramy hash drzewa bazowego
+        treecmp.heuristics.TreeHolder baseTreeHolder = new treecmp.heuristics.TreeRootedHolder(tree, idGroup);
+
         List<Node> allNodes = getAllNodes(tree);
 
         for (Node pruneNode : allNodes) {
@@ -32,9 +35,6 @@ public class TbrUtils extends TreeNeighborhoodUtils {
                     if (isValidTbrMove(pruneNode, rerootNode, targetNode)) {
 
                         Tree resultTree;
-                        // ===============================================
-                        // DELEGACJA DO SPR
-                        // ===============================================
                         if (pruneNode == rerootNode) {
                             resultTree = createSprTree(tree, pruneNode, targetNode);
                         } else {
@@ -42,7 +42,11 @@ public class TbrUtils extends TreeNeighborhoodUtils {
                         }
 
                         if (resultTree != null) {
-                            tbrTreeSet.add(new treecmp.heuristics.TreeRootedHolder(resultTree, idGroup));
+                            treecmp.heuristics.TreeHolder newHolder = new treecmp.heuristics.TreeRootedHolder(resultTree, idGroup);
+                            // FILTROWANIE: Ignorujemy puste ruchy odtwarzające oryginał
+                            if (!newHolder.equals(baseTreeHolder)) {
+                                tbrTreeSet.add(newHolder);
+                            }
                         }
                     }
                 }

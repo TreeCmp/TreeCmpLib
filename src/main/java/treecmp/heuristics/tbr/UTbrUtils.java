@@ -20,6 +20,14 @@ public class UTbrUtils extends TreeNeighborhoodUtils {
         int neighSize = calcUsprNeighbours(tree) * intNum;
         Set<treecmp.heuristics.TreeUnootedHolder> utbrTreeSet = new HashSet<>((4 * neighSize) / 3);
 
+        // ZABEZPIECZENIE: Pobieramy hash drzewa bazowego
+        treecmp.heuristics.TreeUnootedHolder baseTreeHolder = null;
+        try {
+            baseTreeHolder = new treecmp.heuristics.TreeUnootedHolder(tree, idGroup);
+        } catch (Exception e) {
+            // Ignorujemy w skrajnym przypadku
+        }
+
         List<Node> allNodes = getAllNodes(tree);
 
         for (Node pruneNode : allNodes) {
@@ -32,9 +40,6 @@ public class UTbrUtils extends TreeNeighborhoodUtils {
                     if (isValidUTbrMove(pruneNode, rerootNode, targetNode)) {
 
                         Tree resultTree;
-                        // ===============================================
-                        // DELEGACJA DO SPR: Gwarantuje nam w 100% spójne topologie!
-                        // ===============================================
                         if (pruneNode == rerootNode) {
                             resultTree = createUsprTree(tree, pruneNode, targetNode);
                         } else {
@@ -43,7 +48,11 @@ public class UTbrUtils extends TreeNeighborhoodUtils {
 
                         if (resultTree != null) {
                             try {
-                                utbrTreeSet.add(new treecmp.heuristics.TreeUnootedHolder(resultTree, idGroup));
+                                treecmp.heuristics.TreeUnootedHolder newHolder = new treecmp.heuristics.TreeUnootedHolder(resultTree, idGroup);
+                                // FILTROWANIE: Ignorujemy drzewo bazowe
+                                if (baseTreeHolder == null || !newHolder.equals(baseTreeHolder)) {
+                                    utbrTreeSet.add(newHolder);
+                                }
                             } catch (Exception e) {
                                 // Ignorujemy skrajne degeneracje biblioteki PAL
                             }
