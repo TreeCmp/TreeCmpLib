@@ -31,11 +31,9 @@ public abstract class TreeNeighborhoodUtils {
     // ==========================================
 
     public boolean isValidTbrMove(Node pruneNode, Node rerootNode, Node targetNode) {
-        // Magia upewniająca się, że pokrywamy w 100% otoczenie SPR
         if (pruneNode == rerootNode) {
             return isValidSprMove(pruneNode, targetNode);
         }
-
         if (targetNode == pruneNode.getParent()) return false;
         Node curr = targetNode;
         while (curr != null) {
@@ -47,11 +45,9 @@ public abstract class TreeNeighborhoodUtils {
     }
 
     public boolean isValidUTbrMove(Node pruneNode, Node rerootNode, Node targetNode) {
-        // Magia upewniająca się, że pokrywamy w 100% otoczenie unrooted SPR (wraz z inner moves)
         if (pruneNode == rerootNode) {
             return isValidUsprMove(pruneNode, targetNode);
         }
-
         if (targetNode.isRoot()) return false;
         if (targetNode == pruneNode.getParent()) return false;
         Node curr = targetNode;
@@ -64,8 +60,6 @@ public abstract class TreeNeighborhoodUtils {
 
     public Tree createTbrTree(Tree baseTree, Node s, Node r, Node t) {
         Tree resultTree = baseTree.getCopy();
-
-        // Zabezpieczenie przed Index -1: Wymuszamy na PAL przeliczenie kopii
         if (resultTree instanceof pal.tree.SimpleTree) {
             pal.tree.TreeUtils.computeParentPointers(resultTree.getRoot());
         }
@@ -79,21 +73,42 @@ public abstract class TreeNeighborhoodUtils {
         Node sourceParent = source.getParent();
         boolean isSourceParentRoot = sourceParent.isRoot();
         Node provisionalRoot = resultTree.getRoot();
+        Node newNode = new SimpleNode();
 
         // 1. BEZPIECZNE ODCIĘCIE PODDRZEWA
         if (isSourceParentRoot) {
             Node[] otherChildren = findOtherChildren(source, sourceParent);
             if (otherChildren.length == 1) {
-                // Drzewa ukorzenione - korzeń ma tylko 1 pozostałą gałąź, która staje się korzeniem
+                // R-TBR: Korzeń ma 2 dzieci, zostaje 1.
                 provisionalRoot = otherChildren[0];
                 provisionalRoot.setParent(null);
             } else if (otherChildren.length == 2) {
-                // DRZEWA NIEUKORZENIONE: Magiczne i bezpieczne rozwiązanie!
-                // Zostawiamy korzeń, usuwamy z niego tylko odciętą gałąź.
-                // Dzięki temu ŻADEN LIŚĆ nie zamieni się w węzeł wewnętrzny i nie zawiesi systemu!
-                int sourcePos = findChildPos(source, sourceParent);
-                sourceParent.removeChild(sourcePos);
-                provisionalRoot = sourceParent;
+                // U-TBR: Korzeń ma 3 dzieci. Usuwamy korzeń całkowicie, by nie zostawiać widma 2-stopniowego.
+                Node c0 = otherChildren[0];
+                Node c1 = otherChildren[1];
+
+                c0.setParent(null);
+                c1.setParent(null);
+
+                if (target == c0) {
+                    // Wpięcie blisko korzenia - newNode staje się nowym idealnym korzeniem (3 gałęzie)
+                    newNode.addChild(c0); c0.setParent(newNode);
+                    newNode.addChild(c1); c1.setParent(newNode);
+                    provisionalRoot = newNode;
+                } else if (target == c1) {
+                    newNode.addChild(c1); c1.setParent(newNode);
+                    newNode.addChild(c0); c0.setParent(newNode);
+                    provisionalRoot = newNode;
+                } else {
+                    // Wpięcie jest głębiej. Bezpiecznie dopinamy jedną gałąź pod drugą (obie są wewnętrzne).
+                    if (isNodeInSubtree(target, c0)) {
+                        c0.addChild(c1); c1.setParent(c0);
+                        provisionalRoot = c0;
+                    } else {
+                        c1.addChild(c0); c0.setParent(c1);
+                        provisionalRoot = c1;
+                    }
+                }
             }
         } else {
             // Standardowe odcięcie wewnętrzne
@@ -109,29 +124,41 @@ public abstract class TreeNeighborhoodUtils {
         Node newSubtreeRoot = rerootDetachedSubtree(source, reroot);
 
         // 3. WPIĘCIE PODDRZEWA W NOWE MIEJSCE
-        Node newNode = new SimpleNode();
-        Node targetParent = target.getParent();
-
-        if (target == provisionalRoot) {
-            newNode.setParent(null);
+        if (provisionalRoot == newNode) {
+            // target był u samej góry (c0 lub c1), newNode ma już 2 gałęzie, wystarczy podpiąć nową
             resultTree.setRoot(newNode);
         } else {
-            int targetPos = findChildPos(target, targetParent);
-            targetParent.setChild(targetPos, newNode);
-            newNode.setParent(targetParent);
-            resultTree.setRoot(provisionalRoot);
+            Node targetParent = target.getParent();
+            if (targetParent == null) {
+                newNode.setParent(null);
+                resultTree.setRoot(newNode);
+            } else {
+                int targetPos = findChildPos(target, targetParent);
+                targetParent.setChild(targetPos, newNode);
+                newNode.setParent(targetParent);
+                resultTree.setRoot(provisionalRoot);
+            }
+            newNode.addChild(target); target.setParent(newNode);
         }
 
-        newNode.addChild(target); target.setParent(newNode);
         newNode.addChild(newSubtreeRoot); newSubtreeRoot.setParent(newNode);
 
-        // 4. TWARDE PRZEINDEKSOWANIE - chroni przed pętlami w ClusterDist
+        // 4. TWARDE PRZEINDEKSOWANIE (Chroni przed błędami PAL i utratą liści)
         if (resultTree instanceof pal.tree.SimpleTree) {
             pal.tree.TreeUtils.computeParentPointers(resultTree.getRoot());
             ((pal.tree.SimpleTree) resultTree).createNodeList();
         }
 
         return resultTree;
+    }
+
+    private boolean isNodeInSubtree(Node target, Node root) {
+        Node curr = target;
+        while (curr != null) {
+            if (curr == root) return true;
+            curr = curr.getParent();
+        }
+        return false;
     }
 
     protected Node rerootDetachedSubtree(Node oldRoot, Node newRootEdgeChild) {
@@ -204,7 +231,6 @@ public abstract class TreeNeighborhoodUtils {
 
     // ==========================================
     // STARE METODY DLA SPR I INNE UTILITIES
-    // (Zachowane bez zmian, aby stare testy SPR działały idealnie)
     // ==========================================
 
     public TreeValuePair findBestNeighbour(Tree tree, BestTreeChooser btc, double neighSizeFrac, double inputTreeValue) throws TreeCmpException {
