@@ -1,4 +1,4 @@
-package treecmp.metrics.topological;
+package treecmp.metrics.topological.acc;
 
 import pal.tree.Node;
 import pal.tree.Tree;
@@ -26,6 +26,9 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
     protected int sharedSplitsCount;
     protected int totalInternalSplits;
     protected double currentDistance;
+    // Śledzi głębokość odcięcia, by poprawnie cofnąć applySprPrune
+    protected final Stack<Integer> sprPruneDepths = new Stack<>();
+
 
     protected abstract BitSet normalizeSplit(BitSet rawSplit);
 
@@ -247,5 +250,54 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
         }
 
         return bs;
+    }
+
+    // ==========================================
+    // IMPLEMENTACJA INTERFEJSU SPR
+    // ==========================================
+
+    @Override
+    public void applySprPrune(Node pruneNode) {
+        BitSet movingBits = getCluster(pruneNode);
+        Node oldParent = pruneNode.getParent();
+
+        int pruneDepth = 0;
+        Node curr = (oldParent != null) ? oldParent.getParent() : null;
+
+        // Ścieżka od dziadka do korzenia traci wędrujące bity
+        while (curr != null && !curr.isRoot()) {
+            applyNniStep(curr, movingBits, null);
+            pruneDepth++;
+            curr = curr.getParent();
+        }
+        // Zapamiętujemy ile operacji wykonaliśmy, by móc je cofnąć
+        sprPruneDepths.push(pruneDepth);
+    }
+
+    @Override
+    public void undoSprPrune(Node pruneNode) {
+        if (sprPruneDepths.isEmpty()) return;
+        int depth = sprPruneDepths.pop();
+        for (int i = 0; i < depth; i++) {
+            undoNniStep();
+        }
+    }
+
+    @Override
+    public double evaluateSprRegraft(Node pruneNode, Node targetNode) {
+        BitSet movingBits = getCluster(pruneNode);
+        return evaluateExactSprDistance(pruneNode, targetNode, movingBits);
+    }
+
+    @Override
+    public void applySprRegraftStep(Node pruneNode, Node currentNode) {
+        BitSet movingBits = getCluster(pruneNode);
+        // Tymczasowo dodajemy wędrujące bity do currentNode
+        applyNniStep(currentNode, null, movingBits);
+    }
+
+    @Override
+    public void undoSprRegraftStep() {
+        undoNniStep();
     }
 }

@@ -17,7 +17,7 @@ import treecmp.metrics.topological.RFMetric;
 public class UsprHeuristicRFMetric extends HeuristicBaseMetric {
 
     public UsprHeuristicRFMetric() {
-        super(true);
+        super(false);
     }
 
     @Override

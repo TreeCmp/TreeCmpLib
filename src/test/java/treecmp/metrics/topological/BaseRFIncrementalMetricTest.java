@@ -7,6 +7,8 @@ import static org.junit.jupiter.api.Assertions.*;
 import pal.tree.Node;
 import pal.tree.Tree;
 import pal.tree.TreeUtils;
+import treecmp.metrics.IncrementalMetric;
+import treecmp.metrics.topological.acc.BaseRFIncrementalMetric;
 import treecmp.util.TestTreeFactory;
 import treecmp.heuristics.moves.NniMove;
 
@@ -14,14 +16,14 @@ import treecmp.heuristics.moves.NniMove;
 public abstract class BaseRFIncrementalMetricTest {
 
     // 2. Zmieniamy typ na klasę bazową Twoich metryk
-    protected BaseRFIncrementalMetric metric;
+    protected IncrementalMetric metric;
     protected static final double DELTA = 0.000001;
 
     protected Tree t1;
     protected Tree t2;
 
     // 3. Wymuszamy na klasach potomnych dostarczenie konkretnej implementacji
-    protected abstract BaseRFIncrementalMetric createMetricInstance();
+    protected abstract IncrementalMetric createMetricInstance();
 
     @BeforeEach
     void setUp() {

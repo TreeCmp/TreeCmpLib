@@ -4,7 +4,6 @@ import pal.tree.Tree;
 import treecmp.heuristics.moves.TreeMove;
 import treecmp.metrics.BaseMetric;
 import treecmp.metrics.IncrementalMetric;
-import treecmp.metrics.topological.BaseRFIncrementalMetric;
 
 public abstract class IncrementalHeuristicBaseMetric extends BaseMetric {
 

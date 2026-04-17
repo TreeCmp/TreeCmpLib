@@ -1,6 +1,6 @@
 package treecmp.heuristics.spr.acc;
 
-import treecmp.metrics.topological.RFClusterIncrementalMetric;
+import treecmp.metrics.topological.acc.RFClusterIncrementalMetric;
 
 public class SprHeuristicRFCAcceleratedMetric extends SprIncrementalHeuristicMetric {
 

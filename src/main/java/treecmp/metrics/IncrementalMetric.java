@@ -1,54 +1,47 @@
 package treecmp.metrics;
 
 import treecmp.heuristics.moves.NniMove;
+import pal.tree.Node;
 import pal.tree.Tree;
 
-/**
- * Interface for metrics supporting incremental distance computation.
- * Allows for rapid result updates after performing an NNI move (or SPR decomposed into NNI),
- * without the need to recalculate the entire metric from scratch.
- */
 public interface IncrementalMetric extends Metric {
 
-    /**
-     * Initializes the calculation state for a pair of trees.
-     * This method performs a full calculation (computationally expensive) and prepares
-     * auxiliary structures (e.g., matching matrix) for subsequent fast updates.
-     *
-     * @param baseTree   The tree to be modified by moves (e.g., the neighborhood center).
-     * @param targetTree The reference tree (target).
-     */
     void initCalculationState(Tree baseTree, Tree targetTree);
 
-    /**
-     * Updates the metric state and returns the new distance after performing a virtual NNI move.
-     * This method is expected to run in O(n) time or similar complexity.
-     *
-     * @param move The NNI move (subtree swap) being simulated.
-     * @return The new distance value after the move is applied.
-     */
     double applyNni(NniMove move);
-
-    /**
-     * Reverts the last performed NNI move, restoring the metric state to the previous one.
-     * Used during neighborhood traversal (backtracking).
-     *
-     * @param move The same move that was previously applied.
-     */
     void undoNni(NniMove move);
 
-    /**
-     * Returns the current distance value stored in the metric state.
-     *
-     * @return The current distance.
-     */
     double getCurrentDistance();
+    void commit();
+
+    // ==========================================
+    // METODY DEDYKOWANE DLA HEURYSTYKI SPR
+    // ==========================================
 
     /**
-     * Zatwierdza aktualny stan metryki po serii wirtualnych ruchów.
-     * Metoda ta powinna np. wyczyścić stosy historii (undo) i zaktualizować
-     * główne struktury danych (np. mapy klastrów), aby obecny wirtualny stan
-     * stał się nowym stanem bazowym.
+     * Wirtualnie odcina poddrzewo. Metryka aktualizuje swój stan
+     * (np. czyszcząc ścieżki do korzenia z wędrujących elementów).
      */
-    void commit();
+    void applySprPrune(Node pruneNode);
+
+    /**
+     * Cofa wirtualne odcięcie poddrzewa, przywracając stan sprzed applySprPrune.
+     */
+    void undoSprPrune(Node pruneNode);
+
+    /**
+     * Zwraca dokładny dystans SPR dla wirtualnego wpięcia odciętego poddrzewa w nowy cel.
+     * Metryka ocenia wpięcie na podstawie swojego obecnego, zaktualizowanego stanu.
+     */
+    double evaluateSprRegraft(Node pruneNode, Node targetNode);
+
+    /**
+     * Tymczasowo aktualizuje stan węzła podczas schodzenia w dół drzewa w poszukiwaniu miejsca wpięcia.
+     */
+    void applySprRegraftStep(Node pruneNode, Node currentNode);
+
+    /**
+     * Cofa ostatni krok applySprRegraftStep.
+     */
+    void undoSprRegraftStep();
 }

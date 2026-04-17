@@ -7,7 +7,6 @@ import treecmp.heuristics.moves.TreeMove;
 import treecmp.heuristics.moves.SprMove;
 import treecmp.heuristics.spr.SprUtils;
 import treecmp.metrics.IncrementalMetric;
-import treecmp.metrics.topological.BaseRFIncrementalMetric; // W zależności od ostatecznego interfejsu Walkera
 
 public abstract class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetric {
 
@@ -25,7 +24,7 @@ public abstract class SprIncrementalHeuristicMetric extends IncrementalHeuristic
         // Walker robi całą czarną robotę. My tylko wyłapujemy wyniki w wizytatorze.
         // Uwaga: Rzutowanie na BaseRFIncrementalMetric zależy od tego, jak ostatecznie
         // zdefiniujesz parametry w SprNeighborhoodWalker.walk()
-        walker.walk(currentTree, (BaseRFIncrementalMetric) this.incMetric, (currentDist, movingNode, targetNode) -> {
+        walker.walk(currentTree, this.incMetric, (currentDist, movingNode, targetNode) -> {
             checkImprovement(currentDist, new SprMove(movingNode, targetNode));
         });
     }

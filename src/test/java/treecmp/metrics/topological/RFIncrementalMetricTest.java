@@ -1,5 +1,7 @@
 package treecmp.metrics.topological;
 
+import treecmp.metrics.topological.acc.BaseRFIncrementalMetric;
+
 public class RFIncrementalMetricTest extends BaseRFIncrementalMetricTest {
 
     @Override

@@ -1,4 +1,4 @@
-package treecmp.metrics.topological;
+package treecmp.metrics.topological.acc;
 
 import java.util.BitSet;
 

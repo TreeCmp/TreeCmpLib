@@ -9,6 +9,8 @@ import treecmp.heuristics.spr.BestTreeChooser;
 import treecmp.heuristics.spr.TreeValuePair;
 
 import java.io.IOException;
+import java.util.ArrayList;
+import java.util.List;
 
 public abstract class TreeNeighborhoodUtils {
 
@@ -634,6 +636,150 @@ public abstract class TreeNeighborhoodUtils {
         }
 
         return null;
+    }
+
+    // ==========================================
+    // METODY WSPÓŁDZIELONE DLA TBR i uTBR
+    // ==========================================
+
+    public boolean isValidTbrMove(Node pruneNode, Node rerootNode, Node targetNode) {
+        if (targetNode == pruneNode.getParent()) return false;
+        Node curr = targetNode;
+        while (curr != null) {
+            if (curr == pruneNode) return false;
+            curr = curr.getParent();
+        }
+        if (pruneNode == rerootNode) return isValidSprMove(pruneNode, targetNode);
+        if (targetNode.isRoot() && pruneNode.getParent().isRoot()) return false;
+        return true;
+    }
+
+    public boolean isValidUTbrMove(Node pruneNode, Node rerootNode, Node targetNode) {
+        if (targetNode == pruneNode.getParent()) return false;
+        Node curr = targetNode;
+        while (curr != null) {
+            if (curr == pruneNode) return false;
+            curr = curr.getParent();
+        }
+        if (pruneNode == rerootNode) return isValidUsprMove(pruneNode, targetNode);
+        if (targetNode.isRoot() && pruneNode.getParent().isRoot()) return false;
+        return true;
+    }
+
+    public Tree createTbrTree(Tree baseTree, Node s, Node r, Node t) {
+        Tree resultTree = baseTree.getCopy();
+        Node resultRoot = resultTree.getRoot();
+
+        Node source = findNodeEquivalent(resultTree, s);
+        Node reroot = findNodeEquivalent(resultTree, r);
+        Node target = findNodeEquivalent(resultTree, t);
+
+        if (source == null || reroot == null || target == null) return null;
+
+        Node sourceParent = source.getParent();
+        Node targetParent = target.getParent();
+        boolean isTargetRoot = target.isRoot();
+        boolean isSourceParentRoot = sourceParent.isRoot();
+
+        if (isTargetRoot && isSourceParentRoot) return null;
+
+        Node otherSourceChild = findOtherChild(source, sourceParent);
+        Node sourceParent2 = null;
+        int sourceParentPos = -1;
+
+        if (!isSourceParentRoot) {
+            sourceParent2 = sourceParent.getParent();
+            sourceParentPos = findChildPos(sourceParent, sourceParent2);
+            sourceParent2.setChild(sourceParentPos, otherSourceChild);
+        }
+
+        Node newSubtreeRoot = rerootDetachedSubtree(source, reroot);
+
+        Node newNode = new SimpleNode();
+        if (!isTargetRoot) {
+            int targetPos = findChildPos(target, targetParent);
+            targetParent.setChild(targetPos, newNode);
+        }
+
+        newNode.addChild(target);
+        newNode.addChild(newSubtreeRoot);
+
+        if (isTargetRoot) {
+            newNode.setParent(null);
+            resultTree.setRoot(newNode);
+        } else if (isSourceParentRoot) {
+            otherSourceChild.setParent(null);
+            resultTree.setRoot(otherSourceChild);
+        } else {
+            resultRoot.setParent(null);
+            resultTree.setRoot(resultRoot);
+        }
+
+        pal.tree.TreeUtils.computeParentPointers(resultTree.getRoot());
+        return resultTree;
+    }
+
+    protected Node rerootDetachedSubtree(Node oldRoot, Node newRootEdgeChild) {
+        if (oldRoot == newRootEdgeChild) return oldRoot;
+
+        Node newRoot = new SimpleNode();
+        newRoot.addChild(newRootEdgeChild);
+
+        Node curr = newRootEdgeChild.getParent();
+        Node childComingFrom = newRootEdgeChild;
+        Node parentForCurr = newRoot;
+
+        while (curr != null) {
+            Node nextParent = curr.getParent();
+            Node sibling = findOtherChild(childComingFrom, curr);
+
+            if (curr == oldRoot) {
+                if (sibling != null) {
+                    parentForCurr.addChild(sibling);
+                    sibling.setParent(parentForCurr);
+                }
+                break;
+            } else {
+                parentForCurr.addChild(curr);
+
+                // POPRAWKA: Ręczne usunięcie starych dzieci węzła
+                int childCount = curr.getChildCount();
+                for (int k = childCount - 1; k >= 0; k--) {
+                    curr.removeChild(k);
+                }
+
+                if (sibling != null) curr.addChild(sibling);
+            }
+
+            childComingFrom = curr;
+            parentForCurr = curr;
+            curr = nextParent;
+        }
+        return newRoot;
+    }
+
+    protected Node findNodeEquivalent(Tree newTree, Node oldNode) {
+        if (oldNode.isLeaf()) return newTree.getExternalNode(oldNode.getNumber());
+        return newTree.getInternalNode(oldNode.getNumber());
+    }
+
+    public List<Node> getAllNodes(Tree tree) {
+        List<Node> list = new ArrayList<>();
+        collectNodes(tree.getRoot(), list);
+        return list;
+    }
+
+    public void collectNodes(Node node, List<Node> list) {
+        list.add(node);
+        for (int i = 0; i < node.getChildCount(); i++) {
+            collectNodes(node.getChild(i), list);
+        }
+    }
+
+    public List<Node> getSubtreeNodes(Node root) {
+        List<Node> list = new ArrayList<>();
+        collectNodes(root, list);
+        return list;
     }
 
     abstract public Tree[] generateNeighbours(Tree tree);
