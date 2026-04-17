@@ -30,12 +30,22 @@ public class UTbrUtils extends TreeNeighborhoodUtils {
             for (Node rerootNode : rerootNodes) {
                 for (Node targetNode : allNodes) {
                     if (isValidUTbrMove(pruneNode, rerootNode, targetNode)) {
-                        Tree resultTree = createTbrTree(tree, pruneNode, rerootNode, targetNode);
+
+                        Tree resultTree;
+                        // ===============================================
+                        // DELEGACJA DO SPR: Gwarantuje nam w 100% spójne topologie!
+                        // ===============================================
+                        if (pruneNode == rerootNode) {
+                            resultTree = createUsprTree(tree, pruneNode, targetNode);
+                        } else {
+                            resultTree = createTbrTree(tree, pruneNode, rerootNode, targetNode);
+                        }
+
                         if (resultTree != null) {
                             try {
                                 utbrTreeSet.add(new treecmp.heuristics.TreeUnootedHolder(resultTree, idGroup));
                             } catch (Exception e) {
-                                // Ignorowanie błędów ekstremalnie rzadkich topologii nieukorzenionych
+                                // Ignorujemy skrajne degeneracje biblioteki PAL
                             }
                         }
                     }

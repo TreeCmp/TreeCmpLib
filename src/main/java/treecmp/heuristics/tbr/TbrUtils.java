@@ -30,7 +30,17 @@ public class TbrUtils extends TreeNeighborhoodUtils {
             for (Node rerootNode : rerootNodes) {
                 for (Node targetNode : allNodes) {
                     if (isValidTbrMove(pruneNode, rerootNode, targetNode)) {
-                        Tree resultTree = createTbrTree(tree, pruneNode, rerootNode, targetNode);
+
+                        Tree resultTree;
+                        // ===============================================
+                        // DELEGACJA DO SPR
+                        // ===============================================
+                        if (pruneNode == rerootNode) {
+                            resultTree = createSprTree(tree, pruneNode, targetNode);
+                        } else {
+                            resultTree = createTbrTree(tree, pruneNode, rerootNode, targetNode);
+                        }
+
                         if (resultTree != null) {
                             tbrTreeSet.add(new treecmp.heuristics.TreeRootedHolder(resultTree, idGroup));
                         }

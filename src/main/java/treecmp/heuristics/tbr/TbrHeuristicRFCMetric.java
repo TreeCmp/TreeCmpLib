@@ -2,6 +2,7 @@ package treecmp.heuristics.tbr;
 
 import treecmp.heuristics.TreeNeighborhoodUtils;
 import treecmp.heuristics.base.HeuristicBaseMetric;
+import treecmp.heuristics.tbr.TbrUtils;
 import treecmp.metrics.Metric;
 import treecmp.metrics.topological.RFClusterMetric;
 
@@ -11,6 +12,7 @@ import treecmp.metrics.topological.RFClusterMetric;
 public class TbrHeuristicRFCMetric extends HeuristicBaseMetric {
 
     public TbrHeuristicRFCMetric() {
+        // Drzewa ukorzenione -> true
         super(true);
     }
 
