@@ -22,7 +22,7 @@ class NniHeuristicRFMetricTest {
     @Test
     void testDistanceToSelfIsZero() {
         // Arrange
-        Tree t1 = TestTreeFactory.fourLeavesUnrootedBaseTree(); // ((1,2),3,4);
+        Tree t1 = TestTreeFactory.fourLeavesUnrootedStarTree(); // ((1,2),3,4);
 
         // Act
         double distance = metric.getDistance(t1, t1);
@@ -36,7 +36,7 @@ class NniHeuristicRFMetricTest {
     void testOneStepNeighborIsFoundImmediately() {
         // Arrange
         // Drzewo startowe: ((1,2),3,4);
-        Tree t1 = TestTreeFactory.fourLeavesUnrootedBaseTree();
+        Tree t1 = TestTreeFactory.fourLeavesUnrootedStarTree();
 
         // Drzewo oddalone o DOKŁADNIE 1 krok NNI: ((1,3),2,4);
         // (Z naszych poprzednich testów NniUtils wiemy, że to bezpośredni sąsiad)

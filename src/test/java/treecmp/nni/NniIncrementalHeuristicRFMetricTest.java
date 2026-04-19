@@ -25,7 +25,7 @@ class NniIncrementalHeuristicRFMetricTest {
     @Test
     void testDistanceToSelfIsZero() {
         // Arrange
-        Tree t1 = TestTreeFactory.fourLeavesUnrootedBaseTree();
+        Tree t1 = TestTreeFactory.fourLeavesUnrootedStarTree();
 
         // Act
         double distance = metric.getDistance(t1, t1);
@@ -42,7 +42,7 @@ class NniIncrementalHeuristicRFMetricTest {
     @Test
     void testOneStepNeighborIsFoundImmediately() {
         // Arrange
-        Tree t1 = TestTreeFactory.fourLeavesUnrootedBaseTree();
+        Tree t1 = TestTreeFactory.fourLeavesUnrootedStarTree();
         Tree t2 = TestTreeFactory.fourLeavesUnrootedTargetTree();
 
         // Act

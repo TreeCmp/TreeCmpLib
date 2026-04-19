@@ -13,6 +13,7 @@ import treecmp.heuristics.spr.SprUtils;
 import treecmp.heuristics.spr.USprUtils;
 import treecmp.metrics.Metric;
 import treecmp.metrics.topological.RFMetric;
+import treecmp.util.TestTreeFactory;
 import treecmp.util.TreeCreator;
 
 class SprUtilsTest {
@@ -31,7 +32,7 @@ class SprUtilsTest {
     @Test
     public void testGenerateRSprNeighboursShouldReturnExactly_12_Neighbours_testing_one_4_labels_tree() {
         SprUtils instance = new SprUtils();
-        Tree baseTree = TreeCreator.getTreeFromString("((1,2),(3,4));");
+        Tree baseTree = TestTreeFactory.fourLeavesBalancedTree1();
         Tree[] treeList;
         //int neighSizeExpResult = instance.calcSprNeighbours(baseTree);
         int neighSizeExpResult = 12;
@@ -43,7 +44,7 @@ class SprUtilsTest {
     @Test
     public void testGenerateRSprNeighboursShouldReturnExactly_26_Neighbours_testing_one_5_labels_tree() {
         SprUtils instance = new SprUtils();
-        Tree baseTree = TreeCreator.getTreeFromString("(((1,2),(3,4)),5);");
+        Tree baseTree = TestTreeFactory.fiveLeavesRootedBalancedTree();
         Tree[] treeList;
         //int neighSizeExpResult = instance.calcSprNeighbours(baseTree);
         int neighSizeExpResult = 26;
@@ -55,7 +56,7 @@ class SprUtilsTest {
     @Test
     public void testGenerateRSprNeighboursShouldReturnExactly_24_Neighbours_testing_one_5_labels_tree() {
         SprUtils instance = new SprUtils();
-        Tree baseTree = TreeCreator.getTreeFromString("((((1,2),3),4),5);");
+        Tree baseTree = TestTreeFactory.fiveLeavesRootedCaterpillarTree();
         Tree[] treeList;
         //int neighSizeExpResult = instance.calcSprNeighbours(baseTree);
         int neighSizeExpResult = 24;
@@ -83,7 +84,7 @@ class SprUtilsTest {
     @Test
     public void testGenerateUSprNeighboursShouldReturnExactly_12_Neighbours_testing_all_5_labels_trees() throws TreeCmpException {
         SprUtils instance = new SprUtils();
-        Tree baseTree = TreeCreator.getTreeFromString("(((0,1),2),3,4);");
+        Tree baseTree = TestTreeFactory.fiveLeavesUnrooted0Based();
         Tree[] treeList;
         //int neighSizeExpResult = instance.calcUsprNeighbours(baseTree);
 
@@ -125,7 +126,7 @@ class SprUtilsTest {
     public void testGenerateUSprNeighboursShouldReturnExactly_30_Neighbours_testing_all_6_labels_trees() throws TreeCmpException {
         SprUtils instance = new SprUtils();
         //Tree baseTree = TreeCreator.getTreeFromString("(((1,4),(2,5)),3,6);");
-        Tree baseTree = TreeCreator.getTreeFromString("(0,1,(2,(3,(4,5))));");
+        Tree baseTree = TestTreeFactory.sixLeavesUnrooted0BasedBaseTree();
         Tree[] treeList;
         //int neighSizeExpResult = instance.calcUsprNeighbours(baseTree);
         int neighSizeExpResult = 30;
@@ -137,7 +138,7 @@ class SprUtilsTest {
     @Test
     public void testGenerateUSprNeighboursShouldReturnExactly_56_Neighbours_testing_one_7_labels_tree() throws TreeCmpException {
         SprUtils instance = new SprUtils();
-        Tree baseTree = TreeCreator.getTreeFromString("((0,((1,2),(3,4))),5,6);");
+        Tree baseTree = TestTreeFactory.sevenLeavesUnrooted0Based();
         Tree[] treeList;
         //int neighSizeExpResult = instance.calcUsprNeighbours(baseTree);
         int neighSizeExpResult = 56;
@@ -164,7 +165,7 @@ class SprUtilsTest {
     public void testGenerateUSprNeighboursShouldReturnExactly_90_Neighbours_testing_one_8_labels_tree() throws TreeCmpException {
         SprUtils instance = new SprUtils();
         Tree baseTree = TreeCreator.getTreeFromString("(1,2,(3,(4,(5,(6,(7,8))))));");
-        //Tree baseTree = TreeCreator.getTreeFromString("((4,(((2,5),(3,6)),7)),1,8);");
+        //Tree baseTree = TestTreeFactory.eightLeavesUnrootedComplex1();
         Tree[] treeList;
         //int neighSizeExpResult = instance.calcUsprNeighbours(baseTree);
         int neighSizeExpResult = 90;
@@ -216,7 +217,7 @@ class SprUtilsTest {
     public void testGenerateUSprNeighboursShoudReturnUniqueTrees() throws TreeCmpException {
         SprUtils instance = new SprUtils();
         Metric rf = new RFMetric();
-        Tree baseTree = TreeCreator.getTreeFromString("(((1,2),(3,4)),5,6);");
+        Tree baseTree = TestTreeFactory.sixLeavesUnrootedBalancedTree();
         Tree[] treeList;
                 USprUtils usprUtils = new USprUtils();
         treeList = usprUtils.generateNeighbours(baseTree);
@@ -238,7 +239,7 @@ class SprUtilsTest {
     public void testGenerateUSprNeighboursFookingFor_1_Neightbour() throws TreeCmpException {
         SprUtils instance = new SprUtils();
         Metric rf = new RFMetric();
-        Tree baseTree = TreeCreator.getTreeFromString("(1,2,(3,(4,(5,6))));");
+        Tree baseTree = TestTreeFactory.sixLeavesUnrooted1BasedBaseTree();
         Tree neightbourTree = TreeCreator.getTreeFromString("(((1,2),5),6,(3,4));");
         Tree[] treeList;
                 USprUtils usprUtils = new USprUtils();
@@ -260,7 +261,7 @@ class SprUtilsTest {
     public void testGenerateUSprNeighboursFookingFor_30_Neightbours() throws TreeCmpException {
         SprUtils instance = new SprUtils();
         Metric rf = new RFMetric();
-        Tree baseTree = TreeCreator.getTreeFromString("(1,2,(3,(4,(5,6))));");
+        Tree baseTree = TestTreeFactory.sixLeavesUnrooted1BasedBaseTree();
         Tree neightbours[] = TreeCreator.getAll_30_NeightboursOfSome_6_Labels_Tree();
         Tree[] treeList;
                 USprUtils usprUtils = new USprUtils();
@@ -285,7 +286,7 @@ class SprUtilsTest {
      */
     @Test
     public void testCreateUsprTree_CreateByLeaf_0_toLeaf_1_exchange_on_8_labels_tree() {
-        Tree baseTree = TreeCreator.getTreeFromString("((4,(((2,5),(3,6)),7)),1,8);");
+        Tree baseTree = TestTreeFactory.eightLeavesUnrootedComplex1();
         Node s = baseTree.getExternalNode(0);
         Node t = baseTree.getExternalNode(1);
         Tree expTree = TreeCreator.getTreeFromString("(((((2,4),5),(3,6)),7),1,8);");
@@ -301,7 +302,7 @@ class SprUtilsTest {
 
     @Test
     public void testCreateUsprTree_CreateByLeaf_0_toLeaf_2_exchange_on_6_labels_tree() {
-        Tree baseTree = TreeCreator.getTreeFromString("(0,1,(2,(3,(4,5))));");
+        Tree baseTree = TestTreeFactory.sixLeavesUnrooted0BasedBaseTree();
         Node s = baseTree.getExternalNode(0);
         Node t = baseTree.getExternalNode(2);
         Tree expTree = TreeCreator.getTreeFromString("(2,0,(1,(3,(4,5))));");
@@ -317,7 +318,7 @@ class SprUtilsTest {
 
     @Test
     public void testCreateUsprTree_CreateByLeaf_0_toLeaf_3_exchange_on_6_labels_tree() {
-        Tree baseTree = TreeCreator.getTreeFromString("(0,1,(2,(3,(4,5))));");
+        Tree baseTree = TestTreeFactory.sixLeavesUnrooted0BasedBaseTree();
         Node s = baseTree.getExternalNode(0);
         Node t = baseTree.getExternalNode(3);
         Tree expTree = TreeCreator.getTreeFromString("(2,1,((0,3),(4,5)));");
@@ -333,7 +334,7 @@ class SprUtilsTest {
 
     @Test
     public void testCreateUsprTree_CreateByLeaf_3_toLeaf_0_exchange_on_6_labels_tree() {
-        Tree baseTree = TreeCreator.getTreeFromString("(1,2,(3,(4,(5,6))));");
+        Tree baseTree = TestTreeFactory.sixLeavesUnrooted1BasedBaseTree();
         Node s = baseTree.getExternalNode(3);
         Node t = baseTree.getExternalNode(0);
         Tree expTree = TreeCreator.getTreeFromString("(((2,(1,4)),3),5,6);");
@@ -350,7 +351,7 @@ class SprUtilsTest {
 
     @Test
     public void testCreateUsprTree_CreateByNonRootNonLeaf_0_toLeaf_0_exchange_on_6_labels_tree() {
-        Tree baseTree = TreeCreator.getTreeFromString("(0,1,(2,(3,(4,5))));");
+        Tree baseTree = TestTreeFactory.sixLeavesUnrooted0BasedBaseTree();
         Node s = baseTree.getInternalNode(0);
         Node t = baseTree.getExternalNode(0);
         Tree expTree = TreeCreator.getTreeFromString("(4,5,(0,(1,(2,3))));");
@@ -366,7 +367,7 @@ class SprUtilsTest {
 
     @Test
     public void testCreateUsprTree_CreateByNonRootNonLeaf_1_toLeaf_0_exchange_on_6_labels_tree() {
-        Tree baseTree = TreeCreator.getTreeFromString("(0,1,(2,(3,(4,5))));");
+        Tree baseTree = TestTreeFactory.sixLeavesUnrooted0BasedBaseTree();
         Node s = baseTree.getInternalNode(1);
         Node t = baseTree.getExternalNode(0);
         Tree expTree = TreeCreator.getTreeFromString("(4,5,(3,(0,(1,2))));");
@@ -382,7 +383,7 @@ class SprUtilsTest {
 
     @Test
     public void testCreateUsprTree_CreateByNonRootNonLeaf_2_toLeaf_4_exchange_on_6_labels_tree() {
-        Tree baseTree = TreeCreator.getTreeFromString("(0,1,(2,(3,(4,5))));");
+        Tree baseTree = TestTreeFactory.sixLeavesUnrooted0BasedBaseTree();
         Node s = baseTree.getInternalNode(2);
         Node t = baseTree.getExternalNode(4);
         Tree expTree = TreeCreator.getTreeFromString("(((0,1),4),(2,3),5);");
@@ -398,7 +399,7 @@ class SprUtilsTest {
 
     @Test
     public void testCreateUsprTree_CreateByNonRootNonLeaf_2_toLeaf_5_exchange_on_6_labels_tree() {
-        Tree baseTree = TreeCreator.getTreeFromString("(0,1,(2,(3,(4,5))));");
+        Tree baseTree = TestTreeFactory.sixLeavesUnrooted0BasedBaseTree();
         Node s = baseTree.getInternalNode(2);
         Node t = baseTree.getExternalNode(5);
         Tree expTree = TreeCreator.getTreeFromString("(((0,1),5),(2,3),4);");
@@ -414,7 +415,7 @@ class SprUtilsTest {
 
     @Test
     public void testCreateUsprTree_CreateBytoLeaf_4_NonRootNonLeaf_2_exchange_on_6_labels_tree() {
-        Tree baseTree = TreeCreator.getTreeFromString("(0,1,(2,(3,(4,5))));");
+        Tree baseTree = TestTreeFactory.sixLeavesUnrooted0BasedBaseTree();
         Node s = baseTree.getExternalNode(4);
         Node t = baseTree.getInternalNode(2);
         Tree expTree = TreeCreator.getTreeFromString("(((0,1),4),(5,3),2);");
@@ -430,7 +431,7 @@ class SprUtilsTest {
 
     @Test
     public void testCreateUsprTree_CreateByNonRootNonLeaf_0_toLeaf_1_exchange_on_6_labels_tree() {
-        Tree baseTree = TreeCreator.getTreeFromString("(0,1,(2,(3,(4,5))));");
+        Tree baseTree = TestTreeFactory.sixLeavesUnrooted0BasedBaseTree();
         Node s = baseTree.getInternalNode(0);
         Node t = baseTree.getExternalNode(1);
         Tree expTree = TreeCreator.getTreeFromString("(4,5,(1,(0,(3,2))));");
@@ -446,7 +447,7 @@ class SprUtilsTest {
 
     @Test
     public void testCreateUsprTree_CreateByNonRootNonLeaf_7_to_Leaf_3_exchange_on_12_labels_tree() {
-        Tree baseTree = TreeCreator.getTreeFromString("(0:0.0000000,(((2:0.0000000,3:0.0000000):0.0000000,((5:0.0000000,6:0.0000000):0.0000000,(1:0.0000000,((7:0.0000000,8:0.0000000):0.0000000,(9:0.0000000,10:0.0000000):0.0000000):0.0000000):0.0000000):0.0000000):0.0000000,4:0.0000000):0.0000000,11:0.0000000);");
+        Tree baseTree = TestTreeFactory.twelveLeavesUnrootedZeroLengths();
         Node s = baseTree.getInternalNode(7); //((2,3),((5,6),(1,((7,8),(9,10)))))
         Node t = baseTree.getExternalNode(3); //5.0
         Tree expTree = TreeCreator.getTreeFromString("(0,(((6,((1,((7,8),(9,10))),(2,3))),5),4),11);");
@@ -462,7 +463,7 @@ class SprUtilsTest {
 
     @Test
     public void testCreateUsprTree_CreateByLeaf_0_toNonRootNonLeaf_0_exchange_on_6_labels_tree() {
-        Tree baseTree = TreeCreator.getTreeFromString("(1,2,(3,(4,(5,6))));");
+        Tree baseTree = TestTreeFactory.sixLeavesUnrooted1BasedBaseTree();
         Node s = baseTree.getExternalNode(0);
         Node t = baseTree.getInternalNode(0);
         Tree expTree = TreeCreator.getTreeFromString("((1,((2,3),4)),5,6);");
@@ -478,7 +479,7 @@ class SprUtilsTest {
 
     @Test
     public void testCreateUsprTree_CreateByLeaf_1_toNonRootNonLeaf_0_exchange_on_6_labels_tree() {
-        Tree baseTree = TreeCreator.getTreeFromString("(0,1,(2,(3,(4,5))));");
+        Tree baseTree = TestTreeFactory.sixLeavesUnrooted0BasedBaseTree();
         Node s = baseTree.getExternalNode(1);
         Node t = baseTree.getInternalNode(0);
         Tree expTree = TreeCreator.getTreeFromString("(2,0,(3,(1,(4,5))));");
@@ -494,7 +495,7 @@ class SprUtilsTest {
 
     @Test
     public void testCreateUsprTree_CreateByLeaf_2_toNonRootNonLeaf_0_exchange_on_6_labels_tree() {
-        Tree baseTree = TreeCreator.getTreeFromString("(0,1,(2,(3,(4,5))));");
+        Tree baseTree = TestTreeFactory.sixLeavesUnrooted0BasedBaseTree();
         Node s = baseTree.getExternalNode(2);
         Node t = baseTree.getInternalNode(0);
         Tree expTree = TreeCreator.getTreeFromString("(0,1,(3,(2,(4,5))));");
@@ -510,7 +511,7 @@ class SprUtilsTest {
 
     @Test
     public void testCreateUsprTree_CreateByLeaf_0_toNonRootNonLeaf_1_exchange_on_6_labels_tree() {
-        Tree baseTree = TreeCreator.getTreeFromString("(0,1,(2,(3,(4,5))));");
+        Tree baseTree = TestTreeFactory.sixLeavesUnrooted0BasedBaseTree();
         Node s = baseTree.getExternalNode(0);
         Node t = baseTree.getInternalNode(1);
         Tree expTree = TreeCreator.getTreeFromString("(2,1,(0,(3,(4,5))));");
@@ -526,7 +527,7 @@ class SprUtilsTest {
 
     @Test
     public void testCreateUsprTree_CreateByLeaf_1_toNonRootNonLeaf_1_exchange_on_6_labels_tree() {
-        Tree baseTree = TreeCreator.getTreeFromString("(0,1,(2,(3,(4,5))));");
+        Tree baseTree = TestTreeFactory.sixLeavesUnrooted0BasedBaseTree();
         Node s = baseTree.getExternalNode(1);
         Node t = baseTree.getInternalNode(1);
         Tree expTree = TreeCreator.getTreeFromString("(2,0,(1,(3,(4,5))));");
@@ -542,7 +543,7 @@ class SprUtilsTest {
 
     @Test
     public void testCreateUsprTree_CreateByLeaf_4_toNonRootNonLeaf_1_exchange_on_6_labels_tree() {
-        Tree baseTree = TreeCreator.getTreeFromString("(0,1,(2,(3,(4,5))));");
+        Tree baseTree = TestTreeFactory.sixLeavesUnrooted0BasedBaseTree();
         Node s = baseTree.getExternalNode(4);
         Node t = baseTree.getInternalNode(1);
         Tree expTree = TreeCreator.getTreeFromString("(0,1,(2,(4,(3,5))));");
@@ -558,7 +559,7 @@ class SprUtilsTest {
 
     @Test
     public void testCreateUsprTree_CreateByLeaf_5_toNonRootNonLeaf_1_exchange_on_6_labels_tree() {
-        Tree baseTree = TreeCreator.getTreeFromString("(0,1,(2,(3,(4,5))));");
+        Tree baseTree = TestTreeFactory.sixLeavesUnrooted0BasedBaseTree();
         Node s = baseTree.getExternalNode(5);
         Node t = baseTree.getInternalNode(1);
         Tree expTree = TreeCreator.getTreeFromString("(0,1,(2,(5,(3,4))));");
@@ -574,7 +575,7 @@ class SprUtilsTest {
 
     @Test
     public void testCreateUsprTree_CreateByLeaf_3_toNonRootNonLeaf_2_exchange_on_6_labels_tree() {
-        Tree baseTree = TreeCreator.getTreeFromString("(0,1,(2,(3,(4,5))));");
+        Tree baseTree = TestTreeFactory.sixLeavesUnrooted0BasedBaseTree();
         Node s = baseTree.getExternalNode(3);
         Node t = baseTree.getInternalNode(2);
         Tree expTree = TreeCreator.getTreeFromString("(0,1,(3,(2,(4,5))));");
@@ -590,7 +591,7 @@ class SprUtilsTest {
 
     @Test
     public void testCreateUsprTree_CreateByLeaf_4_toNonRootNonLeaf_2_exchange_on_6_labels_tree() {
-        Tree baseTree = TreeCreator.getTreeFromString("(0,1,(2,(3,(4,5))));");
+        Tree baseTree = TestTreeFactory.sixLeavesUnrooted0BasedBaseTree();
         Node s = baseTree.getExternalNode(4);
         Node t = baseTree.getInternalNode(2);
         Tree expTree = TreeCreator.getTreeFromString("(0,1,(4,(2,(3,5))));");
@@ -606,7 +607,7 @@ class SprUtilsTest {
 
     @Test
     public void testCreateUsprTree_CreateByLeaf_5_toNonRootNonLeaf_2_exchange_on_6_labels_tree() {
-        Tree baseTree = TreeCreator.getTreeFromString("(0,1,(2,(3,(4,5))));");
+        Tree baseTree = TestTreeFactory.sixLeavesUnrooted0BasedBaseTree();
         Node s = baseTree.getExternalNode(5);
         Node t = baseTree.getInternalNode(2);
         Tree expTree = TreeCreator.getTreeFromString("(0,1,(5,(2,(3,4))));");
@@ -622,7 +623,7 @@ class SprUtilsTest {
 
     @Test
     public void testCreateUsprTree_CreateByNonRootNonLeaf_0_toNonRootNonLeaf_2_exchange_on_6_labels_tree() {
-        Tree baseTree = TreeCreator.getTreeFromString("(0,1,(2,(3,(4,5))));");
+        Tree baseTree = TestTreeFactory.sixLeavesUnrooted0BasedBaseTree();
         Node s = baseTree.getInternalNode(0);
         Node t = baseTree.getInternalNode(2);
         Tree expTree = TreeCreator.getTreeFromString("(0,1,((2,3),(4,5)));");
@@ -638,8 +639,8 @@ class SprUtilsTest {
 
     @Test
     public void testCreateUsprTree_LookingForSomeUnwantedTrees() throws TreeCmpException {
-        Tree baseTree = TreeCreator.getTreeFromString("(0,1,(2,(3,(4,5))));");
-        Tree unwantedTree = TreeCreator.getTreeFromString("(0,1,(2,(3,(4,5))));");
+        Tree baseTree = TestTreeFactory.sixLeavesUnrooted0BasedBaseTree();
+        Tree unwantedTree = TestTreeFactory.sixLeavesUnrooted0BasedBaseTree();
         Tree[] treeList;
                 USprUtils usprUtils = new USprUtils();
         treeList = usprUtils.generateNeighbours(baseTree);
@@ -660,7 +661,7 @@ class SprUtilsTest {
 
     @Test
     public void testCreateUsprTree_LookingForSomeWantedTrees() throws TreeCmpException {
-        Tree baseTree = TreeCreator.getTreeFromString("(1,2,(3,(4,(5,6))));");
+        Tree baseTree = TestTreeFactory.sixLeavesUnrooted1BasedBaseTree();
         Tree wantedTrees[] = TreeCreator.getAll_30_NeightboursOfSome_6_Labels_Tree();
         Tree[] treeList;
         USprUtils usprUtils = new USprUtils();

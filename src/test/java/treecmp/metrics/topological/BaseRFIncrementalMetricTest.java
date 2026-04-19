@@ -8,7 +8,6 @@ import pal.tree.Node;
 import pal.tree.Tree;
 import pal.tree.TreeUtils;
 import treecmp.metrics.IncrementalMetric;
-import treecmp.metrics.topological.acc.BaseRFIncrementalMetric;
 import treecmp.util.TestTreeFactory;
 import treecmp.heuristics.moves.NniMove;
 
@@ -30,7 +29,7 @@ public abstract class BaseRFIncrementalMetricTest {
         // Zamiast "new RFCluster...", wywołujemy metodę abstrakcyjną
         metric = createMetricInstance();
 
-        t1 = TestTreeFactory.fiveLeavesRootedBaseTree();
+        t1 = TestTreeFactory.fiveLeavesRootedCaterpillarTree();
         t2 = TestTreeFactory.fiveLeavesTargetTree();
     }
 

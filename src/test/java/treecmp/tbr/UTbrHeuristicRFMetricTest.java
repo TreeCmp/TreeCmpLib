@@ -10,6 +10,7 @@ import treecmp.heuristics.tbr.UTbrUtils;
 import treecmp.heuristics.tbr.UTbrHeuristicRFMetric;
 import treecmp.metrics.Metric;
 import treecmp.metrics.topological.RFMetric;
+import treecmp.util.TestTreeFactory;
 import treecmp.util.TreeCreator;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -65,10 +66,11 @@ class UTbrHeuristicRFMetricTest {
 
     @Test
     void testUnrootedTbrCanResolveComplexMoves() {
-        // Drzewo 1: ((1,2),(3,4)) ,5,6
-        Tree t1 = TreeCreator.getTreeFromString("(((1,2),(3,4)),5,6);");
-        // Drzewo 2: W uTBR potrafimy odciąć i odwrócić wnętrze!
-        Tree t2 = TreeCreator.getTreeFromString("(((1,(3,4)),2),5,6);");
+        // Drzewo 1: 6 liści, zrównoważone (((1,2),(3,4)),5,6)
+        Tree t1 = TestTreeFactory.sixLeavesUnrootedBalancedTree();
+
+        // Drzewo 2: W uTBR potrafimy odciąć i odwrócić wnętrze! (((1,(3,4)),2),5,6)
+        Tree t2 = TestTreeFactory.sixLeavesUnrootedTargetTree();
 
         UTbrHeuristicRFMetric utbr = new UTbrHeuristicRFMetric();
         double dist = utbr.getDistance(t1, t2);

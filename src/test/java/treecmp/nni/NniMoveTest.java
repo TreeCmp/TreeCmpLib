@@ -14,7 +14,7 @@ class NniMoveTest {
     @Test
     void testNniMoveStoresCorrectNodes() {
         // Arrange: Pobieramy drzewo i konkretne węzły
-        Tree tree = TestTreeFactory.fiveLeavesRootedBaseTree(); // ((((1,2),3),4),5)
+        Tree tree = TestTreeFactory.fiveLeavesRootedCaterpillarTree(); // ((((1,2),3),4),5)
         Node node2 = TreeUtils.getNodeByName(tree, "2");
         Node node3 = TreeUtils.getNodeByName(tree, "3");
 

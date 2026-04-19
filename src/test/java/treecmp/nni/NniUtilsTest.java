@@ -36,7 +36,7 @@ public class NniUtilsTest {
         @Test
         public void testGenerateNniNeighboursReturnsExactly2TreesFor4Leaves() {
             // Arrange
-            Tree baseTree = TestTreeFactory.fourLeavesUnrootedBaseTree(); // ((1,2),3,4);
+            Tree baseTree = TestTreeFactory.fourLeavesUnrootedStarTree(); // ((1,2),3,4);
 
             // Act
             Tree[] neighbours = nniUtils.generateNeighbours(baseTree);
@@ -49,7 +49,7 @@ public class NniUtilsTest {
         @Test
         public void testGenerateNniNeighboursContainsSpecificTopologies() {
             // Arrange
-            Tree baseTree = TestTreeFactory.fourLeavesUnrootedBaseTree();
+            Tree baseTree = TestTreeFactory.fourLeavesUnrootedStarTree();
 
             // Act
             Tree[] neighbours = nniUtils.generateNeighbours(baseTree);
@@ -71,14 +71,14 @@ public class NniUtilsTest {
         // --- TESTY DLA 5 LIŚCI ---
         @Test
         public void testGenerateNniNeighboursSizeFor5Leaves() {
-            Tree baseTree = TestTreeFactory.fiveLeavesUnrootedBaseTree(); // (((1,2),3),4,5)
+            Tree baseTree = TestTreeFactory.fiveLeavesUnrootedCaterpillarTree(); // (((1,2),3),4,5)
             Tree[] neighbours = nniUtils.generateNeighbours(baseTree);
             assertEquals(4, neighbours.length, "NNI dla 5 liści powinno mieć 2*(5-3) = 4 sąsiadów");
         }
 
         @Test
         public void testGenerateNniNeighboursTopologiesFor5Leaves() {
-            Tree baseTree = TestTreeFactory.fiveLeavesUnrootedBaseTree();
+            Tree baseTree = TestTreeFactory.fiveLeavesUnrootedCaterpillarTree();
             List<String> generated = getCleanedTopologies(nniUtils.generateNeighbours(baseTree));
 
             // Zaktualizowana lista na podstawie faktycznego wyjścia biblioteki PAL (rotacje węzłów)
@@ -98,14 +98,14 @@ public class NniUtilsTest {
         // --- TESTY DLA 6 LIŚCI ---
         @Test
         public void testGenerateNniNeighboursSizeFor6Leaves() {
-            Tree baseTree = TestTreeFactory.sixLeavesUnrootedBaseTree(); // ((((1,2),3),4),5,6)
+            Tree baseTree = TestTreeFactory.sixLeavesUnrootedCaterpillarTree(); // ((((1,2),3),4),5,6)
             Tree[] neighbours = nniUtils.generateNeighbours(baseTree);
             assertEquals(6, neighbours.length, "NNI dla 6 liści powinno mieć 2*(6-3) = 6 sąsiadów");
         }
 
         @Test
         public void testGenerateNniNeighboursTopologiesFor6Leaves() {
-            Tree baseTree = TestTreeFactory.sixLeavesUnrootedBaseTree();
+            Tree baseTree = TestTreeFactory.sixLeavesUnrootedCaterpillarTree();
             List<String> generated = getCleanedTopologies(nniUtils.generateNeighbours(baseTree));
 
             // Weryfikujemy przynajmniej kilka specyficznych ruchów (żeby test nie był gigantyczny)
@@ -142,14 +142,14 @@ public class NniUtilsTest {
         // --- TESTY DLA 5 LIŚCI ---
         @Test
         public void testGenerateRNniNeighboursSizeFor5Leaves() {
-            Tree baseTree = TestTreeFactory.fiveLeavesRootedBaseTree(); // ((((1,2),3),4),5)
+            Tree baseTree = TestTreeFactory.fiveLeavesRootedCaterpillarTree(); // ((((1,2),3),4),5)
             Tree[] neighbours = rnniUtils.generateNeighbours(baseTree);
             assertEquals(6, neighbours.length, "RNNI dla 5 liści powinno mieć 2*(5-2) = 6 sąsiadów");
         }
 
         @Test
         public void testGenerateRNniNeighboursTopologiesFor5Leaves() {
-            Tree baseTree = TestTreeFactory.fiveLeavesRootedBaseTree();
+            Tree baseTree = TestTreeFactory.fiveLeavesRootedCaterpillarTree();
             List<String> generated = getCleanedTopologies(rnniUtils.generateNeighbours(baseTree));
 
             // Zestaw wszystkich 6 oczekiwanych topologii po ruchach RNNI
@@ -168,14 +168,14 @@ public class NniUtilsTest {
         // --- TESTY DLA 6 LIŚCI ---
         @Test
         public void testGenerateRNniNeighboursSizeFor6Leaves() {
-            Tree baseTree = TestTreeFactory.sixLeavesRootedBaseTree(); // (((((1,2),3),4),5),6)
+            Tree baseTree = TestTreeFactory.sixLeavesRootedCaterpillarTree(); // (((((1,2),3),4),5),6)
             Tree[] neighbours = rnniUtils.generateNeighbours(baseTree);
             assertEquals(8, neighbours.length, "RNNI dla 6 liści powinno mieć 2*(6-2) = 8 sąsiadów");
         }
 
         @Test
         public void testGenerateRNniNeighboursTopologiesFor6Leaves() {
-            Tree baseTree = TestTreeFactory.sixLeavesRootedBaseTree();
+            Tree baseTree = TestTreeFactory.sixLeavesRootedCaterpillarTree();
             List<String> generated = getCleanedTopologies(rnniUtils.generateNeighbours(baseTree));
 
             assertEquals(8, generated.size(), "Lista topologii musi zawierać dokładnie 8 elementów");

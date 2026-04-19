@@ -11,7 +11,6 @@ import pal.tree.TreeTool;
 
 import java.util.HashMap;
 import java.util.Map;
-import java.util.Random;
 
 public class TestTreeFactory {
 
@@ -84,24 +83,50 @@ public class TestTreeFactory {
         return names;
     }
 
-    public static Tree fourLeavesUnrootedBaseTree() {
-        return parseNewick("((1,2),3,4);");
+    // ==========================================
+    // TESTOWE DRZEWA NIEUKORZENIONE (Unrooted)
+    // ==========================================
+    public static Tree fourLeavesUnrootedStarTree() { return parseNewick("((1,2),3,4);"); }
+    public static Tree fiveLeavesUnrootedCaterpillarTree() { return parseNewick("(((1,2),3),4,5);"); }
+    public static Tree sixLeavesUnrootedBalancedTree() { return parseNewick("(((1,2),(3,4)),5,6);"); }
+    public static Tree sixLeavesUnrootedCaterpillarTree() { return parseNewick("((((1,2),3),4),5,6);"); }
+    public static Tree sixLeavesUnrootedTargetTree() { return parseNewick("(((1,(3,4)),2),5,6);"); }
+    public static Tree eightLeavesUnrootedBalancedTree() { return parseNewick("((1,2),(3,4),((5,6),(7,8)));"); }
+    public static Tree eightLeavesUnrootedCaterpillarTree() { return parseNewick("((((((1,2),3),4),5),6),7,8);"); }
+    public static Tree tenLeavesUnrootedBalancedTree() { return parseNewick("(((1,2),(3,4)),(5,6),((7,8),9,10));"); }
+    public static Tree tenLeavesUnrootedCaterpillarTree() { return parseNewick("((((((((1,2),3),4),5),6),7),8),9,10);"); }
+    public static Tree fifteenLeavesUnrootedComplexTree() { return parseNewick("((((1,2),3),(4,5)),((6,7),(8,9)),(10,((11,12),(13,(14,15)))));"); }
+
+    // ==========================================
+    // TESTOWE DRZEWA UKORZENIONE (Rooted)
+    // ==========================================
+    public static Tree fourLeavesRootedCaterpillarTree() { return parseNewick("(((1,2),3),4);"); }
+    public static Tree fiveLeavesRootedBalancedTree() { return parseNewick("(((1,2),(3,4)),5);"); }
+    public static Tree fiveLeavesRootedCaterpillarTree() { return parseNewick("((((1,2),3),4),5);"); }
+    public static Tree fiveLeavesRootedTree1() {
+        return parseNewick("(((1,2),3),(4,5));");
     }
+    public static Tree sixLeavesRootedBalancedTree() { return parseNewick("(((1,2),(3,4)),(5,6));"); }
+    public static Tree sixLeavesRootedCaterpillarTree() { return parseNewick("(((((1,2),3),4),5),6);"); }
+    public static Tree sixLeavesRootedTargetTree1() {
+        return parseNewick("(((1,(2,(3,4))),5),6);");
+    }
+    public static Tree eightLeavesRootedBalancedTree() { return parseNewick("(((1,2),(3,4)),((5,6),(7,8)));"); }
+    public static Tree eightLeavesRootedCaterpillarTree() { return parseNewick("(((((((1,2),3),4),5),6),7),8);"); }
+    public static Tree tenLeavesRootedBalancedTree() { return parseNewick("((((1,2),(3,4)),(5,6)),(((7,8),9),10));"); }
+    public static Tree tenLeavesRootedCaterpillarTree() { return parseNewick("(((((((((1,2),3),4),5),6),7),8),9),10);"); }
+    public static Tree tenLeavesRootedTree1() {
+        return parseNewick("((((((1,2),3),4),5),6),(((7,8),9),10));");
+    }
+
+    public static Tree tenLeavesRootedTree2() {
+        return parseNewick("((((((1,3),2),4),5),6),(((7,8),9),10));");
+    }
+    public static Tree fifteenLeavesRootedComplexTree() { return parseNewick("(((((1,2),3),(4,5)),((6,7),(8,9))),((10,11),((12,13),(14,15))));"); }
 
     public static Tree fourLeavesUnrootedTargetTree() {
         // Drzewo oddalone o dokładnie 1 krok NNI od powyższego
         return parseNewick("((1,3),2,4);");
-    }
-
-    public static Tree fiveLeavesUnrootedBaseTree() {
-        return parseNewick("(((1,2),3),4,5);");
-    }
-    public static Tree sixLeavesUnrootedBaseTree() {
-        return parseNewick("((((1,2),3),4),5,6);");
-    }
-
-    public static Tree fiveLeavesRootedBaseTree() {
-        return parseNewick("((((1,2),3),4),5);");
     }
 
     public static Tree fiveLeavesTargetTree() {
@@ -159,11 +184,6 @@ public class TestTreeFactory {
         String newick = "((2:0,3:0):0,(1:0,4:0):0):0;";
         return parseNewick(newick);
     }
-
-    public static Tree sixLeavesRootedBaseTree() {
-        return parseNewick("(((((1,2),3),4),5),6);");
-    }
-
     public static Tree tenLeavesBinaryRootedTree1() {
         String newick = "(((2,5),(3,6)),(4,((1,(7,8)),(9,10))));";
         return parseNewick(newick);
@@ -224,5 +244,52 @@ public class TestTreeFactory {
         }
     }
 
+    // ==========================================
+    // DODATKOWE DRZEWA DLA TESTÓW PAR (Rooted)
+    // ==========================================
+    public static Tree fiveLeavesRootedTarget1() { return parseNewick("((((1,2),4),3),5);"); }
+    public static Tree fiveLeavesRootedTarget2() { return parseNewick("((((1,3),2),4),5);"); }
+    public static Tree fiveLeavesRootedTarget3() { return parseNewick("((1,4),((2,3),5));"); }
 
+    public static Tree sixLeavesRootedTree1() { return parseNewick("((((1,2),3),4),(5,6));"); }
+    public static Tree sixLeavesRootedTarget1() { return parseNewick("(((1,2),3),(4,(5,6)));"); }
+    public static Tree sixLeavesRootedTarget2() { return parseNewick("(((1,3),(2,4)),(5,6));"); }
+    public static Tree sixLeavesRootedTarget3() { return parseNewick("(((1,2),(5,6)),(3,4));"); }
+    public static Tree sixLeavesRootedTarget4() { return parseNewick("(((1,6),(2,4)),(3,5));"); }
+
+    public static Tree tenLeavesRootedTree3() { return parseNewick("(((1,2),(3,4)),((5,6),((7,8),(9,10))));"); }
+    public static Tree tenLeavesRootedTarget3() { return parseNewick("(((1,4),(2,3)),((5,6),((7,8),(9,10))));"); }
+
+    public static Tree twelveLeavesRootedTree1() { return parseNewick("(((((((1,2),3),4),5),6),7),((((8,9),10),11),12));"); }
+    public static Tree twelveLeavesRootedTarget1() { return parseNewick("(((((((1,3),2),4),5),6),7),((((8,9),10),11),12));"); }
+
+    public static Tree fifteenLeavesRootedTree1() { return parseNewick("((((1,2),(3,4)),((5,6),(7,8))),((((9,10),(11,12)),13),(14,15)));"); }
+    public static Tree fifteenLeavesRootedTarget1() { return parseNewick("((((1,4),(2,3)),((5,6),(7,8))),((((9,10),(11,12)),13),(14,15)));"); }
+
+    public static Tree twentyLeavesRootedTree1() { return parseNewick("(((((((((1,2),3),4),5),6),7),8),9),((((((((10,11),12),13),14),15),16),17),((18,19),20)));"); }
+    public static Tree twentyLeavesRootedTarget1() { return parseNewick("(((((((((1,3),2),4),5),6),7),8),9),((((((((10,11),12),13),14),15),16),17),((18,19),20)));"); }
+
+    public static Tree fiveLeavesUnrooted0Based() {
+        return parseNewick("(((0,1),2),3,4);");
+    }
+
+    public static Tree sixLeavesUnrooted0BasedBaseTree() {
+        return parseNewick("(0,1,(2,(3,(4,5))));");
+    }
+
+    public static Tree sixLeavesUnrooted1BasedBaseTree() {
+        return parseNewick("(1,2,(3,(4,(5,6))));");
+    }
+
+    public static Tree sevenLeavesUnrooted0Based() {
+        return parseNewick("((0,((1,2),(3,4))),5,6);");
+    }
+
+    public static Tree eightLeavesUnrootedComplex1() {
+        return parseNewick("((4,(((2,5),(3,6)),7)),1,8);");
+    }
+
+    public static Tree twelveLeavesUnrootedZeroLengths() {
+        return parseNewick("(0:0.0000000,(((2:0.0000000,3:0.0000000):0.0000000,((5:0.0000000,6:0.0000000):0.0000000,(1:0.0000000,((7:0.0000000,8:0.0000000):0.0000000,(9:0.0000000,10:0.0000000):0.0000000):0.0000000):0.0000000):0.0000000):0.0000000,4:0.0000000):0.0000000,11:0.0000000);");
+    }
 }

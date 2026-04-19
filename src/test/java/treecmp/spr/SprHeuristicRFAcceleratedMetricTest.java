@@ -38,10 +38,9 @@ class SprHeuristicRFAcceleratedMetricTest {
     // Ten test uruchomi się wielokrotnie dla każdej pary z metody dostarczającej dane
     @ParameterizedTest(name = "Test dla {2} liści")
     @MethodSource("provideTreePairsForTesting")
-    void testAcceleratedMetricMatchesNaiveMetric(String newick1, String newick2, String testName) {
+    void testAcceleratedMetricMatchesNaiveMetric(Tree tree1, Tree tree2, String testName) {
 
-        Tree tree1 = TreeCreator.getTreeFromString(newick1);
-        Tree tree2 = TreeCreator.getTreeFromString(newick2);
+        System.out.println("Test: " + testName);
 
         SprHeuristicRFCMetric notAcceleratedMetric = new SprHeuristicRFCMetric();
         SprHeuristicRFCAcceleratedMetric acceleratedMetric = new SprHeuristicRFCAcceleratedMetric();
@@ -80,48 +79,44 @@ class SprHeuristicRFAcceleratedMetricTest {
                 // --- ROZMIAR 5 ---
 
                 // Test 1: Dystans 1 - Prosta rotacja typu caterpillar
-                Arguments.of("((((1,2),3),4),5);", "((((1,2),4),3),5);", "5 liści: Proste przesunięcie liścia 3 (d=1)"),
+                Arguments.of(TestTreeFactory.fiveLeavesRootedCaterpillarTree(), TestTreeFactory.fiveLeavesRootedTarget1(), "5 liści: Proste przesunięcie liścia 3 (d=1)"),
 
                 // Test 2: Dystans 2 - Zmiana z caterpillar na zbalansowane
-                // Częsty błąd: Algorytmy mogą błędnie uznać to za 1 ruch
-                Arguments.of("((((1,2),3),4),5);", "(((1,2),3),(4,5));", "5 liści: Przesunięcie klastra (4,5) (d=1) - UWAGA: zależy od korzenia"),
+                Arguments.of(TestTreeFactory.fiveLeavesRootedCaterpillarTree(), TestTreeFactory.fiveLeavesRootedTree1(), "5 liści: Przesunięcie klastra (4,5) (d=1) - UWAGA: zależy od korzenia"),
 
                 // Test 3: Dystans 2 - Zamiana liści w głębokim klastrze
-                Arguments.of("((((1,2),3),4),5);", "((((1,3),2),4),5);", "5 liści: Zamiana 2 i 3 (d=1)"),
+                Arguments.of(TestTreeFactory.fiveLeavesRootedCaterpillarTree(), TestTreeFactory.fiveLeavesRootedTarget2(), "5 liści: Zamiana 2 i 3 (d=1)"),
 
                 // Test 4: Dystans 2 - Bardziej złożona reorganizacja
-                Arguments.of("((((1,2),3),4),5);", "((1,4),((2,3),5));", "5 liści: Silna reorganizacja (d=2)"),
+                Arguments.of(TestTreeFactory.fiveLeavesRootedCaterpillarTree(), TestTreeFactory.fiveLeavesRootedTarget3(), "5 liści: Silna reorganizacja (d=2)"),
 
 
                 // --- ROZMIAR 6 ---
 
                 // Test 5: Dystans 1 - Przesunięcie całego poddrzewa (cherry)
-                Arguments.of("((((1,2),3),4),(5,6));", "(((1,2),3),(4,(5,6)));", "6 liści: Przesunięcie wiśni (5,6) o jeden poziom (d=1)"),
+                Arguments.of(TestTreeFactory.sixLeavesRootedTree1(), TestTreeFactory.sixLeavesRootedTarget1(), "6 liści: Przesunięcie wiśni (5,6) o jeden poziom (d=1)"),
 
                 // Test 6: Dystans 2 - Klasyczna "pułapka kwartetu" (Rooted vs Unrooted)
-                // Jeśli algorytm zwróci 1, oznacza to, że traktuje drzewo jako nieukorzenione.
-                Arguments.of("(((1,2),(3,4)),(5,6));", "(((1,3),(2,4)),(5,6));", "6 liści: Pułapka kwartetu (rSPR=2, uSPR=1)"),
+                Arguments.of(TestTreeFactory.sixLeavesRootedBalancedTree(), TestTreeFactory.sixLeavesRootedTarget2(), "6 liści: Pułapka kwartetu (rSPR=2, uSPR=1)"),
 
                 // Test 7: Dystans 2 - Przesunięcie wewnętrzne
-                Arguments.of("((((1,2),3),4),(5,6));", "(((1,2),(5,6)),(3,4));", "6 liści: Zamiana miejscami poddrzew (d=2)"),
+                Arguments.of(TestTreeFactory.sixLeavesRootedTree1(), TestTreeFactory.sixLeavesRootedTarget3(), "6 liści: Zamiana miejscami poddrzew (d=2)"),
 
                 // Test 8: Dystans 3 - Maksymalne skomplikowanie dla 6 liści (Wersja Binarna)
-                Arguments.of("(((1,2),(3,4)),(5,6));", "(((1,6),(2,4)),(3,5));", "6 liści: Maksymalna odległość (d=3)"),
+                Arguments.of(TestTreeFactory.sixLeavesRootedBalancedTree(), TestTreeFactory.sixLeavesRootedTarget4(), "6 liści: Maksymalna odległość (d=3)"),
 
                 // Rozmiar 10
-                Arguments.of("((((((1,2),3),4),5),6),(((7,8),9),10));", "((((((1,3),2),4),5),6),(((7,8),9),10));", "Drzewa średnie (10 liści)"),
-                Arguments.of("(((1,2),(3,4)),((5,6),((7,8),(9,10))));", "(((1,4),(2,3)),((5,6),((7,8),(9,10))));", "Drzewa średnie wężowe (10 liści)"),
+                Arguments.of(TestTreeFactory.tenLeavesRootedTree1(), TestTreeFactory.tenLeavesRootedTree2(), "Drzewa średnie (10 liści)"),
+                Arguments.of(TestTreeFactory.tenLeavesRootedTree3(), TestTreeFactory.tenLeavesRootedTarget3(), "Drzewa średnie wężowe (10 liści)"),
 
                 // Rozmiar 12
-                Arguments.of("(((((((1,2),3),4),5),6),7),((((8,9),10),11),12));", "(((((((1,3),2),4),5),6),7),((((8,9),10),11),12));", "Drzewa duże (12 liści)"),
+                Arguments.of(TestTreeFactory.twelveLeavesRootedTree1(), TestTreeFactory.twelveLeavesRootedTarget1(), "Drzewa duże (12 liści)"),
 
                 // Rozmiar 15
-                Arguments.of("((((1,2),(3,4)),((5,6),(7,8))),((((9,10),(11,12)),13),(14,15)));", "((((1,4),(2,3)),((5,6),(7,8))),((((9,10),(11,12)),13),(14,15)));", "Drzewa duże (15 liści)"),
+                Arguments.of(TestTreeFactory.fifteenLeavesRootedTree1(), TestTreeFactory.fifteenLeavesRootedTarget1(), "Drzewa duże (15 liści)"),
 
                 // Rozmiar 20
-                Arguments.of("(((((((((1,2),3),4),5),6),7),8),9),((((((((10,11),12),13),14),15),16),17),((18,19),20)));",
-                        "(((((((((1,3),2),4),5),6),7),8),9),((((((((10,11),12),13),14),15),16),17),((18,19),20)));",
-                        "Drzewa bardzo duże (20 liści)")
+                Arguments.of(TestTreeFactory.twentyLeavesRootedTree1(), TestTreeFactory.twentyLeavesRootedTarget1(), "Drzewa bardzo duże (20 liści)")
         );
     }
 }
