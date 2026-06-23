@@ -3,17 +3,16 @@ package treecmp.heuristics;
 import pal.misc.IdGroup;
 import pal.tree.Tree;
 import treecmp.common.ClusterDist;
-import treecmp.metrics.topological.RFMetric;
 
 import java.util.BitSet;
 import java.util.HashSet;
 import java.util.Set;
 
-public class TreeUnootedHolder extends TreeHolder {
+public class TreeUnrootedHolder extends TreeHolder {
 
     private final Set<BitSet> splits;
 
-    public TreeUnootedHolder(Tree t, IdGroup idGroup) {
+    public TreeUnrootedHolder(Tree t, IdGroup idGroup) {
         this.idGroup = idGroup;
         this.tree = t;
 
@@ -44,7 +43,7 @@ public class TreeUnootedHolder extends TreeHolder {
             return false;
         }
 
-        TreeUnootedHolder that = (TreeUnootedHolder) obj;
+        TreeUnrootedHolder that = (TreeUnrootedHolder) obj;
 
         return this.splits.equals(that.splits);
     }

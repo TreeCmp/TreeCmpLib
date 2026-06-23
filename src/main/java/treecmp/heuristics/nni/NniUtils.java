@@ -5,22 +5,14 @@
 
 package treecmp.heuristics.nni;
 
-import java.io.IOException;
 import java.util.*;
 
-import pal.io.InputSource;
 import pal.misc.IdGroup;
-import pal.misc.Identifier;
 import pal.tree.*;
-import treecmp.common.ClusterDist;
-import treecmp.common.TreeCmpException;
 import treecmp.heuristics.TreeNeighborhoodUtils;
 import treecmp.heuristics.TreeRootedHolder;
-import treecmp.heuristics.TreeUnootedHolder;
+import treecmp.heuristics.TreeUnrootedHolder;
 import treecmp.heuristics.moves.NniMove;
-import treecmp.heuristics.spr.BestTreeChooser;
-import treecmp.heuristics.spr.TreeValuePair;
-import treecmp.metrics.topological.RFClusterMetric;
 
 /**
  *
@@ -204,8 +196,8 @@ public class NniUtils extends TreeNeighborhoodUtils {
                 Tree t2 = createNNITree(tree, node, parent, b, c);
 
                 if (unrooted) {
-                    if (t1 != null) nniTreeSet.add(new TreeUnootedHolder(t1, idGroup));
-                    if (t2 != null) nniTreeSet.add(new TreeUnootedHolder(t2, idGroup));
+                    if (t1 != null) nniTreeSet.add(new TreeUnrootedHolder(t1, idGroup));
+                    if (t2 != null) nniTreeSet.add(new TreeUnrootedHolder(t2, idGroup));
                 } else {
                     if (t1 != null) nniTreeSet.add(new TreeRootedHolder(t1, idGroup));
                     if (t2 != null) nniTreeSet.add(new TreeRootedHolder(t2, idGroup));

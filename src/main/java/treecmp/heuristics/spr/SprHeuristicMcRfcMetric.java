@@ -16,7 +16,7 @@ import treecmp.metrics.Metric;
 public class SprHeuristicMcRfcMetric extends SprHeuristicRfcBaseMetric {
 
     @Override
-    protected TreeNeighborhoodUtils getTreeNeighborhoodUtils(){ return new USprUtils(); }
+    protected TreeNeighborhoodUtils getTreeNeighborhoodUtils(){ return new UsprUtils(); }
 
     @Override
     protected Metric getMetric(){

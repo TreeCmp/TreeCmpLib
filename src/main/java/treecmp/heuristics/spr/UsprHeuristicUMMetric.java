@@ -21,7 +21,7 @@ public class UsprHeuristicUMMetric extends HeuristicBaseMetric {
     }
 
     @Override
-    protected TreeNeighborhoodUtils getTreeNeighborhoodUtils(){ return new USprUtils(); }
+    protected TreeNeighborhoodUtils getTreeNeighborhoodUtils(){ return new UsprUtils(); }
 
     @Override
     protected Metric getMetric(){

@@ -5,8 +5,8 @@ import pal.misc.IdGroup;
 import pal.tree.Tree;
 import pal.tree.TreeUtils;
 import treecmp.common.TreeCmpException;
-import treecmp.heuristics.TreeUnootedHolder;
-import treecmp.heuristics.spr.USprUtils;
+import treecmp.heuristics.TreeUnrootedHolder;
+import treecmp.heuristics.spr.UsprUtils;
 import treecmp.heuristics.tbr.UTbrUtils;
 import treecmp.heuristics.tbr.UTbrHeuristicRFMetric;
 import treecmp.util.TreeCreator;
@@ -39,7 +39,7 @@ class UTbrUtilsTest {
         // Otoczenie uTBR musi być zawsze nadzbiorem otoczenia uSPR
         Tree baseTree = TreeCreator.getTreeFromString("((((1,2),3),4),5,6);");
         UTbrUtils utbrUtils = new UTbrUtils();
-        USprUtils usprUtils = new USprUtils();
+        UsprUtils usprUtils = new UsprUtils();
 
         Tree[] tbrNeighbors = utbrUtils.generateNeighbours(baseTree);
         Tree[] sprNeighbors = usprUtils.generateNeighbours(baseTree);
@@ -55,12 +55,12 @@ class UTbrUtilsTest {
         Tree[] tbrNeighbors = utbrUtils.generateNeighbours(baseTree);
 
         IdGroup idGroup = TreeUtils.getLeafIdGroup(baseTree);
-        Set<TreeUnootedHolder> uniqueTrees = new HashSet<>();
+        Set<TreeUnrootedHolder> uniqueTrees = new HashSet<>();
 
         for (Tree t : tbrNeighbors) {
             try {
-                // TreeUnootedHolder zadba o to, by drzewa izomorficzne miały ten sam hash
-                uniqueTrees.add(new TreeUnootedHolder(t, idGroup));
+                // TreeUnrootedHolder zadba o to, by drzewa izomorficzne miały ten sam hash
+                uniqueTrees.add(new TreeUnrootedHolder(t, idGroup));
             } catch (Exception e) {
                 // Ignorowane puste błędy PAL-a przy krawędziowych topologiach
             }

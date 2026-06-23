@@ -16,7 +16,7 @@ import treecmp.metrics.topological.NodalL2SplittedMetric;
 public class SprHeuristicNsRfcMetric extends SprHeuristicRfcBaseMetric {
 
     @Override
-    protected TreeNeighborhoodUtils getTreeNeighborhoodUtils(){ return new USprUtils(); }
+    protected TreeNeighborhoodUtils getTreeNeighborhoodUtils(){ return new UsprUtils(); }
 
     @Override
     protected Metric getMetric(){

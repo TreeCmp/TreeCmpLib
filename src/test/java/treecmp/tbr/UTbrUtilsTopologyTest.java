@@ -4,8 +4,8 @@ import org.junit.jupiter.api.Test;
 import pal.misc.IdGroup;
 import pal.tree.Tree;
 import pal.tree.TreeUtils;
-import treecmp.heuristics.TreeUnootedHolder;
-import treecmp.heuristics.spr.USprUtils;
+import treecmp.heuristics.TreeUnrootedHolder;
+import treecmp.heuristics.spr.UsprUtils;
 import treecmp.heuristics.tbr.UTbrUtils;
 import treecmp.util.TestTreeFactory;
 
@@ -18,25 +18,25 @@ class UTbrUtilsTopologyTest {
 
     private void verifyUTbrNeighborhood(Tree baseTree, String testName, int expectedTbrSize) {
         UTbrUtils utbrUtils = new UTbrUtils();
-        USprUtils usprUtils = new USprUtils();
+        UsprUtils usprUtils = new UsprUtils();
 
         Tree[] tbrNeighbors = utbrUtils.generateNeighbours(baseTree);
         int sprSize = usprUtils.calcUsprNeighbours(baseTree);
 
         IdGroup idGroup = TreeUtils.getLeafIdGroup(baseTree);
-        Set<TreeUnootedHolder> uniqueTbrTrees = new HashSet<>();
+        Set<TreeUnrootedHolder> uniqueTbrTrees = new HashSet<>();
 
         for (Tree t : tbrNeighbors) {
             try {
-                uniqueTbrTrees.add(new TreeUnootedHolder(t, idGroup));
+                uniqueTbrTrees.add(new TreeUnrootedHolder(t, idGroup));
             } catch (Exception e) {
                 fail("Błąd biblioteki PAL podczas haszowania topologii w teście: " + testName);
             }
         }
 
-        TreeUnootedHolder baseTreeHolder = null;
+        TreeUnrootedHolder baseTreeHolder = null;
         try {
-            baseTreeHolder = new TreeUnootedHolder(baseTree, idGroup);
+            baseTreeHolder = new TreeUnrootedHolder(baseTree, idGroup);
         } catch (Exception e) {
             fail("Nie można utworzyć holdera dla drzewa bazowego.");
         }

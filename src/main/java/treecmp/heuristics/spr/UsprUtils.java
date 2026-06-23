@@ -5,14 +5,13 @@
 
 package treecmp.heuristics.spr;
 
-import pal.io.InputSource;
 import pal.misc.IdGroup;
 import pal.misc.Identifier;
 import pal.tree.*;
 import treecmp.common.TreeCmpException;
 import treecmp.heuristics.TreeNeighborhoodUtils;
+import treecmp.heuristics.TreeUnrootedHolder;
 
-import java.io.IOException;
 import java.util.HashSet;
 import java.util.Set;
 
@@ -20,7 +19,7 @@ import java.util.Set;
  *
  * @author Damian
  */
-public class USprUtils extends TreeNeighborhoodUtils {
+public class UsprUtils extends TreeNeighborhoodUtils {
 
     public Tree[] generateNeighbours(Tree tree) {
 
@@ -28,7 +27,7 @@ public class USprUtils extends TreeNeighborhoodUtils {
         int intNum = tree.getInternalNodeCount();
         IdGroup idGroup = TreeUtils.getLeafIdGroup(tree);
         int neighSize = calcUsprNeighbours(tree);
-        Set<treecmp.heuristics.TreeUnootedHolder> usprTreeSet = new HashSet<treecmp.heuristics.TreeUnootedHolder>((4*neighSize)/3);
+        Set<TreeUnrootedHolder> usprTreeSet = new HashSet<TreeUnrootedHolder>((4*neighSize)/3);
         // System.out.println("Neigh siez="+neighSize);
         Node s,t;
         Tree resultTree;
@@ -39,7 +38,7 @@ public class USprUtils extends TreeNeighborhoodUtils {
                 t = tree.getExternalNode(j);
                 if (isValidUsprMove(s,t)) {
                     resultTree = createUsprTree(tree,s,t);
-                    usprTreeSet.add(new treecmp.heuristics.TreeUnootedHolder(resultTree,idGroup));
+                    usprTreeSet.add(new TreeUnrootedHolder(resultTree,idGroup));
                     // System.out.println("neigbours/neighsize = "+usprTreeSet.size() +"/" +neighSize);
                 }
             }
@@ -54,7 +53,7 @@ public class USprUtils extends TreeNeighborhoodUtils {
                 if (isValidUsprMove(s,t)) {
                     resultTree = createUsprTree(tree,s,t);
                     try {
-                        usprTreeSet.add(new treecmp.heuristics.TreeUnootedHolder(resultTree, idGroup));
+                        usprTreeSet.add(new TreeUnrootedHolder(resultTree, idGroup));
                     }
                     catch (Exception e) {
                         int lalal = 9;
@@ -71,7 +70,7 @@ public class USprUtils extends TreeNeighborhoodUtils {
                 t = tree.getInternalNode(j);
                 if (isValidUsprMove(s,t)) {
                     resultTree = createUsprTree(tree,s,t);
-                    usprTreeSet.add(new treecmp.heuristics.TreeUnootedHolder(resultTree,idGroup));
+                    usprTreeSet.add(new TreeUnrootedHolder(resultTree,idGroup));
                     // System.out.println("neigbours/neighsize = "+usprTreeSet.size() +"/" +neighSize);
                 }
             }
@@ -86,7 +85,7 @@ public class USprUtils extends TreeNeighborhoodUtils {
                 t = tree.getInternalNode(j);
                 if (isValidUsprMove(s,t)) {
                     resultTree = createUsprTree(tree,s,t);
-                    usprTreeSet.add(new treecmp.heuristics.TreeUnootedHolder(resultTree,idGroup));
+                    usprTreeSet.add(new TreeUnrootedHolder(resultTree,idGroup));
                     // System.out.println("neigbours/neighsize = "+usprTreeSet.size() +"/" +neighSize);
                 }
             }
@@ -97,7 +96,7 @@ public class USprUtils extends TreeNeighborhoodUtils {
         }
         Tree [] usprTreeArray = new Tree[n];
         int i=0;
-        for (treecmp.heuristics.TreeUnootedHolder th: usprTreeSet ){
+        for (TreeUnrootedHolder th: usprTreeSet ){
             usprTreeArray[i] = th.tree;
             i++;
         }

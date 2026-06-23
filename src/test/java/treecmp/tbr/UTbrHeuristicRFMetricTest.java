@@ -5,7 +5,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import pal.tree.Tree;
 import treecmp.common.TreeCmpException;
-import treecmp.heuristics.spr.USprUtils;
+import treecmp.heuristics.spr.UsprUtils;
 import treecmp.heuristics.tbr.UTbrUtils;
 import treecmp.heuristics.tbr.UTbrHeuristicRFMetric;
 import treecmp.metrics.Metric;
@@ -42,7 +42,7 @@ class UTbrHeuristicRFMetricTest {
         Tree t1 = baseTree[0];
         Tree t2 = baseTree[1];
 
-        USprUtils usprUtils = new USprUtils();
+        UsprUtils usprUtils = new UsprUtils();
         UTbrUtils utbrUtils = new UTbrUtils();
 
         Tree[] sprNeighbors = usprUtils.generateNeighbours(t1);

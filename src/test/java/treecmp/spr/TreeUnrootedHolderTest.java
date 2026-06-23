@@ -9,14 +9,14 @@ import pal.tree.Tree;
 import pal.tree.TreeUtils;
 import treecmp.common.TreeCmpException;
 import treecmp.heuristics.spr.SprUtils;
-import treecmp.heuristics.TreeUnootedHolder;
+import treecmp.heuristics.TreeUnrootedHolder;
 import treecmp.metrics.Metric;
 import treecmp.metrics.topological.RFMetric;
 import treecmp.util.TreeCreator;
 
 import static org.junit.jupiter.api.Assertions.*;
 
-class TreeUnootedHolderTest {
+class TreeUnrootedHolderTest {
 
     @BeforeEach
     void setUp() {
@@ -33,8 +33,8 @@ class TreeUnootedHolderTest {
         Tree baseTree2 = TreeCreator.getTreeFromString("((1,2),(5,(3,4)),6);");
         IdGroup idGroup1 = TreeUtils.getLeafIdGroup(baseTree1);
         IdGroup idGroup2 = TreeUtils.getLeafIdGroup(baseTree1);
-        TreeUnootedHolder trHdr1 = new TreeUnootedHolder(baseTree1, idGroup1);
-        TreeUnootedHolder trHdr2 = new TreeUnootedHolder(baseTree2, idGroup2);
+        TreeUnrootedHolder trHdr1 = new TreeUnrootedHolder(baseTree1, idGroup1);
+        TreeUnrootedHolder trHdr2 = new TreeUnrootedHolder(baseTree2, idGroup2);
         assertEquals(trHdr1.hash, trHdr2.hash);
     }
 
@@ -56,7 +56,7 @@ class TreeUnootedHolderTest {
         Node s, t;
         Tree resultTree;
         //leaf to leaf
-        TreeUnootedHolder[] usprTreeArray = new TreeUnootedHolder[(4 * neighSize) / 3];
+        TreeUnrootedHolder[] usprTreeArray = new TreeUnrootedHolder[(4 * neighSize) / 3];
         int index = 0;
         for (int i = 0; i < extNum; i++) {
             s = baseTree.getExternalNode(i);
@@ -64,7 +64,7 @@ class TreeUnootedHolderTest {
                 t = baseTree.getExternalNode(j);
                 if (!instance.sameParent(s, t)) {
                     resultTree = instance.createUsprTree(baseTree, s, t);
-                    usprTreeArray[index] = new TreeUnootedHolder(resultTree, idGroup);
+                    usprTreeArray[index] = new TreeUnrootedHolder(resultTree, idGroup);
                     index++;
                 }
             }
@@ -109,7 +109,7 @@ class TreeUnootedHolderTest {
         Node s, t;
         Tree resultTree;
         //non-leaf and non-root to leaf
-        TreeUnootedHolder[] usprTreeArray = new TreeUnootedHolder[(4 * neighSize) / 3];
+        TreeUnrootedHolder[] usprTreeArray = new TreeUnrootedHolder[(4 * neighSize) / 3];
         int index = 0;
         for (int i=0; i<intNum; i++){
             s = baseTree.getInternalNode(i);
@@ -119,7 +119,7 @@ class TreeUnootedHolderTest {
                 t = baseTree.getExternalNode(j);
                 if (instance.isValidUsprMove(s,t)){
                     resultTree = instance.createUsprTree(baseTree,s,t);
-                    usprTreeArray[index] = new TreeUnootedHolder(resultTree, idGroup);
+                    usprTreeArray[index] = new TreeUnrootedHolder(resultTree, idGroup);
                     index++;
                 }
             }

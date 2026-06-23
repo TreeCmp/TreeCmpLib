@@ -5,6 +5,7 @@ import pal.tree.Node;
 import pal.tree.Tree;
 import pal.tree.TreeUtils;
 import treecmp.heuristics.TreeNeighborhoodUtils;
+import treecmp.heuristics.TreeUnrootedHolder;
 
 import java.util.HashSet;
 import java.util.List;
@@ -18,12 +19,12 @@ public class UTbrUtils extends TreeNeighborhoodUtils {
         int intNum = tree.getInternalNodeCount();
 
         int neighSize = calcUsprNeighbours(tree) * intNum;
-        Set<treecmp.heuristics.TreeUnootedHolder> utbrTreeSet = new HashSet<>((4 * neighSize) / 3);
+        Set<TreeUnrootedHolder> utbrTreeSet = new HashSet<>((4 * neighSize) / 3);
 
         // ZABEZPIECZENIE: Pobieramy hash drzewa bazowego
-        treecmp.heuristics.TreeUnootedHolder baseTreeHolder = null;
+        TreeUnrootedHolder baseTreeHolder = null;
         try {
-            baseTreeHolder = new treecmp.heuristics.TreeUnootedHolder(tree, idGroup);
+            baseTreeHolder = new TreeUnrootedHolder(tree, idGroup);
         } catch (Exception e) {
             // Ignorujemy w skrajnym przypadku
         }
@@ -48,7 +49,7 @@ public class UTbrUtils extends TreeNeighborhoodUtils {
 
                         if (resultTree != null) {
                             try {
-                                treecmp.heuristics.TreeUnootedHolder newHolder = new treecmp.heuristics.TreeUnootedHolder(resultTree, idGroup);
+                                TreeUnrootedHolder newHolder = new TreeUnrootedHolder(resultTree, idGroup);
                                 // FILTROWANIE: Ignorujemy drzewo bazowe
                                 if (baseTreeHolder == null || !newHolder.equals(baseTreeHolder)) {
                                     utbrTreeSet.add(newHolder);
@@ -64,7 +65,7 @@ public class UTbrUtils extends TreeNeighborhoodUtils {
 
         Tree[] utbrTreeArray = new Tree[utbrTreeSet.size()];
         int i = 0;
-        for (treecmp.heuristics.TreeUnootedHolder th : utbrTreeSet) {
+        for (TreeUnrootedHolder th : utbrTreeSet) {
             utbrTreeArray[i] = th.tree;
             i++;
         }
