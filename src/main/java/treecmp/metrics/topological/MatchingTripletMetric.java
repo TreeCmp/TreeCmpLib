@@ -1,19 +1,3 @@
-/** This file is part of TreeCmp, a tool for comparing phylogenetic trees
- using the Matching Split distance and other metrics.
- Copyright (C) 2014,  Damian Bogdanowicz
-
- This program is free software: you can redistribute it and/or modify
- it under the terms of the GNU General Public License as published by
- the Free Software Foundation, either version 3 of the License, or
- (at your option) any later version.
-
- This program is distributed in the hope that it will be useful,
- but WITHOUT ANY WARRANTY; without even the implied warranty of
- MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
- GNU General Public License for more details.
-
- You should have received a copy of the GNU General Public License
- along with this program.  If not, see <http://www.gnu.org/licenses/>. */
 package treecmp.metrics.topological;
 
 import pal.misc.IdGroup;
@@ -43,8 +27,6 @@ public class MatchingTripletMetric extends BaseMetric implements Metric {
         if (t1.getExternalNodeCount() <= 2){
             return 0.0;
         }
-
-        // ncv - nearest common vertex
 
         int intT1Num = t1.getInternalNodeCount();
         int intT2Num = t2.getInternalNodeCount();
@@ -78,42 +60,33 @@ public class MatchingTripletMetric extends BaseMetric implements Metric {
         int[] u = new int[size];
         int[] v = new int[size];
 
-        //int[][][] ncvMatrix1 = TreeCmpUtils.calcNcvMatrix(t1, null, lcaMatrix1);
-        //int[][][] ncvMatrix2 = TreeCmpUtils.calcNcvMatrix(t2, id1, lcaMatrix2);
+        // NAPRAWA BŁĘDU (BUG FIX): Oddzielne i poprawne aliasy dla OBU drzew!
+        int[] alias1 = TreeUtils.mapExternalIdentifiers(id1, t1);
+        int[] alias2 = TreeUtils.mapExternalIdentifiers(id1, t2);
 
-        int[] alias = TreeUtils.mapExternalIdentifiers(id1, t1);
-
-        //iterate by all possible triplets of leaves
-        //and fill assigncost with the value of intersection size
         int ind1, ind2;
         for (int i = 0; i < N; i++){
             for (int j = i+1; j < N; j++){
                 for (int k = j+1; k < N; k++) {
-                    ind1 = TreeCmpUtils.getNcv(t1, i, j, k, lcaMatrix1, alias);
-                    ind2 = TreeCmpUtils.getNcv(t2, i, j, k, lcaMatrix2, alias);
-                    //ind1 = ncvMatrix1[i][j][k];
-                    //ind2 = ncvMatrix2[i][j][k];
+                    ind1 = TreeCmpUtils.getNcv(t1, i, j, k, lcaMatrix1, alias1);
+                    ind2 = TreeCmpUtils.getNcv(t2, i, j, k, lcaMatrix2, alias2); // Użyto poprawnego alias2
                     assigncost[ind1][ind2]++;
                 }
             }
         }
 
-        //count LCA triplets for t1
         int[] t1IntTripletCount = new int[intT1Num];
         for (int i = 0; i < intT1Num; i++){
-            //Node n = t1.getInternalNode(alias1[i]);
             Node n = t1.getInternalNode(i);
             t1IntTripletCount[i] =  coutTriplets(n, cSize1, verticesOutsideClade1);
         }
-        //count LCA triplets for t2
+
         int[] t2IntTripletCount = new int[intT2Num];
         for (int i = 0; i < intT2Num; i++){
-            //Node n = t2.getInternalNode(alias2[i]);
             Node n = t2.getInternalNode(i);
             t2IntTripletCount[i] =  coutTriplets(n, cSize2, verticesOutsideClade2);
         }
 
-        //calc xor values of triplets sets and store it in assigncost matrix
         for (int i = 0; i < size; i++){
             for (int j = 0; j < size; j++) {
                 if (i < intT1Num && j < intT2Num) {
@@ -123,7 +96,6 @@ public class MatchingTripletMetric extends BaseMetric implements Metric {
                 } else if (i < intT1Num && j >= intT2Num) {
                     assigncost[i][j] = t1IntTripletCount[i];
                 } else {
-                    //normally should not happen
                     assigncost[i][j] = 0;
                 }
             }
@@ -144,7 +116,12 @@ public class MatchingTripletMetric extends BaseMetric implements Metric {
                 chSize[i] = clustSizeTab[chNode.getNumber()];
             }
         }
-        chSize[chCount] = verticesOutsideClade[n.getNumber()].size();
+
+        if (verticesOutsideClade != null && n.getNumber() < verticesOutsideClade.length && verticesOutsideClade[n.getNumber()] != null) {
+            chSize[chCount] = verticesOutsideClade[n.getNumber()].size();
+        } else {
+            chSize[chCount] = 0;
+        }
 
         int pairCount = 0;
         for (int i = 0; i < chSize.length; i++) {
@@ -156,26 +133,4 @@ public class MatchingTripletMetric extends BaseMetric implements Metric {
         }
         return pairCount;
     }
-
-    int coutChildrenPairs(Node n, short[] clustSizeTab) {
-        int chCount = n.getChildCount();
-        int[] cSize = new int[chCount];
-
-        for (int i = 0; i < chCount; i++) {
-            Node chNode = n.getChild(i);
-            if (chNode.isLeaf()) {
-                cSize[i] = 1;
-            } else {
-                cSize[i] = clustSizeTab[chNode.getNumber()];
-            }
-        }
-        int pairCount = 0;
-        for (int i = 0; i < cSize.length; i++) {
-            for (int j = i + 1; j < cSize.length; j++) {
-                pairCount += (cSize[i] * cSize[j]);
-            }
-        }
-        return pairCount;
-    }
 }
-
