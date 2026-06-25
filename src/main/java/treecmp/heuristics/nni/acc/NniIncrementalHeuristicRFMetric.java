@@ -6,7 +6,7 @@ import treecmp.heuristics.base.IncrementalHeuristicBaseMetric;
 import treecmp.heuristics.moves.NniMove;
 import treecmp.heuristics.moves.TreeMove;
 import treecmp.heuristics.nni.NniUtils;
-import treecmp.metrics.topological.RFIncrementalMetric;
+import treecmp.metrics.topological.acc.RFIncrementalMetric;
 
 public class NniIncrementalHeuristicRFMetric extends IncrementalHeuristicBaseMetric {
 

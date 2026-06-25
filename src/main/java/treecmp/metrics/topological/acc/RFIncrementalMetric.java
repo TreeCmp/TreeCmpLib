@@ -1,6 +1,4 @@
-package treecmp.metrics.topological;
-
-import treecmp.metrics.topological.acc.BaseRFIncrementalMetric;
+package treecmp.metrics.topological.acc;
 
 import java.util.BitSet;
 
