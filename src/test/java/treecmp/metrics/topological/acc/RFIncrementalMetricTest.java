@@ -1,6 +1,4 @@
-package treecmp.metrics.topological;
-
-import treecmp.metrics.topological.acc.BaseRFIncrementalMetric;
+package treecmp.metrics.topological.acc;
 
 public class RFIncrementalMetricTest extends BaseRFIncrementalMetricTest {
 

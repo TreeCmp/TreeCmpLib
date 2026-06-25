@@ -1,4 +1,4 @@
-package treecmp.metrics.topological;
+package treecmp.metrics.topological.acc;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
