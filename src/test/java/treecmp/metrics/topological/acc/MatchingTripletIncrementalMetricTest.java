@@ -3,6 +3,7 @@ package treecmp.metrics.topological.acc;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import pal.tree.Node;
+import pal.tree.SimpleTree;
 import pal.tree.Tree;
 import treecmp.common.TreeCmpUtils;
 import treecmp.heuristics.moves.NniMove;
@@ -40,15 +41,15 @@ public class MatchingTripletIncrementalMetricTest {
         sprUtils = new SprUtils();
 
         // Standardowe drzewa 10-liściowe z fabryki TreeCmp
-        baseTree = TestTreeFactory.tenLeavesRootedTree1();
-        targetTree = TestTreeFactory.tenLeavesRootedTree2();
+        baseTree = TestTreeFactory.tenLeavesUnrootedTree1();
+        targetTree = TestTreeFactory.tenLeavesUnrootedTree2();
     }
 
     @Test
     void testInitialDistanceConsistency() {
         // Arrange & Act
         incrementalMetric.initCalculationState(baseTree, targetTree);
-        double expectedClassicDist = classicMetric.getDistance(baseTree, targetTree);
+        double expectedClassicDist = classicMetric.getDistance(new SimpleTree(baseTree), targetTree);
 
         // Assert: Inicjalny stan musi idealnie pasować do metryki bazowej
         assertEquals(expectedClassicDist, incrementalMetric.getCurrentDistance(), DELTA,

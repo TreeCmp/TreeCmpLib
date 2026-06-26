@@ -122,6 +122,15 @@ public class TestTreeFactory {
     public static Tree tenLeavesRootedTree2() {
         return parseNewick("((((((1,3),2),4),5),6),(((7,8),9),10));");
     }
+    public static Tree tenLeavesUnrootedTree1() {
+        String newick = "(((1,2),3),((4,5),6),(7,(8,(9,10))));";
+        return parseNewick(newick);
+    }
+
+    public static Tree tenLeavesUnrootedTree2() {
+        String newick = "(((1,3),2),((4,6),5),(7,(9,(8,10))));";
+        return parseNewick(newick);
+    }
     public static Tree fifteenLeavesRootedComplexTree() { return parseNewick("(((((1,2),3),(4,5)),((6,7),(8,9))),((10,11),((12,13),(14,15))));"); }
 
     public static Tree fourLeavesUnrootedTargetTree() {

@@ -1,19 +1,19 @@
 /** This file is part of TreeCmp, a tool for comparing phylogenetic trees
-    using the Matching Split distance and other metrics.
-    Copyright (C) 2014,  Damian Bogdanowicz
+ using the Matching Split distance and other metrics.
+ Copyright (C) 2014,  Damian Bogdanowicz
 
-    This program is free software: you can redistribute it and/or modify
-    it under the terms of the GNU General Public License as published by
-    the Free Software Foundation, either version 3 of the License, or
-    (at your option) any later version.
+ This program is free software: you can redistribute it and/or modify
+ it under the terms of the GNU General Public License as published by
+ the Free Software Foundation, either version 3 of the License, or
+ (at your option) any later version.
 
-    This program is distributed in the hope that it will be useful,
-    but WITHOUT ANY WARRANTY; without even the implied warranty of
-    MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-    GNU General Public License for more details.
+ This program is distributed in the hope that it will be useful,
+ but WITHOUT ANY WARRANTY; without even the implied warranty of
+ MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+ GNU General Public License for more details.
 
-    You should have received a copy of the GNU General Public License
-    along with this program.  If not, see <http://www.gnu.org/licenses/>. */
+ You should have received a copy of the GNU General Public License
+ along with this program.  If not, see <http://www.gnu.org/licenses/>. */
 package treecmp.metrics.topological;
 
 import pal.misc.IdGroup;
@@ -36,11 +36,11 @@ public class MatchingPairMetric extends BaseMetric implements Metric {
 
     @Override
     public double getDistance(Tree t1, Tree t2, int... indexes) {
-        
+
         if (t1.getExternalNodeCount() <= 2){
             return 0.0;
         }
-        
+
         IdGroup id1 = TreeUtils.getLeafIdGroup(t1);
         int[][] lcaMatrix1 = TreeCmpUtils.calcLcaMatrix(t1, null);
         int[][] lcaMatrix2 = TreeCmpUtils.calcLcaMatrix(t2, id1);
@@ -69,14 +69,14 @@ public class MatchingPairMetric extends BaseMetric implements Metric {
         colsol = new int[size];
         int[] u = new int[size];
         int[] v = new int[size];
-        
+
         //iterate by all possible pairs of leaves
         //and fill assigncont with the value of intersection size
         for (int i = 0; i < N; i++){
             for (int j = i+1; j < N; j++){
-               int int1 = lcaMatrix1[i][j];
-               int int2 = lcaMatrix2[i][j];
-               assigncost[int1][int2]++;
+                int int1 = lcaMatrix1[i][j];
+                int int2 = lcaMatrix2[i][j];
+                assigncost[int1][int2]++;
             }
         }
         //count LCA pairs for t1
@@ -106,14 +106,14 @@ public class MatchingPairMetric extends BaseMetric implements Metric {
                 }else {
                     //normally should not happen
                     assigncost[i][j] = 0;
-                }    
+                }
             }
-        }   
+        }
         int metric = LapSolver.lap(size, assigncost, rowsol, colsol, u, v);
         return (0.5 * (double) metric);
     }
-    
-    
+
+
     int coutChildrenPairs(Node n, short[] clustSizeTab) {
         int chCount = n.getChildCount();
         int[] cSize = new int[chCount];
@@ -135,4 +135,3 @@ public class MatchingPairMetric extends BaseMetric implements Metric {
         return pairCount;
     }
 }
-
