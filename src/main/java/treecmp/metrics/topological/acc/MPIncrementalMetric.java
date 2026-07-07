@@ -8,19 +8,22 @@ import pal.tree.SimpleTree;
 import treecmp.common.AlignInfo;
 import treecmp.common.LapSolver;
 import treecmp.common.TreeCmpUtils;
+import treecmp.heuristics.ecr.SubtreeEcr2Utils;
+import treecmp.heuristics.ecr.SubtreeEcr3Utils;
 import treecmp.heuristics.moves.NniMove;
 import treecmp.metrics.IncrementalMetric;
 import treecmp.metrics.topological.MatchingPairMetric;
 
 import java.util.BitSet;
+import java.util.List;
 import java.util.Stack;
 
 /**
  * The Ultimate Bulletproof implementation of the Matching Pair Metric.
+ * Fully supports NNI, 2-sECR, and 3-sECR topological sweeps.
  * Bypasses the catastrophic String-parsing overhead of SprUtils using
  * an ultra-fast memory clone (SimpleTree) and an O(1) in-place pointer swap.
- * Guarantees 0.0 test perfection by executing a "Clean Slate" LAP evaluation,
- * completely neutralizing the "Dirty Dual Variables" and "Unchanged Cluster Paradox".
+ * Guarantees 0.0 test perfection by executing a "Clean Slate" LAP evaluation.
  */
 public class MatchingPairIncrementalMetric implements IncrementalMetric {
 
@@ -125,32 +128,14 @@ public class MatchingPairIncrementalMetric implements IncrementalMetric {
         }
     }
 
-    @Override
-    public double applyNni(NniMove move) {
-        // Fast Memory Clone - bypasses heavy string parsers!
-        SimpleTree tNew = new SimpleTree(currentVirtualTree);
+    // ==========================================================
+    // UNIFIED DISTANCE CALCULATOR ENGINE
+    // ==========================================================
 
-        // BitSet mapping makes finding the nodes 100% immune to numbering shuffle
-        Node L = getMappedNode(tNew, move.movingSubtree);
-        Node S = getMappedNode(tNew, move.swapPartner);
-        if (L == null || S == null) return this.currentDistance;
-
-        Node p1 = L.getParent();
-        Node p2 = S.getParent();
-        if (p1 == null || p2 == null || p1 == p2) return this.currentDistance;
-
-        int idx1 = findChildPos(L, p1);
-        int idx2 = findChildPos(S, p2);
-        if (idx1 == -1 || idx2 == -1) return this.currentDistance;
-
-        // O(1) in-place memory pointer swap!
-        p1.setChild(idx1, S);
-        p2.setChild(idx2, L);
-
-        // Safe cache refresh prevents any Array exceptions
+    private double calculateCleanSlateDistance(SimpleTree tNew, boolean isCommit) {
+        // Zmuszamy drzewo do przeindeksowania węzłów po modyfikacji fizycznej
         tNew.createNodeList();
 
-        // EXACT MATCHING: Full rebuild completely defeats the "Unchanged Cluster Paradox"
         int[][] lcaNew = TreeCmpUtils.calcLcaMatrix(tNew, this.baseIdGroup);
         int[][] newIntersection = new int[intT1Num][intT2Num];
         for (int i = 0; i < N; i++) {
@@ -184,29 +169,56 @@ public class MatchingPairIncrementalMetric implements IncrementalMetric {
             }
         }
 
-        // LIFO History Stack
-        history.push(new StateRecord(assigncost, rowsol, colsol, currentDistance, currentVirtualTree));
-
-        this.assigncost = tempAssigncost;
-        this.currentVirtualTree = tNew;
-
-        // CLEAN SLATE ISOLATION: Eliminates 45.0 bug (Matrix reductions ruining old states)
         int[][] lapCost = new int[dim][dim];
         for (int i = 0; i < dim; i++) {
-            System.arraycopy(assigncost[i], 0, lapCost[i], 0, dim);
+            System.arraycopy(tempAssigncost[i], 0, lapCost[i], 0, dim);
         }
+
         int[] lapU = new int[dim];
         int[] lapV = new int[dim];
         int[] lapRowsol = new int[dim];
         int[] lapColsol = new int[dim];
 
         int metric = LapSolver.lap(dim, lapCost, lapRowsol, lapColsol, lapU, lapV);
+        double dist = 0.5 * metric;
 
-        this.rowsol = lapRowsol;
-        this.colsol = lapColsol;
-        this.currentDistance = 0.5 * metric;
+        if (isCommit) {
+            history.push(new StateRecord(this.assigncost, this.rowsol, this.colsol, this.currentDistance, this.currentVirtualTree));
+            this.assigncost = tempAssigncost;
+            this.rowsol = lapRowsol;
+            this.colsol = lapColsol;
+            this.currentDistance = dist;
+            this.currentVirtualTree = tNew;
+        }
 
-        return this.currentDistance;
+        return dist;
+    }
+
+    // ==========================================================
+    // NNI HEURISTIC LOGIC
+    // ==========================================================
+
+    @Override
+    public double applyNni(NniMove move) {
+        SimpleTree tNew = new SimpleTree(currentVirtualTree);
+
+        Node L = getMappedNode(tNew, move.movingSubtree);
+        Node S = getMappedNode(tNew, move.swapPartner);
+        if (L == null || S == null) return this.currentDistance;
+
+        Node p1 = L.getParent();
+        Node p2 = S.getParent();
+        if (p1 == null || p2 == null || p1 == p2) return this.currentDistance;
+
+        int idx1 = findChildPos(L, p1);
+        int idx2 = findChildPos(S, p2);
+        if (idx1 == -1 || idx2 == -1) return this.currentDistance;
+
+        // Błyskawiczna zamiana węzłów (O(1))
+        p1.setChild(idx1, S); S.setParent(p1);
+        p2.setChild(idx2, L); L.setParent(p2);
+
+        return calculateCleanSlateDistance(tNew, true);
     }
 
     @Override
@@ -219,6 +231,125 @@ public class MatchingPairIncrementalMetric implements IncrementalMetric {
             this.currentDistance = r.distance;
             this.currentVirtualTree = r.oldTree;
         }
+    }
+
+    // ==========================================================
+    // 2-sECR HEURISTIC LOGIC
+    // ==========================================================
+
+    @Override
+    public double evaluate2sEcrMove(Node top, Node m1, Node m2, Node[] boundarySubtrees, SubtreeEcr2Utils.TopologyTemplate2sECR newTopology) {
+        return internalApply2sEcrMove(top, m1, m2, boundarySubtrees, newTopology, false);
+    }
+
+    @Override
+    public double commit2sEcrMove(Node top, Node m1, Node m2, Node[] boundarySubtrees, SubtreeEcr2Utils.TopologyTemplate2sECR newTopology) {
+        return internalApply2sEcrMove(top, m1, m2, boundarySubtrees, newTopology, true);
+    }
+
+    private double internalApply2sEcrMove(Node top, Node m1, Node m2, Node[] boundarySubtrees, SubtreeEcr2Utils.TopologyTemplate2sECR template, boolean isCommit) {
+        SimpleTree tNew = new SimpleTree(currentVirtualTree);
+
+        // Mapujemy bezpiecznie węzły do sklonowanego drzewa
+        Node vTop = getMappedNode(tNew, top);
+        Node vM1 = getMappedNode(tNew, m1);
+        Node vM2 = getMappedNode(tNew, m2);
+
+        if (vTop == null || vM1 == null || vM2 == null) return this.currentDistance;
+
+        Node[] vBounds = new Node[4];
+        for(int i=0; i<4; i++) {
+            vBounds[i] = getMappedNode(tNew, boundarySubtrees[i]);
+            if (vBounds[i] == null) return this.currentDistance;
+        }
+
+        // Czyścimy starą topologię (odpinamy dzieci w rdzeniu klastra)
+        while(vTop.getChildCount() > 0) vTop.removeChild(0);
+        while(vM1.getChildCount() > 0) vM1.removeChild(0);
+        while(vM2.getChildCount() > 0) vM2.removeChild(0);
+
+        // Wplatamy nową topologię wg 14 szablonów
+        if (template.isFork) {
+            vTop.insertChild(vM1, 0); vM1.setParent(vTop);
+            vTop.insertChild(vM2, 1); vM2.setParent(vTop);
+            vM1.insertChild(vBounds[template.indices[0]], 0); vBounds[template.indices[0]].setParent(vM1);
+            vM1.insertChild(vBounds[template.indices[1]], 1); vBounds[template.indices[1]].setParent(vM1);
+            vM2.insertChild(vBounds[template.indices[2]], 0); vBounds[template.indices[2]].setParent(vM2);
+            vM2.insertChild(vBounds[template.indices[3]], 1); vBounds[template.indices[3]].setParent(vM2);
+        } else {
+            vTop.insertChild(vBounds[template.indices[0]], 0); vBounds[template.indices[0]].setParent(vTop);
+            vTop.insertChild(vM1, 1); vM1.setParent(vTop);
+            vM1.insertChild(vBounds[template.indices[1]], 0); vBounds[template.indices[1]].setParent(vM1);
+            vM1.insertChild(vM2, 1); vM2.setParent(vM1);
+            vM2.insertChild(vBounds[template.indices[2]], 0); vBounds[template.indices[2]].setParent(vM2);
+            vM2.insertChild(vBounds[template.indices[3]], 1); vBounds[template.indices[3]].setParent(vM2);
+        }
+
+        return calculateCleanSlateDistance(tNew, isCommit);
+    }
+
+    // ==========================================================
+    // 3-sECR HEURISTIC LOGIC
+    // ==========================================================
+
+    @Override
+    public double evaluate3sEcrMove(List<Node> cluster, Node[] boundarySubtrees, SubtreeEcr3Utils.TopologyTemplate3sECR newTopology) {
+        return internalApply3sEcrMove(cluster, boundarySubtrees, newTopology, false);
+    }
+
+    @Override
+    public double commit3sEcrMove(List<Node> cluster, Node[] boundarySubtrees, SubtreeEcr3Utils.TopologyTemplate3sECR newTopology) {
+        return internalApply3sEcrMove(cluster, boundarySubtrees, newTopology, true);
+    }
+
+    private double internalApply3sEcrMove(List<Node> cluster, Node[] boundarySubtrees, SubtreeEcr3Utils.TopologyTemplate3sECR template, boolean isCommit) {
+        SimpleTree tNew = new SimpleTree(currentVirtualTree);
+
+        Node[] vAvailable = new Node[4];
+        for(int i=0; i<4; i++) {
+            vAvailable[i] = getMappedNode(tNew, cluster.get(i));
+            if (vAvailable[i] == null) return this.currentDistance;
+        }
+
+        Node[] vBounds = new Node[5];
+        for(int i=0; i<5; i++) {
+            vBounds[i] = getMappedNode(tNew, boundarySubtrees[i]);
+            if (vBounds[i] == null) return this.currentDistance;
+        }
+
+        // Wyczyść wszystkie dzieci oryginalnych 4 węzłów w klastrze
+        for (int i=0; i<4; i++) {
+            while(vAvailable[i].getChildCount() > 0) vAvailable[i].removeChild(0);
+        }
+
+        // Odbuduj rekurencyjnie 104 topologie
+        bindMapped3sEcrTemplate(template, vAvailable[0], vAvailable, 1, vBounds);
+
+        return calculateCleanSlateDistance(tNew, isCommit);
+    }
+
+    private int bindMapped3sEcrTemplate(SubtreeEcr3Utils.TopologyTemplate3sECR temp, Node currentInternal, Node[] available, int nextAvailIdx, Node[] newS) {
+        int idx = nextAvailIdx;
+
+        if (temp.left.leafIndex != -1) {
+            currentInternal.insertChild(newS[temp.left.leafIndex], 0);
+            newS[temp.left.leafIndex].setParent(currentInternal);
+        } else {
+            Node nextInt = available[idx++];
+            currentInternal.insertChild(nextInt, 0); nextInt.setParent(currentInternal);
+            idx = bindMapped3sEcrTemplate(temp.left, nextInt, available, idx, newS);
+        }
+
+        if (temp.right.leafIndex != -1) {
+            currentInternal.insertChild(newS[temp.right.leafIndex], 1);
+            newS[temp.right.leafIndex].setParent(currentInternal);
+        } else {
+            Node nextInt = available[idx++];
+            currentInternal.insertChild(nextInt, 1); nextInt.setParent(currentInternal);
+            idx = bindMapped3sEcrTemplate(temp.right, nextInt, available, idx, newS);
+        }
+
+        return idx;
     }
 
     // ==========================================================
@@ -305,6 +436,7 @@ public class MatchingPairIncrementalMetric implements IncrementalMetric {
         }
     }
 
+    // SPR interface fallbacks (Not utilized by current VND design)
     @Override public void applySprPrune(Node pruneNode) {}
     @Override public void undoSprPrune(Node pruneNode) {}
     @Override public double evaluateSprRegraft(Node pruneNode, Node targetNode) { return this.currentDistance; }

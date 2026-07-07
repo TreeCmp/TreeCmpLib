@@ -35,8 +35,8 @@ public class NniMetricBenchmark {
 
     @Setup(Level.Trial)
     public void setup() {
-        t1 = TestTreeFactory.randomUnrootedTree(treeSize, 12345L);
-        t2 = TestTreeFactory.randomUnrootedTree(treeSize, 67890L);
+        t1 = TestTreeFactory.randomUnrootedBinaryTree(treeSize, 12345L);
+        t2 = TestTreeFactory.randomUnrootedBinaryTree(treeSize, 67890L);
 
         classicMetric = new NniHeuristicRFMetric();
         incrementalMetric = new NniIncrementalHeuristicRFMetric();
@@ -81,7 +81,6 @@ public class NniMetricBenchmark {
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
                 .include(NniMetricBenchmark.class.getSimpleName())
-                // Dodajemy parametr do raportu, żeby widzieć rozmiar drzewa w tabeli
                 .build();
 
         new Runner(opt).run();

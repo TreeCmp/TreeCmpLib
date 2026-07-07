@@ -662,5 +662,59 @@ public abstract class TreeNeighborhoodUtils {
         return null;
     }
 
+    // =================================================================================
+    // WSPÓLNE METODY OPTYMALIZACYJNE (FAST CLONE & PATH NAVIGATION)
+    // =================================================================================
+
+    protected static pal.tree.SimpleTree fastTreeClone(pal.tree.Tree original) {
+        pal.tree.SimpleNode rootClone = fastNodeClone(original.getRoot());
+        pal.tree.SimpleTree newTree = new pal.tree.SimpleTree(rootClone);
+        newTree.createNodeList();
+        pal.tree.TreeUtils.computeParentPointers(newTree.getRoot());
+        return newTree;
+    }
+
+    protected static pal.tree.SimpleNode fastNodeClone(pal.tree.Node orig) {
+        pal.tree.SimpleNode copy = new pal.tree.SimpleNode();
+        if (orig.isLeaf()) {
+            copy.setIdentifier(orig.getIdentifier());
+        }
+        copy.setBranchLength(orig.getBranchLength());
+        copy.setNumber(orig.getNumber());
+
+        for (int i = 0; i < orig.getChildCount(); i++) {
+            pal.tree.Node childCopy = fastNodeClone(orig.getChild(i));
+            copy.insertChild(childCopy, i);
+            childCopy.setParent(copy);
+        }
+        return copy;
+    }
+
+    protected static boolean getPathToNode(pal.tree.Node current, pal.tree.Node target, java.util.List<Integer> path) {
+        if (current == target) return true;
+        for (int i = 0; i < current.getChildCount(); i++) {
+            path.add(i);
+            if (getPathToNode(current.getChild(i), target, path)) return true;
+            path.remove(path.size() - 1);
+        }
+        return false;
+    }
+
+    protected static pal.tree.Node findNodeByPath(pal.tree.Node root, java.util.List<Integer> path) {
+        pal.tree.Node cur = root;
+        for (Integer idx : path) {
+            if (idx < 0 || idx >= cur.getChildCount()) return null;
+            cur = cur.getChild(idx);
+        }
+        return cur;
+    }
+
+    protected static pal.tree.Tree refreshTreeInPlace(pal.tree.Tree tree) {
+        if (tree instanceof pal.tree.SimpleTree) {
+            ((pal.tree.SimpleTree) tree).createNodeList();
+        }
+        return tree;
+    }
+
     abstract public Tree[] generateNeighbours(Tree tree);
 }
