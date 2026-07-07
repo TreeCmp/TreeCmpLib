@@ -1,10 +1,10 @@
 package treecmp.heuristics.spr.acc;
 
-import treecmp.metrics.topological.acc.MatchingTripletIncrementalMetric;
+import treecmp.metrics.topological.acc.M3IncrementalMetric;
 
 public class UsprHeuristicM3AcceleratedMetric extends UsprIncrementalHeuristicMetric {
 
     public UsprHeuristicM3AcceleratedMetric() {
-        super(false, new MatchingTripletIncrementalMetric());
+        super(false, new M3IncrementalMetric());
     }
 }

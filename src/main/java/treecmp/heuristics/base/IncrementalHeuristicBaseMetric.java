@@ -27,7 +27,6 @@ public abstract class IncrementalHeuristicBaseMetric extends BaseMetric {
         }
     }
 
-    // Usunięto zbędny parametr incMetric (jest dostępny w klasach pochodnych jako this.incMetric)
     protected abstract void searchNeighborhood(Tree currentTree);
 
     protected abstract Tree applyPhysicalMove(Tree tree, TreeMove move);
