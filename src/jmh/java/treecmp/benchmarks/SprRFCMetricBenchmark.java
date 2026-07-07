@@ -15,9 +15,9 @@ import treecmp.util.TestTreeFactory;
 @Warmup(iterations = 1, time = 1)
 @Measurement(iterations = 2, time = 1)
 @Fork(1)
-public class SprMetricBenchmark {
+public class SprRFCMetricBenchmark {
 
-    @Param({"10", "20", "30", "40", "50", "60", "70", "80", "90", "100"})
+    @Param({"10", "20", "30", "50", "100", "200", "500"})
     public int treeSize;
 
     private Tree rootedT1;
@@ -77,7 +77,7 @@ public class SprMetricBenchmark {
 
     public static void main(String[] args) throws org.openjdk.jmh.runner.RunnerException {
         org.openjdk.jmh.runner.options.Options opt = new org.openjdk.jmh.runner.options.OptionsBuilder()
-                .include(SprMetricBenchmark.class.getSimpleName())
+                .include(SprRFCMetricBenchmark.class.getSimpleName())
                 .build();
 
         new org.openjdk.jmh.runner.Runner(opt).run();

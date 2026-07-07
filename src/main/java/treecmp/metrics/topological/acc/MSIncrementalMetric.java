@@ -8,6 +8,8 @@ import pal.tree.NodeUtils;
 import treecmp.common.AlignInfo;
 import treecmp.common.ClusterDist;
 import treecmp.common.LapSolver;
+import treecmp.heuristics.ecr.SubtreeEcr2Utils;
+import treecmp.heuristics.ecr.SubtreeEcr3Utils;
 import treecmp.heuristics.moves.NniMove;
 import treecmp.metrics.IncrementalMetric;
 import treecmp.metrics.topological.MatchingSplitMetric;
@@ -16,25 +18,20 @@ import java.util.Arrays;
 import java.util.BitSet;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.IdentityHashMap;
+import java.util.Map;
 import java.util.Stack;
 
-/**
- * Truly incremental implementation of the Matching Split (MS) metric for unrooted trees.
- * Uses the O(N^2) LAP warm-start optimization.
- * Bipartition distances are dynamically evaluated using min(xor, totalLeaves - xor)
- * to avoid expensive split normalization during NNI topological shifts.
- */
 public class MSIncrementalMetric implements IncrementalMetric {
 
     private Tree baseTree;
     private Tree targetTree;
     private double currentDistance;
     private int totalLeaves;
+    private IdGroup idGroup;
 
-    // Full baseline metric for interface delegation
     private final MatchingSplitMetric msMetricFull = new MatchingSplitMetric();
 
-    // LAP state variables representing the bipartite graph matching state
     private int dim;
     private short[][] assigncost;
     private int[] rowsol;
@@ -42,23 +39,20 @@ public class MSIncrementalMetric implements IncrementalMetric {
     private int[] u;
     private int[] v;
 
-    // Track mutable split states for incremental bit flips
-    private BitSet[] currentSplits;
-    private BitSet[] targetSplits;
+    private Map<Node, BitSet> currentSplits;
+    private Map<Node, BitSet> targetSplits;
+    private Map<Node, Integer> nodeToRow;
 
-    // Mapping arrays to safely translate between PAL node numbers and LAP matrix indices
     private Node[] rowToNode;
     private Node[] colToNode;
-    private int[] nodeNumToRow;
 
-    // History stacks for O(1) backtracking and rollback capabilities
     private final Stack<short[][]> costHistory = new Stack<>();
     private final Stack<int[]> rowsolHistory = new Stack<>();
     private final Stack<int[]> colsolHistory = new Stack<>();
     private final Stack<int[]> uHistory = new Stack<>();
     private final Stack<int[]> vHistory = new Stack<>();
     private final Stack<Double> distanceHistory = new Stack<>();
-    private final Stack<BitSet[]> splitHistory = new Stack<>();
+    private final Stack<Map<Node, BitSet>> splitHistory = new Stack<>();
 
     @Override
     public void initCalculationState(Tree baseTree, Tree targetTree) {
@@ -67,11 +61,9 @@ public class MSIncrementalMetric implements IncrementalMetric {
 
         if (baseTree != null && targetTree != null) {
             clearHistory();
-
             this.totalLeaves = baseTree.getExternalNodeCount();
+            this.idGroup = TreeUtils.getLeafIdGroup(baseTree);
 
-            // In unrooted trees, the root is typically a dummy trifurcation.
-            // We map internal edges (splits), so we exclude the root.
             int size1 = baseTree.getInternalNodeCount() - 1;
             int size2 = targetTree.getInternalNodeCount() - 1;
             this.dim = Math.max(size1, size2);
@@ -82,23 +74,22 @@ public class MSIncrementalMetric implements IncrementalMetric {
             this.u = new int[dim];
             this.v = new int[dim];
 
-            IdGroup idGroup = TreeUtils.getLeafIdGroup(baseTree);
+            this.currentSplits = new IdentityHashMap<>();
+            extractSplits(baseTree.getRoot(), idGroup, this.currentSplits);
 
-            // We use the same BitSet array generation, but treat them as raw splits
-            this.currentSplits = ClusterDist.RootedTree2BitSetArray(baseTree, idGroup);
-            this.targetSplits = ClusterDist.RootedTree2BitSetArray(targetTree, idGroup);
+            this.targetSplits = new IdentityHashMap<>();
+            extractSplits(targetTree.getRoot(), idGroup, this.targetSplits);
 
             this.rowToNode = new Node[dim];
             this.colToNode = new Node[dim];
-            this.nodeNumToRow = new int[currentSplits.length];
-            Arrays.fill(this.nodeNumToRow, -1);
+            this.nodeToRow = new IdentityHashMap<>();
 
             int r = 0;
             for (int i = 0; i < baseTree.getInternalNodeCount(); i++) {
                 Node n = baseTree.getInternalNode(i);
                 if (!n.isRoot() && r < dim) {
                     rowToNode[r] = n;
-                    nodeNumToRow[n.getNumber()] = r;
+                    nodeToRow.put(n, r);
                     r++;
                 }
             }
@@ -119,6 +110,20 @@ public class MSIncrementalMetric implements IncrementalMetric {
         }
     }
 
+    private BitSet extractSplits(Node node, IdGroup idGroup, Map<Node, BitSet> map) {
+        BitSet bs = new BitSet(totalLeaves);
+        if (node.isLeaf()) {
+            int id = idGroup.whichIdNumber(node.getIdentifier().getName());
+            if (id >= 0) bs.set(id);
+        } else {
+            for (int i = 0; i < node.getChildCount(); i++) {
+                bs.or(extractSplits(node.getChild(i), idGroup, map));
+            }
+            map.put(node, (BitSet) bs.clone());
+        }
+        return bs;
+    }
+
     private void buildInitialCostMatrix() {
         for (int i = 0; i < dim; i++) {
             for (int j = 0; j < dim; j++) {
@@ -126,11 +131,11 @@ public class MSIncrementalMetric implements IncrementalMetric {
                 Node n2 = colToNode[j];
 
                 if (n1 != null && n2 != null) {
-                    this.assigncost[i][j] = calculateSplitDistance(currentSplits[n1.getNumber()], targetSplits[n2.getNumber()]);
+                    this.assigncost[i][j] = calculateSplitDistance(currentSplits.get(n1), targetSplits.get(n2));
                 } else if (n1 != null) {
-                    this.assigncost[i][j] = calculateUnmatchedSplitCost(currentSplits[n1.getNumber()]);
+                    this.assigncost[i][j] = calculateUnmatchedSplitCost(currentSplits.get(n1));
                 } else if (n2 != null) {
-                    this.assigncost[i][j] = calculateUnmatchedSplitCost(targetSplits[n2.getNumber()]);
+                    this.assigncost[i][j] = calculateUnmatchedSplitCost(targetSplits.get(n2));
                 } else {
                     this.assigncost[i][j] = 0;
                 }
@@ -138,80 +143,76 @@ public class MSIncrementalMetric implements IncrementalMetric {
         }
     }
 
-    /**
-     * UNROOTED LOGIC: The distance between two splits A and B is min(|A XOR B|, TotalLeaves - |A XOR B|).
-     * This handles the topological equivalency of {1,2} vs {3,4,5} in a 5-leaf tree automatically.
-     */
     private short calculateSplitDistance(BitSet s1, BitSet s2) {
         int xorDist = ClusterDist.getDistXorBit(s1, s2);
         return (short) Math.min(xorDist, totalLeaves - xorDist);
     }
 
-    /**
-     * UNROOTED LOGIC: The cost of matching a split against an empty/dummy split.
-     * Evaluated as the size of the smaller side of the bipartition.
-     */
     private short calculateUnmatchedSplitCost(BitSet s) {
         int cardinality = s.cardinality();
         return (short) Math.min(cardinality, totalLeaves - cardinality);
     }
 
-    // ==========================================================
-    // NNI HEURISTIC LOGIC
-    // ==========================================================
+    private BitSet getSplit(Node n) {
+        if (n.isLeaf()) {
+            BitSet bs = new BitSet(totalLeaves);
+            bs.set(idGroup.whichIdNumber(n.getIdentifier().getName()));
+            return bs;
+        } else {
+            return currentSplits.get(n);
+        }
+    }
 
     @Override
     public double applyNni(NniMove move) {
         saveCurrentStateToHistory();
 
-        IdGroup idGroup = TreeUtils.getLeafIdGroup(baseTree);
-
         List<Integer> movingSubtreeLeaves = new ArrayList<>();
         collectLeafIds(move.movingSubtree, idGroup, movingSubtreeLeaves);
-
         List<Integer> swapPartnerLeaves = new ArrayList<>();
         collectLeafIds(move.swapPartner, idGroup, swapPartnerLeaves);
 
         Node lca = NodeUtils.getFirstCommonAncestor(move.movingSubtree, move.swapPartner);
         List<Integer> changedRowsList = new ArrayList<>();
 
-        // Branch 1: Modify ancestors of movingSubtree
         Node curr = move.movingSubtree.getParent();
         while (curr != null && curr != lca) {
             if (!curr.isRoot()) {
-                for (int id : movingSubtreeLeaves) currentSplits[curr.getNumber()].flip(id);
-                for (int id : swapPartnerLeaves) currentSplits[curr.getNumber()].flip(id);
+                BitSet bs = (BitSet) currentSplits.get(curr).clone();
+                for (int id : movingSubtreeLeaves) bs.flip(id);
+                for (int id : swapPartnerLeaves) bs.flip(id);
+                currentSplits.put(curr, bs);
 
-                int rowIndex = nodeNumToRow[curr.getNumber()];
-                if (rowIndex >= 0) changedRowsList.add(rowIndex);
+                Integer rowIndex = nodeToRow.get(curr);
+                if (rowIndex != null) changedRowsList.add(rowIndex);
             }
             curr = curr.getParent();
         }
 
-        // Branch 2: Modify ancestors of swapPartner
         curr = move.swapPartner.getParent();
         while (curr != null && curr != lca) {
             if (!curr.isRoot()) {
-                for (int id : movingSubtreeLeaves) currentSplits[curr.getNumber()].flip(id);
-                for (int id : swapPartnerLeaves) currentSplits[curr.getNumber()].flip(id);
+                BitSet bs = (BitSet) currentSplits.get(curr).clone();
+                for (int id : movingSubtreeLeaves) bs.flip(id);
+                for (int id : swapPartnerLeaves) bs.flip(id);
+                currentSplits.put(curr, bs);
 
-                int rowIndex = nodeNumToRow[curr.getNumber()];
-                if (rowIndex >= 0) changedRowsList.add(rowIndex);
+                Integer rowIndex = nodeToRow.get(curr);
+                if (rowIndex != null) changedRowsList.add(rowIndex);
             }
             curr = curr.getParent();
         }
 
         int[] changedRows = changedRowsList.stream().distinct().mapToInt(Integer::intValue).toArray();
 
-        // Incrementally recompute strictly the affected rows using Unrooted Logic
         for (int i : changedRows) {
             Node n1 = rowToNode[i];
             for (int j = 0; j < dim; j++) {
                 Node n2 = colToNode[j];
                 if (n2 != null) {
-                    this.assigncost[i][j] = calculateSplitDistance(currentSplits[n1.getNumber()], targetSplits[n2.getNumber()]);
+                    this.assigncost[i][j] = calculateSplitDistance(currentSplits.get(n1), targetSplits.get(n2));
                 } else {
-                    this.assigncost[i][j] = calculateUnmatchedSplitCost(currentSplits[n1.getNumber()]);
+                    this.assigncost[i][j] = calculateUnmatchedSplitCost(currentSplits.get(n1));
                 }
             }
         }
@@ -219,19 +220,10 @@ public class MSIncrementalMetric implements IncrementalMetric {
         if (changedRows.length > 0) {
             this.currentDistance = LapSolver.lapShortUpdate(dim, assigncost, rowsol, colsol, u, v, changedRows);
         }
-
         return this.currentDistance;
     }
 
-    @Override
-    public void undoNni(NniMove move) {
-        undoSprRegraftStep();
-    }
-
-    // ==========================================================
-    // SPR HEURISTIC LIFE-CYCLE LOGIC (Placeholders)
-    // ==========================================================
-
+    @Override public void undoNni(NniMove move) { undoSprRegraftStep(); }
     @Override public void applySprPrune(Node pruneNode) {}
     @Override public void undoSprPrune(Node pruneNode) {}
     @Override public double evaluateSprRegraft(Node pruneNode, Node targetNode) { return this.currentDistance; }
@@ -250,9 +242,156 @@ public class MSIncrementalMetric implements IncrementalMetric {
         }
     }
 
-    // ==========================================================
-    // STATE MANAGERS & HELPERS
-    // ==========================================================
+    @Override
+    public double evaluate2sEcrMove(Node top, Node m1, Node m2, Node[] boundarySubtrees, SubtreeEcr2Utils.TopologyTemplate2sECR newTopology) {
+        return internalApply2sEcrMove(top, m1, m2, boundarySubtrees, newTopology, false);
+    }
+
+    @Override
+    public double commit2sEcrMove(Node top, Node m1, Node m2, Node[] boundarySubtrees, SubtreeEcr2Utils.TopologyTemplate2sECR newTopology) {
+        return internalApply2sEcrMove(top, m1, m2, boundarySubtrees, newTopology, true);
+    }
+
+    private double internalApply2sEcrMove(Node top, Node m1, Node m2, Node[] boundarySubtrees, SubtreeEcr2Utils.TopologyTemplate2sECR newTopology, boolean isCommit) {
+        saveCurrentStateToHistory();
+
+        BitSet[] sBits = new BitSet[4];
+        for (int i = 0; i < 4; i++) sBits[i] = getSplit(boundarySubtrees[i]);
+
+        BitSet newM1 = new BitSet(totalLeaves);
+        BitSet newM2 = new BitSet(totalLeaves);
+        BitSet newTop = new BitSet(totalLeaves);
+
+        if (newTopology.isFork) {
+            newM1.or(sBits[newTopology.indices[0]]); newM1.or(sBits[newTopology.indices[1]]);
+            newM2.or(sBits[newTopology.indices[2]]); newM2.or(sBits[newTopology.indices[3]]);
+            newTop.or(newM1); newTop.or(newM2);
+        } else {
+            newM2.or(sBits[newTopology.indices[2]]); newM2.or(sBits[newTopology.indices[3]]);
+            newM1.or(sBits[newTopology.indices[1]]); newM1.or(newM2);
+            newTop.or(sBits[newTopology.indices[0]]); newTop.or(newM1);
+        }
+
+        currentSplits.put(top, newTop);
+        currentSplits.put(m1, newM1);
+        currentSplits.put(m2, newM2);
+
+        List<Integer> changedRowsList = new ArrayList<>();
+        Integer rTop = nodeToRow.get(top); if (rTop != null) changedRowsList.add(rTop);
+        Integer rM1 = nodeToRow.get(m1); if (rM1 != null) changedRowsList.add(rM1);
+        Integer rM2 = nodeToRow.get(m2); if (rM2 != null) changedRowsList.add(rM2);
+        int[] changedRows = changedRowsList.stream().mapToInt(Integer::intValue).toArray();
+
+        for (int i : changedRows) {
+            Node n1 = rowToNode[i];
+            for (int j = 0; j < dim; j++) {
+                Node n2 = colToNode[j];
+                if (n2 != null) {
+                    this.assigncost[i][j] = calculateSplitDistance(currentSplits.get(n1), targetSplits.get(n2));
+                } else {
+                    this.assigncost[i][j] = calculateUnmatchedSplitCost(currentSplits.get(n1));
+                }
+            }
+        }
+
+        if (changedRows.length > 0) {
+            this.currentDistance = LapSolver.lapShortUpdate(dim, assigncost, rowsol, colsol, u, v, changedRows);
+        }
+
+        double evaluatedDist = this.currentDistance;
+
+        if (!isCommit) {
+            undoSprRegraftStep();
+        }
+
+        return evaluatedDist;
+    }
+
+    @Override
+    public double evaluate3sEcrMove(List<Node> cluster, Node[] boundarySubtrees, SubtreeEcr3Utils.TopologyTemplate3sECR newTopology) {
+        return internalApply3sEcrMove(cluster, boundarySubtrees, newTopology, false);
+    }
+
+    @Override
+    public double commit3sEcrMove(List<Node> cluster, Node[] boundarySubtrees, SubtreeEcr3Utils.TopologyTemplate3sECR newTopology) {
+        return internalApply3sEcrMove(cluster, boundarySubtrees, newTopology, true);
+    }
+
+    private double internalApply3sEcrMove(List<Node> cluster, Node[] boundarySubtrees, SubtreeEcr3Utils.TopologyTemplate3sECR newTopology, boolean isCommit) {
+        saveCurrentStateToHistory();
+
+        BitSet[] sBits = new BitSet[5];
+        for (int i = 0; i < 5; i++) sBits[i] = getSplit(boundarySubtrees[i]);
+
+        List<Integer> changedRowsList = new ArrayList<>();
+
+        // PRAWIDŁOWE MAPOWANIE PRE-ORDER
+        SplitBuilder builder = new SplitBuilder();
+        BitSet topSplit = builder.build(newTopology, sBits, cluster, currentSplits, changedRowsList);
+
+        Node topNode = cluster.get(0);
+        currentSplits.put(topNode, topSplit);
+        Integer rTop = nodeToRow.get(topNode);
+        if (rTop != null) changedRowsList.add(rTop);
+
+        int[] changedRows = changedRowsList.stream().mapToInt(Integer::intValue).toArray();
+
+        for (int i : changedRows) {
+            Node n1 = rowToNode[i];
+            for (int j = 0; j < dim; j++) {
+                Node n2 = colToNode[j];
+                if (n2 != null) {
+                    this.assigncost[i][j] = calculateSplitDistance(currentSplits.get(n1), targetSplits.get(n2));
+                } else {
+                    this.assigncost[i][j] = calculateUnmatchedSplitCost(currentSplits.get(n1));
+                }
+            }
+        }
+
+        if (changedRows.length > 0) {
+            this.currentDistance = LapSolver.lapShortUpdate(dim, assigncost, rowsol, colsol, u, v, changedRows);
+        }
+
+        double evaluatedDist = this.currentDistance;
+
+        if (!isCommit) {
+            undoSprRegraftStep();
+        }
+
+        return evaluatedDist;
+    }
+
+    private class SplitBuilder {
+        int idx = 1;
+
+        BitSet build(SubtreeEcr3Utils.TopologyTemplate3sECR temp, BitSet[] sBits, List<Node> cluster, Map<Node, BitSet> targetMap, List<Integer> changedRows) {
+            BitSet bs = new BitSet(totalLeaves);
+
+            if (temp.left.leafIndex != -1) {
+                bs.or(sBits[temp.left.leafIndex]);
+            } else {
+                Node leftNode = cluster.get(idx++);
+                BitSet leftBs = build(temp.left, sBits, cluster, targetMap, changedRows);
+                targetMap.put(leftNode, leftBs);
+                Integer rIndex = nodeToRow.get(leftNode);
+                if (rIndex != null) changedRows.add(rIndex);
+                bs.or(leftBs);
+            }
+
+            if (temp.right.leafIndex != -1) {
+                bs.or(sBits[temp.right.leafIndex]);
+            } else {
+                Node rightNode = cluster.get(idx++);
+                BitSet rightBs = build(temp.right, sBits, cluster, targetMap, changedRows);
+                targetMap.put(rightNode, rightBs);
+                Integer rIndex = nodeToRow.get(rightNode);
+                if (rIndex != null) changedRows.add(rIndex);
+                bs.or(rightBs);
+            }
+
+            return bs;
+        }
+    }
 
     private void saveCurrentStateToHistory() {
         short[][] costCopy = new short[dim][dim];
@@ -267,11 +406,7 @@ public class MSIncrementalMetric implements IncrementalMetric {
         vHistory.push(this.v.clone());
         distanceHistory.push(this.currentDistance);
 
-        BitSet[] splitCopy = new BitSet[currentSplits.length];
-        for (int i = 0; i < currentSplits.length; i++) {
-            if (currentSplits[i] != null) splitCopy[i] = (BitSet) currentSplits[i].clone();
-        }
-        splitHistory.push(splitCopy);
+        splitHistory.push(new IdentityHashMap<>(currentSplits));
     }
 
     private void clearHistory() {
@@ -304,10 +439,7 @@ public class MSIncrementalMetric implements IncrementalMetric {
     @Override public String getDescription() { return msMetricFull.getDescription(); }
     @Override public void setDescription(String d) { msMetricFull.setDescription(d); }
     @Override public void initData() { msMetricFull.initData(); }
-
-    // UNROOTED: This is the unrooted variant
     @Override public boolean isRooted() { return false; }
-
     @Override public boolean isWeighted() { return false; }
     @Override public boolean isDiffLeafSets() { return msMetricFull.isDiffLeafSets(); }
     @Override public AlignInfo getAlignment() { return msMetricFull.getAlignment(); }

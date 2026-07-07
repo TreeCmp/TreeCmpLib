@@ -5,9 +5,14 @@ import org.junit.jupiter.api.Test;
 import pal.tree.Node;
 import pal.tree.Tree;
 import pal.tree.TreeUtils;
+import treecmp.heuristics.ecr.SubtreeEcr2Utils;
+import treecmp.heuristics.ecr.SubtreeEcr3Utils;
 import treecmp.heuristics.moves.NniMove;
 import treecmp.metrics.topological.acc.MSIncrementalMetric;
 import treecmp.util.TestTreeFactory;
+
+import java.util.ArrayList;
+import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -15,7 +20,7 @@ import static org.junit.jupiter.api.Assertions.*;
  * Unit tests verifying the mathematical consistency of the MSIncrementalMetric (Matching Split).
  * It ensures that the optimized warm-start incremental algorithm produces exactly
  * the same split-based distance values as the full baseline MatchingSplitMetric across
- * various complex NNI move trajectories and unrooted rollbacks.
+ * various complex NNI, 2-sECR, and 3-sECR trajectories and rollbacks.
  */
 public class MSIncrementalMetricTest {
 
@@ -29,57 +34,43 @@ public class MSIncrementalMetricTest {
 
     @BeforeEach
     void setUp() {
-        // Initialize both the incremental MS metric and the full classic baseline MS metric
         incrementalMetric = new MSIncrementalMetric();
         classicMetric = new MatchingSplitMetric();
 
-        // Use the 10-leaf trees from the factory.
-        // Although they are technically rooted in PAL, the MS metric evaluates them
-        // safely as unrooted splits by ignoring the root node.
+        // Używamy drzew 10-liściowych. MS traktuje je jako nieukorzenione (Unrooted).
         baseTree = TestTreeFactory.tenLeavesRootedTree1();
         targetTree = TestTreeFactory.tenLeavesRootedTree2();
     }
 
     @Test
     void testInitialDistanceConsistency() throws Exception {
-        // Arrange & Act
         incrementalMetric.initCalculationState(baseTree, targetTree);
         double expectedClassicDist = classicMetric.getDistance(baseTree, targetTree);
 
-        // Assert: The initial incremental state (bipartition matching) must perfectly match the classic calculation
         assertEquals(expectedClassicDist, incrementalMetric.getCurrentDistance(), DELTA,
                 "Initial MS distance must be perfectly identical between incremental and classic metrics!");
     }
 
     @Test
     void testSingleNniMoveAndUndoConsistency() {
-        // Arrange
         incrementalMetric.initCalculationState(baseTree, targetTree);
         double initialDist = incrementalMetric.getCurrentDistance();
 
-        // In tenLeavesRootedTree1 and tenLeavesRootedTree2, leaves 2 and 3 are swapped.
         Node node2 = TreeUtils.getNodeByName(baseTree, "2");
         Node node3 = TreeUtils.getNodeByName(baseTree, "3");
         NniMove move = new NniMove(node2, node3);
 
-        // Act: Apply the local NNI update incrementally for splits
         double distAfterMove = incrementalMetric.applyNni(move);
-
-        // Assert: Moving the tree to match the target layout should decrease the distance to 0.0
         assertEquals(0.0, distAfterMove, DELTA,
                 "The target-matching NNI move should reduce the incremental MS distance to 0.0!");
 
-        // Act: Undo the step to trigger history stack recovery
         incrementalMetric.undoNni(move);
-
-        // Assert: The distance must accurately revert to its baseline value
         assertEquals(initialDist, incrementalMetric.getCurrentDistance(), DELTA,
                 "The rollback operation (undo) failed to restore the exact original MS distance!");
     }
 
     @Test
     void testMultipleSequentialNniMovesMaintainStateConsistency() {
-        // Arrange
         incrementalMetric.initCalculationState(baseTree, targetTree);
         double initialDist = incrementalMetric.getCurrentDistance();
 
@@ -88,12 +79,10 @@ public class MSIncrementalMetricTest {
         Node n3 = TreeUtils.getNodeByName(baseTree, "3");
         Node n4 = TreeUtils.getNodeByName(baseTree, "4");
 
-        // Define a chain of consecutive NNI steps
-        NniMove move1 = new NniMove(n2, n3); // Corrects the tree (Distance drops to 0.0)
-        NniMove move2 = new NniMove(n3, n4); // Diverges the unrooted structure
-        NniMove move3 = new NniMove(n1, n2); // Further divergence
+        NniMove move1 = new NniMove(n2, n3);
+        NniMove move2 = new NniMove(n3, n4);
+        NniMove move3 = new NniMove(n1, n2);
 
-        // Act & Assert: Execute sequence forwards
         double dist1 = incrementalMetric.applyNni(move1);
         assertEquals(0.0, dist1, DELTA);
 
@@ -102,23 +91,18 @@ public class MSIncrementalMetricTest {
 
         incrementalMetric.applyNni(move3);
 
-        // Act & Assert: Rollback sequence backwards using strict LIFO order
         incrementalMetric.undoNni(move3);
-        assertEquals(dist2, incrementalMetric.getCurrentDistance(), DELTA,
-                "Undoing move3 must return the metric state precisely to the post-move2 state!");
+        assertEquals(dist2, incrementalMetric.getCurrentDistance(), DELTA);
 
         incrementalMetric.undoNni(move2);
-        assertEquals(dist1, incrementalMetric.getCurrentDistance(), DELTA,
-                "Undoing move2 must return the metric state precisely to the post-move1 state!");
+        assertEquals(dist1, incrementalMetric.getCurrentDistance(), DELTA);
 
         incrementalMetric.undoNni(move1);
-        assertEquals(initialDist, incrementalMetric.getCurrentDistance(), DELTA,
-                "After wiping the entire move history stack, the MS distance must equal the initial baseline!");
+        assertEquals(initialDist, incrementalMetric.getCurrentDistance(), DELTA);
     }
 
     @Test
     void testComplexBranchingTrajectoryWithNestedUndos() {
-        // Arrange
         incrementalMetric.initCalculationState(baseTree, targetTree);
         double initialDist = incrementalMetric.getCurrentDistance();
 
@@ -128,26 +112,19 @@ public class MSIncrementalMetricTest {
         Node n4 = TreeUtils.getNodeByName(baseTree, "4");
         Node n5 = TreeUtils.getNodeByName(baseTree, "5");
 
-        NniMove move1 = new NniMove(n2, n3); // Primary track
-        NniMove move2 = new NniMove(n4, n5); // Secondary track
-        NniMove move3 = new NniMove(n2, n4); // Speculative dead end branch
+        NniMove move1 = new NniMove(n2, n3);
+        NniMove move2 = new NniMove(n4, n5);
+        NniMove move3 = new NniMove(n2, n4);
+        NniMove move4 = new NniMove(n1, n5);
 
-        NniMove move4 = new NniMove(n1, n5); // Alternate choice path after backing out
-
-        // Phase 1: Go deep into the exploration track (3 steps forward)
         double dist1 = incrementalMetric.applyNni(move1);
         double dist2 = incrementalMetric.applyNni(move2);
         incrementalMetric.applyNni(move3);
 
-        // Phase 2: Back out of the dead end path (1 step backward)
         incrementalMetric.undoNni(move3);
-        assertEquals(dist2, incrementalMetric.getCurrentDistance(), DELTA,
-                "Backing out of a speculative dead end branch corrupted the MS split matrix state!");
+        assertEquals(dist2, incrementalMetric.getCurrentDistance(), DELTA);
 
-        // Phase 3: Take an alternate evolutionary path (1 new step forward)
         incrementalMetric.applyNni(move4);
-
-        // Phase 4: Full cascade rollback back to baseline state
         incrementalMetric.undoNni(move4);
         assertEquals(dist2, incrementalMetric.getCurrentDistance(), DELTA);
 
@@ -155,7 +132,78 @@ public class MSIncrementalMetricTest {
         assertEquals(dist1, incrementalMetric.getCurrentDistance(), DELTA);
 
         incrementalMetric.undoNni(move1);
+        assertEquals(initialDist, incrementalMetric.getCurrentDistance(), DELTA);
+    }
+
+    @Test
+    void testEcr2MoveEvaluationAndCommitConsistency() {
+        incrementalMetric.initCalculationState(baseTree, targetTree);
+        double initialDist = incrementalMetric.getCurrentDistance();
+
+        Node top = null, m1 = null, m2 = null;
+        Node[] bounds = new Node[4];
+
+        // Zabezpieczamy wyszukiwanie klastra 2-sECR (kształt Fork)
+        for (int i = 0; i < baseTree.getInternalNodeCount(); i++) {
+            Node n = baseTree.getInternalNode(i);
+            List<Node> intChildren = new ArrayList<>();
+            for(int j=0; j<n.getChildCount(); j++) if(!n.getChild(j).isLeaf()) intChildren.add(n.getChild(j));
+
+            if (intChildren.size() >= 2) {
+                top = n; m1 = intChildren.get(0); m2 = intChildren.get(1);
+                bounds[0] = m1.getChild(0); bounds[1] = m1.getChild(1);
+                bounds[2] = m2.getChild(0); bounds[3] = m2.getChild(1);
+                break;
+            }
+        }
+        assertNotNull(top, "Nie znaleziono klastra 2-sECR!");
+
+        SubtreeEcr2Utils.TopologyTemplate2sECR template = SubtreeEcr2Utils.getTemplates().get(2);
+
+        // Act 1: Evaluate (sondowanie grafu bez jego mutacji)
+        double evalDist = incrementalMetric.evaluate2sEcrMove(top, m1, m2, bounds, template);
         assertEquals(initialDist, incrementalMetric.getCurrentDistance(), DELTA,
-                "Full trajectory recovery failed to clean up historical split variables!");
+                "Wywołanie 'evaluate2sEcrMove' w MS zmutowało stan macierzy!");
+
+        // Act 2: Commit (zatwierdzenie)
+        double commitDist = incrementalMetric.commit2sEcrMove(top, m1, m2, bounds, template);
+        assertEquals(evalDist, commitDist, DELTA, "Commit MS niezgodny z Evaluate!");
+        assertEquals(commitDist, incrementalMetric.getCurrentDistance(), DELTA);
+    }
+
+    @Test
+    void testEcr3MoveEvaluationAndCommitConsistency() {
+        incrementalMetric.initCalculationState(baseTree, targetTree);
+        double initialDist = incrementalMetric.getCurrentDistance();
+
+        SubtreeEcr3Utils ecr3Utils = new SubtreeEcr3Utils(true); // true = Unrooted dla MS
+        List<Node> validCluster = null;
+        Node[] bounds = null;
+
+        for (int i = 0; i < baseTree.getInternalNodeCount(); i++) {
+            Node root = baseTree.getInternalNode(i);
+            for (List<Node> cluster : ecr3Utils.getClusters(root, 4)) {
+                List<Node> bList = ecr3Utils.getBoundarySubtrees(cluster);
+                if (bList.size() == 5) {
+                    validCluster = cluster;
+                    bounds = bList.toArray(new Node[0]);
+                    break;
+                }
+            }
+            if (validCluster != null) break;
+        }
+        assertNotNull(validCluster, "Nie znaleziono klastra 3-sECR!");
+
+        SubtreeEcr3Utils.TopologyTemplate3sECR template = SubtreeEcr3Utils.getTemplates().get(15);
+
+        // Act 1: Evaluate
+        double evalDist = incrementalMetric.evaluate3sEcrMove(validCluster, bounds, template);
+        assertEquals(initialDist, incrementalMetric.getCurrentDistance(), DELTA,
+                "Wywołanie 'evaluate3sEcrMove' w MS uszkodziło macierz LAP!");
+
+        // Act 2: Commit
+        double commitDist = incrementalMetric.commit3sEcrMove(validCluster, bounds, template);
+        assertEquals(evalDist, commitDist, DELTA);
+        assertEquals(commitDist, incrementalMetric.getCurrentDistance(), DELTA);
     }
 }

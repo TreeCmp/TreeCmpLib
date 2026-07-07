@@ -8,30 +8,28 @@ import pal.tree.NodeUtils;
 import treecmp.common.AlignInfo;
 import treecmp.common.ClusterDist;
 import treecmp.common.LapSolver;
+import treecmp.heuristics.ecr.SubtreeEcr2Utils;
+import treecmp.heuristics.ecr.SubtreeEcr3Utils;
 import treecmp.heuristics.moves.NniMove;
 import treecmp.metrics.IncrementalMetric;
 import treecmp.metrics.topological.MatchingClusterMetric;
 
-import java.util.Arrays;
-import java.util.BitSet;
 import java.util.ArrayList;
+import java.util.BitSet;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Stack;
 
-/**
- * Truly incremental implementation of the Matching Cluster metric.
- * It optimizes the O(N^3) Linear Assignment Problem (LAP) to O(N^2) or better
- * by utilizing a warm-start assignment update algorithm during local 1-NNI / SPR steps.
- */
 public class MCIncrementalMetric implements IncrementalMetric {
 
     private Tree baseTree;
     private Tree targetTree;
     private double currentDistance;
+    private IdGroup idGroup;
 
     private final MatchingClusterMetric mcMetricFull = new MatchingClusterMetric();
 
-    // LAP state variables representing the bipartite graph matching state
     private int dim;
     private short[][] assigncost;
     private int[] rowsol;
@@ -39,23 +37,20 @@ public class MCIncrementalMetric implements IncrementalMetric {
     private int[] u;
     private int[] v;
 
-    // Track mutable cluster states for incremental bit flips
-    private BitSet[] currentClusters;
-    private BitSet[] targetClusters;
+    private Map<Node, BitSet> currentClusters;
+    private Map<Node, BitSet> targetClusters;
+    private Map<Node, Integer> nodeToRow;
 
-    // Mapping arrays to safely translate between PAL node numbers and LAP matrix indices
     private Node[] rowToNode;
     private Node[] colToNode;
-    private int[] nodeNumToRow;
 
-    // History stacks for O(1) backtracking and rollback capabilities
     private final Stack<short[][]> costHistory = new Stack<>();
     private final Stack<int[]> rowsolHistory = new Stack<>();
     private final Stack<int[]> colsolHistory = new Stack<>();
     private final Stack<int[]> uHistory = new Stack<>();
     private final Stack<int[]> vHistory = new Stack<>();
     private final Stack<Double> distanceHistory = new Stack<>();
-    private final Stack<BitSet[]> clusterHistory = new Stack<>();
+    private final Stack<Map<Node, BitSet>> clusterHistory = new Stack<>();
 
     @Override
     public void initCalculationState(Tree baseTree, Tree targetTree) {
@@ -64,8 +59,8 @@ public class MCIncrementalMetric implements IncrementalMetric {
 
         if (baseTree != null && targetTree != null) {
             clearHistory();
+            this.idGroup = TreeUtils.getLeafIdGroup(baseTree);
 
-            // Root node is excluded from the LAP assignment in Matching Cluster metrics
             int size1 = baseTree.getInternalNodeCount() - 1;
             int size2 = targetTree.getInternalNodeCount() - 1;
             this.dim = Math.max(size1, size2);
@@ -76,27 +71,26 @@ public class MCIncrementalMetric implements IncrementalMetric {
             this.u = new int[dim];
             this.v = new int[dim];
 
-            IdGroup idGroup = TreeUtils.getLeafIdGroup(baseTree);
-            this.currentClusters = ClusterDist.RootedTree2BitSetArray(baseTree, idGroup);
-            this.targetClusters = ClusterDist.RootedTree2BitSetArray(targetTree, idGroup);
+            this.currentClusters = new IdentityHashMap<>();
+            extractClusters(baseTree.getRoot(), idGroup, this.currentClusters);
+
+            this.targetClusters = new IdentityHashMap<>();
+            extractClusters(targetTree.getRoot(), idGroup, this.targetClusters);
 
             this.rowToNode = new Node[dim];
             this.colToNode = new Node[dim];
-            this.nodeNumToRow = new int[currentClusters.length];
-            Arrays.fill(this.nodeNumToRow, -1);
+            this.nodeToRow = new IdentityHashMap<>();
 
-            // Populate row mappings for Base Tree (Internal nodes only, skip root)
             int r = 0;
             for (int i = 0; i < baseTree.getInternalNodeCount(); i++) {
                 Node n = baseTree.getInternalNode(i);
                 if (!n.isRoot() && r < dim) {
                     rowToNode[r] = n;
-                    nodeNumToRow[n.getNumber()] = r;
+                    nodeToRow.put(n, r);
                     r++;
                 }
             }
 
-            // Populate col mappings for Target Tree (Internal nodes only, skip root)
             int c = 0;
             for (int j = 0; j < targetTree.getInternalNodeCount(); j++) {
                 Node n = targetTree.getInternalNode(j);
@@ -113,6 +107,20 @@ public class MCIncrementalMetric implements IncrementalMetric {
         }
     }
 
+    private BitSet extractClusters(Node node, IdGroup idGroup, Map<Node, BitSet> map) {
+        BitSet bs = new BitSet();
+        if (node.isLeaf()) {
+            int id = idGroup.whichIdNumber(node.getIdentifier().getName());
+            if (id >= 0) bs.set(id);
+        } else {
+            for (int i = 0; i < node.getChildCount(); i++) {
+                bs.or(extractClusters(node.getChild(i), idGroup, map));
+            }
+            map.put(node, (BitSet) bs.clone());
+        }
+        return bs;
+    }
+
     private void buildInitialCostMatrix() {
         for (int i = 0; i < dim; i++) {
             for (int j = 0; j < dim; j++) {
@@ -120,11 +128,11 @@ public class MCIncrementalMetric implements IncrementalMetric {
                 Node n2 = colToNode[j];
 
                 if (n1 != null && n2 != null) {
-                    this.assigncost[i][j] = (short) ClusterDist.getDistXorBit(currentClusters[n1.getNumber()], targetClusters[n2.getNumber()]);
+                    this.assigncost[i][j] = (short) ClusterDist.getDistXorBit(currentClusters.get(n1), targetClusters.get(n2));
                 } else if (n1 != null) {
-                    this.assigncost[i][j] = (short) ClusterDist.getDistToOAsMinBit(currentClusters[n1.getNumber()]);
+                    this.assigncost[i][j] = (short) ClusterDist.getDistToOAsMinBit(currentClusters.get(n1));
                 } else if (n2 != null) {
-                    this.assigncost[i][j] = (short) ClusterDist.getDistToOAsMinBit(targetClusters[n2.getNumber()]);
+                    this.assigncost[i][j] = (short) ClusterDist.getDistToOAsMinBit(targetClusters.get(n2));
                 } else {
                     this.assigncost[i][j] = 0;
                 }
@@ -132,85 +140,78 @@ public class MCIncrementalMetric implements IncrementalMetric {
         }
     }
 
-    // ==========================================================
-    // NNI HEURISTIC LOGIC
-    // ==========================================================
+    private BitSet getCluster(Node n) {
+        if (n.isLeaf()) {
+            BitSet bs = new BitSet();
+            int id = idGroup.whichIdNumber(n.getIdentifier().getName());
+            if (id >= 0) bs.set(id);
+            return bs;
+        } else {
+            return currentClusters.get(n);
+        }
+    }
 
     @Override
     public double applyNni(NniMove move) {
         saveCurrentStateToHistory();
 
-        IdGroup idGroup = TreeUtils.getLeafIdGroup(baseTree);
-
-        // SAFELY COLLECT ALL LEAF IDs (handles deep internal subtree shifts safely)
         List<Integer> movingSubtreeLeaves = new ArrayList<>();
         collectLeafIds(move.movingSubtree, idGroup, movingSubtreeLeaves);
-
         List<Integer> swapPartnerLeaves = new ArrayList<>();
         collectLeafIds(move.swapPartner, idGroup, swapPartnerLeaves);
 
         Node lca = NodeUtils.getFirstCommonAncestor(move.movingSubtree, move.swapPartner);
         List<Integer> changedRowsList = new ArrayList<>();
 
-        // Branch 1: Modify ancestors of movingSubtree
         Node curr = move.movingSubtree.getParent();
         while (curr != null && curr != lca) {
             if (!curr.isRoot()) {
-                for (int id : movingSubtreeLeaves) currentClusters[curr.getNumber()].flip(id);
-                for (int id : swapPartnerLeaves) currentClusters[curr.getNumber()].flip(id);
+                BitSet bs = (BitSet) currentClusters.get(curr).clone();
+                for (int id : movingSubtreeLeaves) bs.flip(id);
+                for (int id : swapPartnerLeaves) bs.flip(id);
+                currentClusters.put(curr, bs);
 
-                int rowIndex = nodeNumToRow[curr.getNumber()];
-                if (rowIndex >= 0) changedRowsList.add(rowIndex);
+                Integer rowIndex = nodeToRow.get(curr);
+                if (rowIndex != null) changedRowsList.add(rowIndex);
             }
             curr = curr.getParent();
         }
 
-        // Branch 2: Modify ancestors of swapPartner
         curr = move.swapPartner.getParent();
         while (curr != null && curr != lca) {
             if (!curr.isRoot()) {
-                for (int id : movingSubtreeLeaves) currentClusters[curr.getNumber()].flip(id);
-                for (int id : swapPartnerLeaves) currentClusters[curr.getNumber()].flip(id);
+                BitSet bs = (BitSet) currentClusters.get(curr).clone();
+                for (int id : movingSubtreeLeaves) bs.flip(id);
+                for (int id : swapPartnerLeaves) bs.flip(id);
+                currentClusters.put(curr, bs);
 
-                int rowIndex = nodeNumToRow[curr.getNumber()];
-                if (rowIndex >= 0) changedRowsList.add(rowIndex);
+                Integer rowIndex = nodeToRow.get(curr);
+                if (rowIndex != null) changedRowsList.add(rowIndex);
             }
             curr = curr.getParent();
         }
 
-        // Isolate uniquely changed matrix rows
         int[] changedRows = changedRowsList.stream().distinct().mapToInt(Integer::intValue).toArray();
 
-        // Incrementally recompute strictly the affected rows
         for (int i : changedRows) {
             Node n1 = rowToNode[i];
             for (int j = 0; j < dim; j++) {
                 Node n2 = colToNode[j];
                 if (n2 != null) {
-                    this.assigncost[i][j] = (short) ClusterDist.getDistXorBit(currentClusters[n1.getNumber()], targetClusters[n2.getNumber()]);
+                    this.assigncost[i][j] = (short) ClusterDist.getDistXorBit(currentClusters.get(n1), targetClusters.get(n2));
                 } else {
-                    this.assigncost[i][j] = (short) ClusterDist.getDistToOAsMinBit(currentClusters[n1.getNumber()]);
+                    this.assigncost[i][j] = (short) ClusterDist.getDistToOAsMinBit(currentClusters.get(n1));
                 }
             }
         }
 
-        // Warm-start LAP update
         if (changedRows.length > 0) {
             this.currentDistance = LapSolver.lapShortUpdate(dim, assigncost, rowsol, colsol, u, v, changedRows);
         }
-
         return this.currentDistance;
     }
 
-    @Override
-    public void undoNni(NniMove move) {
-        undoSprRegraftStep();
-    }
-
-    // ==========================================================
-    // SPR HEURISTIC LIFE-CYCLE LOGIC (Placeholders)
-    // ==========================================================
-
+    @Override public void undoNni(NniMove move) { undoSprRegraftStep(); }
     @Override public void applySprPrune(Node pruneNode) {}
     @Override public void undoSprPrune(Node pruneNode) {}
     @Override public double evaluateSprRegraft(Node pruneNode, Node targetNode) { return this.currentDistance; }
@@ -229,9 +230,156 @@ public class MCIncrementalMetric implements IncrementalMetric {
         }
     }
 
-    // ==========================================================
-    // STATE MANAGERS & HELPERS
-    // ==========================================================
+    @Override
+    public double evaluate2sEcrMove(Node top, Node m1, Node m2, Node[] boundarySubtrees, SubtreeEcr2Utils.TopologyTemplate2sECR newTopology) {
+        return internalApply2sEcrMove(top, m1, m2, boundarySubtrees, newTopology, false);
+    }
+
+    @Override
+    public double commit2sEcrMove(Node top, Node m1, Node m2, Node[] boundarySubtrees, SubtreeEcr2Utils.TopologyTemplate2sECR newTopology) {
+        return internalApply2sEcrMove(top, m1, m2, boundarySubtrees, newTopology, true);
+    }
+
+    private double internalApply2sEcrMove(Node top, Node m1, Node m2, Node[] boundarySubtrees, SubtreeEcr2Utils.TopologyTemplate2sECR newTopology, boolean isCommit) {
+        saveCurrentStateToHistory();
+
+        BitSet[] sBits = new BitSet[4];
+        for (int i = 0; i < 4; i++) sBits[i] = getCluster(boundarySubtrees[i]);
+
+        BitSet newM1 = new BitSet();
+        BitSet newM2 = new BitSet();
+        BitSet newTop = new BitSet();
+
+        if (newTopology.isFork) {
+            newM1.or(sBits[newTopology.indices[0]]); newM1.or(sBits[newTopology.indices[1]]);
+            newM2.or(sBits[newTopology.indices[2]]); newM2.or(sBits[newTopology.indices[3]]);
+            newTop.or(newM1); newTop.or(newM2);
+        } else {
+            newM2.or(sBits[newTopology.indices[2]]); newM2.or(sBits[newTopology.indices[3]]);
+            newM1.or(sBits[newTopology.indices[1]]); newM1.or(newM2);
+            newTop.or(sBits[newTopology.indices[0]]); newTop.or(newM1);
+        }
+
+        currentClusters.put(top, newTop);
+        currentClusters.put(m1, newM1);
+        currentClusters.put(m2, newM2);
+
+        List<Integer> changedRowsList = new ArrayList<>();
+        Integer rTop = nodeToRow.get(top); if (rTop != null) changedRowsList.add(rTop);
+        Integer rM1 = nodeToRow.get(m1); if (rM1 != null) changedRowsList.add(rM1);
+        Integer rM2 = nodeToRow.get(m2); if (rM2 != null) changedRowsList.add(rM2);
+        int[] changedRows = changedRowsList.stream().mapToInt(Integer::intValue).toArray();
+
+        for (int i : changedRows) {
+            Node n1 = rowToNode[i];
+            for (int j = 0; j < dim; j++) {
+                Node n2 = colToNode[j];
+                if (n2 != null) {
+                    this.assigncost[i][j] = (short) ClusterDist.getDistXorBit(currentClusters.get(n1), targetClusters.get(n2));
+                } else {
+                    this.assigncost[i][j] = (short) ClusterDist.getDistToOAsMinBit(currentClusters.get(n1));
+                }
+            }
+        }
+
+        if (changedRows.length > 0) {
+            this.currentDistance = LapSolver.lapShortUpdate(dim, assigncost, rowsol, colsol, u, v, changedRows);
+        }
+
+        double evaluatedDist = this.currentDistance;
+
+        if (!isCommit) {
+            undoSprRegraftStep();
+        }
+
+        return evaluatedDist;
+    }
+
+    @Override
+    public double evaluate3sEcrMove(List<Node> cluster, Node[] boundarySubtrees, SubtreeEcr3Utils.TopologyTemplate3sECR newTopology) {
+        return internalApply3sEcrMove(cluster, boundarySubtrees, newTopology, false);
+    }
+
+    @Override
+    public double commit3sEcrMove(List<Node> cluster, Node[] boundarySubtrees, SubtreeEcr3Utils.TopologyTemplate3sECR newTopology) {
+        return internalApply3sEcrMove(cluster, boundarySubtrees, newTopology, true);
+    }
+
+    private double internalApply3sEcrMove(List<Node> cluster, Node[] boundarySubtrees, SubtreeEcr3Utils.TopologyTemplate3sECR newTopology, boolean isCommit) {
+        saveCurrentStateToHistory();
+
+        BitSet[] sBits = new BitSet[5];
+        for (int i = 0; i < 5; i++) sBits[i] = getCluster(boundarySubtrees[i]);
+
+        List<Integer> changedRowsList = new ArrayList<>();
+
+        // PRAWIDŁOWE MAPOWANIE PRE-ORDER
+        ClusterBuilder builder = new ClusterBuilder();
+        BitSet topCluster = builder.build(newTopology, sBits, cluster, currentClusters, changedRowsList);
+
+        Node topNode = cluster.get(0);
+        currentClusters.put(topNode, topCluster);
+        Integer rTop = nodeToRow.get(topNode);
+        if (rTop != null) changedRowsList.add(rTop);
+
+        int[] changedRows = changedRowsList.stream().mapToInt(Integer::intValue).toArray();
+
+        for (int i : changedRows) {
+            Node n1 = rowToNode[i];
+            for (int j = 0; j < dim; j++) {
+                Node n2 = colToNode[j];
+                if (n2 != null) {
+                    this.assigncost[i][j] = (short) ClusterDist.getDistXorBit(currentClusters.get(n1), targetClusters.get(n2));
+                } else {
+                    this.assigncost[i][j] = (short) ClusterDist.getDistToOAsMinBit(currentClusters.get(n1));
+                }
+            }
+        }
+
+        if (changedRows.length > 0) {
+            this.currentDistance = LapSolver.lapShortUpdate(dim, assigncost, rowsol, colsol, u, v, changedRows);
+        }
+
+        double evaluatedDist = this.currentDistance;
+
+        if (!isCommit) {
+            undoSprRegraftStep();
+        }
+
+        return evaluatedDist;
+    }
+
+    private class ClusterBuilder {
+        int idx = 1;
+
+        BitSet build(SubtreeEcr3Utils.TopologyTemplate3sECR temp, BitSet[] sBits, List<Node> cluster, Map<Node, BitSet> targetMap, List<Integer> changedRows) {
+            BitSet bs = new BitSet();
+
+            if (temp.left.leafIndex != -1) {
+                bs.or(sBits[temp.left.leafIndex]);
+            } else {
+                Node leftNode = cluster.get(idx++);
+                BitSet leftBs = build(temp.left, sBits, cluster, targetMap, changedRows);
+                targetMap.put(leftNode, leftBs);
+                Integer rIndex = nodeToRow.get(leftNode);
+                if (rIndex != null) changedRows.add(rIndex);
+                bs.or(leftBs);
+            }
+
+            if (temp.right.leafIndex != -1) {
+                bs.or(sBits[temp.right.leafIndex]);
+            } else {
+                Node rightNode = cluster.get(idx++);
+                BitSet rightBs = build(temp.right, sBits, cluster, targetMap, changedRows);
+                targetMap.put(rightNode, rightBs);
+                Integer rIndex = nodeToRow.get(rightNode);
+                if (rIndex != null) changedRows.add(rIndex);
+                bs.or(rightBs);
+            }
+
+            return bs;
+        }
+    }
 
     private void saveCurrentStateToHistory() {
         short[][] costCopy = new short[dim][dim];
@@ -246,11 +394,7 @@ public class MCIncrementalMetric implements IncrementalMetric {
         vHistory.push(this.v.clone());
         distanceHistory.push(this.currentDistance);
 
-        BitSet[] clusterCopy = new BitSet[currentClusters.length];
-        for (int i = 0; i < currentClusters.length; i++) {
-            if (currentClusters[i] != null) clusterCopy[i] = (BitSet) currentClusters[i].clone();
-        }
-        clusterHistory.push(clusterCopy);
+        clusterHistory.push(new IdentityHashMap<>(currentClusters));
     }
 
     private void clearHistory() {

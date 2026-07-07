@@ -7,6 +7,8 @@ import treecmp.common.TreeCmpException;
 import treecmp.heuristics.TreeHolder;
 import treecmp.heuristics.TreeRootedHolder;
 import treecmp.heuristics.TreeUnrootedHolder;
+import treecmp.heuristics.ecr.SubtreeEcr2Utils;
+import treecmp.heuristics.ecr.SubtreeEcr3Utils;
 import treecmp.heuristics.spr.SprUtils;
 import treecmp.heuristics.spr.UsprUtils;
 import treecmp.metrics.IncrementalMetric;
@@ -15,6 +17,7 @@ import pal.tree.Node;
 import pal.tree.Tree;
 
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 public class CoverageMockMetric implements IncrementalMetric {
@@ -64,6 +67,27 @@ public class CoverageMockMetric implements IncrementalMetric {
     @Override public void undoSprPrune(Node pruneNode) { }
     @Override public void applySprRegraftStep(Node pruneNode, Node currentNode) { }
     @Override public void undoSprRegraftStep() { }
+
+    @Override
+    public double evaluate2sEcrMove(Node top, Node m1, Node m2, Node[] boundarySubtrees, SubtreeEcr2Utils.TopologyTemplate2sECR newTopology) {
+        return 0;
+    }
+
+    @Override
+    public double commit2sEcrMove(Node top, Node m1, Node m2, Node[] boundarySubtrees, SubtreeEcr2Utils.TopologyTemplate2sECR newTopology) {
+        return 0;
+    }
+
+    @Override
+    public double evaluate3sEcrMove(List<Node> cluster, Node[] boundarySubtrees, SubtreeEcr3Utils.TopologyTemplate3sECR newTopology) {
+        return 0;
+    }
+
+    @Override
+    public double commit3sEcrMove(List<Node> cluster, Node[] boundarySubtrees, SubtreeEcr3Utils.TopologyTemplate3sECR newTopology) {
+        return 0;
+    }
+
     @Override public double applyNni(NniMove move) { return 1.0; }
     @Override public void undoNni(NniMove move) { }
     @Override public double getCurrentDistance() { return 1.0; }

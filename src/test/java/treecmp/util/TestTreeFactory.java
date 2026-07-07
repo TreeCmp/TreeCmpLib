@@ -54,7 +54,7 @@ public class TestTreeFactory {
         return binaryRootedTree;
     }
 
-    public static Tree randomUnrootedTree(int numLeaves, long seed) {
+    public static Tree randomUnrootedBinaryTree(int numLeaves, long seed) {
         // 1. Najpierw tworzymy drzewo UKORZENIONE (tak jak poprzednio)
         String[] names = new String[numLeaves];
         for (int i = 0; i < numLeaves; i++) names[i] = "L" + (i + 1);

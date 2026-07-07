@@ -19,13 +19,8 @@ import treecmp.util.TestTreeFactory;
 @Warmup(iterations = 3, time = 1)
 @Measurement(iterations = 5, time = 1)
 @Fork(1)
-public class Ecr2MetricBenchmark {
+public class Ecr2RFMetricBenchmark {
 
-    /**
-     * Badamy zachowanie algorytmów od małych drzew (10) aż po ogromne (500).
-     * Otoczenie 2-sECR rośnie liniowo O(n), ale klasyczna ewaluacja w każdym kroku
-     * narzuca dodatkowy koszt O(n), co daje O(n^2) na krok heurystyki.
-     */
     @Param({"10", "20", "30", "50", "100", "200", "500"})
     public int treeSize;
 
@@ -86,7 +81,7 @@ public class Ecr2MetricBenchmark {
 
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
-                .include(Ecr2MetricBenchmark.class.getSimpleName())
+                .include(Ecr2RFMetricBenchmark.class.getSimpleName())
                 .build();
 
         new Runner(opt).run();

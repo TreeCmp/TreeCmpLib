@@ -19,13 +19,10 @@ import treecmp.util.TestTreeFactory;
 @Warmup(iterations = 3, time = 1)
 @Measurement(iterations = 5, time = 1)
 @Fork(1)
-public class NniMetricBenchmark {
+public class NniRFMetricBenchmark {
 
-    /**
-     * JMH automatycznie uruchomi benchmark dla każdej z tych wartości.
-     * To pozwoli nam zobaczyć, jak algorytmy skalują się wraz ze wzrostem drzewa.
-     */
-    @Param({"4","5","6","7","8","9","10", "100", "500"})
+
+    @Param({"10", "20", "30", "50", "100", "200", "500"})
     public int treeSize;
 
     private Tree t1;
@@ -80,7 +77,7 @@ public class NniMetricBenchmark {
 
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
-                .include(NniMetricBenchmark.class.getSimpleName())
+                .include(NniRFMetricBenchmark.class.getSimpleName())
                 .build();
 
         new Runner(opt).run();

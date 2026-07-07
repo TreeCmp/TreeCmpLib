@@ -9,7 +9,6 @@ import pal.tree.Tree;
 import pal.tree.TreeUtils;
 import treecmp.common.TreeCmpUtils;
 import treecmp.heuristics.moves.NniMove;
-import treecmp.heuristics.spr.UsprUtils;
 import treecmp.metrics.topological.MatchingTripletMetric;
 import treecmp.util.TestTreeFactory;
 
@@ -21,11 +20,10 @@ import java.util.List;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-public class MatchingTripletIncrementalMetricTest {
+public class M3IncrementalMetricTest {
 
-    private MatchingTripletIncrementalMetric incrementalMetric;
+    private M3IncrementalMetric incrementalMetric;
     private MatchingTripletMetric classicMetric;
-    private UsprUtils usprUtils;
     private IdGroup testIdGroup;
     private int N;
 
@@ -36,11 +34,10 @@ public class MatchingTripletIncrementalMetricTest {
 
     @BeforeEach
     void setUp() {
-        incrementalMetric = new MatchingTripletIncrementalMetric();
+        incrementalMetric = new M3IncrementalMetric();
         classicMetric = new MatchingTripletMetric();
-        usprUtils = new UsprUtils();
 
-        baseTree = TestTreeFactory.tenLeavesUnrootedTree1();
+        baseTree = TestTreeFactory.tenLeavesUnrootedTree1(); // UNROOTED
         targetTree = TestTreeFactory.tenLeavesUnrootedTree2();
         testIdGroup = TreeUtils.getLeafIdGroup(baseTree);
         N = baseTree.getExternalNodeCount();
@@ -65,7 +62,7 @@ public class MatchingTripletIncrementalMetricTest {
 
         double actualDistAfterMove = incrementalMetric.applyNni(move);
 
-        Tree expectedNewTree = applyNniToTree(freshTree, move.movingSubtree, move.swapPartner);
+        Tree expectedNewTree = applyNniToTree(freshTree, move);
         double expectedDistAfterMove = classicMetric.getDistance(expectedNewTree, createCleanCopy(targetTree));
 
         assertEquals(expectedDistAfterMove, actualDistAfterMove, DELTA,
@@ -119,7 +116,7 @@ public class MatchingTripletIncrementalMetricTest {
 
         double distAfterPathA = incrementalMetric.applyNni(pathA_step1);
 
-        Tree virtualTree1 = applyNniToTree(freshTreeA, pathA_step1.movingSubtree, pathA_step1.swapPartner);
+        Tree virtualTree1 = applyNniToTree(freshTreeA, pathA_step1);
         NniMove pathA_step2 = getDeterministicValidMoves(virtualTree1).get(0);
         incrementalMetric.applyNni(pathA_step2);
 
@@ -131,7 +128,7 @@ public class MatchingTripletIncrementalMetricTest {
 
         double distAfterPathB = incrementalMetric.applyNni(pathB_step1);
 
-        Tree expectedTreeB = applyNniToTree(freshTreeB, pathB_step1.movingSubtree, pathB_step1.swapPartner);
+        Tree expectedTreeB = applyNniToTree(freshTreeB, pathB_step1);
         double expectedClassicB = classicMetric.getDistance(expectedTreeB, createCleanCopy(targetTree));
 
         assertEquals(expectedClassicB, distAfterPathB, DELTA,
@@ -147,19 +144,27 @@ public class MatchingTripletIncrementalMetricTest {
         return copy;
     }
 
-    private Tree applyNniToTree(Tree tree, Node moving, Node partner) {
+    private Tree applyNniToTree(Tree tree, NniMove move) {
         Tree safeCopy = createCleanCopy(tree);
-        Node virtMoving = getMappedNode(safeCopy, moving);
-        Node virtPartner = getMappedNode(safeCopy, partner);
+        Node virtMoving = getMappedNode(safeCopy, move.movingSubtree);
+        Node virtPartner = getMappedNode(safeCopy, move.swapPartner);
 
-        Tree tNew = null;
-        try {
-            if (virtMoving != null && virtPartner != null) {
-                Tree rawNew = usprUtils.createUsprTree(safeCopy, virtMoving, virtPartner);
-                if (rawNew != null) tNew = createCleanCopy(rawNew);
+        if (virtMoving != null && virtPartner != null) {
+            Node p1 = virtMoving.getParent();
+            Node p2 = virtPartner.getParent();
+            if (p1 != null && p2 != null && p1 != p2) {
+                int idx1 = -1, idx2 = -1;
+                for (int i = 0; i < p1.getChildCount(); i++) if (p1.getChild(i) == virtMoving) idx1 = i;
+                for (int i = 0; i < p2.getChildCount(); i++) if (p2.getChild(i) == virtPartner) idx2 = i;
+
+                if (idx1 != -1 && idx2 != -1) {
+                    p1.setChild(idx1, virtPartner); virtPartner.setParent(p1);
+                    p2.setChild(idx2, virtMoving); virtMoving.setParent(p2);
+                    return createCleanCopy(safeCopy); // Czysta rekonstrukcja drzewa po zamianie!
+                }
             }
-        } catch (Exception ignored) {}
-        return tNew;
+        }
+        return safeCopy;
     }
 
     private List<NniMove> getDeterministicValidMoves(Tree tree) {
@@ -175,12 +180,12 @@ public class MatchingTripletIncrementalMetricTest {
                         Node c1 = node.getChild(0);
                         Node c2 = node.getChild(1);
 
-                        Tree test1 = applyNniToTree(tree, c1, sibling);
+                        Tree test1 = applyNniToTree(tree, new NniMove(c1, sibling));
                         if (test1 != null && test1.getExternalNodeCount() == tree.getExternalNodeCount()) {
                             validMoves.add(new NniMove(c1, sibling));
                         }
 
-                        Tree test2 = applyNniToTree(tree, c2, sibling);
+                        Tree test2 = applyNniToTree(tree, new NniMove(c2, sibling));
                         if (test2 != null && test2.getExternalNodeCount() == tree.getExternalNodeCount()) {
                             validMoves.add(new NniMove(c2, sibling));
                         }
@@ -192,9 +197,7 @@ public class MatchingTripletIncrementalMetricTest {
     }
 
     private Node getMappedNode(Tree destTree, Node srcNode) {
-        if (srcNode.isLeaf()) {
-            return TreeUtils.getNodeByName(destTree, srcNode.getIdentifier().getName());
-        }
+        if (srcNode.isLeaf()) return TreeUtils.getNodeByName(destTree, srcNode.getIdentifier().getName());
         Signature targetSig = new Signature(srcNode, N, testIdGroup);
         for (int i = 0; i < destTree.getInternalNodeCount(); i++) {
             Signature sig = new Signature(destTree.getInternalNode(i), N, testIdGroup);
@@ -208,53 +211,36 @@ public class MatchingTripletIncrementalMetricTest {
         public Signature(Node n, int N, IdGroup idGroup) {
             for (int i = 0; i < 3; i++) clusters[i] = new BitSet();
             int idx = 0;
-            if (n.getParent() != null) {
-                clusters[idx++] = getLeavesExcluding(n, idGroup, N);
-            }
+            if (n.getParent() != null) clusters[idx++] = getLeavesExcluding(n, idGroup, N);
             for (int i = 0; i < n.getChildCount(); i++) {
                 if (idx < 3) clusters[idx++] = getLeaves(n.getChild(i), idGroup);
             }
             Arrays.sort(clusters, (a, b) -> a.toString().compareTo(b.toString()));
         }
-
         public boolean equals(Signature other) {
-            for (int i = 0; i < 3; i++) {
-                if (!this.clusters[i].equals(other.clusters[i])) return false;
-            }
+            for (int i = 0; i < 3; i++) if (!this.clusters[i].equals(other.clusters[i])) return false;
             return true;
         }
     }
 
     private static BitSet getLeaves(Node n, IdGroup idGroup) {
-        BitSet bs = new BitSet();
-        populate(n, bs, idGroup);
-        return bs;
+        BitSet bs = new BitSet(); populate(n, bs, idGroup); return bs;
     }
 
     private static void populate(Node n, BitSet bs, IdGroup idGroup) {
-        if (n.isLeaf()) {
-            bs.set(idGroup.whichIdNumber(n.getIdentifier().getName()));
-        } else {
-            for (int i = 0; i < n.getChildCount(); i++) populate(n.getChild(i), bs, idGroup);
-        }
+        if (n.isLeaf()) bs.set(idGroup.whichIdNumber(n.getIdentifier().getName()));
+        else for (int i = 0; i < n.getChildCount(); i++) populate(n.getChild(i), bs, idGroup);
     }
 
     private static BitSet getLeavesExcluding(Node exclude, IdGroup idGroup, int N) {
         BitSet bs = getLeaves(exclude, idGroup);
-        BitSet comp = new BitSet(N);
-        comp.set(0, N);
-        comp.andNot(bs);
-        return comp;
+        BitSet comp = new BitSet(N); comp.set(0, N); comp.andNot(bs); return comp;
     }
 
     private Node getSibling(Node node) {
         Node parent = node.getParent();
         if (parent == null) return null;
-        for (int i = 0; i < parent.getChildCount(); i++) {
-            if (parent.getChild(i) != node) {
-                return parent.getChild(i);
-            }
-        }
+        for (int i = 0; i < parent.getChildCount(); i++) if (parent.getChild(i) != node) return parent.getChild(i);
         return null;
     }
 }

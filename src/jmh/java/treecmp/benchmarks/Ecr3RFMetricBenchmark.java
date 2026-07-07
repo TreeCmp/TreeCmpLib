@@ -19,7 +19,7 @@ import treecmp.util.TestTreeFactory;
 @Warmup(iterations = 3, time = 1)
 @Measurement(iterations = 5, time = 1)
 @Fork(1)
-public class Ecr3MetricBenchmark {
+public class Ecr3RFMetricBenchmark {
 
     /**
      * W 3-sECR dla klastra 4-węzłowego sprawdzane są aż 104 topologie.
@@ -87,7 +87,7 @@ public class Ecr3MetricBenchmark {
 
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
-                .include(Ecr3MetricBenchmark.class.getSimpleName())
+                .include(Ecr3RFMetricBenchmark.class.getSimpleName())
                 .build();
 
         new Runner(opt).run();

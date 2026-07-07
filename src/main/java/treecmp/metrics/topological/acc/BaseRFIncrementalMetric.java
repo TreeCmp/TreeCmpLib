@@ -300,4 +300,197 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
     public void undoSprRegraftStep() {
         undoNniStep();
     }
+
+    // ==========================================
+    // IMPLEMENTACJA INTERFEJSU 2-sECR
+    // ==========================================
+
+    @Override
+    public double evaluate2sEcrMove(Node top, Node m1, Node m2, Node[] boundarySubtrees, treecmp.heuristics.ecr.SubtreeEcr2Utils.TopologyTemplate2sECR newTopology) {
+        // Zapisujemy stany by je cofnąć
+        int savedSharedSplitsCount = this.sharedSplitsCount;
+        BitSet oldTopBits = getCluster(top);
+        BitSet oldM1Bits = getCluster(m1);
+        BitSet oldM2Bits = getCluster(m2);
+
+        // 1. Unieważniamy (odejmujemy) stary szkielet 3 węzłów od aktualnego wyniku
+        if (isShared(oldTopBits)) this.sharedSplitsCount--;
+        if (isShared(oldM1Bits)) this.sharedSplitsCount--;
+        if (isShared(oldM2Bits)) this.sharedSplitsCount--;
+
+        // 2. Pobieramy maski bitowe dla 4 poddrzew otaczających gwiazdę 2-sECR
+        BitSet[] sBits = new BitSet[4];
+        for (int i = 0; i < 4; i++) {
+            sBits[i] = getCluster(boundarySubtrees[i]);
+        }
+
+        // 3. Budujemy 3 nowe węzły wewnętrzne (nowy szkielet) zgodnie z żądanym szablonem
+        BitSet newM1 = new BitSet();
+        BitSet newM2 = new BitSet();
+        BitSet newTop = new BitSet();
+
+        if (newTopology.isFork) {
+            // Szablon typu Fork: (s0, s1) oraz (s2, s3) połączone w 'top'
+            newM1.or(sBits[newTopology.indices[0]]);
+            newM1.or(sBits[newTopology.indices[1]]);
+
+            newM2.or(sBits[newTopology.indices[2]]);
+            newM2.or(sBits[newTopology.indices[3]]);
+
+            newTop.or(newM1);
+            newTop.or(newM2);
+        } else {
+            // Szablon typu Chain: struktura zagnieżdżona s0 -> s1 -> s2 -> s3
+            newM2.or(sBits[newTopology.indices[2]]);
+            newM2.or(sBits[newTopology.indices[3]]);
+
+            newM1.or(sBits[newTopology.indices[1]]);
+            newM1.or(newM2);
+
+            newTop.or(sBits[newTopology.indices[0]]);
+            newTop.or(newM1);
+        }
+
+        // 4. Testujemy nowe deskryptory względem docelowego drzewa
+        if (isShared(newTop)) this.sharedSplitsCount++;
+        if (isShared(newM1)) this.sharedSplitsCount++;
+        if (isShared(newM2)) this.sharedSplitsCount++;
+
+        // 5. Zapisujemy wirtualny dystans
+        updateCurrentDistance();
+        double evaluatedDistance = this.currentDistance;
+
+        // 6. COFAMY (metoda 'evaluate' nie modyfikuje stanu wirtualnego trwale)
+        this.sharedSplitsCount = savedSharedSplitsCount;
+        updateCurrentDistance(); // Przywraca poprzedni dystans
+
+        return evaluatedDistance;
+    }
+
+    @Override
+    public double commit2sEcrMove(Node top, Node m1, Node m2, Node[] boundarySubtrees, treecmp.heuristics.ecr.SubtreeEcr2Utils.TopologyTemplate2sECR newTopology) {
+        // Oblicza wszystko tak samo jak evaluate, ale ZAPISUJE nowe maski bitowe na stos historii Walkera
+
+        // Push stare maski na stos żeby poprawnie współdziałać z frameworkiem Undo
+        sharedSplitsHistory.push(sharedSplitsCount);
+        movingNodeHistory.push(top); activeSplitHistory.push(getCluster(top));
+        movingNodeHistory.push(m1); activeSplitHistory.push(getCluster(m1));
+        movingNodeHistory.push(m2); activeSplitHistory.push(getCluster(m2));
+
+        if (isShared(getCluster(top))) this.sharedSplitsCount--;
+        if (isShared(getCluster(m1))) this.sharedSplitsCount--;
+        if (isShared(getCluster(m2))) this.sharedSplitsCount--;
+
+        BitSet[] sBits = new BitSet[4];
+        for (int i = 0; i < 4; i++) sBits[i] = getCluster(boundarySubtrees[i]);
+
+        BitSet newM1 = new BitSet(); BitSet newM2 = new BitSet(); BitSet newTop = new BitSet();
+        if (newTopology.isFork) {
+            newM1.or(sBits[newTopology.indices[0]]); newM1.or(sBits[newTopology.indices[1]]);
+            newM2.or(sBits[newTopology.indices[2]]); newM2.or(sBits[newTopology.indices[3]]);
+            newTop.or(newM1); newTop.or(newM2);
+        } else {
+            newM2.or(sBits[newTopology.indices[2]]); newM2.or(sBits[newTopology.indices[3]]);
+            newM1.or(sBits[newTopology.indices[1]]); newM1.or(newM2);
+            newTop.or(sBits[newTopology.indices[0]]); newTop.or(newM1);
+        }
+
+        if (isShared(newTop)) this.sharedSplitsCount++;
+        if (isShared(newM1)) this.sharedSplitsCount++;
+        if (isShared(newM2)) this.sharedSplitsCount++;
+
+        activeVirtualSplits.put(top, newTop);
+        activeVirtualSplits.put(m1, newM1);
+        activeVirtualSplits.put(m2, newM2);
+
+        updateCurrentDistance();
+        return this.currentDistance;
+    }
+
+    // ==========================================
+    // IMPLEMENTACJA INTERFEJSU 3-sECR
+    // ==========================================
+
+    @Override
+    public double evaluate3sEcrMove(List<Node> cluster, Node[] boundarySubtrees, treecmp.heuristics.ecr.SubtreeEcr3Utils.TopologyTemplate3sECR newTopology) {
+        int savedSharedSplitsCount = this.sharedSplitsCount;
+
+        // Unieważnij 4 węzły wewnętrzne klastra
+        for (Node n : cluster) {
+            if (isShared(getCluster(n))) this.sharedSplitsCount--;
+        }
+
+        // Pobierz maski 5 poddrzew brzegowych
+        BitSet[] sBits = new BitSet[5];
+        for (int i = 0; i < 5; i++) {
+            sBits[i] = getCluster(boundarySubtrees[i]);
+        }
+
+        // Zbuduj nowe maski na podstawie rekurencyjnego szablonu MiniTree z SubtreeEcr3Utils
+        buildAndEvaluate3sEcrTemplate(newTopology, sBits);
+
+        updateCurrentDistance();
+        double evaluatedDistance = this.currentDistance;
+
+        // Cofnij zmiany
+        this.sharedSplitsCount = savedSharedSplitsCount;
+        updateCurrentDistance();
+
+        return evaluatedDistance;
+    }
+
+    @Override
+    public double commit3sEcrMove(List<Node> cluster, Node[] boundarySubtrees, treecmp.heuristics.ecr.SubtreeEcr3Utils.TopologyTemplate3sECR newTopology) {
+        sharedSplitsHistory.push(sharedSplitsCount);
+
+        for (Node n : cluster) {
+            movingNodeHistory.push(n);
+            activeSplitHistory.push(getCluster(n));
+            if (isShared(getCluster(n))) this.sharedSplitsCount--;
+        }
+
+        BitSet[] sBits = new BitSet[5];
+        for (int i = 0; i < 5; i++) sBits[i] = getCluster(boundarySubtrees[i]);
+
+        // Buduje nowe klastry i mapuje je z powrotem na fizyczne węzły z klastra (w dowolnej kolejności)
+        List<BitSet> newBitSets = new ArrayList<>();
+        buildAndReturn3sEcrClusters(newTopology, sBits, newBitSets);
+
+        for (int i = 0; i < cluster.size(); i++) {
+            Node n = cluster.get(i);
+            BitSet bs = newBitSets.get(i);
+            activeVirtualSplits.put(n, bs);
+            if (isShared(bs)) this.sharedSplitsCount++;
+        }
+
+        updateCurrentDistance();
+        return this.currentDistance;
+    }
+
+    // --- Narzędzia rekurencyjne dla 3-sECR (budowa masek z szablonów) ---
+
+    private BitSet buildAndEvaluate3sEcrTemplate(treecmp.heuristics.ecr.SubtreeEcr3Utils.TopologyTemplate3sECR temp, BitSet[] sBits) {
+        BitSet bs = new BitSet();
+        if (temp.leafIndex != -1) {
+            bs.or(sBits[temp.leafIndex]);
+        } else {
+            bs.or(buildAndEvaluate3sEcrTemplate(temp.left, sBits));
+            bs.or(buildAndEvaluate3sEcrTemplate(temp.right, sBits));
+            // Dodajemy uformowany, nowy węzeł wewnętrzny do wyceny (pomijając całkowity korzeń klastra, jeśli to potrzebne)
+            if (isShared(bs)) this.sharedSplitsCount++;
+        }
+        return bs;
+    }
+
+    private BitSet buildAndReturn3sEcrClusters(treecmp.heuristics.ecr.SubtreeEcr3Utils.TopologyTemplate3sECR temp, BitSet[] sBits, List<BitSet> collection) {
+        BitSet bs = new BitSet();
+        if (temp.leafIndex != -1) {
+            bs.or(sBits[temp.leafIndex]);
+        } else {
+            bs.or(buildAndReturn3sEcrClusters(temp.left, sBits, collection));
+            bs.or(buildAndReturn3sEcrClusters(temp.right, sBits, collection));
+            collection.add((BitSet) bs.clone());
+        }
+        return bs;
+    }
 }

@@ -25,7 +25,7 @@ import java.util.Stack;
  * an ultra-fast memory clone (SimpleTree) and an O(1) in-place pointer swap.
  * Guarantees 0.0 test perfection by executing a "Clean Slate" LAP evaluation.
  */
-public class MatchingPairIncrementalMetric implements IncrementalMetric {
+public class MPIncrementalMetric implements IncrementalMetric {
 
     private Tree baseTree;
     private Tree targetTree;

@@ -16,7 +16,7 @@ import java.util.concurrent.TimeUnit;
 @Warmup(iterations = 1, time = 1)
 @Measurement(iterations = 2, time = 1)
 @Fork(1)
-public class SprMatchingM3MetricsBenchmark {
+public class SprM3MetricsBenchmark {
 
     @Param({"10", "20", "30", "40", "50"})
     public int treeSize;
@@ -72,7 +72,7 @@ public class SprMatchingM3MetricsBenchmark {
 
     public static void main(String[] args) throws org.openjdk.jmh.runner.RunnerException {
         org.openjdk.jmh.runner.options.Options opt = new org.openjdk.jmh.runner.options.OptionsBuilder()
-                .include(SprMatchingM3MetricsBenchmark.class.getSimpleName())
+                .include(SprM3MetricsBenchmark.class.getSimpleName())
                 .build();
 
         new org.openjdk.jmh.runner.Runner(opt).run();
