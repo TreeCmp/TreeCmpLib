@@ -27,6 +27,14 @@ public abstract class IncrementalHeuristicBaseMetric extends BaseMetric {
         }
     }
 
+    // Służy wyłącznie do testów wydajnościowych (Single-Step Benchmark)
+    public double evaluateSingleStep(pal.tree.Tree tree1, pal.tree.Tree tree2) {
+        this.incMetric.initCalculationState(tree1, tree2);
+        // Przeszukanie całego otoczenia bez robienia fizycznego kroku (applyPhysicalMove)
+        searchNeighborhood(tree1);
+        return this.bestDist;
+    }
+
     protected abstract void searchNeighborhood(Tree currentTree);
 
     protected abstract Tree applyPhysicalMove(Tree tree, TreeMove move);

@@ -18,7 +18,7 @@ import java.util.concurrent.TimeUnit;
 @Fork(1)
 public class SprM3MetricsBenchmark {
 
-    @Param({"10", "20", "30", "40", "50"})
+    @Param({"10", "20", "30", "40", "50","60", "70", "80", "90", "100"})
     public int treeSize;
 
     private Tree unrootedT1;
