@@ -140,7 +140,7 @@ public class SubtreeEcr3Utils extends TreeNeighborhoodUtils {
                 pathS.add(p);
             }
 
-            Tree newTree = tree.getCopy();
+            Tree newTree = fastTreeClone(tree);
             Node root = newTree.getRoot();
 
             Node[] availableNodes = new Node[4];
@@ -165,7 +165,7 @@ public class SubtreeEcr3Utils extends TreeNeighborhoodUtils {
 
             bindPhysicalTemplate(template, top, availableNodes, 1, newS, topPorts);
 
-            return newTree;
+            return refreshTreeInPlace(newTree);
         } catch (Exception e) {
             return null;
         }
