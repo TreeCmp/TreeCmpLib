@@ -35,6 +35,9 @@ public class M3IncrementalMetric implements IncrementalMetric {
     private int[] rowsol;
     private int[] colsol;
 
+    private int[] u;
+    private int[] v;
+
     private int[] currentT1TripletCount;
     private int[] t2IntTripletCount;
 
@@ -125,17 +128,18 @@ public class M3IncrementalMetric implements IncrementalMetric {
             for (int i = 0; i < dim; i++) {
                 System.arraycopy(assigncost[i], 0, lapCost[i], 0, dim);
             }
-            int[] lapU = new int[dim];
-            int[] lapV = new int[dim];
 
-            int rawMetric = LapSolver.lap(dim, lapCost, rowsol, colsol, lapU, lapV);
+            this.u = new int[dim];
+            this.v = new int[dim];
+
+            int rawMetric = LapSolver.lap(dim, lapCost, rowsol, colsol, this.u, this.v);
             this.currentDistance = 0.5 * rawMetric;
         } else {
             this.currentDistance = 0;
         }
     }
 
-    private double calculateCleanSlateDistance(SimpleTree tNew, boolean isCommit) {
+    private double calculateCleanSlateDistance(SimpleTree tNew, boolean isCommit, int maxCostBound) {
         tNew.createNodeList();
         TreeUtils.computeParentPointers(tNew.getRoot());
 
@@ -192,27 +196,52 @@ public class M3IncrementalMetric implements IncrementalMetric {
             System.arraycopy(tempAssigncost[i], 0, lapCost[i], 0, dim);
         }
 
-        int[] tempRowsol = new int[dim];
-        int[] tempColsol = new int[dim];
-        int rawMetric = LapSolver.lap(dim, lapCost, tempRowsol, tempColsol, new int[dim], new int[dim]);
+        List<Integer> changedRowsList = new ArrayList<>();
+        for (int r = 0; r < dim; r++) {
+            if (!Arrays.equals(this.assigncost[r], tempAssigncost[r])) {
+                changedRowsList.add(r);
+            }
+        }
+        int[] changedRows = changedRowsList.stream().mapToInt(i -> i).toArray();
+
+        int[] tempRowsol = this.rowsol.clone();
+        int[] tempColsol = this.colsol.clone();
+        int[] tempU = this.u.clone();
+        int[] tempV = this.v.clone();
+
+        int rawMetric;
+
+        // Włączamy Dijkstrę (lapUpdateBoundedInt) z ogromnym, bezpiecznym limitem
+        if (changedRows.length > 0 && changedRows.length < dim && maxCostBound >= 0) {
+            rawMetric = LapSolver.lapUpdateBoundedInt(dim, lapCost, tempRowsol, tempColsol, tempU, tempV, changedRows, maxCostBound);
+        } else {
+            rawMetric = LapSolver.lap(dim, lapCost, tempRowsol, tempColsol, tempU, tempV);
+        }
+
         double dist = 0.5 * rawMetric;
 
         if (isCommit) {
-            history.push(new StateRecord(assigncost, rowsol, colsol, currentDistance, currentVirtualTree, currentT1TripletCount));
+            history.push(new StateRecord(assigncost, rowsol, colsol, u, v, currentDistance, currentVirtualTree, currentT1TripletCount));
             this.assigncost = tempAssigncost;
             this.currentVirtualTree = tNew;
             this.currentT1TripletCount = newT1TripletCount;
             this.rowsol = tempRowsol;
             this.colsol = tempColsol;
+            this.u = tempU;
+            this.v = tempV;
             this.currentDistance = dist;
         }
 
         return dist;
     }
 
+    private double pushUnchangedState() {
+        history.push(new StateRecord(assigncost, rowsol, colsol, u, v, currentDistance, currentVirtualTree, currentT1TripletCount));
+        return this.currentDistance;
+    }
+
     @Override
     public double applyNni(NniMove move) {
-
         SimpleTree tNew = (SimpleTree) createCleanCopy(this.currentVirtualTree);
         Node virtMoving = getMappedNode(tNew, move.movingSubtree);
         Node virtSwapPartner = getMappedNode(tNew, move.swapPartner);
@@ -223,16 +252,16 @@ public class M3IncrementalMetric implements IncrementalMetric {
         Node p2 = virtSwapPartner.getParent();
         if (p1 == null || p2 == null || p1 == p2) return pushUnchangedState();
 
-        int idx1 = -1, idx2 = -1;
-        for (int i = 0; i < p1.getChildCount(); i++) if (p1.getChild(i) == virtMoving) idx1 = i;
-        for (int i = 0; i < p2.getChildCount(); i++) if (p2.getChild(i) == virtSwapPartner) idx2 = i;
-
+        int idx1 = findChildPos(virtMoving, p1);
+        int idx2 = findChildPos(virtSwapPartner, p2);
         if (idx1 == -1 || idx2 == -1) return pushUnchangedState();
 
         p1.setChild(idx1, virtSwapPartner); virtSwapPartner.setParent(p1);
         p2.setChild(idx2, virtMoving); virtMoving.setParent(p2);
 
-        return calculateCleanSlateDistance(tNew, true);
+        // Niezawodny asymptotyczny limit dla M3 (O(N^3)). Aktywuje Warm Start bez ryzyka INF.
+        int maxCostBound = N * N * N;
+        return calculateCleanSlateDistance(tNew, true, maxCostBound);
     }
 
     @Override
@@ -260,9 +289,7 @@ public class M3IncrementalMetric implements IncrementalMetric {
             if (vBounds[i] == null) return isCommit ? pushUnchangedState() : this.currentDistance;
         }
 
-        // Tłumaczenie bezpiecznych portów - decydujemy na podstawie ORYGINALNYCH węzłów
         boolean isOriginalFork = (m2.getParent() == top);
-
         int portA = -1, portB = -1;
         for (int i = 0; i < vTop.getChildCount(); i++) {
             if (vTop.getChild(i) == (isOriginalFork ? vM1 : vBounds[0])) portA = i;
@@ -275,24 +302,20 @@ public class M3IncrementalMetric implements IncrementalMetric {
         if (template.isFork) {
             vTop.setChild(portA, vM1); vM1.setParent(vTop);
             vTop.setChild(portB, vM2); vM2.setParent(vTop);
-
             vM1.setChild(0, vBounds[template.indices[0]]); vBounds[template.indices[0]].setParent(vM1);
             vM1.setChild(1, vBounds[template.indices[1]]); vBounds[template.indices[1]].setParent(vM1);
-
             vM2.setChild(0, vBounds[template.indices[2]]); vBounds[template.indices[2]].setParent(vM2);
             vM2.setChild(1, vBounds[template.indices[3]]); vBounds[template.indices[3]].setParent(vM2);
         } else {
             vTop.setChild(portA, vBounds[template.indices[0]]); vBounds[template.indices[0]].setParent(vTop);
             vTop.setChild(portB, vM1); vM1.setParent(vTop);
-
             vM1.setChild(0, vBounds[template.indices[1]]); vBounds[template.indices[1]].setParent(vM1);
             vM1.setChild(1, vM2); vM2.setParent(vM1);
-
             vM2.setChild(0, vBounds[template.indices[2]]); vBounds[template.indices[2]].setParent(vM2);
             vM2.setChild(1, vBounds[template.indices[3]]); vBounds[template.indices[3]].setParent(vM2);
         }
 
-        return calculateCleanSlateDistance(tNew, isCommit);
+        return calculateCleanSlateDistance(tNew, isCommit, N * N * N);
     }
 
     @Override
@@ -326,7 +349,7 @@ public class M3IncrementalMetric implements IncrementalMetric {
 
         bindMapped3sEcrTemplate(template, vAvailable[0], vAvailable, 1, vBounds);
 
-        return calculateCleanSlateDistance(tNew, isCommit);
+        return calculateCleanSlateDistance(tNew, isCommit, N * N * N);
     }
 
     private int bindMapped3sEcrTemplate(SubtreeEcr3Utils.TopologyTemplate3sECR temp, Node currentInternal, Node[] available, int nextAvailIdx, Node[] newS) {
@@ -339,7 +362,6 @@ public class M3IncrementalMetric implements IncrementalMetric {
             currentInternal.insertChild(nextInt, 0); nextInt.setParent(currentInternal);
             idx = bindMapped3sEcrTemplate(temp.left, nextInt, available, idx, newS);
         }
-
         if (temp.right.leafIndex != -1) {
             currentInternal.insertChild(newS[temp.right.leafIndex], 1);
             newS[temp.right.leafIndex].setParent(currentInternal);
@@ -351,17 +373,6 @@ public class M3IncrementalMetric implements IncrementalMetric {
         return idx;
     }
 
-    @Override public double evaluateSprRegraft(Node pruneNode, Node targetNode) { return Double.POSITIVE_INFINITY; }
-    @Override public void applySprPrune(Node pruneNode) {}
-    @Override public void undoSprPrune(Node pruneNode) {}
-    @Override public void applySprRegraftStep(Node pruneNode, Node currentNode) {}
-    @Override public void undoSprRegraftStep() { }
-
-    private double pushUnchangedState() {
-        history.push(new StateRecord(assigncost, rowsol, colsol, currentDistance, currentVirtualTree, currentT1TripletCount));
-        return this.currentDistance;
-    }
-
     @Override
     public void undoNni(NniMove move) {
         if (!history.isEmpty()) {
@@ -369,6 +380,8 @@ public class M3IncrementalMetric implements IncrementalMetric {
             this.assigncost = r.oldAssigncost;
             this.rowsol = r.rowsol;
             this.colsol = r.colsol;
+            this.u = r.u;
+            this.v = r.v;
             this.currentDistance = r.distance;
             this.currentVirtualTree = r.oldTree;
             this.currentT1TripletCount = r.oldTripletCount;
@@ -468,20 +481,28 @@ public class M3IncrementalMetric implements IncrementalMetric {
 
     private static class StateRecord {
         int[][] oldAssigncost;
-        int[] rowsol, colsol;
+        int[] rowsol, colsol, u, v;
         double distance;
         Tree oldTree;
         int[] oldTripletCount;
 
-        StateRecord(int[][] assigncost, int[] rs, int[] cs, double d, Tree oldTree, int[] tc) {
+        StateRecord(int[][] assigncost, int[] rs, int[] cs, int[] u, int[] v, double d, Tree oldTree, int[] tc) {
             this.oldAssigncost = assigncost;
             this.rowsol = rs.clone();
             this.colsol = cs.clone();
+            this.u = u.clone();
+            this.v = v.clone();
             this.distance = d;
             this.oldTree = oldTree;
             this.oldTripletCount = tc.clone();
         }
     }
+
+    @Override public double evaluateSprRegraft(Node pruneNode, Node targetNode) { return Double.POSITIVE_INFINITY; }
+    @Override public void applySprPrune(Node pruneNode) {}
+    @Override public void undoSprPrune(Node pruneNode) {}
+    @Override public void applySprRegraftStep(Node pruneNode, Node currentNode) {}
+    @Override public void undoSprRegraftStep() { }
 
     @Override public double getCurrentDistance() { return this.currentDistance; }
     @Override public void commit() { history.clear(); }
@@ -493,7 +514,7 @@ public class M3IncrementalMetric implements IncrementalMetric {
     @Override public String getDescription() { return mtMetricFull.getDescription(); }
     @Override public void setDescription(String d) { mtMetricFull.setDescription(d); }
     @Override public void initData() { mtMetricFull.initData(); }
-    @Override public boolean isRooted() { return false; } // M3 jest NIEUKORZENIONA
+    @Override public boolean isRooted() { return false; }
     @Override public boolean isWeighted() { return false; }
     @Override public boolean isDiffLeafSets() { return mtMetricFull.isDiffLeafSets(); }
     @Override public AlignInfo getAlignment() { return mtMetricFull.getAlignment(); }

@@ -14,17 +14,12 @@ import treecmp.heuristics.moves.NniMove;
 import treecmp.metrics.IncrementalMetric;
 import treecmp.metrics.topological.MatchingPairMetric;
 
+import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.BitSet;
 import java.util.List;
 import java.util.Stack;
 
-/**
- * The Ultimate Bulletproof implementation of the Matching Pair Metric.
- * Fully supports NNI, 2-sECR, and 3-sECR topological sweeps.
- * Bypasses the catastrophic String-parsing overhead of SprUtils using
- * an ultra-fast memory clone (SimpleTree) and an O(1) in-place pointer swap.
- * Guarantees 0.0 test perfection by executing a "Clean Slate" LAP evaluation.
- */
 public class MPIncrementalMetric implements IncrementalMetric {
 
     private Tree baseTree;
@@ -39,10 +34,11 @@ public class MPIncrementalMetric implements IncrementalMetric {
     private IdGroup baseIdGroup;
     private int[][] targetLcaMatrix;
 
-    // Persistent LAP state variables
     private int[][] assigncost;
     private int[] rowsol;
     private int[] colsol;
+    private int[] u;
+    private int[] v;
 
     private int[] t2IntPairCount;
 
@@ -66,6 +62,8 @@ public class MPIncrementalMetric implements IncrementalMetric {
             this.assigncost = new int[dim][dim];
             this.rowsol = new int[dim];
             this.colsol = new int[dim];
+            this.u = new int[dim];
+            this.v = new int[dim];
 
             this.targetLcaMatrix = TreeCmpUtils.calcLcaMatrix(targetTree, this.baseIdGroup);
             int[][] lcaMatrix1 = TreeCmpUtils.calcLcaMatrix(baseTree, this.baseIdGroup);
@@ -113,27 +111,19 @@ public class MPIncrementalMetric implements IncrementalMetric {
                 }
             }
 
-            // CLEAN SLATE LAP SOLVER
             int[][] lapCost = new int[dim][dim];
             for (int i = 0; i < dim; i++) {
                 System.arraycopy(assigncost[i], 0, lapCost[i], 0, dim);
             }
-            int[] lapU = new int[dim];
-            int[] lapV = new int[dim];
 
-            int rawMetric = LapSolver.lap(dim, lapCost, rowsol, colsol, lapU, lapV);
+            int rawMetric = LapSolver.lap(dim, lapCost, rowsol, colsol, this.u, this.v);
             this.currentDistance = 0.5 * rawMetric;
         } else {
             this.currentDistance = 0;
         }
     }
 
-    // ==========================================================
-    // UNIFIED DISTANCE CALCULATOR ENGINE
-    // ==========================================================
-
-    private double calculateCleanSlateDistance(SimpleTree tNew, boolean isCommit) {
-        // Zmuszamy drzewo do przeindeksowania węzłów po modyfikacji fizycznej
+    private double calculateCleanSlateDistance(SimpleTree tNew, boolean isCommit, int maxCostBound) {
         tNew.createNodeList();
 
         int[][] lcaNew = TreeCmpUtils.calcLcaMatrix(tNew, this.baseIdGroup);
@@ -174,19 +164,37 @@ public class MPIncrementalMetric implements IncrementalMetric {
             System.arraycopy(tempAssigncost[i], 0, lapCost[i], 0, dim);
         }
 
-        int[] lapU = new int[dim];
-        int[] lapV = new int[dim];
-        int[] lapRowsol = new int[dim];
-        int[] lapColsol = new int[dim];
+        List<Integer> changedRowsList = new ArrayList<>();
+        for (int r = 0; r < dim; r++) {
+            if (!Arrays.equals(this.assigncost[r], tempAssigncost[r])) {
+                changedRowsList.add(r);
+            }
+        }
+        int[] changedRows = changedRowsList.stream().mapToInt(i -> i).toArray();
 
-        int metric = LapSolver.lap(dim, lapCost, lapRowsol, lapColsol, lapU, lapV);
-        double dist = 0.5 * metric;
+        int[] tempRowsol = this.rowsol.clone();
+        int[] tempColsol = this.colsol.clone();
+        int[] tempU = this.u.clone();
+        int[] tempV = this.v.clone();
+
+        int rawMetric;
+
+        // Bounded Dijkstra włącza się z gigantycznym bezpiecznym limitem
+        if (changedRows.length > 0 && changedRows.length < dim && maxCostBound >= 0) {
+            rawMetric = LapSolver.lapUpdateBoundedInt(dim, lapCost, tempRowsol, tempColsol, tempU, tempV, changedRows, maxCostBound);
+        } else {
+            rawMetric = LapSolver.lap(dim, lapCost, tempRowsol, tempColsol, tempU, tempV);
+        }
+
+        double dist = 0.5 * rawMetric;
 
         if (isCommit) {
-            history.push(new StateRecord(this.assigncost, this.rowsol, this.colsol, this.currentDistance, this.currentVirtualTree));
+            history.push(new StateRecord(this.assigncost, this.rowsol, this.colsol, this.u, this.v, this.currentDistance, this.currentVirtualTree));
             this.assigncost = tempAssigncost;
-            this.rowsol = lapRowsol;
-            this.colsol = lapColsol;
+            this.rowsol = tempRowsol;
+            this.colsol = tempColsol;
+            this.u = tempU;
+            this.v = tempV;
             this.currentDistance = dist;
             this.currentVirtualTree = tNew;
         }
@@ -194,9 +202,10 @@ public class MPIncrementalMetric implements IncrementalMetric {
         return dist;
     }
 
-    // ==========================================================
-    // NNI HEURISTIC LOGIC
-    // ==========================================================
+    private double pushUnchangedState() {
+        history.push(new StateRecord(assigncost, rowsol, colsol, u, v, currentDistance, currentVirtualTree));
+        return this.currentDistance;
+    }
 
     @Override
     public double applyNni(NniMove move) {
@@ -204,21 +213,21 @@ public class MPIncrementalMetric implements IncrementalMetric {
 
         Node L = getMappedNode(tNew, move.movingSubtree);
         Node S = getMappedNode(tNew, move.swapPartner);
-        if (L == null || S == null) return this.currentDistance;
+        if (L == null || S == null) return pushUnchangedState();
 
         Node p1 = L.getParent();
         Node p2 = S.getParent();
-        if (p1 == null || p2 == null || p1 == p2) return this.currentDistance;
+        if (p1 == null || p2 == null || p1 == p2) return pushUnchangedState();
 
         int idx1 = findChildPos(L, p1);
         int idx2 = findChildPos(S, p2);
-        if (idx1 == -1 || idx2 == -1) return this.currentDistance;
+        if (idx1 == -1 || idx2 == -1) return pushUnchangedState();
 
-        // Błyskawiczna zamiana węzłów (O(1))
         p1.setChild(idx1, S); S.setParent(p1);
         p2.setChild(idx2, L); L.setParent(p2);
 
-        return calculateCleanSlateDistance(tNew, true);
+        // Bezpieczny asymptotyczny limit dla MP. Aktywuje Warm Start bez ryzyka.
+        return calculateCleanSlateDistance(tNew, true, N * N * 10);
     }
 
     @Override
@@ -228,14 +237,12 @@ public class MPIncrementalMetric implements IncrementalMetric {
             this.assigncost = r.oldAssigncost;
             this.rowsol = r.rowsol;
             this.colsol = r.colsol;
+            this.u = r.u;
+            this.v = r.v;
             this.currentDistance = r.distance;
             this.currentVirtualTree = r.oldTree;
         }
     }
-
-    // ==========================================================
-    // 2-sECR HEURISTIC LOGIC
-    // ==========================================================
 
     @Override
     public double evaluate2sEcrMove(Node top, Node m1, Node m2, Node[] boundarySubtrees, SubtreeEcr2Utils.TopologyTemplate2sECR newTopology) {
@@ -250,25 +257,22 @@ public class MPIncrementalMetric implements IncrementalMetric {
     private double internalApply2sEcrMove(Node top, Node m1, Node m2, Node[] boundarySubtrees, SubtreeEcr2Utils.TopologyTemplate2sECR template, boolean isCommit) {
         SimpleTree tNew = new SimpleTree(currentVirtualTree);
 
-        // Mapujemy bezpiecznie węzły do sklonowanego drzewa
         Node vTop = getMappedNode(tNew, top);
         Node vM1 = getMappedNode(tNew, m1);
         Node vM2 = getMappedNode(tNew, m2);
 
-        if (vTop == null || vM1 == null || vM2 == null) return this.currentDistance;
+        if (vTop == null || vM1 == null || vM2 == null) return isCommit ? pushUnchangedState() : this.currentDistance;
 
         Node[] vBounds = new Node[4];
         for(int i=0; i<4; i++) {
             vBounds[i] = getMappedNode(tNew, boundarySubtrees[i]);
-            if (vBounds[i] == null) return this.currentDistance;
+            if (vBounds[i] == null) return isCommit ? pushUnchangedState() : this.currentDistance;
         }
 
-        // Czyścimy starą topologię (odpinamy dzieci w rdzeniu klastra)
         while(vTop.getChildCount() > 0) vTop.removeChild(0);
         while(vM1.getChildCount() > 0) vM1.removeChild(0);
         while(vM2.getChildCount() > 0) vM2.removeChild(0);
 
-        // Wplatamy nową topologię wg 14 szablonów
         if (template.isFork) {
             vTop.insertChild(vM1, 0); vM1.setParent(vTop);
             vTop.insertChild(vM2, 1); vM2.setParent(vTop);
@@ -285,12 +289,8 @@ public class MPIncrementalMetric implements IncrementalMetric {
             vM2.insertChild(vBounds[template.indices[3]], 1); vBounds[template.indices[3]].setParent(vM2);
         }
 
-        return calculateCleanSlateDistance(tNew, isCommit);
+        return calculateCleanSlateDistance(tNew, isCommit, N * N * 10);
     }
-
-    // ==========================================================
-    // 3-sECR HEURISTIC LOGIC
-    // ==========================================================
 
     @Override
     public double evaluate3sEcrMove(List<Node> cluster, Node[] boundarySubtrees, SubtreeEcr3Utils.TopologyTemplate3sECR newTopology) {
@@ -308,29 +308,26 @@ public class MPIncrementalMetric implements IncrementalMetric {
         Node[] vAvailable = new Node[4];
         for(int i=0; i<4; i++) {
             vAvailable[i] = getMappedNode(tNew, cluster.get(i));
-            if (vAvailable[i] == null) return this.currentDistance;
+            if (vAvailable[i] == null) return isCommit ? pushUnchangedState() : this.currentDistance;
         }
 
         Node[] vBounds = new Node[5];
         for(int i=0; i<5; i++) {
             vBounds[i] = getMappedNode(tNew, boundarySubtrees[i]);
-            if (vBounds[i] == null) return this.currentDistance;
+            if (vBounds[i] == null) return isCommit ? pushUnchangedState() : this.currentDistance;
         }
 
-        // Wyczyść wszystkie dzieci oryginalnych 4 węzłów w klastrze
         for (int i=0; i<4; i++) {
             while(vAvailable[i].getChildCount() > 0) vAvailable[i].removeChild(0);
         }
 
-        // Odbuduj rekurencyjnie 104 topologie
         bindMapped3sEcrTemplate(template, vAvailable[0], vAvailable, 1, vBounds);
 
-        return calculateCleanSlateDistance(tNew, isCommit);
+        return calculateCleanSlateDistance(tNew, isCommit, N * N * 10);
     }
 
     private int bindMapped3sEcrTemplate(SubtreeEcr3Utils.TopologyTemplate3sECR temp, Node currentInternal, Node[] available, int nextAvailIdx, Node[] newS) {
         int idx = nextAvailIdx;
-
         if (temp.left.leafIndex != -1) {
             currentInternal.insertChild(newS[temp.left.leafIndex], 0);
             newS[temp.left.leafIndex].setParent(currentInternal);
@@ -348,13 +345,8 @@ public class MPIncrementalMetric implements IncrementalMetric {
             currentInternal.insertChild(nextInt, 1); nextInt.setParent(currentInternal);
             idx = bindMapped3sEcrTemplate(temp.right, nextInt, available, idx, newS);
         }
-
         return idx;
     }
-
-    // ==========================================================
-    // STATE MANAGERS & HELPERS
-    // ==========================================================
 
     private Node getMappedNode(Tree virtTree, Node targetNode) {
         if (targetNode == null) return null;
@@ -386,9 +378,7 @@ public class MPIncrementalMetric implements IncrementalMetric {
             int id = this.baseIdGroup.whichIdNumber(n.getIdentifier().getName());
             if (id >= 0) bs.set(id);
         } else {
-            for (int i = 0; i < n.getChildCount(); i++) {
-                populateBitSet(n.getChild(i), bs);
-            }
+            for (int i = 0; i < n.getChildCount(); i++) populateBitSet(n.getChild(i), bs);
         }
     }
 
@@ -406,11 +396,8 @@ public class MPIncrementalMetric implements IncrementalMetric {
         int[] cSize = new int[chCount];
         for (int i = 0; i < chCount; i++) {
             Node chNode = n.getChild(i);
-            if (chNode.isLeaf()) {
-                cSize[i] = 1;
-            } else {
-                cSize[i] = clustSizeTab[chNode.getNumber()];
-            }
+            if (chNode.isLeaf()) cSize[i] = 1;
+            else cSize[i] = clustSizeTab[chNode.getNumber()];
         }
         int pairCount = 0;
         for (int i = 0; i < cSize.length; i++) {
@@ -423,20 +410,21 @@ public class MPIncrementalMetric implements IncrementalMetric {
 
     private static class StateRecord {
         int[][] oldAssigncost;
-        int[] rowsol, colsol;
+        int[] rowsol, colsol, u, v;
         double distance;
         Tree oldTree;
 
-        StateRecord(int[][] assigncost, int[] rs, int[] cs, double d, Tree oldTree) {
+        StateRecord(int[][] assigncost, int[] rs, int[] cs, int[] u, int[] v, double d, Tree oldTree) {
             this.oldAssigncost = assigncost;
             this.rowsol = rs.clone();
             this.colsol = cs.clone();
+            this.u = u.clone();
+            this.v = v.clone();
             this.distance = d;
             this.oldTree = oldTree;
         }
     }
 
-    // SPR interface fallbacks (Not utilized by current VND design)
     @Override public void applySprPrune(Node pruneNode) {}
     @Override public void undoSprPrune(Node pruneNode) {}
     @Override public double evaluateSprRegraft(Node pruneNode, Node targetNode) { return this.currentDistance; }
@@ -446,7 +434,7 @@ public class MPIncrementalMetric implements IncrementalMetric {
     @Override public double getCurrentDistance() { return this.currentDistance; }
     @Override public void commit() { history.clear(); }
     @Override public double getDistance(Tree t1, Tree t2, int... indexes) { return mpMetricFull.getDistance(t1, t2, indexes); }
-    @Override public String getName() { return "O(N) Fast-Clone Hybrid " + mpMetricFull.getName(); }
+    @Override public String getName() { return "Zero-Alloc SPR " + mpMetricFull.getName(); }
     @Override public String getCommandLineName() { return mpMetricFull.getCommandLineName(); }
     @Override public void setCommandLineName(String cln) { mpMetricFull.setCommandLineName(cln); }
     @Override public void setName(String name) { mpMetricFull.setName(name); }

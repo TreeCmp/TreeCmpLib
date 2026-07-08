@@ -1141,4 +1141,153 @@ public class LapSolver {
     return lapcost;
   }
 
+  /**
+   * Zmodyfikowana wersja lapUpdate z wbudowanym mechanizmem Early Stopping.
+   * Używana przez metryki (np. Matching Triplet), które potrafią wyliczyć
+   * matematyczny limit (bound) maksymalnego wzrostu kosztu na podstawie Lematu.
+   */
+  public static int lapUpdateBoundedInt(int dim,
+                                        int assigncost[][],
+                                        int rowsol[],
+                                        int colsol[],
+                                        int u[],
+                                        int v[],
+                                        int[] changedRows,
+                                        int maxCostBound)
+  {
+    int[] free = new int[dim];
+    int numfree = 0;
+
+    // 1. Odepnij zmienione rzędy ze skojarzenia
+    for (int i : changedRows) {
+      int j = rowsol[i];
+      if (j >= 0) {
+        colsol[j] = -1;
+      }
+      free[numfree++] = i;
+    }
+
+    // 2. Przywróć dopuszczalność zmiennych dualnych
+    for (int i : changedRows) {
+      int minVal = BIG;
+      for (int j = 0; j < dim; j++) {
+        int val = assigncost[i][j] - v[j];
+        if (val < minVal) {
+          minVal = val;
+        }
+      }
+      u[i] = minVal;
+    }
+
+    int[] collist = new int[dim];
+    int[] d = new int[dim];
+    int[] pred = new int[dim];
+    int f, freerow, j, j1, k, low, up, last = 0, endofpath = 0;
+    int min = 0, h, v2;
+    boolean unassignedfound;
+
+    // 3. Szukaj ścieżek powiększających (Algorytm Dijkstry / Jonkera-Volgenanta)
+    for (f = 0; f < numfree; f++) {
+      freerow = free[f];
+
+      for (j = 0; j < dim; j++) {
+        d[j] = assigncost[freerow][j] - v[j];
+        pred[j] = freerow;
+        collist[j] = j;
+      }
+
+      low = 0;
+      up = 0;
+      unassignedfound = false;
+
+      do {
+        if (up == low) {
+          last = low - 1;
+          min = d[collist[up++]];
+
+          // =========================================================
+          // EARLY STOPPING (Lemat 1)
+          // Jeśli koszt wyciągnięty z kolejki priorytetowej przekracza
+          // nasz limit NNI, odcinamy poszukiwania! Wiemy, że to ślepy zaułek.
+          // Zwracamy BIG, co sprawi, że heurystyka odrzuci to drzewo.
+          // =========================================================
+          if (min > maxCostBound) {
+            return BIG;
+          }
+
+          for (k = up; k < dim; k++) {
+            j = collist[k];
+            h = d[j];
+            if (h <= min) {
+              if (h < min) {
+                up = low;
+                min = h;
+              }
+              collist[k] = collist[up];
+              collist[up++] = j;
+            }
+          }
+
+          for (k = low; k < up; k++) {
+            if (colsol[collist[k]] < 0) {
+              endofpath = collist[k];
+              unassignedfound = true;
+              break;
+            }
+          }
+        }
+
+        if (!unassignedfound) {
+          j1 = collist[low];
+          low++;
+          int i_mapped = colsol[j1];
+          h = assigncost[i_mapped][j1] - v[j1] - min;
+
+          for (k = up; k < dim; k++) {
+            j = collist[k];
+            v2 = assigncost[i_mapped][j] - v[j] - h;
+            if (v2 < d[j]) {
+              pred[j] = i_mapped;
+              if (v2 == min) {
+                if (colsol[j] < 0) {
+                  endofpath = j;
+                  unassignedfound = true;
+                  break;
+                } else {
+                  collist[k] = collist[up];
+                  collist[up++] = j;
+                }
+              }
+              d[j] = v2;
+            }
+          }
+        }
+      } while (!unassignedfound);
+
+      for (k = 0; k <= last; k++) {
+        j1 = collist[k];
+        v[j1] = v[j1] + d[j1] - min;
+      }
+
+      int i_update;
+      do {
+        i_update = pred[endofpath];
+        colsol[endofpath] = i_update;
+        j1 = endofpath;
+        endofpath = rowsol[i_update];
+        rowsol[i_update] = j1;
+      } while (i_update != freerow);
+    }
+
+    // 4. Oblicz nowy optymalny koszt
+    int lapcost = 0;
+    for (int i = 0; i < dim; i++) {
+      j = rowsol[i];
+      u[i] = assigncost[i][j] - v[j];
+      lapcost += assigncost[i][j];
+    }
+
+    return lapcost;
+  }
+
 }
