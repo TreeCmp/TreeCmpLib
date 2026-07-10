@@ -7,17 +7,23 @@ import treecmp.heuristics.moves.Ecr2Move;
 import treecmp.heuristics.moves.TreeMove;
 import treecmp.heuristics.ecr.SubtreeEcr2Utils;
 import treecmp.heuristics.ecr.SubtreeEcr2Utils.TopologyTemplate2sECR;
-import treecmp.metrics.topological.acc.M3IncrementalMetric;
+import treecmp.metrics.IncrementalMetric;
 
 import java.util.Arrays;
+import java.util.List;
+import java.util.ArrayList;
 
-public class Ecr2IncrementalHeuristicM3Metric extends IncrementalHeuristicBaseMetric {
+public class Ecr2IncrementalHeuristic extends IncrementalHeuristicBaseMetric {
 
     private final SubtreeEcr2Utils ecr2Utils;
+    private final String metricShortName;
 
-    public Ecr2IncrementalHeuristicM3Metric() {
-        super(false, new M3IncrementalMetric());
-        this.ecr2Utils = new SubtreeEcr2Utils(true);
+    // KOMPOZYCJA: Przyjmujemy dowolną metrykę inkrementalną i jej nazwę!
+    public Ecr2IncrementalHeuristic(IncrementalMetric metric, String metricShortName) {
+        super(metric.isRooted(), metric);
+        this.metricShortName = metricShortName;
+        // Automatyczne ustawienie flagi unrooted dla Utils na podstawie metryki!
+        this.ecr2Utils = new SubtreeEcr2Utils(!metric.isRooted());
     }
 
     @Override
@@ -39,7 +45,7 @@ public class Ecr2IncrementalHeuristicM3Metric extends IncrementalHeuristicBaseMe
                 }
             }
 
-            java.util.List<Node> intChildren = new java.util.ArrayList<>();
+            List<Node> intChildren = new ArrayList<>();
             for (int j = 0; j < node.getChildCount(); j++) if (!node.getChild(j).isLeaf()) intChildren.add(node.getChild(j));
             if (intChildren.size() >= 2) {
                 for (int a = 0; a < intChildren.size(); a++) {
@@ -97,9 +103,8 @@ public class Ecr2IncrementalHeuristicM3Metric extends IncrementalHeuristicBaseMe
                 totalSteps++;
             }
         }
-        // POPRAWKA: Jeśli algorytm utknie (currentDist > 0), zwracamy Nieskończoność (brak drogi)
         return (currentDist == 0) ? (double) totalSteps : Double.POSITIVE_INFINITY;
     }
 
-    @Override public String getName() { return "2sECR_IncrementalHeuristic_M3"; }
+    @Override public String getName() { return "2sECR_IncrementalHeuristic_" + metricShortName; }
 }
