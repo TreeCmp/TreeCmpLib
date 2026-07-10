@@ -7,18 +7,20 @@ import treecmp.heuristics.moves.Ecr3Move;
 import treecmp.heuristics.moves.TreeMove;
 import treecmp.heuristics.ecr.SubtreeEcr3Utils;
 import treecmp.heuristics.ecr.SubtreeEcr3Utils.TopologyTemplate3sECR;
-import treecmp.metrics.topological.acc.RFIncrementalMetric;
+import treecmp.metrics.IncrementalMetric;
 
 import java.util.List;
 
-public class Ecr3IncrementalHeuristicRFMetric extends IncrementalHeuristicBaseMetric {
+public class Ecr3IncrementalHeuristic extends IncrementalHeuristicBaseMetric {
 
     private final SubtreeEcr3Utils ecr3Utils;
+    private final String metricShortName;
 
-    public Ecr3IncrementalHeuristicRFMetric() {
-        super(false, new RFIncrementalMetric());
-        // Zgodnie z RFMetric na splitach działamy na drzewach nieukorzenionych
-        this.ecr3Utils = new SubtreeEcr3Utils(true);
+    public Ecr3IncrementalHeuristic(IncrementalMetric metric, String metricShortName) {
+        super(metric.isRooted(), metric);
+        this.metricShortName = metricShortName;
+        // Magia polimorfizmu - sam wie, czy ma być unrooted!
+        this.ecr3Utils = new SubtreeEcr3Utils(!metric.isRooted());
     }
 
     @Override
@@ -26,15 +28,11 @@ public class Ecr3IncrementalHeuristicRFMetric extends IncrementalHeuristicBaseMe
         this.bestDist = this.incMetric.getCurrentDistance();
         int intNum = currentTree.getInternalNodeCount();
 
-        // Wyłapujemy wszystkie punkty startowe (najwyższe węzły w klastrach)
         for (int i = 0; i < intNum; i++) {
             Node rootOfCluster = currentTree.getInternalNode(i);
-
-            // Pobieramy wszystkie klastry 4-węzłowe schodzące w dół
             List<List<Node>> clusters = ecr3Utils.getClusters(rootOfCluster, 4);
 
             for (List<Node> cluster : clusters) {
-                // Musi być dokładnie 5 poddrzew na granicy (warunek rygorystycznego 3-sECR)
                 List<Node> subtreesList = ecr3Utils.getBoundarySubtrees(cluster);
                 if (subtreesList.size() != 5) continue;
 
@@ -48,15 +46,9 @@ public class Ecr3IncrementalHeuristicRFMetric extends IncrementalHeuristicBaseMe
 
     private void evaluateEcr3Cluster(List<Node> cluster, Node[] boundarySubtrees, TopologyTemplate3sECR originalSignature) {
         for (TopologyTemplate3sECR template : SubtreeEcr3Utils.getTemplates()) {
+            if (template.isIsomorphic(originalSignature)) continue;
 
-            // Pomijamy oryginalną topologię
-            if (template.isIsomorphic(originalSignature)) {
-                continue;
-            }
-
-            // Sondowanie w czasie stałym
             double dist = this.incMetric.evaluate3sEcrMove(cluster, boundarySubtrees, template);
-
             if (dist < this.bestDist) {
                 this.bestDist = dist;
                 this.improved = true;
@@ -65,21 +57,11 @@ public class Ecr3IncrementalHeuristicRFMetric extends IncrementalHeuristicBaseMe
         }
     }
 
-    @Override
-    protected Tree applyPhysicalMove(Tree tree, TreeMove move) {
-        if (move instanceof Ecr3Move) {
-            return ecr3Utils.applyPhysicalMove(tree, (Ecr3Move) move);
-        }
-        return tree;
-    }
+    @Override protected Tree applyPhysicalMove(Tree tree, TreeMove move) { return ecr3Utils.applyPhysicalMove(tree, (Ecr3Move) move); }
 
-    @Override
-    protected double commitMoveToMetric(TreeMove move) {
-        if (move instanceof Ecr3Move) {
-            Ecr3Move m = (Ecr3Move) move;
-            return this.incMetric.commit3sEcrMove(m.cluster, m.boundarySubtrees, m.template);
-        }
-        return this.incMetric.getCurrentDistance();
+    @Override protected double commitMoveToMetric(TreeMove move) {
+        Ecr3Move m = (Ecr3Move) move;
+        return this.incMetric.commit3sEcrMove(m.cluster, m.boundarySubtrees, m.template);
     }
 
     @Override
@@ -108,8 +90,5 @@ public class Ecr3IncrementalHeuristicRFMetric extends IncrementalHeuristicBaseMe
         return (currentDist == 0) ? (double) totalSteps : Double.POSITIVE_INFINITY;
     }
 
-    @Override
-    public String getName() {
-        return "3sECR_IncrementalHeuristic_RF";
-    }
+    @Override public String getName() { return "3sECR_IncrementalHeuristic_" + metricShortName; }
 }
