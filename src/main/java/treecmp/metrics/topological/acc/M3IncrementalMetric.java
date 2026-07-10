@@ -28,8 +28,8 @@ public class M3IncrementalMetric implements IncrementalMetric {
     private int N;
 
     private IdGroup baseIdGroup;
-    private int[] aliasTarget;
     private int[][] targetLcaMatrix;
+    private int[] targetIdToCol;
 
     private int[][] assigncost;
     private int[] rowsol;
@@ -63,48 +63,59 @@ public class M3IncrementalMetric implements IncrementalMetric {
             this.rowsol = new int[dim];
             this.colsol = new int[dim];
 
-            int[][] lcaMatrix1 = TreeCmpUtils.calcLcaMatrix(this.baseTree, null);
-            int[] aliasBase = TreeUtils.mapExternalIdentifiers(this.baseIdGroup, this.baseTree);
-
-            this.targetLcaMatrix = TreeCmpUtils.calcLcaMatrix(this.targetTree, null);
-            this.aliasTarget = TreeUtils.mapExternalIdentifiers(this.baseIdGroup, this.targetTree);
-
+            // 1. Translacja Target Tree (Unikalne PAL ID -> Kolumna LAP)
             int maxNodesT2 = getSafeMaxNodeId(this.targetTree);
+            this.targetIdToCol = new int[maxNodesT2];
+            Arrays.fill(this.targetIdToCol, -1);
+            for (int i = 0; i < intT2Num; i++) {
+                this.targetIdToCol[this.targetTree.getInternalNode(i).getNumber()] = i;
+            }
+
+            // 2. Translacja Base Tree (Unikalne PAL ID -> Wiersz LAP)
+            int maxNodesT1 = getSafeMaxNodeId(this.baseTree);
+            int[] baseIdToRow = new int[maxNodesT1];
+            Arrays.fill(baseIdToRow, -1);
+            for (int i = 0; i < intT1Num; i++) {
+                baseIdToRow[this.baseTree.getInternalNode(i).getNumber()] = i;
+            }
+
+            // ROZWIĄZANIE: Obie macierze budujemy na bazie TEJ SAMEJ globalnej grupy ID!
+            // Dzięki temu indeksy i, j, k w pętlach oznaczają fizycznie te same liście w obu drzewach.
+            int[][] lcaMatrix1 = TreeCmpUtils.calcLcaMatrix(this.baseTree, this.baseIdGroup);
+            this.targetLcaMatrix = TreeCmpUtils.calcLcaMatrix(this.targetTree, this.baseIdGroup);
+
             short[] cSize2 = new short[maxNodesT2];
             Node[] postOrderT2 = TreeCmpUtils.getNodesInPostOrder(this.targetTree);
             TreeCmpUtils.calcCladeSizes(this.targetTree, postOrderT2, cSize2);
-            Set<Node>[] verticesOutsideClade2 = TreeCmpUtils.getVerticesOutsideClade(this.targetTree);
 
             this.t2IntTripletCount = new int[dim];
             for (int i = 0; i < intT2Num; i++) {
-                int c = this.targetTree.getInternalNode(i).getNumber();
-                if (c >= 0 && c < dim) {
-                    t2IntTripletCount[c] = coutTriplets(this.targetTree.getInternalNode(i), cSize2, verticesOutsideClade2);
-                }
+                this.t2IntTripletCount[i] = coutTriplets(this.targetTree.getInternalNode(i), cSize2);
             }
 
-            int maxNodesT1 = getSafeMaxNodeId(this.baseTree);
             short[] cSize1 = new short[maxNodesT1];
             Node[] postOrderT1 = TreeCmpUtils.getNodesInPostOrder(this.baseTree);
             TreeCmpUtils.calcCladeSizes(this.baseTree, postOrderT1, cSize1);
-            Set<Node>[] verticesOutsideClade1 = TreeCmpUtils.getVerticesOutsideClade(this.baseTree);
 
             this.currentT1TripletCount = new int[dim];
             for (int i = 0; i < intT1Num; i++) {
-                int r = this.baseTree.getInternalNode(i).getNumber();
-                if (r >= 0 && r < dim) {
-                    this.currentT1TripletCount[r] = coutTriplets(this.baseTree.getInternalNode(i), cSize1, verticesOutsideClade1);
-                }
+                this.currentT1TripletCount[i] = coutTriplets(this.baseTree.getInternalNode(i), cSize1);
             }
 
+            // 3. Bezbłędne liczenie Intersection na bezpiecznych i spójnych osiach N
             int[][] initialIntersection = new int[dim][dim];
             for (int i = 0; i < N; i++) {
                 for (int j = i + 1; j < N; j++) {
                     for (int k = j + 1; k < N; k++) {
-                        int ind1 = TreeCmpUtils.getNcv(this.baseTree, i, j, k, lcaMatrix1, aliasBase);
-                        int ind2 = TreeCmpUtils.getNcv(this.targetTree, i, j, k, this.targetLcaMatrix, this.aliasTarget);
-                        if (ind1 >= 0 && ind1 < dim && ind2 >= 0 && ind2 < dim) {
-                            initialIntersection[ind1][ind2]++;
+                        int ind1 = getNcvByCanonicalId(i, j, k, lcaMatrix1);
+                        int ind2 = getNcvByCanonicalId(i, j, k, this.targetLcaMatrix);
+
+                        if (ind1 >= 0 && ind1 < baseIdToRow.length && ind2 >= 0 && ind2 < this.targetIdToCol.length) {
+                            int r = baseIdToRow[ind1];
+                            int c = this.targetIdToCol[ind2];
+                            if (r >= 0 && c >= 0) {
+                                initialIntersection[r][c]++;
+                            }
                         }
                     }
                 }
@@ -140,42 +151,72 @@ public class M3IncrementalMetric implements IncrementalMetric {
     }
 
     private double calculateCleanSlateDistance(SimpleTree tNew, boolean isCommit, int maxCostBound) {
-        tNew.createNodeList();
-        TreeUtils.computeParentPointers(tNew.getRoot());
 
-        for (int i = 0; i < intT1Num; i++) tNew.getInternalNode(i).setNumber(i);
-        for (int i = 0; i < N; i++) tNew.getExternalNode(i).setNumber(i);
+        // 1. Zapisujemy sygnatury przed czyszczeniem
+        Map<String, Integer> sigToOldRow = new HashMap<>();
+        for (int i = 0; i < intT1Num; i++) {
+            Node n = tNew.getInternalNode(i);
+            Signature sig = new Signature(n, N, baseIdGroup);
+            sigToOldRow.put(sig.hash, i);
+        }
 
-        int[][] lcaNew = TreeCmpUtils.calcLcaMatrix(tNew, null);
-        int[] aliasNew = TreeUtils.mapExternalIdentifiers(this.baseIdGroup, tNew);
+        // 2. Klonujemy drzewo (tym razem bezpiecznie, bez gmerania w ID)
+        Tree tPerfect = createCleanCopy(tNew);
+
+        // 3. Permutacje oparte na odpornych na wszystko Sygnaturach
+        int[] newToOld = new int[dim];
+        int[] oldToNew = new int[dim];
+        for (int i = 0; i < dim; i++) { newToOld[i] = i; oldToNew[i] = i; }
+
+        for (int r_new = 0; r_new < intT1Num; r_new++) {
+            Node n = tPerfect.getInternalNode(r_new);
+            Signature sig = new Signature(n, N, baseIdGroup);
+            Integer r_old = sigToOldRow.get(sig.hash);
+            if (r_old != null) {
+                newToOld[r_new] = r_old;
+                oldToNew[r_old] = r_new;
+            }
+        }
+
+        // 4. Translacja unikalnych ID biblioteki PAL -> Wiersze LAP
+        int maxNodesNew = getSafeMaxNodeId(tPerfect);
+        int[] idToRow = new int[maxNodesNew];
+        Arrays.fill(idToRow, -1);
+        for (int r_new = 0; r_new < intT1Num; r_new++) {
+            idToRow[tPerfect.getInternalNode(r_new).getNumber()] = r_new;
+        }
+
+        // 5. Bezbłędne LCA wymuszone na globalnej, uniwersalnej osi baseIdGroup!
+        int[][] lcaNew = TreeCmpUtils.calcLcaMatrix(tPerfect, this.baseIdGroup);
         int[][] newIntersection = new int[dim][dim];
 
         for (int i = 0; i < N; i++) {
             for (int j = i + 1; j < N; j++) {
                 for (int k = j + 1; k < N; k++) {
-                    int ind1 = TreeCmpUtils.getNcv(tNew, i, j, k, lcaNew, aliasNew);
-                    int ind2 = TreeCmpUtils.getNcv(targetTree, i, j, k, this.targetLcaMatrix, this.aliasTarget);
-                    if (ind1 >= 0 && ind1 < dim && ind2 >= 0 && ind2 < dim) {
-                        newIntersection[ind1][ind2]++;
+                    int ind1 = getNcvByCanonicalId(i, j, k, lcaNew);
+                    int ind2 = getNcvByCanonicalId(i, j, k, this.targetLcaMatrix);
+
+                    if (ind1 >= 0 && ind1 < idToRow.length && ind2 >= 0 && ind2 < this.targetIdToCol.length) {
+                        int r_new = idToRow[ind1];
+                        int c = this.targetIdToCol[ind2];
+                        if (r_new >= 0 && c >= 0) {
+                            newIntersection[r_new][c]++;
+                        }
                     }
                 }
             }
         }
 
-        int maxNodesNew = getSafeMaxNodeId(tNew);
         short[] cSizeNew = new short[maxNodesNew];
-        Node[] postOrderNew = TreeCmpUtils.getNodesInPostOrder(tNew);
-        TreeCmpUtils.calcCladeSizes(tNew, postOrderNew, cSizeNew);
-        Set<Node>[] verticesOutsideCladeNew = TreeCmpUtils.getVerticesOutsideClade(tNew);
+        Node[] postOrderNew = TreeCmpUtils.getNodesInPostOrder(tPerfect);
+        TreeCmpUtils.calcCladeSizes(tPerfect, postOrderNew, cSizeNew);
 
         int[] newT1TripletCount = new int[dim];
-        for (int i = 0; i < intT1Num; i++) {
-            int r = tNew.getInternalNode(i).getNumber();
-            if (r >= 0 && r < dim) {
-                newT1TripletCount[r] = coutTriplets(tNew.getInternalNode(i), cSizeNew, verticesOutsideCladeNew);
-            }
+        for (int r_new = 0; r_new < intT1Num; r_new++) {
+            newT1TripletCount[r_new] = coutTriplets(tPerfect.getInternalNode(r_new), cSizeNew);
         }
 
+        // 6. Składanie przypisań kosztów
         int[][] tempAssigncost = new int[dim][dim];
         for (int r = 0; r < dim; r++) {
             for (int c = 0; c < dim; c++) {
@@ -196,22 +237,37 @@ public class M3IncrementalMetric implements IncrementalMetric {
             System.arraycopy(tempAssigncost[i], 0, lapCost[i], 0, dim);
         }
 
+        // 7. Bezpieczna permutacja Zmiennych Dualnych LAP
+        int[] tempRowsol = new int[dim];
+        int[] tempColsol = new int[dim];
+        int[] tempU = new int[dim];
+        int[] tempV = this.v.clone();
+
+        for (int r_new = 0; r_new < dim; r_new++) {
+            int r_old = newToOld[r_new];
+            tempU[r_new] = this.u[r_old];
+            tempRowsol[r_new] = this.rowsol[r_old];
+        }
+
+        for (int c = 0; c < dim; c++) {
+            int r_old = this.colsol[c];
+            tempColsol[c] = oldToNew[r_old];
+        }
+
+        int[][] mappedOldAssigncost = new int[dim][dim];
+        for (int r_new = 0; r_new < dim; r_new++) {
+            mappedOldAssigncost[r_new] = this.assigncost[newToOld[r_new]];
+        }
+
         List<Integer> changedRowsList = new ArrayList<>();
-        for (int r = 0; r < dim; r++) {
-            if (!Arrays.equals(this.assigncost[r], tempAssigncost[r])) {
-                changedRowsList.add(r);
+        for (int r_new = 0; r_new < dim; r_new++) {
+            if (!Arrays.equals(mappedOldAssigncost[r_new], tempAssigncost[r_new])) {
+                changedRowsList.add(r_new);
             }
         }
         int[] changedRows = changedRowsList.stream().mapToInt(i -> i).toArray();
 
-        int[] tempRowsol = this.rowsol.clone();
-        int[] tempColsol = this.colsol.clone();
-        int[] tempU = this.u.clone();
-        int[] tempV = this.v.clone();
-
         int rawMetric;
-
-        // Włączamy Dijkstrę (lapUpdateBoundedInt) z ogromnym, bezpiecznym limitem
         if (changedRows.length > 0 && changedRows.length < dim && maxCostBound >= 0) {
             rawMetric = LapSolver.lapUpdateBoundedInt(dim, lapCost, tempRowsol, tempColsol, tempU, tempV, changedRows, maxCostBound);
         } else {
@@ -220,10 +276,11 @@ public class M3IncrementalMetric implements IncrementalMetric {
 
         double dist = 0.5 * rawMetric;
 
+        // 8. Commit
         if (isCommit) {
-            history.push(new StateRecord(assigncost, rowsol, colsol, u, v, currentDistance, currentVirtualTree, currentT1TripletCount));
+            history.push(new StateRecord(this.assigncost, this.rowsol, this.colsol, this.u, this.v, this.currentDistance, this.currentVirtualTree, this.currentT1TripletCount));
             this.assigncost = tempAssigncost;
-            this.currentVirtualTree = tNew;
+            this.currentVirtualTree = tPerfect;
             this.currentT1TripletCount = newT1TripletCount;
             this.rowsol = tempRowsol;
             this.colsol = tempColsol;
@@ -259,7 +316,6 @@ public class M3IncrementalMetric implements IncrementalMetric {
         p1.setChild(idx1, virtSwapPartner); virtSwapPartner.setParent(p1);
         p2.setChild(idx2, virtMoving); virtMoving.setParent(p2);
 
-        // Niezawodny asymptotyczny limit dla M3 (O(N^3)). Aktywuje Warm Start bez ryzyka INF.
         int maxCostBound = N * N * N;
         return calculateCleanSlateDistance(tNew, true, maxCostBound);
     }
@@ -388,12 +444,11 @@ public class M3IncrementalMetric implements IncrementalMetric {
         }
     }
 
+    // Bezpieczna kopia szanująca strukturę ID wymuszaną przez bibliotekę PAL.
     private Tree createCleanCopy(Tree original) {
         SimpleTree copy = new SimpleTree(original);
         copy.createNodeList();
         TreeUtils.computeParentPointers(copy.getRoot());
-        for (int i = 0; i < copy.getInternalNodeCount(); i++) copy.getInternalNode(i).setNumber(i);
-        for (int i = 0; i < copy.getExternalNodeCount(); i++) copy.getExternalNode(i).setNumber(i);
         return copy;
     }
 
@@ -415,20 +470,38 @@ public class M3IncrementalMetric implements IncrementalMetric {
     }
 
     private static class Signature {
-        BitSet[] clusters = new BitSet[3];
+        String hash;
         public Signature(Node n, int N, IdGroup idGroup) {
-            for (int i = 0; i < 3; i++) clusters[i] = new BitSet();
-            int idx = 0;
-            if (n.getParent() != null) clusters[idx++] = getLeavesExcluding(n, idGroup, N);
+            List<BitSet> parts = new ArrayList<>();
             for (int i = 0; i < n.getChildCount(); i++) {
-                if (idx < 3) clusters[idx++] = getLeaves(n.getChild(i), idGroup);
+                parts.add(getLeaves(n.getChild(i), idGroup));
             }
-            Arrays.sort(clusters, (a, b) -> a.toString().compareTo(b.toString()));
+            if (n.getParent() != null) {
+                BitSet parentPart = new BitSet(N);
+                parentPart.set(0, N);
+                for (int i = 0; i < n.getChildCount(); i++) {
+                    parentPart.andNot(parts.get(i));
+                }
+                if (!parentPart.isEmpty()) {
+                    parts.add(parentPart);
+                }
+            }
+            String[] strParts = new String[parts.size()];
+            for (int i = 0; i < parts.size(); i++) {
+                strParts[i] = parts.get(i).toString();
+            }
+            Arrays.sort(strParts);
+            this.hash = Arrays.toString(strParts);
         }
-        public boolean equals(Signature other) {
-            for (int i = 0; i < 3; i++) if (!this.clusters[i].equals(other.clusters[i])) return false;
-            return true;
+        @Override
+        public int hashCode() { return hash.hashCode(); }
+        @Override
+        public boolean equals(Object obj) {
+            if (!(obj instanceof Signature)) return false;
+            return this.hash.equals(((Signature)obj).hash);
         }
+        @Override
+        public String toString() { return hash; }
     }
 
     private static BitSet getLeaves(Node n, IdGroup idGroup) {
@@ -440,11 +513,6 @@ public class M3IncrementalMetric implements IncrementalMetric {
         else for (int i = 0; i < n.getChildCount(); i++) populate(n.getChild(i), bs, idGroup);
     }
 
-    private static BitSet getLeavesExcluding(Node exclude, IdGroup idGroup, int N) {
-        BitSet bs = getLeaves(exclude, idGroup);
-        BitSet comp = new BitSet(N); comp.set(0, N); comp.andNot(bs); return comp;
-    }
-
     private int getSafeMaxNodeId(Tree tree) {
         int maxId = 0;
         Node[] allNodes = TreeCmpUtils.getAllNodes(tree);
@@ -454,7 +522,7 @@ public class M3IncrementalMetric implements IncrementalMetric {
         return maxId + 1;
     }
 
-    private int coutTriplets(Node n, short[] clustSizeTab, Set<Node>[] verticesOutsideClade) {
+    private int coutTriplets(Node n, short[] clustSizeTab) {
         int chCount = n.getChildCount();
         int[] chSize = new int[chCount + 1];
 
@@ -464,9 +532,7 @@ public class M3IncrementalMetric implements IncrementalMetric {
             else chSize[i] = clustSizeTab[chNode.getNumber()];
         }
 
-        if (verticesOutsideClade != null && n.getNumber() < verticesOutsideClade.length && verticesOutsideClade[n.getNumber()] != null) {
-            chSize[chCount] = verticesOutsideClade[n.getNumber()].size();
-        } else chSize[chCount] = 0;
+        chSize[chCount] = this.N - clustSizeTab[n.getNumber()];
 
         int pairCount = 0;
         for (int i = 0; i < chSize.length; i++) {
@@ -477,6 +543,20 @@ public class M3IncrementalMetric implements IncrementalMetric {
             }
         }
         return pairCount;
+    }
+
+    private int getNcvByCanonicalId(int i, int j, int k, int[][] lcaMatrix) {
+        int i_j_lca = lcaMatrix[i][j];
+        int i_k_lca = lcaMatrix[i][k];
+        int j_k_lca = lcaMatrix[j][k];
+
+        if (i_j_lca == i_k_lca) {
+            return j_k_lca;
+        } else if (i_j_lca == j_k_lca) {
+            return i_k_lca;
+        } else {
+            return i_j_lca;
+        }
     }
 
     private static class StateRecord {

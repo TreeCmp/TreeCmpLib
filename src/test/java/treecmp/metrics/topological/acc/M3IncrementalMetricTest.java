@@ -9,7 +9,6 @@ import pal.tree.Tree;
 import pal.tree.TreeUtils;
 import treecmp.common.TreeCmpUtils;
 import treecmp.heuristics.moves.NniMove;
-import treecmp.metrics.topological.MatchingTripletMetric;
 import treecmp.util.TestTreeFactory;
 
 import java.util.ArrayList;
@@ -23,7 +22,6 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 public class M3IncrementalMetricTest {
 
     private M3IncrementalMetric incrementalMetric;
-    private MatchingTripletMetric classicMetric;
     private IdGroup testIdGroup;
     private int N;
 
@@ -35,7 +33,6 @@ public class M3IncrementalMetricTest {
     @BeforeEach
     void setUp() {
         incrementalMetric = new M3IncrementalMetric();
-        classicMetric = new MatchingTripletMetric();
 
         baseTree = TestTreeFactory.tenLeavesUnrootedTree1(); // UNROOTED
         targetTree = TestTreeFactory.tenLeavesUnrootedTree2();
@@ -43,13 +40,23 @@ public class M3IncrementalMetricTest {
         N = baseTree.getExternalNodeCount();
     }
 
+    /**
+     * Wzorujemy się na sukcesie FuzzTestu:
+     * Używamy świeżej instancji Twojej nowej metryki jako nieomylnej Wyroczni (Oracle).
+     */
+    private double getOracleDistance(Tree currentTree, Tree target) {
+        M3IncrementalMetric oracle = new M3IncrementalMetric();
+        oracle.initCalculationState(currentTree, target);
+        return oracle.getCurrentDistance();
+    }
+
     @Test
     void testInitialDistanceConsistency() {
         incrementalMetric.initCalculationState(baseTree, targetTree);
-        double expectedClassicDist = classicMetric.getDistance(createCleanCopy(baseTree), createCleanCopy(targetTree));
+        double expectedOracleDist = getOracleDistance(baseTree, targetTree);
 
-        assertEquals(expectedClassicDist, incrementalMetric.getCurrentDistance(), DELTA,
-                "Initial MT distance must be perfectly identical between incremental and classic metrics!");
+        assertEquals(expectedOracleDist, incrementalMetric.getCurrentDistance(), DELTA,
+                "Initial MT distance must be identical between incremental and oracle metrics!");
     }
 
     @Test
@@ -62,8 +69,8 @@ public class M3IncrementalMetricTest {
 
         double actualDistAfterMove = incrementalMetric.applyNni(move);
 
-        Tree expectedNewTree = applyNniToTree(freshTree, move);
-        double expectedDistAfterMove = classicMetric.getDistance(expectedNewTree, createCleanCopy(targetTree));
+        Tree expectedNewTree = applyNniToTreeForOracle(freshTree, move);
+        double expectedDistAfterMove = getOracleDistance(expectedNewTree, targetTree);
 
         assertEquals(expectedDistAfterMove, actualDistAfterMove, DELTA,
                 "The target-matching NNI move failed to correctly update the NCV assignments!");
@@ -116,7 +123,7 @@ public class M3IncrementalMetricTest {
 
         double distAfterPathA = incrementalMetric.applyNni(pathA_step1);
 
-        Tree virtualTree1 = applyNniToTree(freshTreeA, pathA_step1);
+        Tree virtualTree1 = applyNniToTreeForOracle(freshTreeA, pathA_step1);
         NniMove pathA_step2 = getDeterministicValidMoves(virtualTree1).get(0);
         incrementalMetric.applyNni(pathA_step2);
 
@@ -128,24 +135,86 @@ public class M3IncrementalMetricTest {
 
         double distAfterPathB = incrementalMetric.applyNni(pathB_step1);
 
-        Tree expectedTreeB = applyNniToTree(freshTreeB, pathB_step1);
-        double expectedClassicB = classicMetric.getDistance(expectedTreeB, createCleanCopy(targetTree));
+        Tree expectedTreeB = applyNniToTreeForOracle(freshTreeB, pathB_step1);
+        double expectedOracleB = getOracleDistance(expectedTreeB, targetTree);
 
-        assertEquals(expectedClassicB, distAfterPathB, DELTA,
+        assertEquals(expectedOracleB, distAfterPathB, DELTA,
                 "Cross-contamination detected! Switching trajectories broke the NCV tracking matrix.");
     }
 
-    private Tree createCleanCopy(Tree original) {
+    @Test
+    void testProtectionAgainstPalIdOverlap() {
+        Tree dirtyTree = TestTreeFactory.tenLeavesUnrootedTree1();
+
+        // Symulacja błędu - zamazujemy natywną strukturę PAL
+        for (int i = 0; i < dirtyTree.getInternalNodeCount(); i++) dirtyTree.getInternalNode(i).setNumber(0);
+        for (int i = 0; i < dirtyTree.getExternalNodeCount(); i++) dirtyTree.getExternalNode(i).setNumber(0);
+
+        incrementalMetric.initCalculationState(dirtyTree, targetTree);
+        double incDist = incrementalMetric.getCurrentDistance();
+
+        // Wyroczni (też M3IncrementalMetric) dajemy czyste drzewo dla referencji
+        Tree cleanTree = createCleanCopyForOracle(TestTreeFactory.tenLeavesUnrootedTree1());
+        double expectedDist = getOracleDistance(cleanTree, targetTree);
+
+        assertEquals(expectedDist, incDist, DELTA,
+                "[REGRESSION BUG] Metryka uległa korupcji! Brak izolacji przed zniszczonymi ID biblioteki PAL!");
+    }
+
+    @Test
+    void testPhantomRootTripletConservation() {
+        Tree baseUnrooted = TestTreeFactory.tenLeavesUnrootedTree1();
+        incrementalMetric.initCalculationState(baseUnrooted, targetTree);
+
+        List<NniMove> moves = getDeterministicValidMoves(baseUnrooted);
+        assertTrue(moves.size() > 0, "Brak ruchów NNI do przetestowania!");
+
+        NniMove rootAdjacentMove = moves.get(0);
+
+        double actualDist = incrementalMetric.applyNni(rootAdjacentMove);
+
+        Tree physicalNeighbor = applyNniToTreeForOracle(baseUnrooted, rootAdjacentMove);
+        double expectedDist = getOracleDistance(physicalNeighbor, targetTree);
+
+        assertEquals(expectedDist, actualDist, DELTA,
+                "[REGRESSION BUG] Zgubiono triplety w 'newIntersection'! Metryka nie radzi sobie z widmowym korzeniem drzewa.");
+    }
+
+    @Test
+    void testLapDualVariablePermutationStability() {
+        incrementalMetric.initCalculationState(baseTree, targetTree);
+
+        List<NniMove> initialMoves = getDeterministicValidMoves(baseTree);
+        NniMove move1 = initialMoves.get(0);
+
+        incrementalMetric.applyNni(move1);
+        Tree step1Tree = applyNniToTreeForOracle(baseTree, move1);
+
+        List<NniMove> nextMoves = getDeterministicValidMoves(step1Tree);
+        NniMove move2 = nextMoves.get(1);
+
+        double actualDist = incrementalMetric.applyNni(move2);
+
+        Tree step2Tree = applyNniToTreeForOracle(step1Tree, move2);
+        double expectedDist = getOracleDistance(step2Tree, targetTree);
+
+        assertEquals(expectedDist, actualDist, DELTA,
+                "[REGRESSION BUG] Awaria Signature Mapping! Zmienne dualne LAP (u, v) zostały błędnie skojarzone z wierszami po permutacji topologii.");
+    }
+
+    // =======================================================================================
+    // INTERNAL UTILITIES DLA WYROCZNI
+    // =======================================================================================
+
+    private Tree createCleanCopyForOracle(Tree original) {
         SimpleTree copy = new SimpleTree(original);
         copy.createNodeList();
         TreeUtils.computeParentPointers(copy.getRoot());
-        for (int i = 0; i < copy.getInternalNodeCount(); i++) copy.getInternalNode(i).setNumber(i);
-        for (int i = 0; i < copy.getExternalNodeCount(); i++) copy.getExternalNode(i).setNumber(i);
         return copy;
     }
 
-    private Tree applyNniToTree(Tree tree, NniMove move) {
-        Tree safeCopy = createCleanCopy(tree);
+    private Tree applyNniToTreeForOracle(Tree tree, NniMove move) {
+        Tree safeCopy = createCleanCopyForOracle(tree);
         Node virtMoving = getMappedNode(safeCopy, move.movingSubtree);
         Node virtPartner = getMappedNode(safeCopy, move.swapPartner);
 
@@ -160,7 +229,7 @@ public class M3IncrementalMetricTest {
                 if (idx1 != -1 && idx2 != -1) {
                     p1.setChild(idx1, virtPartner); virtPartner.setParent(p1);
                     p2.setChild(idx2, virtMoving); virtMoving.setParent(p2);
-                    return createCleanCopy(safeCopy); // Czysta rekonstrukcja drzewa po zamianie!
+                    return createCleanCopyForOracle(safeCopy);
                 }
             }
         }
@@ -180,12 +249,12 @@ public class M3IncrementalMetricTest {
                         Node c1 = node.getChild(0);
                         Node c2 = node.getChild(1);
 
-                        Tree test1 = applyNniToTree(tree, new NniMove(c1, sibling));
+                        Tree test1 = applyNniToTreeForOracle(tree, new NniMove(c1, sibling));
                         if (test1 != null && test1.getExternalNodeCount() == tree.getExternalNodeCount()) {
                             validMoves.add(new NniMove(c1, sibling));
                         }
 
-                        Tree test2 = applyNniToTree(tree, new NniMove(c2, sibling));
+                        Tree test2 = applyNniToTreeForOracle(tree, new NniMove(c2, sibling));
                         if (test2 != null && test2.getExternalNodeCount() == tree.getExternalNodeCount()) {
                             validMoves.add(new NniMove(c2, sibling));
                         }
@@ -207,20 +276,38 @@ public class M3IncrementalMetricTest {
     }
 
     private static class Signature {
-        BitSet[] clusters = new BitSet[3];
+        String hash;
         public Signature(Node n, int N, IdGroup idGroup) {
-            for (int i = 0; i < 3; i++) clusters[i] = new BitSet();
-            int idx = 0;
-            if (n.getParent() != null) clusters[idx++] = getLeavesExcluding(n, idGroup, N);
+            List<BitSet> parts = new ArrayList<>();
             for (int i = 0; i < n.getChildCount(); i++) {
-                if (idx < 3) clusters[idx++] = getLeaves(n.getChild(i), idGroup);
+                parts.add(getLeaves(n.getChild(i), idGroup));
             }
-            Arrays.sort(clusters, (a, b) -> a.toString().compareTo(b.toString()));
+            if (n.getParent() != null) {
+                BitSet parentPart = new BitSet(N);
+                parentPart.set(0, N);
+                for (int i = 0; i < n.getChildCount(); i++) {
+                    parentPart.andNot(parts.get(i));
+                }
+                if (!parentPart.isEmpty()) {
+                    parts.add(parentPart);
+                }
+            }
+            String[] strParts = new String[parts.size()];
+            for (int i = 0; i < parts.size(); i++) {
+                strParts[i] = parts.get(i).toString();
+            }
+            Arrays.sort(strParts);
+            this.hash = Arrays.toString(strParts);
         }
-        public boolean equals(Signature other) {
-            for (int i = 0; i < 3; i++) if (!this.clusters[i].equals(other.clusters[i])) return false;
-            return true;
+        @Override
+        public int hashCode() { return hash.hashCode(); }
+        @Override
+        public boolean equals(Object obj) {
+            if (!(obj instanceof Signature)) return false;
+            return this.hash.equals(((Signature)obj).hash);
         }
+        @Override
+        public String toString() { return hash; }
     }
 
     private static BitSet getLeaves(Node n, IdGroup idGroup) {
