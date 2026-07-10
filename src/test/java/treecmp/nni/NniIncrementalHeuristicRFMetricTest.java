@@ -5,18 +5,21 @@ import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 import pal.tree.Tree;
-import treecmp.heuristics.nni.acc.NniIncrementalHeuristicRFMetric; // Nasza nowa klasa
+import treecmp.heuristics.nni.acc.NniIncrementalHeuristic;
+import treecmp.metrics.topological.acc.RFIncrementalMetric;
 import treecmp.util.TestTreeFactory;
 
 class NniIncrementalHeuristicRFMetricTest {
 
-    private NniIncrementalHeuristicRFMetric metric;
+    // Zmieniamy typ na naszą nową, uniwersalną heurystykę
+    private NniIncrementalHeuristic metric;
     private static final double DELTA = 0.000001;
 
     @BeforeEach
     void setUp() {
-        // Testujemy nową, inkrementalną wersję heurystyki NNI na splitach
-        metric = new NniIncrementalHeuristicRFMetric();
+        // WZORZEC KOMPOZYCJI W TESTACH:
+        // Wstrzykujemy kalkulator RFIncrementalMetric do uniwersalnego silnika NNI
+        metric = new NniIncrementalHeuristic(new RFIncrementalMetric(), "RF");
     }
 
     /**
@@ -69,10 +72,10 @@ class NniIncrementalHeuristicRFMetricTest {
         // Assert
         assertTrue(distance > 0.0, "Dystans dla różnych drzew musi być dodatni");
 
-        System.out.println("Dystans NNI Incremental Heuristic (10 liści) wyniósł: " + distance);
+        System.out.println("Dystans NNI-RF: " + distance);
 
         if (distance == Double.POSITIVE_INFINITY) {
-            System.out.println("Algorytm utknął w minimum lokalnym (poprawne zachowanie dla NNI).");
+            System.out.println("Algorytm utknął w minimum lokalnym (poprawne zachowanie dla heurystyki zachłannej NNI).");
         }
     }
 }

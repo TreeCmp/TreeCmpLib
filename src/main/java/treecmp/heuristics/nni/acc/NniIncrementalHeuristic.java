@@ -6,30 +6,27 @@ import treecmp.heuristics.base.IncrementalHeuristicBaseMetric;
 import treecmp.heuristics.moves.NniMove;
 import treecmp.heuristics.moves.TreeMove;
 import treecmp.heuristics.nni.NniUtils;
-import treecmp.metrics.topological.acc.RFIncrementalMetric;
+import treecmp.metrics.IncrementalMetric;
 
-public class NniIncrementalHeuristicRFMetric extends IncrementalHeuristicBaseMetric {
+public class NniIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
 
     private final NniUtils nniUtils;
+    private final String metricShortName;
 
-    public NniIncrementalHeuristicRFMetric() {
-        // false (Unrooted) -> SPLIT (RFIncrementalMetric)
-        super(false, new RFIncrementalMetric());
-
-        // Skoro to drzewa nieukorzenione (unrooted), NniUtils musi przyjąć false!
-        this.nniUtils = new NniUtils(false);
+    // WZORZEC KOMPOZYCJI: Wstrzykujemy dowolną metrykę inkrementalną
+    public NniIncrementalHeuristic(IncrementalMetric metric, String metricShortName) {
+        super(metric.isRooted(), metric);
+        this.metricShortName = metricShortName;
+        // Automatyczne ustawienie flagi unrooted na podstawie metryki!
+        this.nniUtils = new NniUtils(!metric.isRooted());
     }
-
-    // USUNIĘTO: getIncrementalMetric() oraz getNniUtils()
 
     @Override
     protected void searchNeighborhood(Tree currentTree) {
-        // Używamy this.incMetric z klasy bazowej
         this.bestDist = this.incMetric.getCurrentDistance();
         exploreNniRecursive(currentTree.getRoot());
     }
 
-    // USUNIĘTO parametr incMetric, używamy bezpośrednio this.incMetric
     private void exploreNniRecursive(Node parent) {
         if (parent.isLeaf()) return;
 
@@ -89,7 +86,6 @@ public class NniIncrementalHeuristicRFMetric extends IncrementalHeuristicBaseMet
         this.improved = true;
         int totalSteps = 0;
 
-        // Inicjalizacja metryki na start
         this.incMetric.initCalculationState(currentTree, tree2);
         double currentDist = this.incMetric.getCurrentDistance();
 
@@ -98,15 +94,11 @@ public class NniIncrementalHeuristicRFMetric extends IncrementalHeuristicBaseMet
             this.bestDist = currentDist;
             this.bestMove = null;
 
-            // Szukamy najlepszego sąsiada
             searchNeighborhood(currentTree);
 
             if (this.improved && this.bestMove != null) {
-                // 1. Zmiana w metryce "w locie" (bez twardego resetu, bo to szybkie NNI)
                 currentDist = commitMoveToMetric(this.bestMove);
                 this.incMetric.commit();
-
-                // 2. Fizyczna zmiana struktury drzewa w PAL
                 currentTree = applyPhysicalMove(currentTree, this.bestMove);
                 totalSteps++;
             }
@@ -116,6 +108,6 @@ public class NniIncrementalHeuristicRFMetric extends IncrementalHeuristicBaseMet
 
     @Override
     public String getName() {
-        return "NNI_Heuristic_RF";
+        return "NNI_IncrementalHeuristic_" + metricShortName;
     }
 }
