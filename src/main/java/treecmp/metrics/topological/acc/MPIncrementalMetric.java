@@ -17,7 +17,9 @@ import treecmp.metrics.topological.MatchingPairMetric;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.BitSet;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Stack;
 
 public class MPIncrementalMetric implements IncrementalMetric {
@@ -33,6 +35,7 @@ public class MPIncrementalMetric implements IncrementalMetric {
 
     private IdGroup baseIdGroup;
     private int[][] targetLcaMatrix;
+    private int[] targetIdToCol;
 
     private int[][] assigncost;
     private int[] rowsol;
@@ -47,17 +50,18 @@ public class MPIncrementalMetric implements IncrementalMetric {
 
     @Override
     public void initCalculationState(Tree baseTree, Tree targetTree) {
-        this.baseTree = baseTree;
-        this.targetTree = targetTree;
-        this.currentVirtualTree = baseTree;
         history.clear();
 
         if (baseTree != null && targetTree != null) {
-            this.intT1Num = baseTree.getInternalNodeCount();
-            this.intT2Num = targetTree.getInternalNodeCount();
-            this.dim = Math.max(intT1Num, intT2Num);
             this.baseIdGroup = TreeUtils.getLeafIdGroup(baseTree);
-            this.N = baseTree.getExternalNodeCount();
+            this.baseTree = createCleanCopy(baseTree);
+            this.targetTree = createCleanCopy(targetTree);
+            this.currentVirtualTree = createCleanCopy(this.baseTree);
+
+            this.intT1Num = this.baseTree.getInternalNodeCount();
+            this.intT2Num = this.targetTree.getInternalNodeCount();
+            this.dim = Math.max(intT1Num, intT2Num);
+            this.N = this.baseTree.getExternalNodeCount();
 
             this.assigncost = new int[dim][dim];
             this.rowsol = new int[dim];
@@ -65,35 +69,56 @@ public class MPIncrementalMetric implements IncrementalMetric {
             this.u = new int[dim];
             this.v = new int[dim];
 
-            this.targetLcaMatrix = TreeCmpUtils.calcLcaMatrix(targetTree, this.baseIdGroup);
-            int[][] lcaMatrix1 = TreeCmpUtils.calcLcaMatrix(baseTree, this.baseIdGroup);
+            // 1. Translacja Target Tree -> Kolumna LAP
+            int maxNodesT2 = getSafeMaxNodeId(this.targetTree);
+            this.targetIdToCol = new int[maxNodesT2];
+            Arrays.fill(this.targetIdToCol, -1);
+            for (int i = 0; i < intT2Num; i++) {
+                this.targetIdToCol[this.targetTree.getInternalNode(i).getNumber()] = i;
+            }
 
-            int maxNodesT2 = getSafeMaxNodeId(targetTree);
+            // 2. Translacja Base Tree -> Wiersz LAP
+            int maxNodesT1 = getSafeMaxNodeId(this.baseTree);
+            int[] baseIdToRow = new int[maxNodesT1];
+            Arrays.fill(baseIdToRow, -1);
+            for (int i = 0; i < intT1Num; i++) {
+                baseIdToRow[this.baseTree.getInternalNode(i).getNumber()] = i;
+            }
+
+            int[][] lcaMatrix1 = TreeCmpUtils.calcLcaMatrix(this.baseTree, this.baseIdGroup);
+            this.targetLcaMatrix = TreeCmpUtils.calcLcaMatrix(this.targetTree, this.baseIdGroup);
+
             short[] cSize2 = new short[maxNodesT2];
-            Node[] postOrderT2Raw = TreeCmpUtils.getNodesInPostOrder(targetTree);
-            TreeCmpUtils.calcCladeSizes(targetTree, postOrderT2Raw, cSize2);
+            Node[] postOrderT2 = TreeCmpUtils.getNodesInPostOrder(this.targetTree);
+            TreeCmpUtils.calcCladeSizes(this.targetTree, postOrderT2, cSize2);
 
             this.t2IntPairCount = new int[dim];
             for (int i = 0; i < intT2Num; i++) {
-                t2IntPairCount[i] = coutChildrenPairs(targetTree.getInternalNode(i), cSize2);
+                this.t2IntPairCount[i] = coutChildrenPairs(this.targetTree.getInternalNode(i), cSize2);
             }
 
-            int maxNodesT1 = getSafeMaxNodeId(baseTree);
             short[] cSize1 = new short[maxNodesT1];
-            Node[] postOrderT1Raw = TreeCmpUtils.getNodesInPostOrder(baseTree);
-            TreeCmpUtils.calcCladeSizes(baseTree, postOrderT1Raw, cSize1);
+            Node[] postOrderT1 = TreeCmpUtils.getNodesInPostOrder(this.baseTree);
+            TreeCmpUtils.calcCladeSizes(this.baseTree, postOrderT1, cSize1);
 
             int[] currentT1PairCount = new int[dim];
             for (int i = 0; i < intT1Num; i++) {
-                currentT1PairCount[i] = coutChildrenPairs(baseTree.getInternalNode(i), cSize1);
+                currentT1PairCount[i] = coutChildrenPairs(this.baseTree.getInternalNode(i), cSize1);
             }
 
-            int[][] initialIntersection = new int[intT1Num][intT2Num];
+            // 3. Obliczanie Shared Pairs z użyciem bezpiecznej uniwersalnej osi (baseIdGroup)
+            int[][] initialIntersection = new int[dim][dim];
             for (int i = 0; i < N; i++) {
                 for (int j = i + 1; j < N; j++) {
-                    int int1 = lcaMatrix1[i][j];
-                    int int2 = targetLcaMatrix[i][j];
-                    initialIntersection[int1][int2]++;
+                    int ind1 = lcaMatrix1[i][j];
+                    int ind2 = this.targetLcaMatrix[i][j];
+                    if (ind1 >= 0 && ind1 < baseIdToRow.length && ind2 >= 0 && ind2 < this.targetIdToCol.length) {
+                        int r = baseIdToRow[ind1];
+                        int c = this.targetIdToCol[ind2];
+                        if (r >= 0 && c >= 0) {
+                            initialIntersection[r][c]++;
+                        }
+                    }
                 }
             }
 
@@ -124,35 +149,87 @@ public class MPIncrementalMetric implements IncrementalMetric {
     }
 
     private double calculateCleanSlateDistance(SimpleTree tNew, boolean isCommit, int maxCostBound) {
-        tNew.createNodeList();
 
-        int[][] lcaNew = TreeCmpUtils.calcLcaMatrix(tNew, this.baseIdGroup);
-        int[][] newIntersection = new int[intT1Num][intT2Num];
-        for (int i = 0; i < N; i++) {
-            for (int j = i + 1; j < N; j++) {
-                newIntersection[lcaNew[i][j]][targetLcaMatrix[i][j]]++;
+        Map<String, Integer> sigToOldRow = new HashMap<>();
+        for (int i = 0; i < intT1Num; i++) {
+            Node n = this.currentVirtualTree.getInternalNode(i);
+            Signature sig = new Signature(n, N, baseIdGroup);
+            sigToOldRow.put(sig.hash, i);
+        }
+
+        Tree tPerfect = createCleanCopy(tNew);
+
+        // 3. Permutacje z zabezpieczeniem Bijekcji - gwarancja ochrony przed duplikatami w LAP
+        int[] newToOld = new int[dim];
+        int[] oldToNew = new int[dim];
+        Arrays.fill(newToOld, -1);
+        Arrays.fill(oldToNew, -1);
+
+        for (int r_new = 0; r_new < intT1Num; r_new++) {
+            Node n = tPerfect.getInternalNode(r_new);
+            Signature sig = new Signature(n, N, baseIdGroup);
+            Integer r_old = sigToOldRow.get(sig.hash);
+            if (r_old != null && oldToNew[r_old] == -1) {
+                newToOld[r_new] = r_old;
+                oldToNew[r_old] = r_new;
             }
         }
 
-        int maxNodesNew = getSafeMaxNodeId(tNew);
-        short[] cSizeNew = new short[maxNodesNew];
-        Node[] postOrderNew = TreeCmpUtils.getNodesInPostOrder(tNew);
-        TreeCmpUtils.calcCladeSizes(tNew, postOrderNew, cSizeNew);
+        int unmappedOld = 0;
+        for (int r_new = 0; r_new < dim; r_new++) {
+            if (newToOld[r_new] == -1) {
+                while (unmappedOld < dim && oldToNew[unmappedOld] != -1) {
+                    unmappedOld++;
+                }
+                if (unmappedOld < dim) {
+                    newToOld[r_new] = unmappedOld;
+                    oldToNew[unmappedOld] = r_new;
+                }
+            }
+        }
 
-        int[] t1IntPairCountNew = new int[intT1Num];
-        for (int i = 0; i < intT1Num; i++) {
-            t1IntPairCountNew[i] = coutChildrenPairs(tNew.getInternalNode(i), cSizeNew);
+        int maxNodesNew = getSafeMaxNodeId(tPerfect);
+        int[] idToRow = new int[maxNodesNew];
+        Arrays.fill(idToRow, -1);
+        for (int r_new = 0; r_new < intT1Num; r_new++) {
+            idToRow[tPerfect.getInternalNode(r_new).getNumber()] = r_new;
+        }
+
+        int[][] lcaNew = TreeCmpUtils.calcLcaMatrix(tPerfect, this.baseIdGroup);
+        int[][] newIntersection = new int[dim][dim];
+
+        for (int i = 0; i < N; i++) {
+            for (int j = i + 1; j < N; j++) {
+                int ind1 = lcaNew[i][j];
+                int ind2 = this.targetLcaMatrix[i][j];
+                if (ind1 >= 0 && ind1 < idToRow.length && ind2 >= 0 && ind2 < this.targetIdToCol.length) {
+                    int r_new = idToRow[ind1];
+                    int c = this.targetIdToCol[ind2];
+                    if (r_new >= 0 && c >= 0) {
+                        newIntersection[r_new][c]++;
+                    }
+                }
+            }
+        }
+
+        short[] cSizeNew = new short[maxNodesNew];
+        Node[] postOrderNew = TreeCmpUtils.getNodesInPostOrder(tPerfect);
+        TreeCmpUtils.calcCladeSizes(tPerfect, postOrderNew, cSizeNew);
+
+        int[] newT1PairCount = new int[dim];
+        for (int r_new = 0; r_new < intT1Num; r_new++) {
+            newT1PairCount[r_new] = coutChildrenPairs(tPerfect.getInternalNode(r_new), cSizeNew);
         }
 
         int[][] tempAssigncost = new int[dim][dim];
         for (int r = 0; r < dim; r++) {
             for (int c = 0; c < dim; c++) {
                 if (r < intT1Num && c < intT2Num) {
-                    tempAssigncost[r][c] = t1IntPairCountNew[r] + t2IntPairCount[c] - (newIntersection[r][c] << 1);
+                    tempAssigncost[r][c] = newT1PairCount[r] + t2IntPairCount[c] - (newIntersection[r][c] << 1);
                 } else if (r >= intT1Num && c < intT2Num) {
                     tempAssigncost[r][c] = t2IntPairCount[c];
                 } else if (r < intT1Num && c >= intT2Num) {
-                    tempAssigncost[r][c] = t1IntPairCountNew[r];
+                    tempAssigncost[r][c] = newT1PairCount[r];
                 } else {
                     tempAssigncost[r][c] = 0;
                 }
@@ -164,22 +241,37 @@ public class MPIncrementalMetric implements IncrementalMetric {
             System.arraycopy(tempAssigncost[i], 0, lapCost[i], 0, dim);
         }
 
+        // Permutacja LAP z pełnym bezpieczeństwem zachowania matching'u
+        int[] tempRowsol = new int[dim];
+        int[] tempColsol = new int[dim];
+        int[] tempU = new int[dim];
+        int[] tempV = this.v.clone();
+
+        for (int r_new = 0; r_new < dim; r_new++) {
+            int r_old = newToOld[r_new];
+            tempU[r_new] = this.u[r_old];
+            tempRowsol[r_new] = this.rowsol[r_old];
+        }
+
+        for (int c = 0; c < dim; c++) {
+            int r_old = this.colsol[c];
+            tempColsol[c] = oldToNew[r_old];
+        }
+
+        int[][] mappedOldAssigncost = new int[dim][dim];
+        for (int r_new = 0; r_new < dim; r_new++) {
+            mappedOldAssigncost[r_new] = this.assigncost[newToOld[r_new]];
+        }
+
         List<Integer> changedRowsList = new ArrayList<>();
-        for (int r = 0; r < dim; r++) {
-            if (!Arrays.equals(this.assigncost[r], tempAssigncost[r])) {
-                changedRowsList.add(r);
+        for (int r_new = 0; r_new < dim; r_new++) {
+            if (!Arrays.equals(mappedOldAssigncost[r_new], tempAssigncost[r_new])) {
+                changedRowsList.add(r_new);
             }
         }
         int[] changedRows = changedRowsList.stream().mapToInt(i -> i).toArray();
 
-        int[] tempRowsol = this.rowsol.clone();
-        int[] tempColsol = this.colsol.clone();
-        int[] tempU = this.u.clone();
-        int[] tempV = this.v.clone();
-
         int rawMetric;
-
-        // Bounded Dijkstra włącza się z gigantycznym bezpiecznym limitem
         if (changedRows.length > 0 && changedRows.length < dim && maxCostBound >= 0) {
             rawMetric = LapSolver.lapUpdateBoundedInt(dim, lapCost, tempRowsol, tempColsol, tempU, tempV, changedRows, maxCostBound);
         } else {
@@ -191,12 +283,12 @@ public class MPIncrementalMetric implements IncrementalMetric {
         if (isCommit) {
             history.push(new StateRecord(this.assigncost, this.rowsol, this.colsol, this.u, this.v, this.currentDistance, this.currentVirtualTree));
             this.assigncost = tempAssigncost;
+            this.currentVirtualTree = tPerfect;
             this.rowsol = tempRowsol;
             this.colsol = tempColsol;
             this.u = tempU;
             this.v = tempV;
             this.currentDistance = dist;
-            this.currentVirtualTree = tNew;
         }
 
         return dist;
@@ -209,7 +301,8 @@ public class MPIncrementalMetric implements IncrementalMetric {
 
     @Override
     public double applyNni(NniMove move) {
-        SimpleTree tNew = new SimpleTree(currentVirtualTree);
+        // Obowiązkowo używamy createCleanCopy dla każdego wariantu, by wskaźniki rodziców zawsze były na miejscu przed operacjami fizycznymi
+        SimpleTree tNew = (SimpleTree) createCleanCopy(currentVirtualTree);
 
         Node L = getMappedNode(tNew, move.movingSubtree);
         Node S = getMappedNode(tNew, move.swapPartner);
@@ -226,7 +319,6 @@ public class MPIncrementalMetric implements IncrementalMetric {
         p1.setChild(idx1, S); S.setParent(p1);
         p2.setChild(idx2, L); L.setParent(p2);
 
-        // Bezpieczny asymptotyczny limit dla MP. Aktywuje Warm Start bez ryzyka.
         return calculateCleanSlateDistance(tNew, true, N * N * 10);
     }
 
@@ -255,7 +347,7 @@ public class MPIncrementalMetric implements IncrementalMetric {
     }
 
     private double internalApply2sEcrMove(Node top, Node m1, Node m2, Node[] boundarySubtrees, SubtreeEcr2Utils.TopologyTemplate2sECR template, boolean isCommit) {
-        SimpleTree tNew = new SimpleTree(currentVirtualTree);
+        SimpleTree tNew = (SimpleTree) createCleanCopy(currentVirtualTree);
 
         Node vTop = getMappedNode(tNew, top);
         Node vM1 = getMappedNode(tNew, m1);
@@ -303,7 +395,7 @@ public class MPIncrementalMetric implements IncrementalMetric {
     }
 
     private double internalApply3sEcrMove(List<Node> cluster, Node[] boundarySubtrees, SubtreeEcr3Utils.TopologyTemplate3sECR template, boolean isCommit) {
-        SimpleTree tNew = new SimpleTree(currentVirtualTree);
+        SimpleTree tNew = (SimpleTree) createCleanCopy(currentVirtualTree);
 
         Node[] vAvailable = new Node[4];
         for(int i=0; i<4; i++) {
@@ -348,20 +440,13 @@ public class MPIncrementalMetric implements IncrementalMetric {
         return idx;
     }
 
-    private Node getMappedNode(Tree virtTree, Node targetNode) {
-        if (targetNode == null) return null;
-        if (targetNode.isLeaf()) {
-            return TreeUtils.getNodeByName(virtTree, targetNode.getIdentifier().getName());
-        }
-        BitSet targetBs = new BitSet();
-        populateBitSet(targetNode, targetBs);
-        Node[] allNodes = TreeCmpUtils.getAllNodes(virtTree);
-        for (Node n : allNodes) {
-            if (!n.isLeaf()) {
-                BitSet bs = new BitSet();
-                populateBitSet(n, bs);
-                if (bs.equals(targetBs)) return n;
-            }
+    private Node getMappedNode(Tree destTree, Node srcNode) {
+        if (srcNode == null) return null;
+        if (srcNode.isLeaf()) return TreeUtils.getNodeByName(destTree, srcNode.getIdentifier().getName());
+        Signature targetSig = new Signature(srcNode, N, baseIdGroup);
+        for (int i = 0; i < destTree.getInternalNodeCount(); i++) {
+            Signature sig = new Signature(destTree.getInternalNode(i), N, baseIdGroup);
+            if (sig.equals(targetSig)) return destTree.getInternalNode(i);
         }
         return null;
     }
@@ -373,13 +458,12 @@ public class MPIncrementalMetric implements IncrementalMetric {
         return -1;
     }
 
-    private void populateBitSet(Node n, BitSet bs) {
-        if (n.isLeaf()) {
-            int id = this.baseIdGroup.whichIdNumber(n.getIdentifier().getName());
-            if (id >= 0) bs.set(id);
-        } else {
-            for (int i = 0; i < n.getChildCount(); i++) populateBitSet(n.getChild(i), bs);
-        }
+    // Pełnowymiarowa, bezpieczna kopia ze wskaźnikami
+    private Tree createCleanCopy(Tree original) {
+        SimpleTree copy = new SimpleTree(original);
+        copy.createNodeList();
+        TreeUtils.computeParentPointers(copy.getRoot());
+        return copy;
     }
 
     private int getSafeMaxNodeId(Tree tree) {
@@ -406,6 +490,41 @@ public class MPIncrementalMetric implements IncrementalMetric {
             }
         }
         return pairCount;
+    }
+
+    // Sygnatura dla metryki ukorzenionej
+    private static class Signature {
+        String hash;
+        public Signature(Node n, int N, IdGroup idGroup) {
+            List<BitSet> parts = new ArrayList<>();
+            for (int i = 0; i < n.getChildCount(); i++) {
+                parts.add(getLeaves(n.getChild(i), idGroup));
+            }
+            String[] strParts = new String[parts.size()];
+            for (int i = 0; i < parts.size(); i++) {
+                strParts[i] = parts.get(i).toString();
+            }
+            Arrays.sort(strParts);
+            this.hash = Arrays.toString(strParts);
+        }
+        @Override
+        public int hashCode() { return hash.hashCode(); }
+        @Override
+        public boolean equals(Object obj) {
+            if (!(obj instanceof Signature)) return false;
+            return this.hash.equals(((Signature)obj).hash);
+        }
+        @Override
+        public String toString() { return hash; }
+    }
+
+    private static BitSet getLeaves(Node n, IdGroup idGroup) {
+        BitSet bs = new BitSet(); populate(n, bs, idGroup); return bs;
+    }
+
+    private static void populate(Node n, BitSet bs, IdGroup idGroup) {
+        if (n.isLeaf()) bs.set(idGroup.whichIdNumber(n.getIdentifier().getName()));
+        else for (int i = 0; i < n.getChildCount(); i++) populate(n.getChild(i), bs, idGroup);
     }
 
     private static class StateRecord {
