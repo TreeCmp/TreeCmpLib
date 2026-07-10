@@ -8,13 +8,16 @@ import treecmp.heuristics.moves.SprMove;
 import treecmp.heuristics.spr.SprUtils;
 import treecmp.metrics.IncrementalMetric;
 
-public abstract class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetric {
+public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetric {
 
     protected final SprNeighborhoodWalker walker;
     protected final SprUtils sprUtils;
+    private final String metricShortName;
 
-    public SprIncrementalHeuristicMetric(boolean rooted, IncrementalMetric metric) {
-        super(rooted, metric);
+    // WZORZEC KOMPOZYCJI: Podajemy silnik metryki przy tworzeniu obiektu
+    public SprIncrementalHeuristicMetric(IncrementalMetric metric, String metricShortName) {
+        super(metric.isRooted(), metric);
+        this.metricShortName = metricShortName;
         this.walker = new SprNeighborhoodWalker();
         this.sprUtils = new SprUtils();
     }
@@ -22,8 +25,6 @@ public abstract class SprIncrementalHeuristicMetric extends IncrementalHeuristic
     @Override
     protected void searchNeighborhood(Tree currentTree) {
         // Walker robi całą czarną robotę. My tylko wyłapujemy wyniki w wizytatorze.
-        // Uwaga: Rzutowanie na BaseRFIncrementalMetric zależy od tego, jak ostatecznie
-        // zdefiniujesz parametry w SprNeighborhoodWalker.walk()
         walker.walk(currentTree, this.incMetric, (currentDist, movingNode, targetNode) -> {
             checkImprovement(currentDist, new SprMove(movingNode, targetNode));
         });
@@ -77,5 +78,10 @@ public abstract class SprIncrementalHeuristicMetric extends IncrementalHeuristic
             }
         }
         return (currentDist == 0) ? (double) totalSteps : Double.POSITIVE_INFINITY;
+    }
+
+    @Override
+    public String getName() {
+        return "SPR_IncrementalHeuristic_" + metricShortName;
     }
 }

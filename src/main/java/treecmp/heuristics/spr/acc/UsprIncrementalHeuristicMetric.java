@@ -8,13 +8,16 @@ import treecmp.heuristics.moves.SprMove;
 import treecmp.heuristics.spr.UsprUtils;
 import treecmp.metrics.IncrementalMetric;
 
-public abstract class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetric {
+public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetric {
 
     protected final UsprNeighborhoodWalker walker;
     protected final UsprUtils usprUtils;
+    private final String metricShortName;
 
-    public UsprIncrementalHeuristicMetric(boolean rooted, IncrementalMetric metric) {
-        super(rooted, metric);
+    // WZORZEC KOMPOZYCJI: Uniwersalny wstrzykiwacz metryki
+    public UsprIncrementalHeuristicMetric(IncrementalMetric metric, String metricShortName) {
+        super(metric.isRooted(), metric);
+        this.metricShortName = metricShortName;
         this.walker = new UsprNeighborhoodWalker();
         this.usprUtils = new UsprUtils();
     }
@@ -73,5 +76,10 @@ public abstract class UsprIncrementalHeuristicMetric extends IncrementalHeuristi
             }
         }
         return (currentDist == 0) ? (double) totalSteps : Double.POSITIVE_INFINITY;
+    }
+
+    @Override
+    public String getName() {
+        return "uSPR_IncrementalHeuristic_" + metricShortName;
     }
 }
