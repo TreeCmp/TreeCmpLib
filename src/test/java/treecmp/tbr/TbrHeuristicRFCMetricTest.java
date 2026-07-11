@@ -4,10 +4,10 @@ import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import pal.tree.Tree;
-import treecmp.heuristics.spr.SprHeuristicRFCMetric;
-import treecmp.heuristics.tbr.TbrHeuristicRFCMetric;
+import treecmp.heuristics.spr.SprHeuristicMetric;
+import treecmp.heuristics.tbr.TbrClassicHeuristic;
+import treecmp.metrics.topological.RFClusterMetric;
 import treecmp.util.TestTreeFactory;
-import treecmp.util.TreeCreator;
 
 import static org.junit.jupiter.api.Assertions.*;
 
@@ -24,7 +24,9 @@ class TbrHeuristicRFCMetricTest {
     @Test
     void testIdenticalTreesShouldHaveZeroDistance() {
         Tree tree = TestTreeFactory.fiveLeavesRootedTree1();
-        TbrHeuristicRFCMetric tbrMetric = new TbrHeuristicRFCMetric();
+
+        // Używamy zunifikowanej klasy TBR (RFCluster, ukorzenione)
+        TbrClassicHeuristic tbrMetric = new TbrClassicHeuristic(new RFClusterMetric(), true, "RFC");
 
         assertEquals(0.0, tbrMetric.getDistance(tree, tree), DELTA, "Dystans TBR dla identycznych drzew musi wynosić 0");
     }
@@ -37,8 +39,9 @@ class TbrHeuristicRFCMetricTest {
         // Cel: Kręgosłup opadający w prawo (1,(2,(3,4)))
         Tree t2 = TestTreeFactory.sixLeavesRootedTargetTree1();
 
-        SprHeuristicRFCMetric sprMetric = new SprHeuristicRFCMetric();
-        TbrHeuristicRFCMetric tbrMetric = new TbrHeuristicRFCMetric();
+        // Używamy zunifikowanych klas dla SPR i TBR
+        SprHeuristicMetric sprMetric = new SprHeuristicMetric(new RFClusterMetric(), "RFC");
+        TbrClassicHeuristic tbrMetric = new TbrClassicHeuristic(new RFClusterMetric(), true, "RFC");
 
         double sprDist = sprMetric.getDistance(t1, t2);
         double tbrDist = tbrMetric.getDistance(t1, t2);
@@ -52,8 +55,9 @@ class TbrHeuristicRFCMetricTest {
         Tree t1 = TestTreeFactory.tenLeavesRootedTree1();
         Tree t2 = TestTreeFactory.tenLeavesRootedTree2();
 
-        SprHeuristicRFCMetric sprMetric = new SprHeuristicRFCMetric();
-        TbrHeuristicRFCMetric tbrMetric = new TbrHeuristicRFCMetric();
+        // Używamy zunifikowanych klas dla SPR i TBR
+        SprHeuristicMetric sprMetric = new SprHeuristicMetric(new RFClusterMetric(), "RFC");
+        TbrClassicHeuristic tbrMetric = new TbrClassicHeuristic(new RFClusterMetric(), true, "RFC");
 
         double sprDist = sprMetric.getDistance(t1, t2);
         double tbrDist = tbrMetric.getDistance(t1, t2);

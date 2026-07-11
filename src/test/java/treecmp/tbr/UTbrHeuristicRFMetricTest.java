@@ -6,8 +6,8 @@ import org.junit.jupiter.api.Test;
 import pal.tree.Tree;
 import treecmp.common.TreeCmpException;
 import treecmp.heuristics.spr.UsprUtils;
+import treecmp.heuristics.tbr.TbrClassicHeuristic;
 import treecmp.heuristics.tbr.UTbrUtils;
-import treecmp.heuristics.tbr.UTbrHeuristicRFMetric;
 import treecmp.metrics.Metric;
 import treecmp.metrics.topological.RFMetric;
 import treecmp.util.TestTreeFactory;
@@ -28,7 +28,9 @@ class UTbrHeuristicRFMetricTest {
     @Test
     void testGetMetricTwoMarsupialsTreesWithSPR_1_distance() throws TreeCmpException {
         Tree baseTree[] = TreeCreator.getTwoMarsupialsSPR_1_distance_trees();
-        UTbrHeuristicRFMetric utbr = new UTbrHeuristicRFMetric();
+
+        // Używamy naszej nowej, zunifikowanej klasy kompozytowej (RF, nieukorzenione)
+        TbrClassicHeuristic utbr = new TbrClassicHeuristic(new RFMetric(), false, "RF");
 
         Double distance = utbr.getDistance(baseTree[0], baseTree[1]);
         assertEquals(1.0, distance, DELTA, "uTBR powinno wynieść dokładnie 1.0 dla drzew oddalonych o uSPR=1");
@@ -72,7 +74,8 @@ class UTbrHeuristicRFMetricTest {
         // Drzewo 2: W uTBR potrafimy odciąć i odwrócić wnętrze! (((1,(3,4)),2),5,6)
         Tree t2 = TestTreeFactory.sixLeavesUnrootedTargetTree();
 
-        UTbrHeuristicRFMetric utbr = new UTbrHeuristicRFMetric();
+        // Używamy naszej nowej, zunifikowanej klasy kompozytowej
+        TbrClassicHeuristic utbr = new TbrClassicHeuristic(new RFMetric(), false, "RF");
         double dist = utbr.getDistance(t1, t2);
 
         assertTrue(dist <= 1.0, "Ten ruch powinien zamknąć się w 1 operacji uTBR");

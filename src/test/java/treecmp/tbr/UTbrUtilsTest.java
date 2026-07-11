@@ -7,8 +7,9 @@ import pal.tree.TreeUtils;
 import treecmp.common.TreeCmpException;
 import treecmp.heuristics.TreeUnrootedHolder;
 import treecmp.heuristics.spr.UsprUtils;
+import treecmp.heuristics.tbr.TbrClassicHeuristic;
 import treecmp.heuristics.tbr.UTbrUtils;
-import treecmp.heuristics.tbr.UTbrHeuristicRFMetric;
+import treecmp.metrics.topological.RFMetric;
 import treecmp.util.TreeCreator;
 
 import java.util.HashSet;
@@ -77,7 +78,8 @@ class UTbrUtilsTest {
         UTbrUtils utbrUtils = new UTbrUtils();
         Tree[] tbrNeighbors = utbrUtils.generateNeighbours(baseTree);
 
-        UTbrHeuristicRFMetric utbrMetric = new UTbrHeuristicRFMetric();
+        // Używamy naszej nowej, uniwersalnej heurystyki (uTBR + RF Metric + nieukorzenione)
+        TbrClassicHeuristic utbrMetric = new TbrClassicHeuristic(new RFMetric(), false, "RF");
 
         for (Tree neighbor : tbrNeighbors) {
             double dist = utbrMetric.getDistance(baseTree, neighbor);

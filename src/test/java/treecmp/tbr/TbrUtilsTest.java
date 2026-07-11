@@ -7,8 +7,9 @@ import pal.tree.TreeUtils;
 import treecmp.common.TreeCmpException;
 import treecmp.heuristics.TreeRootedHolder;
 import treecmp.heuristics.spr.SprUtils;
+import treecmp.heuristics.tbr.TbrClassicHeuristic;
 import treecmp.heuristics.tbr.TbrUtils;
-import treecmp.heuristics.tbr.TbrHeuristicRFCMetric;
+import treecmp.metrics.topological.RFClusterMetric;
 import treecmp.util.TreeCreator;
 
 import java.util.HashSet;
@@ -56,7 +57,8 @@ class TbrUtilsTest {
         TbrUtils tbrUtils = new TbrUtils();
         Tree[] tbrNeighbors = tbrUtils.generateNeighbours(baseTree);
 
-        TbrHeuristicRFCMetric tbrMetric = new TbrHeuristicRFCMetric();
+        // Używamy nowej, uniwersalnej heurystyki (TBR + RFCluster + ukorzenione)
+        TbrClassicHeuristic tbrMetric = new TbrClassicHeuristic(new RFClusterMetric(), true, "RFC");
 
         // Jeśli drzewo jest w otoczeniu TbrUtils, to metryka MUST zwrócić dystans = 1.0
         for (Tree neighbor : tbrNeighbors) {
