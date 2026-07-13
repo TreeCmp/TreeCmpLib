@@ -6,8 +6,11 @@ import pal.tree.Tree;
 import pal.tree.TreeUtils;
 import treecmp.heuristics.TreeHolder;
 import treecmp.heuristics.TreeRootedHolder;
-import treecmp.heuristics.tbr.TbrNeighborhoodWalker;
+import treecmp.heuristics.TreeUnrootedHolder;
+import treecmp.heuristics.tbr.acc.TbrNeighborhoodWalker;
+import treecmp.heuristics.tbr.acc.UtbrNeighborhoodWalker;
 import treecmp.heuristics.tbr.TbrUtils;
+import treecmp.heuristics.tbr.UTbrUtils;
 import treecmp.util.CoverageMockMetric;
 import treecmp.util.TestTreeFactory;
 
@@ -47,6 +50,32 @@ public class TbrNeighborhoodWalkerTopologyTest {
     }
 
     // ==========================================
+    // UNROOTED TREES TESTS (uTBR)
+    // ==========================================
+
+    @Test
+    public void shouldVisitUnrootedTbrNeighborhood_FourLeavesStarTree() {
+        verifyUnrootedNeighborhood(TestTreeFactory.fourLeavesUnrootedStarTree());
+    }
+
+    @Test
+    public void shouldVisitUnrootedTbrNeighborhood_SixLeavesBalancedTree() {
+        verifyUnrootedNeighborhood(TestTreeFactory.sixLeavesUnrootedBalancedTree());
+    }
+
+    @Test
+    public void shouldVisitUnrootedTbrNeighborhood_EightLeavesCaterpillarTree() {
+        // Asymetria na drzewach nieukorzenionych
+        verifyUnrootedNeighborhood(TestTreeFactory.eightLeavesUnrootedCaterpillarTree());
+    }
+
+    @Test
+    public void shouldVisitUnrootedTbrNeighborhood_FifteenLeavesComplexTree() {
+        // Stress test otoczenia uTBR (ogromna wielkość)
+        verifyUnrootedNeighborhood(TestTreeFactory.fifteenLeavesUnrootedComplexTree());
+    }
+
+    // ==========================================
     // DRY HELPER ENGINE: ROOTED (rTBR)
     // ==========================================
 
@@ -63,7 +92,7 @@ public class TbrNeighborhoodWalkerTopologyTest {
                 .map(tree -> new TreeRootedHolder(tree, idGroup))
                 .collect(Collectors.toSet());
 
-        // Inicjalizujemy pustego Mocka
+        // Inicjalizujemy pustego Mocka dla drzew UKORZENIONYCH
         CoverageMockMetric mockMetric = new CoverageMockMetric(true);
         mockMetric.initCalculationState(baseTree, null);
 
@@ -89,5 +118,53 @@ public class TbrNeighborhoodWalkerTopologyTest {
 
         assertEquals(expectedTopologies, walkerTopologies,
                 "Walker pominął niektóre drzewa z matematycznego otoczenia rTBR!");
+    }
+
+    // ==========================================
+    // DRY HELPER ENGINE: UNROOTED (uTBR)
+    // ==========================================
+
+    private void verifyUnrootedNeighborhood(Tree baseTree) {
+        UTbrUtils oracle = new UTbrUtils();
+        IdGroup idGroup = TreeUtils.getLeafIdGroup(baseTree);
+
+        // Haszujemy drzewo startowe używając TreeUnrootedHolder (drzewa nieukorzenione)
+        TreeUnrootedHolder baseHolder = new TreeUnrootedHolder(baseTree, idGroup);
+
+        // 1. Zbieramy referencyjne otoczenie uTBR (Prawda Absolutna)
+        Tree[] oracleNeighbors = oracle.generateNeighbours(baseTree);
+        Set<TreeHolder> expectedTopologies = Arrays.stream(oracleNeighbors)
+                .map(tree -> new TreeUnrootedHolder(tree, idGroup))
+                .collect(Collectors.toSet());
+
+        // Inicjalizujemy pustego Mocka dla drzew NIEUKORZENIONYCH (false)
+        CoverageMockMetric mockMetric = new CoverageMockMetric(false);
+        mockMetric.initCalculationState(baseTree, null);
+
+        UtbrNeighborhoodWalker walker = new UtbrNeighborhoodWalker();
+        Set<TreeHolder> walkerTopologies = new HashSet<>();
+
+        // 2. Walker nawiguje, wykorzystując UTbrUtils do fizycznej rekonstrukcji zjawisk
+        walker.walk(baseTree, mockMetric, (distance, pruneNode, rerootNode, targetNode) -> {
+
+            // Wykorzystujemy nową, publiczną metodę createUtbrTree
+            Tree visitedTree = oracle.createUtbrTree(baseTree, pruneNode, rerootNode, targetNode);
+
+            if (visitedTree != null) {
+                TreeUnrootedHolder visitedHolder = new TreeUnrootedHolder(visitedTree, idGroup);
+
+                // ODRZUCAMY RUCH TOŻSAMOŚCIOWY
+                if (!visitedHolder.equals(baseHolder)) {
+                    walkerTopologies.add(visitedHolder);
+                }
+            }
+        });
+
+        // 3. Sprawdzamy pokrycie (Coverage)
+        assertEquals(expectedTopologies.size(), walkerTopologies.size(),
+                "UtbrNeighborhoodWalker wygenerował inną liczbę unikalnych topologii uTBR niż Wyrocznia (UTbrUtils)!");
+
+        assertEquals(expectedTopologies, walkerTopologies,
+                "UtbrNeighborhoodWalker pominął niektóre drzewa z matematycznego otoczenia uTBR!");
     }
 }
