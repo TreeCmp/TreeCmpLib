@@ -1,34 +1,32 @@
-package treecmp.heuristics.tbr;
+package treecmp.heuristics.tbr.acc;
 
 import pal.tree.Tree;
 import pal.tree.TreeUtils;
 import treecmp.heuristics.base.IncrementalHeuristicBaseMetric;
 import treecmp.heuristics.moves.TreeMove;
 import treecmp.heuristics.moves.TbrMove;
+import treecmp.heuristics.tbr.UTbrUtils;
 import treecmp.metrics.IncrementalMetric;
 
 /**
- * Uniwersalna, akcelerowana heurystyka (Steepest Descent) dla otoczenia TBR.
- * Używa szybkiego przeliczania metryk inkrementalnych.
+ * Uniwersalna, akcelerowana heurystyka (Steepest Descent) dla otoczenia uTBR.
+ * Dedykowana dla drzew nieukorzenionych i obsługiwana przez UtbrNeighborhoodWalker.
  */
-public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
+public class UtbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
 
-    private final TbrNeighborhoodWalker walker;
+    private final UtbrNeighborhoodWalker walker;
     private final String metricShortName;
 
-    // Uniwersalny konstruktor przyjmujący dowolną metrykę inkrementalną!
-    public TbrIncrementalHeuristic(IncrementalMetric metric, String metricShortName) {
-        super(true, metric); // true dla drzew ukorzenionych (TBR)
-        this.walker = new TbrNeighborhoodWalker();
+    // Uniwersalny konstruktor dla metryk nieukorzenionych (np. MS, uRF, MT)
+    public UtbrIncrementalHeuristic(IncrementalMetric metric, String metricShortName) {
+        super(false, metric); // FALSE = drzewa nieukorzenione
+        this.walker = new UtbrNeighborhoodWalker();
         this.metricShortName = metricShortName;
     }
 
     @Override
     protected void searchNeighborhood(Tree currentTree) {
-        // Używamy this.incMetric z klasy bazowej.
-        // Wizytator TBR przyjmuje 3 parametry węzłowe: odcięty korzeń, nowy wirtualny korzeń i cel
         walker.walk(currentTree, this.incMetric, (currentDist, pruneNode, rerootNode, targetNode) -> {
-            // Rejestrujemy ruch TBR zawierający informację o przekorzenieniu
             checkImprovement(currentDist, new TbrMove(pruneNode, rerootNode, targetNode));
         });
     }
@@ -38,8 +36,9 @@ public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
         if (move instanceof TbrMove) {
             TbrMove tm = (TbrMove) move;
 
-            // Fizycznie tworzy drzewo po rTBR: odcina pruneNode, zmienia korzeń na rerootNode i wpina w targetNode.
-            Tree newTree = new TbrUtils().createTbrTree(tree, tm.movingNode, tm.rerootNode, tm.targetNode);
+            // Używamy UTbrUtils, aby bezpiecznie przepiąć strukturę bez niszczenia
+            // wewnętrznej trifurkacji korzenia, która występuje w drzewach nieukorzenionych.
+            Tree newTree = new UTbrUtils().createUtbrTree(tree, tm.movingNode, tm.rerootNode, tm.targetNode);
 
             if (newTree != null) {
                 if (newTree instanceof pal.tree.SimpleTree) {
@@ -76,18 +75,19 @@ public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
                 currentTree = applyPhysicalMove(currentTree, this.bestMove);
                 totalSteps++;
 
-                // Krytyczne ręczne przeliczanie rodziców (zabezpieczenie przed biblioteką PAL)
+                // Krytyczne przeliczanie rodziców, ratujące wewnętrzne wskaźniki PAL
                 TreeUtils.computeParentPointers(currentTree.getRoot());
 
                 this.incMetric.initCalculationState(currentTree, tree2);
                 currentDist = this.incMetric.getCurrentDistance();
             }
         }
+        // Zwraca łączną liczbę wykonanych kroków w dół w przestrzeni uTBR
         return (currentDist == 0) ? (double) totalSteps : Double.POSITIVE_INFINITY;
     }
 
     @Override
     public String getName() {
-        return "TBR_IncrementalHeuristic_" + metricShortName;
+        return "uTBR_IncrementalHeuristic_" + metricShortName;
     }
 }

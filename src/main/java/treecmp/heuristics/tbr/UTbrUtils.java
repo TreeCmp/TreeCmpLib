@@ -13,6 +13,20 @@ import java.util.Set;
 
 public class UTbrUtils extends TreeNeighborhoodUtils {
 
+    // 1. NOWA METODA: Wymagana przez UtbrIncrementalHeuristic do fizycznej aplikacji ruchu
+    public Tree createUtbrTree(Tree tree, Node pruneNode, Node rerootNode, Node targetNode) {
+        if (pruneNode == rerootNode) {
+            return createUsprTree(tree, pruneNode, targetNode);
+        } else {
+            return createTbrTree(tree, pruneNode, rerootNode, targetNode);
+        }
+    }
+
+    // 2. NOWA METODA: Ujednolicenie nazewnictwa dla UtbrNeighborhoodWalker (alias dla isValidUTbrMove)
+    public boolean isValidUtbrMove(Node pruneNode, Node rerootNode, Node targetNode) {
+        return isValidUTbrMove(pruneNode, rerootNode, targetNode);
+    }
+
     @Override
     public Tree[] generateNeighbours(Tree tree) {
         IdGroup idGroup = TreeUtils.getLeafIdGroup(tree);
@@ -38,14 +52,12 @@ public class UTbrUtils extends TreeNeighborhoodUtils {
 
             for (Node rerootNode : rerootNodes) {
                 for (Node targetNode : allNodes) {
-                    if (isValidUTbrMove(pruneNode, rerootNode, targetNode)) {
 
-                        Tree resultTree;
-                        if (pruneNode == rerootNode) {
-                            resultTree = createUsprTree(tree, pruneNode, targetNode);
-                        } else {
-                            resultTree = createTbrTree(tree, pruneNode, rerootNode, targetNode);
-                        }
+                    // Używamy ujednoliconej nazwy
+                    if (isValidUtbrMove(pruneNode, rerootNode, targetNode)) {
+
+                        // Wywołujemy naszą nową publiczną metodę!
+                        Tree resultTree = createUtbrTree(tree, pruneNode, rerootNode, targetNode);
 
                         if (resultTree != null) {
                             try {
