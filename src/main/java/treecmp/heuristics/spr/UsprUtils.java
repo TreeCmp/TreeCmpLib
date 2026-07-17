@@ -11,6 +11,11 @@ import pal.tree.*;
 import treecmp.common.TreeCmpException;
 import treecmp.heuristics.TreeNeighborhoodUtils;
 import treecmp.heuristics.TreeUnrootedHolder;
+import java.util.function.Consumer;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.BitSet;
+import java.util.Collections;
 
 import java.util.HashSet;
 import java.util.Set;
@@ -114,7 +119,7 @@ public class UsprUtils extends TreeNeighborhoodUtils {
         int analyzedTreeNum = 0;
         double frac;
 
-       // System.out.println("Neigh siez="+neighSize);
+        // System.out.println("Neigh siez="+neighSize);
         Node s,t;
         Tree resultTree,  bestTree = null;
         double bestValue = Double.MAX_VALUE;
@@ -133,20 +138,20 @@ public class UsprUtils extends TreeNeighborhoodUtils {
                         bestValue = resultValue;
                     }
                     printProgress(analyzedTreeNum, neighSize, estimatedMax, bestValue);
-                   frac = (double)analyzedTreeNum/(double)estimatedMax;
-                   if (frac > neighSizeFrac && inputTreeValue > bestValue){
+                    frac = (double)analyzedTreeNum/(double)estimatedMax;
+                    if (frac > neighSizeFrac && inputTreeValue > bestValue){
                         TreeValuePair tvPair = new TreeValuePair();
                         tvPair.setTree(bestTree);
                         tvPair.setValue(bestValue);
                         return tvPair;
-                   }
+                    }
 
                     // System.out.println("neigbours/neighsize = "+sprTreeSet.size() +"/" +neighSize);
                 }
             }
         }
         //non-leaf and non-root to leaf
-         for (int i=0; i<intNum; i++){
+        for (int i=0; i<intNum; i++){
             s = tree.getInternalNode(i);
             if(s.isRoot())
                 continue;
@@ -167,13 +172,13 @@ public class UsprUtils extends TreeNeighborhoodUtils {
                         tvPair.setTree(bestTree);
                         tvPair.setValue(bestValue);
                         return tvPair;
-                   }
+                    }
                     //System.out.println("neigbours/neighsize = "+sprTreeSet.size() +"/" +neighSize);
                 }
             }
         }
         //leaf - non-leaf
-         for (int i=0; i<extNum; i++){
+        for (int i=0; i<extNum; i++){
             s = tree.getExternalNode(i);
             for (int j=0; j<intNum; j++){
                 t = tree.getInternalNode(j);
@@ -192,15 +197,15 @@ public class UsprUtils extends TreeNeighborhoodUtils {
                         tvPair.setTree(bestTree);
                         tvPair.setValue(bestValue);
                         return tvPair;
-                   }
-                     //System.out.println("neigbours/neighsize = "+sprTreeSet.size() +"/" +neighSize);
+                    }
+                    //System.out.println("neigbours/neighsize = "+sprTreeSet.size() +"/" +neighSize);
                 }
             }
         }
 
         //non-leaf, non-root to non-leaf
 
-         for (int i=0; i<intNum; i++){
+        for (int i=0; i<intNum; i++){
             s = tree.getInternalNode(i);
             if(s.isRoot())
                 continue;
@@ -223,7 +228,7 @@ public class UsprUtils extends TreeNeighborhoodUtils {
                             tvPair.setValue(bestValue);
                             return tvPair;
                         }
-                       // System.out.println("neigbours/neighsize = "+sprTreeSet.size() +"/" +neighSize);
+                        // System.out.println("neigbours/neighsize = "+sprTreeSet.size() +"/" +neighSize);
                     }
                 }
             }
@@ -254,24 +259,24 @@ public class UsprUtils extends TreeNeighborhoodUtils {
             Node n2Parent = n2.getParent();
             return (n1Parent == n2Parent);
         }
- 
+
         return false;
     }
-    
+
     public boolean isChildParent(Node n1, Node n2){
-      
+
         Node n1Parent = n1.getParent();
         Node n2Parent = n2.getParent();
-        
+
         if (n2 == n1Parent || n1 == n2Parent)
             return true;
-        
+
         return false;
     }
-    
-     public boolean isInnerMove(Node s, Node t){
-      
-        Node lca = NodeUtils.getFirstCommonAncestor(s, t);       
+
+    public boolean isInnerMove(Node s, Node t){
+
+        Node lca = NodeUtils.getFirstCommonAncestor(s, t);
         if (lca == s)
             return true;
         return false;
@@ -359,7 +364,7 @@ public class UsprUtils extends TreeNeighborhoodUtils {
             }
             else {
                 return false;
-                }
+            }
         }
         else {
             if (t.isLeaf()) {
@@ -410,11 +415,11 @@ public class UsprUtils extends TreeNeighborhoodUtils {
             if (node.isRoot())
                 continue;
             gammaTemp = getNodeDepth(node)-1;
-            gammaSum += gammaTemp;            
+            gammaSum += gammaTemp;
         }
         //based on "On the Combinatorics of Rooted Binary Phylogenetic Trees", Yun S. Song
         int neighNum = 2*(n-2)*(2*n - 5) - 2*gammaSum;
-        
+
         return neighNum;
     }
 
@@ -425,9 +430,9 @@ public class UsprUtils extends TreeNeighborhoodUtils {
     }
 
     public Tree createSprTree(Tree baseTree, Node s, Node t){
-       // if (num ==45){
-            
-         //   int ggg=0;
+        // if (num ==45){
+
+        //   int ggg=0;
         //}
 
         Tree resultTree = baseTree.getCopy();
@@ -452,7 +457,7 @@ public class UsprUtils extends TreeNeighborhoodUtils {
         Node targetParent = target.getParent();
         boolean isTargetRoot = target.isRoot();
         boolean isSourceParentRoot = sourceParent.isRoot();
-         
+
         //it should be the same tree
         if (isTargetRoot && isSourceParentRoot)
             return null;
@@ -460,20 +465,20 @@ public class UsprUtils extends TreeNeighborhoodUtils {
         Node otherSourceChild = findOtherChild(source,sourceParent);
         Node sourceParent2 = null;
         int sourceParentPos = -1;
-        if (!isSourceParentRoot){    
+        if (!isSourceParentRoot){
             //remove degree 2 soureceParent vertex
             sourceParent2 = sourceParent.getParent();
             sourceParentPos = findChildPos(sourceParent,sourceParent2);
         }
-          
+
         Node newNode = new SimpleNode();
-        if (!isTargetRoot){                    
+        if (!isTargetRoot){
             //split target edge
             int targetPos = findChildPos(target,targetParent);
             targetParent.setChild(targetPos, newNode);
         }
- 
-        
+
+
         if (!isSourceParentRoot){
             //remove degree 2 soureceParent vertex
             sourceParent2.setChild(sourceParentPos, otherSourceChild);
@@ -486,12 +491,12 @@ public class UsprUtils extends TreeNeighborhoodUtils {
 
 
 
-        if (isTargetRoot){            
+        if (isTargetRoot){
             newNode.setParent(null);
             resultTree.setRoot(newNode);
             //newTree = new SimpleTree(newNode);
 
-        } else if (isSourceParentRoot){            
+        } else if (isSourceParentRoot){
             otherSourceChild.setParent(null);
             resultTree.setRoot(otherSourceChild);
             //newTree = new SimpleTree(otherSourceChild);
@@ -711,4 +716,100 @@ public class UsprUtils extends TreeNeighborhoodUtils {
 
         return null;
     }
+
+// ========================================================================
+    // NOWE METODY: Leniwy Generator Otoczenia i Kanoniczna Sygnatura NIEUKORZENIONA
+    // ========================================================================
+
+    public void forEachUsprTree(Tree tree, Consumer<Tree> action) {
+        int extNum = tree.getExternalNodeCount();
+        int intNum = tree.getInternalNodeCount();
+        IdGroup idGroup = TreeUtils.getLeafIdGroup(tree);
+        int numLeaves = extNum;
+
+        // Lekki Set zabezpieczający przed izomorfizmami drzew nieukorzenionych
+        Set<String> seenTopologies = new HashSet<>();
+
+        Node s, t;
+
+        for (int i = 0; i < extNum; i++) {
+            s = tree.getExternalNode(i);
+            for (int j = 0; j < extNum; j++) {
+                t = tree.getExternalNode(j);
+                processAndYieldUspr(tree, s, t, idGroup, numLeaves, seenTopologies, action);
+            }
+        }
+        for (int i = 0; i < intNum; i++) {
+            s = tree.getInternalNode(i);
+            if (s.isRoot()) continue;
+            for (int j = 0; j < extNum; j++) {
+                t = tree.getExternalNode(j);
+                processAndYieldUspr(tree, s, t, idGroup, numLeaves, seenTopologies, action);
+            }
+        }
+        for (int i = 0; i < extNum; i++) {
+            s = tree.getExternalNode(i);
+            for (int j = 0; j < intNum; j++) {
+                t = tree.getInternalNode(j);
+                processAndYieldUspr(tree, s, t, idGroup, numLeaves, seenTopologies, action);
+            }
+        }
+        for (int i = 0; i < intNum; i++) {
+            s = tree.getInternalNode(i);
+            if (s.isRoot()) continue;
+            for (int j = 0; j < intNum; j++) {
+                t = tree.getInternalNode(j);
+                processAndYieldUspr(tree, s, t, idGroup, numLeaves, seenTopologies, action);
+            }
+        }
+    }
+
+    private void processAndYieldUspr(Tree baseTree, Node s, Node t, IdGroup idGroup, int numLeaves, Set<String> seen, Consumer<Tree> action) {
+        if (isValidUsprMove(s, t)) {
+            Tree resultTree = createUsprTree(baseTree, s, t);
+            if (resultTree != null) {
+                // Generujemy matematycznie czysty Hash na podstawie rozbiciów (splits), ignorując korzeń.
+                String topologyHash = getUnrootedCanonicalTopology(resultTree, idGroup, numLeaves);
+
+                if (seen.add(topologyHash)) {
+                    action.accept(resultTree);
+                }
+            }
+        }
+    }
+
+    private String getUnrootedCanonicalTopology(Tree tree, IdGroup idGroup, int numLeaves) {
+        List<String> splits = new ArrayList<>();
+        getSplits(tree.getRoot(), idGroup, numLeaves, splits);
+
+        Collections.sort(splits);
+
+        StringBuilder sb = new StringBuilder();
+        for (String split : splits) {
+            sb.append(split).append("|");
+        }
+        return sb.toString();
+    }
+
+    private BitSet getSplits(Node node, IdGroup idGroup, int numLeaves, List<String> splits) {
+        BitSet bs = new BitSet(numLeaves);
+        if (node.isLeaf()) {
+            bs.set(idGroup.whichIdNumber(node.getIdentifier().getName()));
+        } else {
+            for (int i = 0; i < node.getChildCount(); i++) {
+                bs.or(getSplits(node.getChild(i), idGroup, numLeaves, splits));
+            }
+        }
+
+        if (!node.isRoot()) {
+            BitSet normalized = (BitSet) bs.clone();
+            // Normalizacja: jeśli rozbicie zawiera liść 0, odwracamy wszystkie bity.
+            if (normalized.get(0)) {
+                normalized.flip(0, numLeaves);
+            }
+            splits.add(normalized.toString());
+        }
+        return bs;
+    }
+
 }

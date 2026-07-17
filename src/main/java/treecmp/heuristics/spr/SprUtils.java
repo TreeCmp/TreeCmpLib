@@ -2,6 +2,10 @@ package treecmp.heuristics.spr;
 
 import java.util.HashSet;
 import java.util.Set;
+import java.util.function.Consumer;
+import java.util.List;
+import java.util.ArrayList;
+import java.util.Collections;
 
 import pal.misc.IdGroup;
 import pal.tree.*;
@@ -19,23 +23,32 @@ public class SprUtils extends TreeNeighborhoodUtils {
 
         Node pp = p.getParent();
         Node sibling = getSibling(s);
-
-        // 1. Odcięcie (Prune)
-        if (pp != null) {
-            int pIdx = findChildPos(p, pp);
-            pp.setChild(pIdx, sibling);
-        }
-
-        // 2. Wpięcie (Regraft)
         Node q = v.getParent();
-        if (q != null) {
-            int vIdx = findChildPos(v, q);
-            q.setChild(vIdx, p);
-            p.setChild(0, s);
-            p.setChild(1, v);
+
+        if (q == null || pp == null) {
+            return createSprTree(tree, s, v);
         }
 
-        // 3. Refresh Błyskawiczny (Bez Stringów i Parserów!)
+        int pIdx = findChildPos(p, pp);
+        if (pIdx != -1) {
+            pp.setChild(pIdx, sibling);
+            if (sibling != null) sibling.setParent(pp);
+        }
+
+        int vIdx = findChildPos(v, q);
+        if (vIdx != -1) {
+            q.setChild(vIdx, p);
+            p.setParent(q);
+        }
+
+        p.setChild(0, s);
+        if (s != null) s.setParent(p);
+
+        p.setChild(1, v);
+        if (v != null) v.setParent(p);
+
+        pal.tree.TreeUtils.computeParentPointers(tree.getRoot());
+
         return refreshTreeInPlace(tree);
     }
 
@@ -63,10 +76,6 @@ public class SprUtils extends TreeNeighborhoodUtils {
         Node s, t;
         Tree resultTree;
 
-        // Zależnie od implementacji `createSprTree` w klasie bazowej,
-        // jeśli ona używała `tree.getCopy()`, upewnij się, że ją też podmienisz na `fastTreeClone`!
-
-        // leaf to leaf
         for (int i = 0; i < extNum; i++) {
             s = tree.getExternalNode(i);
             for (int j = 0; j < extNum; j++) {
@@ -77,7 +86,6 @@ public class SprUtils extends TreeNeighborhoodUtils {
                 }
             }
         }
-        // non-leaf and non-root to leaf
         for (int i = 0; i < intNum; i++) {
             s = tree.getInternalNode(i);
             if (s.isRoot()) continue;
@@ -89,7 +97,6 @@ public class SprUtils extends TreeNeighborhoodUtils {
                 }
             }
         }
-        // leaf - non-leaf
         for (int i = 0; i < extNum; i++) {
             s = tree.getExternalNode(i);
             for (int j = 0; j < intNum; j++) {
@@ -100,7 +107,6 @@ public class SprUtils extends TreeNeighborhoodUtils {
                 }
             }
         }
-        // non-leaf, non-root to non-leaf
         for (int i = 0; i < intNum; i++) {
             s = tree.getInternalNode(i);
             if (s.isRoot()) continue;
@@ -123,5 +129,89 @@ public class SprUtils extends TreeNeighborhoodUtils {
             i++;
         }
         return sprTreeArray;
+    }
+
+    // ========================================================================
+    // NOWE METODY: Leniwy Generator Otoczenia i Kanoniczna Sygnatura
+    // ========================================================================
+
+    public void forEachSprTree(Tree tree, Consumer<Tree> action) {
+        int extNum = tree.getExternalNodeCount();
+        int intNum = tree.getInternalNodeCount();
+
+        Set<String> seenTopologies = new HashSet<>();
+
+        Node s, t;
+
+        for (int i = 0; i < extNum; i++) {
+            s = tree.getExternalNode(i);
+            for (int j = 0; j < extNum; j++) {
+                t = tree.getExternalNode(j);
+                processAndYield(tree, s, t, seenTopologies, action);
+            }
+        }
+        for (int i = 0; i < intNum; i++) {
+            s = tree.getInternalNode(i);
+            if (s.isRoot()) continue;
+            for (int j = 0; j < extNum; j++) {
+                t = tree.getExternalNode(j);
+                processAndYield(tree, s, t, seenTopologies, action);
+            }
+        }
+        for (int i = 0; i < extNum; i++) {
+            s = tree.getExternalNode(i);
+            for (int j = 0; j < intNum; j++) {
+                t = tree.getInternalNode(j);
+                processAndYield(tree, s, t, seenTopologies, action);
+            }
+        }
+        for (int i = 0; i < intNum; i++) {
+            s = tree.getInternalNode(i);
+            if (s.isRoot()) continue;
+            for (int j = 0; j < intNum; j++) {
+                t = tree.getInternalNode(j);
+                processAndYield(tree, s, t, seenTopologies, action);
+            }
+        }
+    }
+
+    private void processAndYield(Tree baseTree, Node s, Node t, Set<String> seen, Consumer<Tree> action) {
+        if (isValidSprMove(s, t)) {
+            Tree resultTree = createSprTree(baseTree, s, t);
+            if (resultTree != null) {
+                // Generujemy unikalny, matematycznie poprawny podpis drzewa (odporny na izomorfizmy)
+                String topologyHash = getCanonicalTopology(resultTree.getRoot());
+
+                if (seen.add(topologyHash)) {
+                    action.accept(resultTree);
+                }
+            }
+        }
+    }
+
+    /**
+     * Rekurencyjnie buduje sygnaturę tekstową drzewa.
+     * Sortuje alfabetycznie węzły podrzędne, gwarantując, że (A,B) i (B,A)
+     * zwrócą dokładnie taki sam tekst. Całkowicie omija problemy z pamięcią.
+     */
+    private String getCanonicalTopology(Node node) {
+        if (node.isLeaf()) {
+            return node.getIdentifier().getName();
+        }
+        List<String> childStrings = new ArrayList<>();
+        for (int i = 0; i < node.getChildCount(); i++) {
+            childStrings.add(getCanonicalTopology(node.getChild(i)));
+        }
+
+        // Sortowanie rozwiązuje problem izomorfizmu!
+        Collections.sort(childStrings);
+
+        StringBuilder sb = new StringBuilder("(");
+        for (int i = 0; i < childStrings.size(); i++) {
+            sb.append(childStrings.get(i));
+            if (i < childStrings.size() - 1) sb.append(",");
+        }
+        sb.append(")");
+        return sb.toString();
     }
 }
