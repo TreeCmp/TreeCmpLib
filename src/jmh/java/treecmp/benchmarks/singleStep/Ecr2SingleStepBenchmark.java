@@ -21,7 +21,7 @@ import treecmp.util.TestTreeFactory;
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
 @State(Scope.Benchmark)
-@Warmup(iterations = 3, time = 1)
+@Warmup(iterations = 1, time = 1)
 @Measurement(iterations = 5, time = 1)
 @Fork(1)
 public class Ecr2SingleStepBenchmark {
@@ -166,6 +166,8 @@ public class Ecr2SingleStepBenchmark {
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
                 .include(Ecr2SingleStepBenchmark.class.getSimpleName())
+                .addProfiler("stack")
+                // .addProfiler("gc")
                 .build();
         new Runner(opt).run();
     }

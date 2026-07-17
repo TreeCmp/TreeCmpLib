@@ -10,8 +10,11 @@ import java.util.concurrent.TimeUnit;
 
 import pal.tree.SimpleTree;
 import pal.tree.Tree;
-import treecmp.heuristics.ecr.SubtreeEcr3Utils;
-import treecmp.heuristics.ecr.acc.Ecr3IncrementalHeuristic;
+import treecmp.heuristics.TreeNeighborhoodUtils;
+import treecmp.heuristics.tbr.TbrUtils;
+import treecmp.heuristics.tbr.UTbrUtils;
+import treecmp.heuristics.tbr.acc.TbrIncrementalHeuristic;
+import treecmp.heuristics.tbr.acc.UtbrIncrementalHeuristic;
 import treecmp.heuristics.base.IncrementalHeuristicBaseMetric;
 import treecmp.metrics.Metric;
 import treecmp.metrics.topological.*;
@@ -19,12 +22,12 @@ import treecmp.metrics.topological.acc.*;
 import treecmp.util.TestTreeFactory;
 
 @BenchmarkMode(Mode.AverageTime)
-@OutputTimeUnit(TimeUnit.MICROSECONDS)
+@OutputTimeUnit(TimeUnit.MILLISECONDS) // Milisekundy, ponieważ TBR bada O(n^3) sąsiadów w 1 kroku
 @State(Scope.Benchmark)
 @Warmup(iterations = 1, time = 1)
 @Measurement(iterations = 5, time = 1)
 @Fork(1)
-public class Ecr3SingleStepBenchmark {
+public class TbrSingleStepBenchmark {
 
     @Param({"RF", "RFC", "MS", "MC", "MP", "M3"})
     public String metricName;
@@ -36,7 +39,7 @@ public class Ecr3SingleStepBenchmark {
     private Tree t2;
     private Tree t1ForIncr;
 
-    private SubtreeEcr3Utils classicUtils;
+    private TreeNeighborhoodUtils classicUtils;
     private Metric classicMetric;
     private IncrementalHeuristicBaseMetric incrementalMetric;
 
@@ -54,39 +57,38 @@ public class Ecr3SingleStepBenchmark {
 
         // =========================================================================
         // WZORZEC STRATEGII (Kompozycja):
-        // Zamiast dedykowanych klas dla każdej metryki, wstrzykujemy silnik
-        // inkrementalny (np. M3IncrementalMetric) do uniwersalnej heurystyki 3-sECR.
+        // Wstrzykujemy silnik inkrementalny do uniwersalnej heurystyki TBR/uTBR.
         // =========================================================================
         switch (metricName) {
             case "RF":
-                isRooted = false; classicProtectionLimit = 70;
+                isRooted = false; classicProtectionLimit = 50;
                 classicMetric = new RFMetric();
-                incrementalMetric = new Ecr3IncrementalHeuristic(new RFIncrementalMetric(), "RF");
+                incrementalMetric = new UtbrIncrementalHeuristic(new RFIncrementalMetric(), "RF");
                 break;
             case "RFC":
-                isRooted = true; classicProtectionLimit = 70;
+                isRooted = true; classicProtectionLimit = 50;
                 classicMetric = new RFClusterMetric();
-                incrementalMetric = new Ecr3IncrementalHeuristic(new RFClusterIncrementalMetric(), "RFC");
+                incrementalMetric = new TbrIncrementalHeuristic(new RFClusterIncrementalMetric(), "RFC");
                 break;
             case "MS":
                 isRooted = false; classicProtectionLimit = 30;
                 classicMetric = new MatchingSplitMetric();
-                incrementalMetric = new Ecr3IncrementalHeuristic(new MSIncrementalMetric(), "MS");
+                incrementalMetric = new UtbrIncrementalHeuristic(new MSIncrementalMetric(), "MS");
                 break;
             case "MC":
                 isRooted = true; classicProtectionLimit = 30;
                 classicMetric = new MatchingClusterMetric();
-                incrementalMetric = new Ecr3IncrementalHeuristic(new MCIncrementalMetric(), "MC");
+                incrementalMetric = new TbrIncrementalHeuristic(new MCIncrementalMetric(), "MC");
                 break;
             case "MP":
                 isRooted = true; classicProtectionLimit = 30;
                 classicMetric = new MatchingPairMetric();
-                incrementalMetric = new Ecr3IncrementalHeuristic(new MPIncrementalMetric(), "MP");
+                incrementalMetric = new TbrIncrementalHeuristic(new MPIncrementalMetric(), "MP");
                 break;
             case "M3":
-                isRooted = false; classicProtectionLimit = 30;
+                isRooted = false; classicProtectionLimit = 20; // Gigantyczna złożoność dla klasycznego M3
                 classicMetric = new MatchingTripletMetric();
-                incrementalMetric = new Ecr3IncrementalHeuristic(new M3IncrementalMetric(), "M3");
+                incrementalMetric = new UtbrIncrementalHeuristic(new M3IncrementalMetric(), "M3");
                 break;
             default:
                 throw new IllegalArgumentException("Nieznana metryka: " + metricName);
@@ -104,17 +106,17 @@ public class Ecr3SingleStepBenchmark {
 
         assignNumbers(t1); assignNumbers(t2); assignNumbers(t1ForIncr);
 
-        // SubtreeEcr3Utils przyjmuje boolean "unrooted"
-        classicUtils = new SubtreeEcr3Utils(!isRooted);
+        // Wybór klasycznego generatora (Rooted vs Unrooted)
+        classicUtils = isRooted ? new TbrUtils() : new UTbrUtils();
 
         System.out.println("\n" + "=".repeat(60));
-        System.out.printf(" WERYFIKACJA 3-sECR (%s) DLA ROZMIARU: %d%n", metricName, treeSize);
+        System.out.printf(" WERYFIKACJA 1-STEP TBR/uTBR (%s) DLA ROZMIARU: %d%n", metricName, treeSize);
         System.out.println("-".repeat(60));
 
         long startIncr = System.nanoTime();
         double distIncr = incrementalMetric.evaluateSingleStep(t1ForIncr, t2);
         long timeIncr = System.nanoTime() - startIncr;
-        System.out.printf("Incremental 1-Step %-3s : %.2f (czas: %,d ns)%n", metricName, distIncr, timeIncr);
+        System.out.printf("Incremental 1-Step %-3s : %.2f (czas: %,d ms)%n", metricName, distIncr, timeIncr / 1_000_000);
 
         if (treeSize <= classicProtectionLimit) {
             try {
@@ -126,7 +128,7 @@ public class Ecr3SingleStepBenchmark {
                     if (d < bestClassicDist) bestClassicDist = d;
                 }
                 long timeClassic = System.nanoTime() - startClassic;
-                System.out.printf("Classic 1-Step %-3s     : %.2f (czas: %,d ns)%n", metricName, bestClassicDist, timeClassic);
+                System.out.printf("Classic 1-Step %-3s     : %.2f (czas: %,d ms)%n", metricName, bestClassicDist, timeClassic / 1_000_000);
 
                 if (bestClassicDist == distIncr || Math.abs(bestClassicDist - distIncr) < 1e-9) {
                     System.out.println("** STATUS: ZGODNOŚĆ POTWIERDZONA [OK] **");
@@ -165,7 +167,7 @@ public class Ecr3SingleStepBenchmark {
 
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
-                .include(Ecr3SingleStepBenchmark.class.getSimpleName())
+                .include(TbrSingleStepBenchmark.class.getSimpleName())
                 .addProfiler("stack")
                 // .addProfiler("gc")
                 .build();

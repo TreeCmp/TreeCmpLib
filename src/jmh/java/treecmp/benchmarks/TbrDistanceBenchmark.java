@@ -10,25 +10,24 @@ import java.util.concurrent.TimeUnit;
 
 import pal.tree.SimpleTree;
 import pal.tree.Tree;
-import treecmp.heuristics.spr.SprHeuristicMetric;
-import treecmp.heuristics.spr.UsprHeuristicMetric;
-import treecmp.heuristics.spr.acc.SprIncrementalHeuristicMetric;
-import treecmp.heuristics.spr.acc.UsprIncrementalHeuristicMetric;
 import treecmp.heuristics.base.HeuristicBaseMetric;
 import treecmp.heuristics.base.IncrementalHeuristicBaseMetric;
+import treecmp.heuristics.tbr.TbrClassicHeuristic;
+import treecmp.heuristics.tbr.acc.TbrIncrementalHeuristic;
+import treecmp.heuristics.tbr.acc.UtbrIncrementalHeuristic;
 import treecmp.metrics.topological.*;
 import treecmp.metrics.topological.acc.*;
 import treecmp.util.TestTreeFactory;
 
 @BenchmarkMode(Mode.AverageTime)
-@OutputTimeUnit(TimeUnit.MILLISECONDS) // Czas w milisekundach dla czytelności pełnych przebiegów
+@OutputTimeUnit(TimeUnit.MILLISECONDS) // Czas w milisekundach
 @State(Scope.Benchmark)
 @Warmup(iterations = 3, time = 1)
 @Measurement(iterations = 5, time = 1)
 @Fork(1)
-public class SprDistanceBenchmark {
+public class TbrDistanceBenchmark {
 
-    @Param({"MC"}) // Do pełnych testów możesz przywrócić {"RF", "RFC", "MS", "MC", "MP", "M3"}
+    @Param({"RF", "RFC", "MS", "MC", "MP", "M3"})
     public String metricName;
 
     @Param({"10", "20", "30", "50", "70", "100"})
@@ -54,38 +53,44 @@ public class SprDistanceBenchmark {
         boolean isRooted = false;
 
         // =========================================================================
-        // Wszystkie limity bezpieczeństwa ustawione na 100!
+        // WZORZEC STRATEGII: Dynamiczne dobieranie heurystyk dla TBR / uTBR
         // =========================================================================
         switch (metricName) {
             case "RF":
-                isRooted = false; classicProtectionLimit = 100;
-                classicMetric     = new UsprHeuristicMetric(new RFMetric(), "RF");
-                incrementalMetric = new UsprIncrementalHeuristicMetric(new RFIncrementalMetric(), "RF");
+                isRooted = false;
+                classicProtectionLimit = 50; // TBR to O(n^3), klasyk dławi się znacznie szybciej
+                classicMetric     = new TbrClassicHeuristic(new RFMetric(), false, "RF");
+                incrementalMetric = new UtbrIncrementalHeuristic(new RFIncrementalMetric(), "RF");
                 break;
             case "RFC":
-                isRooted = true; classicProtectionLimit = 100;
-                classicMetric     = new SprHeuristicMetric(new RFClusterMetric(), "RFC");
-                incrementalMetric = new SprIncrementalHeuristicMetric(new RFClusterIncrementalMetric(), "RFC");
+                isRooted = true;
+                classicProtectionLimit = 50;
+                classicMetric     = new TbrClassicHeuristic(new RFClusterMetric(), true, "RFC");
+                incrementalMetric = new TbrIncrementalHeuristic(new RFClusterIncrementalMetric(), "RFC");
                 break;
             case "MS":
-                isRooted = false; classicProtectionLimit = 100;
-                classicMetric     = new UsprHeuristicMetric(new MatchingSplitMetric(), "MS");
-                incrementalMetric = new UsprIncrementalHeuristicMetric(new MSIncrementalMetric(), "MS");
+                isRooted = false;
+                classicProtectionLimit = 20;
+                classicMetric     = new TbrClassicHeuristic(new MatchingSplitMetric(), false, "MS");
+                incrementalMetric = new UtbrIncrementalHeuristic(new MSIncrementalMetric(), "MS");
                 break;
             case "MC":
-                isRooted = true; classicProtectionLimit = 100;
-                classicMetric     = new SprHeuristicMetric(new MatchingClusterMetric(), "MC");
-                incrementalMetric = new SprIncrementalHeuristicMetric(new MCIncrementalMetric(), "MC");
+                isRooted = true;
+                classicProtectionLimit = 20;
+                classicMetric     = new TbrClassicHeuristic(new MatchingClusterMetric(), true, "MC");
+                incrementalMetric = new TbrIncrementalHeuristic(new MCIncrementalMetric(), "MC");
                 break;
             case "MP":
-                isRooted = true; classicProtectionLimit = 100;
-                classicMetric     = new SprHeuristicMetric(new MatchingPairMetric(), "MP");
-                incrementalMetric = new SprIncrementalHeuristicMetric(new MPIncrementalMetric(), "MP");
+                isRooted = true;
+                classicProtectionLimit = 20;
+                classicMetric     = new TbrClassicHeuristic(new MatchingPairMetric(), true, "MP");
+                incrementalMetric = new TbrIncrementalHeuristic(new MPIncrementalMetric(), "MP");
                 break;
             case "M3":
-                isRooted = false; classicProtectionLimit = 100;
-                classicMetric     = new UsprHeuristicMetric(new MatchingTripletMetric(), "M3");
-                incrementalMetric = new UsprIncrementalHeuristicMetric(new M3IncrementalMetric(), "M3");
+                isRooted = false;
+                classicProtectionLimit = 15; // M3 + klasyczne uTBR jest ekstremalnie powolne
+                classicMetric     = new TbrClassicHeuristic(new MatchingTripletMetric(), false, "M3");
+                incrementalMetric = new UtbrIncrementalHeuristic(new M3IncrementalMetric(), "M3");
                 break;
             default:
                 throw new IllegalArgumentException("Nieznana metryka: " + metricName);
@@ -104,7 +109,7 @@ public class SprDistanceBenchmark {
         assignNumbers(t1); assignNumbers(t2); assignNumbers(t1ForIncr);
 
         System.out.println("\n" + "=".repeat(60));
-        System.out.printf(" WERYFIKACJA PEŁNEGO PRZEBIEGU SPR/uSPR (%s) DLA ROZMIARU: %d%n", metricName, treeSize);
+        System.out.printf(" WERYFIKACJA PEŁNEGO PRZEBIEGU TBR/uTBR (%s) DLA ROZMIARU: %d%n", metricName, treeSize);
         System.out.println("-".repeat(60));
 
         long startIncr = System.nanoTime();
@@ -115,7 +120,7 @@ public class SprDistanceBenchmark {
         if (treeSize <= classicProtectionLimit) {
             try {
                 long startClassic = System.nanoTime();
-                // Klonujemy t1, żeby klasyk nie zniszczył topologii!
+                // Klonujemy t1, żeby klasyk nie zniszczył topologii do kolejnych przebiegów testu
                 double distClassic = classicMetric.getDistance(new SimpleTree(t1), t2);
                 long timeClassic = System.nanoTime() - startClassic;
                 System.out.printf("Classic Full-Run %-3s     : %.2f (czas: %,d ms)%n", metricName, distClassic, timeClassic / 1_000_000);
@@ -127,7 +132,6 @@ public class SprDistanceBenchmark {
                 }
             } catch (Throwable t) {
                 System.out.println("Classic Full-Run         : [BŁĄD KLASYCZNEJ IMPLEMENTACJI]");
-                t.printStackTrace();
             }
         } else {
             System.out.printf("Classic Full-Run %-3s     : Pominięto (Limit bezpieczeństwa N<=%d)%n", metricName, classicProtectionLimit);
@@ -139,7 +143,7 @@ public class SprDistanceBenchmark {
     public double benchmarkClassicFullRun() {
         if (treeSize > classicProtectionLimit) return Double.NaN;
         try {
-            // ZABEZPIECZENIE JMH: Dajemy sklonowane drzewo, żeby każda z iteracji miała świeży graf!
+            // ZABEZPIECZENIE JMH: Dajemy sklonowane drzewo
             return classicMetric.getDistance(new SimpleTree(t1), t2);
         } catch (Throwable t) {
             return Double.NaN;
@@ -148,13 +152,13 @@ public class SprDistanceBenchmark {
 
     @Benchmark
     public double benchmarkIncrementalFullRun() {
-        // Nasza logika inkrementalna automatycznie utrzymuje bezpieczny stan/właściwie go cofa
+        // Nasza logika inkrementalna bezpiecznie resetuje się i operuje na różnicach
         return incrementalMetric.getDistance(t1ForIncr, t2);
     }
 
     public static void main(String[] args) throws RunnerException {
         Options opt = new OptionsBuilder()
-                .include(SprDistanceBenchmark.class.getSimpleName())
+                .include(TbrDistanceBenchmark.class.getSimpleName())
                 .build();
         new Runner(opt).run();
     }
