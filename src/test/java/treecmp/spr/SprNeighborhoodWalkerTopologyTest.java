@@ -6,11 +6,10 @@ import pal.tree.Tree;
 import pal.tree.TreeUtils;
 import treecmp.heuristics.TreeHolder;
 import treecmp.heuristics.TreeRootedHolder;
-import treecmp.heuristics.TreeUnrootedHolder;
 import treecmp.heuristics.spr.SprUtils;
 import treecmp.heuristics.spr.UsprUtils;
-import treecmp.heuristics.spr.acc.SprNeighborhoodWalker;
-import treecmp.heuristics.spr.acc.UsprNeighborhoodWalker;
+import treecmp.heuristics.spr.acc.ClassicSprWalker;
+import treecmp.heuristics.spr.acc.ClassicUsprWalker;
 import treecmp.util.CoverageMockMetric;
 import treecmp.util.GoldenMasterValues;
 import treecmp.util.TestTreeFactory;
@@ -99,7 +98,7 @@ public class SprNeighborhoodWalkerTopologyTest {
         CoverageMockMetric mockMetric = new CoverageMockMetric(true);
         mockMetric.initCalculationState(baseTree, null);
 
-        SprNeighborhoodWalker walker = new SprNeighborhoodWalker();
+        ClassicSprWalker walker = new ClassicSprWalker();
         walker.walk(baseTree, mockMetric, (distance, pruneNode, regraftNode) -> {});
 
         assertEquals(expectedTopologies, mockMetric.getVisitedTopologies(),
@@ -126,7 +125,7 @@ public class SprNeighborhoodWalkerTopologyTest {
         mockMetric.initCalculationState(baseTree, null);
 
         // Odpalamy nowego Walkera dla uSPR
-        UsprNeighborhoodWalker walker = new UsprNeighborhoodWalker();
+        ClassicUsprWalker walker = new ClassicUsprWalker();
         walker.walk(baseTree, mockMetric, (distance, pruneNode, regraftNode) -> {});
 
         Set<treecmp.heuristics.TreeHolder> visitedTopologies = mockMetric.getVisitedTopologies();
