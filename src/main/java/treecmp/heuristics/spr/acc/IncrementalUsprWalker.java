@@ -20,8 +20,6 @@ public class IncrementalUsprWalker {
         for (Node pruneNode : allNodes) {
             if (pruneNode.isRoot() || pruneNode.getParent() == null) continue;
 
-            // W drzewach nieukorzenionych rodzic odcinanej gałęzi ulega rozpuszczeniu
-            // i zwalnia swój wiersz w macierzy do recyklingu!
             Node wanderingSource = pruneNode.getParent();
 
             targetDfsMetric.setPrunedState(pruneNode, wanderingSource);

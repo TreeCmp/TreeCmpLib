@@ -35,7 +35,8 @@ public class SprSingleStepBenchmark {
     @Param({"MC"})
     public String metricName;
 
-    @Param({"10", "20", "30", "50", "80", "120", "200", "320"})
+    @Param({"10", "20", "30", "50", "80", "120", "200", "300", "500", "800", "1200", "2000"})
+    //@Param({"10", "20", "30", "50"})
     public int treeSize;
 
     private Tree t1;
@@ -80,7 +81,7 @@ public class SprSingleStepBenchmark {
                 incrementalMetric = new UsprIncrementalHeuristicMetric(new MSIncrementalMetric(), "MS");
                 break;
             case "MC":
-                isRooted = true; classicProtectionLimit = 500;
+                isRooted = true; classicProtectionLimit = 300;
                 classicMetric = new MatchingClusterMetric();
                 incrementalMetric = new SprIncrementalHeuristicMetric(new MCIncrementalMetric(), "MC");
                 break;

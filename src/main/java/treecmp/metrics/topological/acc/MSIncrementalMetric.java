@@ -14,11 +14,6 @@ import treecmp.metrics.topological.MatchingSplitMetric;
 import java.util.List;
 import java.util.Stack;
 
-/**
- * Pancerne wdrożenie MS dla drzew nieukorzenionych.
- * Omija paradoks rozpuszczających się krawędzi wykorzystując precyzyjną ewaluację fizyczną
- * wspartą stosem historii (Cache Stack) i tarczami topologicznymi (Safety Guards).
- */
 public class MSIncrementalMetric implements IncrementalMetric, IncrementalSprWalker.RootedMetric {
 
     private Tree baseTree;
@@ -37,32 +32,22 @@ public class MSIncrementalMetric implements IncrementalMetric, IncrementalSprWal
         this.incrementalDistanceStack.clear();
 
         if (baseTree != null && targetTree != null) {
-            // Zwykła metryka nie ma initCalculationState, wyliczamy po prostu dystans startowy
             this.currentDistance = msMetricFull.getDistance(baseTree, targetTree);
         } else {
             this.currentDistance = 0;
         }
     }
 
-    // ========================================================================
-    // INTERFEJS TARGET DFS (BEZPIECZNA EWALUACJA Z TARCZĄ)
-    // ========================================================================
-
     @Override
-    public void setPrunedState(Node pruneNode, Node wanderingSource) {
-        // Logika zawarta bezpośrednio w krokach w dół
-    }
+    public void setPrunedState(Node pruneNode, Node wanderingSource) { }
 
     @Override
     public void setTargetRoot(Node pruneNode, Node wanderingSource) {
         incrementalDistanceStack.push(this.currentDistance);
-
-        // TARCZA OCHRONNA: Ignoruj nielegalne ruchy, żeby nie zepsuć biblioteki PAL!
         if (!usprUtils.isValidUsprMove(pruneNode, baseTree.getRoot())) {
             this.currentDistance = Double.POSITIVE_INFINITY;
             return;
         }
-
         try {
             Tree tempTree = usprUtils.createUsprTree(this.baseTree, pruneNode, baseTree.getRoot());
             if (tempTree != null) {
@@ -74,7 +59,6 @@ public class MSIncrementalMetric implements IncrementalMetric, IncrementalSprWal
                 this.currentDistance = Double.POSITIVE_INFINITY;
             }
         } catch (Exception e) {
-            // Jeśli PAL nadal zwróci uszkodzoną strukturę, zwracamy nieskończoność
             this.currentDistance = Double.POSITIVE_INFINITY;
         }
     }
@@ -82,13 +66,10 @@ public class MSIncrementalMetric implements IncrementalMetric, IncrementalSprWal
     @Override
     public void moveTargetDown(Node parentTarget, Node childTarget, Node pruneNode, Node wanderingSource) {
         incrementalDistanceStack.push(this.currentDistance);
-
-        // TARCZA OCHRONNA: Ignoruj nielegalne ruchy
         if (!usprUtils.isValidUsprMove(pruneNode, childTarget)) {
             this.currentDistance = Double.POSITIVE_INFINITY;
             return;
         }
-
         try {
             Tree tempTree = usprUtils.createUsprTree(this.baseTree, pruneNode, childTarget);
             if (tempTree != null) {
@@ -118,10 +99,6 @@ public class MSIncrementalMetric implements IncrementalMetric, IncrementalSprWal
         }
     }
 
-    // ========================================================================
-    // KLASYCZNE METODY
-    // ========================================================================
-
     @Override public double applyNni(NniMove move) { return 0; }
     @Override public void undoNni(NniMove move) { }
     @Override public void applySprPrune(Node pruneNode) { incrementalDistanceStack.push(this.currentDistance); }
@@ -139,7 +116,6 @@ public class MSIncrementalMetric implements IncrementalMetric, IncrementalSprWal
         if (!usprUtils.isValidUsprMove(pruneNode, targetNode)) {
             return Double.POSITIVE_INFINITY;
         }
-
         try {
             Tree tempTree = usprUtils.createUsprTree(this.baseTree, pruneNode, targetNode);
             if (tempTree != null) {
@@ -148,9 +124,7 @@ public class MSIncrementalMetric implements IncrementalMetric, IncrementalSprWal
                 }
                 return msMetricFull.getDistance(tempTree, this.targetTree);
             }
-        } catch (Exception e) {
-            // Zabezpieczenie przed błędem "L1 not present"
-        }
+        } catch (Exception e) {}
         return Double.POSITIVE_INFINITY;
     }
 
@@ -173,4 +147,5 @@ public class MSIncrementalMetric implements IncrementalMetric, IncrementalSprWal
     @Override public boolean isWeighted() { return false; }
     @Override public boolean isDiffLeafSets() { return msMetricFull.isDiffLeafSets(); }
     @Override public AlignInfo getAlignment() { return msMetricFull.getAlignment(); }
+
 }
