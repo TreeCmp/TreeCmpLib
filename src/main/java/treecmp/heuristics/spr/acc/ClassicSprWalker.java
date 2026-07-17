@@ -9,7 +9,7 @@ import treecmp.metrics.IncrementalMetric;
 import java.util.ArrayList;
 import java.util.List;
 
-public class SprNeighborhoodWalker {
+public class ClassicSprWalker {
 
     private SprUtils sprUtils = new SprUtils();
 

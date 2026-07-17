@@ -2,6 +2,7 @@ package treecmp.heuristics.spr.acc;
 
 import pal.tree.Node;
 import pal.tree.Tree;
+import treecmp.common.TreeCmpException;
 import treecmp.heuristics.spr.UsprUtils; // Twoja nowa klasa narzędziowa uSPR
 import treecmp.heuristics.spr.SprVisitor;
 import treecmp.metrics.IncrementalMetric;
@@ -9,7 +10,7 @@ import treecmp.metrics.IncrementalMetric;
 import java.util.ArrayList;
 import java.util.List;
 
-public class UsprNeighborhoodWalker {
+public class ClassicUsprWalker {
 
     private UsprUtils usprUtils = new UsprUtils();
 
@@ -21,12 +22,16 @@ public class UsprNeighborhoodWalker {
             if (pruneNode.isRoot() || pruneNode.getParent() == null) continue;
 
             metric.applySprPrune(pruneNode);
-            traverseRegraft(pruneNode, baseTree.getRoot(), metric, visitor);
+            try {
+                traverseRegraft(pruneNode, baseTree.getRoot(), metric, visitor);
+            } catch (TreeCmpException e) {
+                throw new RuntimeException(e);
+            }
             metric.undoSprPrune(pruneNode);
         }
     }
 
-    private void traverseRegraft(Node pruneNode, Node currentNode, IncrementalMetric metric, SprVisitor visitor) {
+    private void traverseRegraft(Node pruneNode, Node currentNode, IncrementalMetric metric, SprVisitor visitor) throws TreeCmpException {
         // A. EWALUACJA WPIĘCIA
         if (currentNode != pruneNode && currentNode != pruneNode.getParent()) {
             if (usprUtils.isValidUsprMove(pruneNode, currentNode)) {
