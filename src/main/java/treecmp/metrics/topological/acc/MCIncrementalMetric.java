@@ -11,17 +11,21 @@ import treecmp.common.LapSolver;
 import treecmp.heuristics.ecr.SubtreeEcr2Utils;
 import treecmp.heuristics.ecr.SubtreeEcr3Utils;
 import treecmp.heuristics.moves.NniMove;
+import treecmp.heuristics.spr.SprUtils;
+import treecmp.heuristics.spr.acc.IncrementalSprWalker;
 import treecmp.metrics.IncrementalMetric;
 import treecmp.metrics.topological.MatchingClusterMetric;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.BitSet;
+import java.util.HashMap;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Stack;
 
-public class MCIncrementalMetric implements IncrementalMetric {
+public class MCIncrementalMetric implements IncrementalMetric, IncrementalSprWalker.RootedMetric {
 
     private Tree baseTree;
     private Tree targetTree;
@@ -51,6 +55,30 @@ public class MCIncrementalMetric implements IncrementalMetric {
     private final Stack<int[]> vHistory = new Stack<>();
     private final Stack<Double> distanceHistory = new Stack<>();
     private final Stack<Map<Node, BitSet>> clusterHistory = new Stack<>();
+
+    // ========================================================================
+    // DELTA STOS - PAMIĘĆ O(N)
+    // ========================================================================
+    private static class LapStateDelta {
+        final int[] rows;
+        final short[][] oldRows;
+        final int[] oldU, oldV, oldRowsol, oldColsol;
+        final double oldDistance;
+        final Map<Node, BitSet> oldClust;
+
+        LapStateDelta(int[] rows, short[][] oldRows, int[] oldU, int[] oldV, int[] oldRowsol, int[] oldColsol, double oldDistance, Map<Node, BitSet> oldClust) {
+            this.rows = rows;
+            this.oldRows = oldRows;
+            this.oldU = oldU;
+            this.oldV = oldV;
+            this.oldRowsol = oldRowsol;
+            this.oldColsol = oldColsol;
+            this.oldDistance = oldDistance;
+            this.oldClust = oldClust;
+        }
+    }
+
+    private final Stack<LapStateDelta> deltaStack = new Stack<>();
 
     @Override
     public void initCalculationState(Tree baseTree, Tree targetTree) {
@@ -151,71 +179,169 @@ public class MCIncrementalMetric implements IncrementalMetric {
         }
     }
 
-    @Override
-    public double applyNni(NniMove move) {
-        saveCurrentStateToHistory();
+    // ========================================================================
+    // NOWE METODY DLA ROOTED SPR WALKERA (TRANSAKCYJNE)
+    // ========================================================================
 
-        List<Integer> movingSubtreeLeaves = new ArrayList<>();
-        collectLeafIds(move.movingSubtree, idGroup, movingSubtreeLeaves);
-        List<Integer> swapPartnerLeaves = new ArrayList<>();
-        collectLeafIds(move.swapPartner, idGroup, swapPartnerLeaves);
+    /**
+     * Bezpieczna, transakcyjna aktualizacja macierzy. Najpierw zapisuje prawdziwy,
+     * stary stan na Delta Stos, a dopiero potem aplikuje modyfikacje.
+     */
+    private void updateRowSafelyAndSave(Map<Integer, BitSet> rowUpdates) {
+        int[] rows = new int[rowUpdates.size()];
+        short[][] oldRows = new short[rows.length][dim];
+        Map<Node, BitSet> oldClust = new IdentityHashMap<>();
 
-        Node lca = NodeUtils.getFirstCommonAncestor(move.movingSubtree, move.swapPartner);
-        List<Integer> changedRowsList = new ArrayList<>();
+        int idx = 0;
+        for (Map.Entry<Integer, BitSet> entry : rowUpdates.entrySet()) {
+            int r = entry.getKey();
+            rows[idx] = r;
+            // BEZPIECZEŃSTWO: Zapisujemy starą kopię z matrixa ZANIM go nadpiszemy!
+            oldRows[idx] = Arrays.copyOf(assigncost[r], dim);
 
-        Node curr = move.movingSubtree.getParent();
-        while (curr != null && curr != lca) {
-            if (!curr.isRoot()) {
-                BitSet bs = (BitSet) currentClusters.get(curr).clone();
-                for (int id : movingSubtreeLeaves) bs.flip(id);
-                for (int id : swapPartnerLeaves) bs.flip(id);
-                currentClusters.put(curr, bs);
-
-                Integer rowIndex = nodeToRow.get(curr);
-                if (rowIndex != null) changedRowsList.add(rowIndex);
+            Node n = rowToNode[r];
+            if (n != null && currentClusters.containsKey(n)) {
+                oldClust.put(n, (BitSet) currentClusters.get(n).clone());
             }
-            curr = curr.getParent();
+            idx++;
         }
 
-        curr = move.swapPartner.getParent();
-        while (curr != null && curr != lca) {
-            if (!curr.isRoot()) {
-                BitSet bs = (BitSet) currentClusters.get(curr).clone();
-                for (int id : movingSubtreeLeaves) bs.flip(id);
-                for (int id : swapPartnerLeaves) bs.flip(id);
-                currentClusters.put(curr, bs);
+        // Push to stack
+        deltaStack.push(new LapStateDelta(rows, oldRows, Arrays.copyOf(u, dim), Arrays.copyOf(v, dim),
+                Arrays.copyOf(rowsol, dim), Arrays.copyOf(colsol, dim), currentDistance, oldClust));
 
-                Integer rowIndex = nodeToRow.get(curr);
-                if (rowIndex != null) changedRowsList.add(rowIndex);
-            }
-            curr = curr.getParent();
-        }
+        // NOW modify the physical matrix and clusters
+        for (Map.Entry<Integer, BitSet> entry : rowUpdates.entrySet()) {
+            int r = entry.getKey();
+            BitSet newCluster = entry.getValue();
 
-        int[] changedRows = changedRowsList.stream().distinct().mapToInt(Integer::intValue).toArray();
+            Node n = rowToNode[r];
+            if (n != null) currentClusters.put(n, newCluster);
 
-        for (int i : changedRows) {
-            Node n1 = rowToNode[i];
             for (int j = 0; j < dim; j++) {
                 Node n2 = colToNode[j];
                 if (n2 != null) {
-                    this.assigncost[i][j] = (short) ClusterDist.getDistXorBit(currentClusters.get(n1), targetClusters.get(n2));
+                    this.assigncost[r][j] = (short) ClusterDist.getDistXorBit(newCluster, targetClusters.get(n2));
                 } else {
-                    this.assigncost[i][j] = (short) ClusterDist.getDistToOAsMinBit(currentClusters.get(n1));
+                    this.assigncost[r][j] = (short) ClusterDist.getDistToOAsMinBit(newCluster);
                 }
             }
         }
 
-        if (changedRows.length > 0) {
-            this.currentDistance = LapSolver.lapShortUpdate(dim, assigncost, rowsol, colsol, u, v, changedRows);
+        // RUN LAP UPDATE
+        if (rows.length > 0) {
+            this.currentDistance = LapSolver.lapShortUpdate(dim, assigncost, rowsol, colsol, u, v, rows);
         }
-        return this.currentDistance;
     }
 
-    @Override public void undoNni(NniMove move) { undoSprRegraftStep(); }
-    @Override public void applySprPrune(Node pruneNode) {}
-    @Override public void undoSprPrune(Node pruneNode) {}
-    @Override public double evaluateSprRegraft(Node pruneNode, Node targetNode) { return this.currentDistance; }
-    @Override public void applySprRegraftStep(Node pruneNode, Node currentNode) {}
+    @Override
+    public void setPrunedState(Node pruneNode, Node wanderingSource) {
+        BitSet P = getCluster(pruneNode);
+        Map<Integer, BitSet> updates = new HashMap<>();
+
+        Node curr = pruneNode.getParent().getParent();
+        while (curr != null) {
+            Integer r = nodeToRow.get(curr);
+            if (r != null) {
+                BitSet bs = (BitSet) currentClusters.get(curr).clone();
+                bs.andNot(P);
+                updates.put(r, bs);
+            }
+            curr = curr.getParent();
+        }
+
+        Integer r_p = nodeToRow.get(wanderingSource);
+        if (r_p != null) {
+            BitSet empty = new BitSet();
+            updates.put(r_p, empty);
+        }
+        updateRowSafelyAndSave(updates);
+    }
+
+    @Override
+    public void setTargetRoot(Node pruneNode, Node wanderingSource) {
+        BitSet P = getCluster(pruneNode);
+        Map<Integer, BitSet> updates = new HashMap<>();
+
+        Integer r_p = nodeToRow.get(wanderingSource);
+        if (r_p != null) {
+            BitSet newRp = (BitSet) getCluster(baseTree.getRoot()).clone();
+            newRp.andNot(P);
+            updates.put(r_p, newRp);
+        }
+        updateRowSafelyAndSave(updates);
+    }
+
+    @Override
+    public void moveTargetDown(Node parentTarget, Node childTarget, Node pruneNode, Node wanderingSource) {
+        BitSet P = getCluster(pruneNode);
+        Map<Integer, BitSet> updates = new HashMap<>();
+
+        Integer r_p = nodeToRow.get(wanderingSource);
+        if (r_p != null) {
+            BitSet childCluster = currentClusters.containsKey(childTarget) ? currentClusters.get(childTarget) : getCluster(childTarget);
+            BitSet newRp = (BitSet) childCluster.clone();
+            newRp.or(P);
+            updates.put(r_p, newRp);
+        }
+
+        Integer r_parent = nodeToRow.get(parentTarget);
+        if (r_parent != null && parentTarget != wanderingSource) {
+            BitSet parentCluster = currentClusters.get(parentTarget);
+            BitSet newParent = (BitSet) parentCluster.clone();
+            newParent.or(P);
+            updates.put(r_parent, newParent);
+        }
+
+        updateRowSafelyAndSave(updates);
+    }
+
+    @Override
+    public void moveTargetUp(Node parentTarget, Node childTarget, Node pruneNode, Node wanderingSource) {
+        undoDeltaStack();
+    }
+
+    @Override
+    public void revertPrunedState(Node pruneNode, Node wanderingSource) {
+        undoDeltaStack(); // Cofa setTargetRoot
+        undoDeltaStack(); // Cofa setPrunedState
+    }
+
+    private void undoDeltaStack() {
+        LapStateDelta delta = deltaStack.pop();
+        for (int i = 0; i < delta.rows.length; i++) {
+            System.arraycopy(delta.oldRows[i], 0, assigncost[delta.rows[i]], 0, dim);
+        }
+        System.arraycopy(delta.oldU, 0, u, 0, dim);
+        System.arraycopy(delta.oldV, 0, v, 0, dim);
+        System.arraycopy(delta.oldRowsol, 0, rowsol, 0, dim);
+        System.arraycopy(delta.oldColsol, 0, colsol, 0, dim);
+
+        for (Map.Entry<Node, BitSet> e : delta.oldClust.entrySet()) {
+            currentClusters.put(e.getKey(), e.getValue());
+        }
+        this.currentDistance = delta.oldDistance;
+    }
+
+    // ========================================================================
+    // KLASYCZNE METODY (ECR / NNI)
+    // ========================================================================
+    @Override public double applyNni(NniMove move) { return 0; /* Nieużywane w nowym systemie */ }
+    @Override public void undoNni(NniMove move) { }
+    @Override
+    public void applySprPrune(Node pruneNode) {
+        saveCurrentStateToHistory();
+    }
+
+    @Override
+    public void undoSprPrune(Node pruneNode) {
+        undoSprRegraftStep();
+    }
+
+    @Override
+    public void applySprRegraftStep(Node pruneNode, Node currentNode) {
+        saveCurrentStateToHistory();
+    }
 
     @Override
     public void undoSprRegraftStep() {
@@ -231,154 +357,31 @@ public class MCIncrementalMetric implements IncrementalMetric {
     }
 
     @Override
-    public double evaluate2sEcrMove(Node top, Node m1, Node m2, Node[] boundarySubtrees, SubtreeEcr2Utils.TopologyTemplate2sECR newTopology) {
-        return internalApply2sEcrMove(top, m1, m2, boundarySubtrees, newTopology, false);
-    }
-
-    @Override
-    public double commit2sEcrMove(Node top, Node m1, Node m2, Node[] boundarySubtrees, SubtreeEcr2Utils.TopologyTemplate2sECR newTopology) {
-        return internalApply2sEcrMove(top, m1, m2, boundarySubtrees, newTopology, true);
-    }
-
-    private double internalApply2sEcrMove(Node top, Node m1, Node m2, Node[] boundarySubtrees, SubtreeEcr2Utils.TopologyTemplate2sECR newTopology, boolean isCommit) {
-        saveCurrentStateToHistory();
-
-        BitSet[] sBits = new BitSet[4];
-        for (int i = 0; i < 4; i++) sBits[i] = getCluster(boundarySubtrees[i]);
-
-        BitSet newM1 = new BitSet();
-        BitSet newM2 = new BitSet();
-        BitSet newTop = new BitSet();
-
-        if (newTopology.isFork) {
-            newM1.or(sBits[newTopology.indices[0]]); newM1.or(sBits[newTopology.indices[1]]);
-            newM2.or(sBits[newTopology.indices[2]]); newM2.or(sBits[newTopology.indices[3]]);
-            newTop.or(newM1); newTop.or(newM2);
-        } else {
-            newM2.or(sBits[newTopology.indices[2]]); newM2.or(sBits[newTopology.indices[3]]);
-            newM1.or(sBits[newTopology.indices[1]]); newM1.or(newM2);
-            newTop.or(sBits[newTopology.indices[0]]); newTop.or(newM1);
-        }
-
-        currentClusters.put(top, newTop);
-        currentClusters.put(m1, newM1);
-        currentClusters.put(m2, newM2);
-
-        List<Integer> changedRowsList = new ArrayList<>();
-        Integer rTop = nodeToRow.get(top); if (rTop != null) changedRowsList.add(rTop);
-        Integer rM1 = nodeToRow.get(m1); if (rM1 != null) changedRowsList.add(rM1);
-        Integer rM2 = nodeToRow.get(m2); if (rM2 != null) changedRowsList.add(rM2);
-        int[] changedRows = changedRowsList.stream().mapToInt(Integer::intValue).toArray();
-
-        for (int i : changedRows) {
-            Node n1 = rowToNode[i];
-            for (int j = 0; j < dim; j++) {
-                Node n2 = colToNode[j];
-                if (n2 != null) {
-                    this.assigncost[i][j] = (short) ClusterDist.getDistXorBit(currentClusters.get(n1), targetClusters.get(n2));
-                } else {
-                    this.assigncost[i][j] = (short) ClusterDist.getDistToOAsMinBit(currentClusters.get(n1));
-                }
+    public double evaluateSprRegraft(Node pruneNode, Node targetNode) {
+        Tree tempTree = new SprUtils().createSprTree(this.baseTree, pruneNode, targetNode);
+        if (tempTree != null) {
+            if (tempTree instanceof pal.tree.SimpleTree) {
+                ((pal.tree.SimpleTree) tempTree).createNodeList(); // Zabezpieczenie przed błędem Label
             }
+            return mcMetricFull.getDistance(tempTree, this.targetTree);
         }
-
-        if (changedRows.length > 0) {
-            this.currentDistance = LapSolver.lapShortUpdate(dim, assigncost, rowsol, colsol, u, v, changedRows);
-        }
-
-        double evaluatedDist = this.currentDistance;
-
-        if (!isCommit) {
-            undoSprRegraftStep();
-        }
-
-        return evaluatedDist;
+        return Double.POSITIVE_INFINITY;
     }
 
-    @Override
-    public double evaluate3sEcrMove(List<Node> cluster, Node[] boundarySubtrees, SubtreeEcr3Utils.TopologyTemplate3sECR newTopology) {
-        return internalApply3sEcrMove(cluster, boundarySubtrees, newTopology, false);
-    }
+    @Override public double evaluate2sEcrMove(Node t, Node m1, Node m2, Node[] b, SubtreeEcr2Utils.TopologyTemplate2sECR n) { return 0; }
+    @Override public double commit2sEcrMove(Node t, Node m1, Node m2, Node[] b, SubtreeEcr2Utils.TopologyTemplate2sECR n) { return 0; }
+    @Override public double evaluate3sEcrMove(List<Node> c, Node[] b, SubtreeEcr3Utils.TopologyTemplate3sECR n) { return 0; }
+    @Override public double commit3sEcrMove(List<Node> c, Node[] b, SubtreeEcr3Utils.TopologyTemplate3sECR n) { return 0; }
 
-    @Override
-    public double commit3sEcrMove(List<Node> cluster, Node[] boundarySubtrees, SubtreeEcr3Utils.TopologyTemplate3sECR newTopology) {
-        return internalApply3sEcrMove(cluster, boundarySubtrees, newTopology, true);
-    }
-
-    private double internalApply3sEcrMove(List<Node> cluster, Node[] boundarySubtrees, SubtreeEcr3Utils.TopologyTemplate3sECR newTopology, boolean isCommit) {
-        saveCurrentStateToHistory();
-
-        BitSet[] sBits = new BitSet[5];
-        for (int i = 0; i < 5; i++) sBits[i] = getCluster(boundarySubtrees[i]);
-
-        List<Integer> changedRowsList = new ArrayList<>();
-
-        // PRAWIDŁOWE MAPOWANIE PRE-ORDER
-        ClusterBuilder builder = new ClusterBuilder();
-        BitSet topCluster = builder.build(newTopology, sBits, cluster, currentClusters, changedRowsList);
-
-        Node topNode = cluster.get(0);
-        currentClusters.put(topNode, topCluster);
-        Integer rTop = nodeToRow.get(topNode);
-        if (rTop != null) changedRowsList.add(rTop);
-
-        int[] changedRows = changedRowsList.stream().mapToInt(Integer::intValue).toArray();
-
-        for (int i : changedRows) {
-            Node n1 = rowToNode[i];
-            for (int j = 0; j < dim; j++) {
-                Node n2 = colToNode[j];
-                if (n2 != null) {
-                    this.assigncost[i][j] = (short) ClusterDist.getDistXorBit(currentClusters.get(n1), targetClusters.get(n2));
-                } else {
-                    this.assigncost[i][j] = (short) ClusterDist.getDistToOAsMinBit(currentClusters.get(n1));
-                }
-            }
-        }
-
-        if (changedRows.length > 0) {
-            this.currentDistance = LapSolver.lapShortUpdate(dim, assigncost, rowsol, colsol, u, v, changedRows);
-        }
-
-        double evaluatedDist = this.currentDistance;
-
-        if (!isCommit) {
-            undoSprRegraftStep();
-        }
-
-        return evaluatedDist;
-    }
-
-    private class ClusterBuilder {
-        int idx = 1;
-
-        BitSet build(SubtreeEcr3Utils.TopologyTemplate3sECR temp, BitSet[] sBits, List<Node> cluster, Map<Node, BitSet> targetMap, List<Integer> changedRows) {
-            BitSet bs = new BitSet();
-
-            if (temp.left.leafIndex != -1) {
-                bs.or(sBits[temp.left.leafIndex]);
-            } else {
-                Node leftNode = cluster.get(idx++);
-                BitSet leftBs = build(temp.left, sBits, cluster, targetMap, changedRows);
-                targetMap.put(leftNode, leftBs);
-                Integer rIndex = nodeToRow.get(leftNode);
-                if (rIndex != null) changedRows.add(rIndex);
-                bs.or(leftBs);
-            }
-
-            if (temp.right.leafIndex != -1) {
-                bs.or(sBits[temp.right.leafIndex]);
-            } else {
-                Node rightNode = cluster.get(idx++);
-                BitSet rightBs = build(temp.right, sBits, cluster, targetMap, changedRows);
-                targetMap.put(rightNode, rightBs);
-                Integer rIndex = nodeToRow.get(rightNode);
-                if (rIndex != null) changedRows.add(rIndex);
-                bs.or(rightBs);
-            }
-
-            return bs;
-        }
+    private void clearHistory() {
+        costHistory.clear();
+        rowsolHistory.clear();
+        colsolHistory.clear();
+        uHistory.clear();
+        vHistory.clear();
+        distanceHistory.clear();
+        clusterHistory.clear();
+        deltaStack.clear();
     }
 
     private void saveCurrentStateToHistory() {
@@ -394,28 +397,14 @@ public class MCIncrementalMetric implements IncrementalMetric {
         vHistory.push(this.v.clone());
         distanceHistory.push(this.currentDistance);
 
-        clusterHistory.push(new IdentityHashMap<>(currentClusters));
-    }
-
-    private void clearHistory() {
-        costHistory.clear();
-        rowsolHistory.clear();
-        colsolHistory.clear();
-        uHistory.clear();
-        vHistory.clear();
-        distanceHistory.clear();
-        clusterHistory.clear();
-    }
-
-    private void collectLeafIds(Node node, IdGroup idGroup, List<Integer> leafIds) {
-        if (node.isLeaf()) {
-            leafIds.add(idGroup.whichIdNumber(node.getIdentifier().getName()));
-        } else {
-            for (int i = 0; i < node.getChildCount(); i++) {
-                collectLeafIds(node.getChild(i), idGroup, leafIds);
-            }
+        // Głęboka kopia (deep clone) klastrów - chroni przed mutacją referencji!
+        IdentityHashMap<Node, BitSet> clustersCopy = new IdentityHashMap<>();
+        for (Map.Entry<Node, BitSet> entry : currentClusters.entrySet()) {
+            clustersCopy.put(entry.getKey(), (BitSet) entry.getValue().clone());
         }
+        clusterHistory.push(clustersCopy);
     }
+
 
     @Override public double getCurrentDistance() { return this.currentDistance; }
     @Override public void commit() { clearHistory(); }

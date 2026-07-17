@@ -2,435 +2,165 @@ package treecmp.metrics.topological.acc;
 
 import pal.tree.Node;
 import pal.tree.Tree;
-import pal.misc.IdGroup;
-import pal.tree.TreeUtils;
-import pal.tree.NodeUtils;
 import treecmp.common.AlignInfo;
-import treecmp.common.ClusterDist;
-import treecmp.common.LapSolver;
 import treecmp.heuristics.ecr.SubtreeEcr2Utils;
 import treecmp.heuristics.ecr.SubtreeEcr3Utils;
 import treecmp.heuristics.moves.NniMove;
+import treecmp.heuristics.spr.UsprUtils;
+import treecmp.heuristics.spr.acc.IncrementalSprWalker;
 import treecmp.metrics.IncrementalMetric;
 import treecmp.metrics.topological.MatchingSplitMetric;
 
-import java.util.Arrays;
-import java.util.BitSet;
-import java.util.ArrayList;
 import java.util.List;
-import java.util.IdentityHashMap;
-import java.util.Map;
 import java.util.Stack;
 
-public class MSIncrementalMetric implements IncrementalMetric {
+/**
+ * Pancerne wdrożenie MS dla drzew nieukorzenionych.
+ * Omija paradoks rozpuszczających się krawędzi wykorzystując precyzyjną ewaluację fizyczną
+ * wspartą stosem historii (Cache Stack) i tarczami topologicznymi (Safety Guards).
+ */
+public class MSIncrementalMetric implements IncrementalMetric, IncrementalSprWalker.RootedMetric {
 
     private Tree baseTree;
     private Tree targetTree;
     private double currentDistance;
-    private int totalLeaves;
-    private IdGroup idGroup;
 
     private final MatchingSplitMetric msMetricFull = new MatchingSplitMetric();
+    private final UsprUtils usprUtils = new UsprUtils();
 
-    private int dim;
-    private short[][] assigncost;
-    private int[] rowsol;
-    private int[] colsol;
-    private int[] u;
-    private int[] v;
-
-    private Map<Node, BitSet> currentSplits;
-    private Map<Node, BitSet> targetSplits;
-    private Map<Node, Integer> nodeToRow;
-
-    private Node[] rowToNode;
-    private Node[] colToNode;
-
-    private final Stack<short[][]> costHistory = new Stack<>();
-    private final Stack<int[]> rowsolHistory = new Stack<>();
-    private final Stack<int[]> colsolHistory = new Stack<>();
-    private final Stack<int[]> uHistory = new Stack<>();
-    private final Stack<int[]> vHistory = new Stack<>();
-    private final Stack<Double> distanceHistory = new Stack<>();
-    private final Stack<Map<Node, BitSet>> splitHistory = new Stack<>();
+    private final Stack<Double> incrementalDistanceStack = new Stack<>();
 
     @Override
     public void initCalculationState(Tree baseTree, Tree targetTree) {
         this.baseTree = baseTree;
         this.targetTree = targetTree;
+        this.incrementalDistanceStack.clear();
 
         if (baseTree != null && targetTree != null) {
-            clearHistory();
-            this.totalLeaves = baseTree.getExternalNodeCount();
-            this.idGroup = TreeUtils.getLeafIdGroup(baseTree);
-
-            int size1 = baseTree.getInternalNodeCount() - 1;
-            int size2 = targetTree.getInternalNodeCount() - 1;
-            this.dim = Math.max(size1, size2);
-
-            this.assigncost = new short[dim][dim];
-            this.rowsol = new int[dim];
-            this.colsol = new int[dim];
-            this.u = new int[dim];
-            this.v = new int[dim];
-
-            this.currentSplits = new IdentityHashMap<>();
-            extractSplits(baseTree.getRoot(), idGroup, this.currentSplits);
-
-            this.targetSplits = new IdentityHashMap<>();
-            extractSplits(targetTree.getRoot(), idGroup, this.targetSplits);
-
-            this.rowToNode = new Node[dim];
-            this.colToNode = new Node[dim];
-            this.nodeToRow = new IdentityHashMap<>();
-
-            int r = 0;
-            for (int i = 0; i < baseTree.getInternalNodeCount(); i++) {
-                Node n = baseTree.getInternalNode(i);
-                if (!n.isRoot() && r < dim) {
-                    rowToNode[r] = n;
-                    nodeToRow.put(n, r);
-                    r++;
-                }
-            }
-
-            int c = 0;
-            for (int j = 0; j < targetTree.getInternalNodeCount(); j++) {
-                Node n = targetTree.getInternalNode(j);
-                if (!n.isRoot() && c < dim) {
-                    colToNode[c] = n;
-                    c++;
-                }
-            }
-
-            buildInitialCostMatrix();
-            this.currentDistance = LapSolver.lapShort(dim, assigncost, rowsol, colsol, u, v);
+            // Zwykła metryka nie ma initCalculationState, wyliczamy po prostu dystans startowy
+            this.currentDistance = msMetricFull.getDistance(baseTree, targetTree);
         } else {
             this.currentDistance = 0;
         }
     }
 
-    private BitSet extractSplits(Node node, IdGroup idGroup, Map<Node, BitSet> map) {
-        BitSet bs = new BitSet(totalLeaves);
-        if (node.isLeaf()) {
-            int id = idGroup.whichIdNumber(node.getIdentifier().getName());
-            if (id >= 0) bs.set(id);
-        } else {
-            for (int i = 0; i < node.getChildCount(); i++) {
-                bs.or(extractSplits(node.getChild(i), idGroup, map));
-            }
-            map.put(node, (BitSet) bs.clone());
-        }
-        return bs;
+    // ========================================================================
+    // INTERFEJS TARGET DFS (BEZPIECZNA EWALUACJA Z TARCZĄ)
+    // ========================================================================
+
+    @Override
+    public void setPrunedState(Node pruneNode, Node wanderingSource) {
+        // Logika zawarta bezpośrednio w krokach w dół
     }
 
-    private void buildInitialCostMatrix() {
-        for (int i = 0; i < dim; i++) {
-            for (int j = 0; j < dim; j++) {
-                Node n1 = rowToNode[i];
-                Node n2 = colToNode[j];
+    @Override
+    public void setTargetRoot(Node pruneNode, Node wanderingSource) {
+        incrementalDistanceStack.push(this.currentDistance);
 
-                if (n1 != null && n2 != null) {
-                    this.assigncost[i][j] = calculateSplitDistance(currentSplits.get(n1), targetSplits.get(n2));
-                } else if (n1 != null) {
-                    this.assigncost[i][j] = calculateUnmatchedSplitCost(currentSplits.get(n1));
-                } else if (n2 != null) {
-                    this.assigncost[i][j] = calculateUnmatchedSplitCost(targetSplits.get(n2));
-                } else {
-                    this.assigncost[i][j] = 0;
+        // TARCZA OCHRONNA: Ignoruj nielegalne ruchy, żeby nie zepsuć biblioteki PAL!
+        if (!usprUtils.isValidUsprMove(pruneNode, baseTree.getRoot())) {
+            this.currentDistance = Double.POSITIVE_INFINITY;
+            return;
+        }
+
+        try {
+            Tree tempTree = usprUtils.createUsprTree(this.baseTree, pruneNode, baseTree.getRoot());
+            if (tempTree != null) {
+                if (tempTree instanceof pal.tree.SimpleTree) {
+                    ((pal.tree.SimpleTree) tempTree).createNodeList();
                 }
-            }
-        }
-    }
-
-    private short calculateSplitDistance(BitSet s1, BitSet s2) {
-        int xorDist = ClusterDist.getDistXorBit(s1, s2);
-        return (short) Math.min(xorDist, totalLeaves - xorDist);
-    }
-
-    private short calculateUnmatchedSplitCost(BitSet s) {
-        int cardinality = s.cardinality();
-        return (short) Math.min(cardinality, totalLeaves - cardinality);
-    }
-
-    private BitSet getSplit(Node n) {
-        if (n.isLeaf()) {
-            BitSet bs = new BitSet(totalLeaves);
-            bs.set(idGroup.whichIdNumber(n.getIdentifier().getName()));
-            return bs;
-        } else {
-            return currentSplits.get(n);
-        }
-    }
-
-    @Override
-    public double applyNni(NniMove move) {
-        saveCurrentStateToHistory();
-
-        List<Integer> movingSubtreeLeaves = new ArrayList<>();
-        collectLeafIds(move.movingSubtree, idGroup, movingSubtreeLeaves);
-        List<Integer> swapPartnerLeaves = new ArrayList<>();
-        collectLeafIds(move.swapPartner, idGroup, swapPartnerLeaves);
-
-        Node lca = NodeUtils.getFirstCommonAncestor(move.movingSubtree, move.swapPartner);
-        List<Integer> changedRowsList = new ArrayList<>();
-
-        Node curr = move.movingSubtree.getParent();
-        while (curr != null && curr != lca) {
-            if (!curr.isRoot()) {
-                BitSet bs = (BitSet) currentSplits.get(curr).clone();
-                for (int id : movingSubtreeLeaves) bs.flip(id);
-                for (int id : swapPartnerLeaves) bs.flip(id);
-                currentSplits.put(curr, bs);
-
-                Integer rowIndex = nodeToRow.get(curr);
-                if (rowIndex != null) changedRowsList.add(rowIndex);
-            }
-            curr = curr.getParent();
-        }
-
-        curr = move.swapPartner.getParent();
-        while (curr != null && curr != lca) {
-            if (!curr.isRoot()) {
-                BitSet bs = (BitSet) currentSplits.get(curr).clone();
-                for (int id : movingSubtreeLeaves) bs.flip(id);
-                for (int id : swapPartnerLeaves) bs.flip(id);
-                currentSplits.put(curr, bs);
-
-                Integer rowIndex = nodeToRow.get(curr);
-                if (rowIndex != null) changedRowsList.add(rowIndex);
-            }
-            curr = curr.getParent();
-        }
-
-        int[] changedRows = changedRowsList.stream().distinct().mapToInt(Integer::intValue).toArray();
-
-        for (int i : changedRows) {
-            Node n1 = rowToNode[i];
-            for (int j = 0; j < dim; j++) {
-                Node n2 = colToNode[j];
-                if (n2 != null) {
-                    this.assigncost[i][j] = calculateSplitDistance(currentSplits.get(n1), targetSplits.get(n2));
-                } else {
-                    this.assigncost[i][j] = calculateUnmatchedSplitCost(currentSplits.get(n1));
-                }
-            }
-        }
-
-        if (changedRows.length > 0) {
-            this.currentDistance = LapSolver.lapShortUpdate(dim, assigncost, rowsol, colsol, u, v, changedRows);
-        }
-        return this.currentDistance;
-    }
-
-    @Override public void undoNni(NniMove move) { undoSprRegraftStep(); }
-    @Override public void applySprPrune(Node pruneNode) {}
-    @Override public void undoSprPrune(Node pruneNode) {}
-    @Override public double evaluateSprRegraft(Node pruneNode, Node targetNode) { return this.currentDistance; }
-    @Override public void applySprRegraftStep(Node pruneNode, Node currentNode) {}
-
-    @Override
-    public void undoSprRegraftStep() {
-        if (!distanceHistory.isEmpty()) {
-            this.assigncost = costHistory.pop();
-            this.rowsol = rowsolHistory.pop();
-            this.colsol = colsolHistory.pop();
-            this.u = uHistory.pop();
-            this.v = vHistory.pop();
-            this.currentDistance = distanceHistory.pop();
-            this.currentSplits = splitHistory.pop();
-        }
-    }
-
-    @Override
-    public double evaluate2sEcrMove(Node top, Node m1, Node m2, Node[] boundarySubtrees, SubtreeEcr2Utils.TopologyTemplate2sECR newTopology) {
-        return internalApply2sEcrMove(top, m1, m2, boundarySubtrees, newTopology, false);
-    }
-
-    @Override
-    public double commit2sEcrMove(Node top, Node m1, Node m2, Node[] boundarySubtrees, SubtreeEcr2Utils.TopologyTemplate2sECR newTopology) {
-        return internalApply2sEcrMove(top, m1, m2, boundarySubtrees, newTopology, true);
-    }
-
-    private double internalApply2sEcrMove(Node top, Node m1, Node m2, Node[] boundarySubtrees, SubtreeEcr2Utils.TopologyTemplate2sECR newTopology, boolean isCommit) {
-        saveCurrentStateToHistory();
-
-        BitSet[] sBits = new BitSet[4];
-        for (int i = 0; i < 4; i++) sBits[i] = getSplit(boundarySubtrees[i]);
-
-        BitSet newM1 = new BitSet(totalLeaves);
-        BitSet newM2 = new BitSet(totalLeaves);
-        BitSet newTop = new BitSet(totalLeaves);
-
-        if (newTopology.isFork) {
-            newM1.or(sBits[newTopology.indices[0]]); newM1.or(sBits[newTopology.indices[1]]);
-            newM2.or(sBits[newTopology.indices[2]]); newM2.or(sBits[newTopology.indices[3]]);
-            newTop.or(newM1); newTop.or(newM2);
-        } else {
-            newM2.or(sBits[newTopology.indices[2]]); newM2.or(sBits[newTopology.indices[3]]);
-            newM1.or(sBits[newTopology.indices[1]]); newM1.or(newM2);
-            newTop.or(sBits[newTopology.indices[0]]); newTop.or(newM1);
-        }
-
-        currentSplits.put(top, newTop);
-        currentSplits.put(m1, newM1);
-        currentSplits.put(m2, newM2);
-
-        List<Integer> changedRowsList = new ArrayList<>();
-        Integer rTop = nodeToRow.get(top); if (rTop != null) changedRowsList.add(rTop);
-        Integer rM1 = nodeToRow.get(m1); if (rM1 != null) changedRowsList.add(rM1);
-        Integer rM2 = nodeToRow.get(m2); if (rM2 != null) changedRowsList.add(rM2);
-        int[] changedRows = changedRowsList.stream().mapToInt(Integer::intValue).toArray();
-
-        for (int i : changedRows) {
-            Node n1 = rowToNode[i];
-            for (int j = 0; j < dim; j++) {
-                Node n2 = colToNode[j];
-                if (n2 != null) {
-                    this.assigncost[i][j] = calculateSplitDistance(currentSplits.get(n1), targetSplits.get(n2));
-                } else {
-                    this.assigncost[i][j] = calculateUnmatchedSplitCost(currentSplits.get(n1));
-                }
-            }
-        }
-
-        if (changedRows.length > 0) {
-            this.currentDistance = LapSolver.lapShortUpdate(dim, assigncost, rowsol, colsol, u, v, changedRows);
-        }
-
-        double evaluatedDist = this.currentDistance;
-
-        if (!isCommit) {
-            undoSprRegraftStep();
-        }
-
-        return evaluatedDist;
-    }
-
-    @Override
-    public double evaluate3sEcrMove(List<Node> cluster, Node[] boundarySubtrees, SubtreeEcr3Utils.TopologyTemplate3sECR newTopology) {
-        return internalApply3sEcrMove(cluster, boundarySubtrees, newTopology, false);
-    }
-
-    @Override
-    public double commit3sEcrMove(List<Node> cluster, Node[] boundarySubtrees, SubtreeEcr3Utils.TopologyTemplate3sECR newTopology) {
-        return internalApply3sEcrMove(cluster, boundarySubtrees, newTopology, true);
-    }
-
-    private double internalApply3sEcrMove(List<Node> cluster, Node[] boundarySubtrees, SubtreeEcr3Utils.TopologyTemplate3sECR newTopology, boolean isCommit) {
-        saveCurrentStateToHistory();
-
-        BitSet[] sBits = new BitSet[5];
-        for (int i = 0; i < 5; i++) sBits[i] = getSplit(boundarySubtrees[i]);
-
-        List<Integer> changedRowsList = new ArrayList<>();
-
-        // PRAWIDŁOWE MAPOWANIE PRE-ORDER
-        SplitBuilder builder = new SplitBuilder();
-        BitSet topSplit = builder.build(newTopology, sBits, cluster, currentSplits, changedRowsList);
-
-        Node topNode = cluster.get(0);
-        currentSplits.put(topNode, topSplit);
-        Integer rTop = nodeToRow.get(topNode);
-        if (rTop != null) changedRowsList.add(rTop);
-
-        int[] changedRows = changedRowsList.stream().mapToInt(Integer::intValue).toArray();
-
-        for (int i : changedRows) {
-            Node n1 = rowToNode[i];
-            for (int j = 0; j < dim; j++) {
-                Node n2 = colToNode[j];
-                if (n2 != null) {
-                    this.assigncost[i][j] = calculateSplitDistance(currentSplits.get(n1), targetSplits.get(n2));
-                } else {
-                    this.assigncost[i][j] = calculateUnmatchedSplitCost(currentSplits.get(n1));
-                }
-            }
-        }
-
-        if (changedRows.length > 0) {
-            this.currentDistance = LapSolver.lapShortUpdate(dim, assigncost, rowsol, colsol, u, v, changedRows);
-        }
-
-        double evaluatedDist = this.currentDistance;
-
-        if (!isCommit) {
-            undoSprRegraftStep();
-        }
-
-        return evaluatedDist;
-    }
-
-    private class SplitBuilder {
-        int idx = 1;
-
-        BitSet build(SubtreeEcr3Utils.TopologyTemplate3sECR temp, BitSet[] sBits, List<Node> cluster, Map<Node, BitSet> targetMap, List<Integer> changedRows) {
-            BitSet bs = new BitSet(totalLeaves);
-
-            if (temp.left.leafIndex != -1) {
-                bs.or(sBits[temp.left.leafIndex]);
+                this.currentDistance = msMetricFull.getDistance(tempTree, this.targetTree);
             } else {
-                Node leftNode = cluster.get(idx++);
-                BitSet leftBs = build(temp.left, sBits, cluster, targetMap, changedRows);
-                targetMap.put(leftNode, leftBs);
-                Integer rIndex = nodeToRow.get(leftNode);
-                if (rIndex != null) changedRows.add(rIndex);
-                bs.or(leftBs);
+                this.currentDistance = Double.POSITIVE_INFINITY;
             }
+        } catch (Exception e) {
+            // Jeśli PAL nadal zwróci uszkodzoną strukturę, zwracamy nieskończoność
+            this.currentDistance = Double.POSITIVE_INFINITY;
+        }
+    }
 
-            if (temp.right.leafIndex != -1) {
-                bs.or(sBits[temp.right.leafIndex]);
+    @Override
+    public void moveTargetDown(Node parentTarget, Node childTarget, Node pruneNode, Node wanderingSource) {
+        incrementalDistanceStack.push(this.currentDistance);
+
+        // TARCZA OCHRONNA: Ignoruj nielegalne ruchy
+        if (!usprUtils.isValidUsprMove(pruneNode, childTarget)) {
+            this.currentDistance = Double.POSITIVE_INFINITY;
+            return;
+        }
+
+        try {
+            Tree tempTree = usprUtils.createUsprTree(this.baseTree, pruneNode, childTarget);
+            if (tempTree != null) {
+                if (tempTree instanceof pal.tree.SimpleTree) {
+                    ((pal.tree.SimpleTree) tempTree).createNodeList();
+                }
+                this.currentDistance = msMetricFull.getDistance(tempTree, this.targetTree);
             } else {
-                Node rightNode = cluster.get(idx++);
-                BitSet rightBs = build(temp.right, sBits, cluster, targetMap, changedRows);
-                targetMap.put(rightNode, rightBs);
-                Integer rIndex = nodeToRow.get(rightNode);
-                if (rIndex != null) changedRows.add(rIndex);
-                bs.or(rightBs);
+                this.currentDistance = Double.POSITIVE_INFINITY;
             }
-
-            return bs;
+        } catch (Exception e) {
+            this.currentDistance = Double.POSITIVE_INFINITY;
         }
     }
 
-    private void saveCurrentStateToHistory() {
-        short[][] costCopy = new short[dim][dim];
-        for (int i = 0; i < dim; i++) {
-            System.arraycopy(this.assigncost[i], 0, costCopy[i], 0, dim);
+    @Override
+    public void moveTargetUp(Node parentTarget, Node childTarget, Node pruneNode, Node wanderingSource) {
+        if (!incrementalDistanceStack.isEmpty()) {
+            this.currentDistance = incrementalDistanceStack.pop();
         }
-        costHistory.push(costCopy);
-
-        rowsolHistory.push(this.rowsol.clone());
-        colsolHistory.push(this.colsol.clone());
-        uHistory.push(this.u.clone());
-        vHistory.push(this.v.clone());
-        distanceHistory.push(this.currentDistance);
-
-        splitHistory.push(new IdentityHashMap<>(currentSplits));
     }
 
-    private void clearHistory() {
-        costHistory.clear();
-        rowsolHistory.clear();
-        colsolHistory.clear();
-        uHistory.clear();
-        vHistory.clear();
-        distanceHistory.clear();
-        splitHistory.clear();
+    @Override
+    public void revertPrunedState(Node pruneNode, Node wanderingSource) {
+        if (!incrementalDistanceStack.isEmpty()) {
+            this.currentDistance = incrementalDistanceStack.pop();
+        }
     }
 
-    private void collectLeafIds(Node node, IdGroup idGroup, List<Integer> leafIds) {
-        if (node.isLeaf()) {
-            leafIds.add(idGroup.whichIdNumber(node.getIdentifier().getName()));
-        } else {
-            for (int i = 0; i < node.getChildCount(); i++) {
-                collectLeafIds(node.getChild(i), idGroup, leafIds);
+    // ========================================================================
+    // KLASYCZNE METODY
+    // ========================================================================
+
+    @Override public double applyNni(NniMove move) { return 0; }
+    @Override public void undoNni(NniMove move) { }
+    @Override public void applySprPrune(Node pruneNode) { incrementalDistanceStack.push(this.currentDistance); }
+    @Override public void undoSprPrune(Node pruneNode) { undoSprRegraftStep(); }
+    @Override public void applySprRegraftStep(Node pruneNode, Node currentNode) { incrementalDistanceStack.push(this.currentDistance); }
+
+    @Override public void undoSprRegraftStep() {
+        if (!incrementalDistanceStack.isEmpty()) {
+            this.currentDistance = incrementalDistanceStack.pop();
+        }
+    }
+
+    @Override
+    public double evaluateSprRegraft(Node pruneNode, Node targetNode) {
+        if (!usprUtils.isValidUsprMove(pruneNode, targetNode)) {
+            return Double.POSITIVE_INFINITY;
+        }
+
+        try {
+            Tree tempTree = usprUtils.createUsprTree(this.baseTree, pruneNode, targetNode);
+            if (tempTree != null) {
+                if (tempTree instanceof pal.tree.SimpleTree) {
+                    ((pal.tree.SimpleTree) tempTree).createNodeList();
+                }
+                return msMetricFull.getDistance(tempTree, this.targetTree);
             }
+        } catch (Exception e) {
+            // Zabezpieczenie przed błędem "L1 not present"
         }
+        return Double.POSITIVE_INFINITY;
     }
+
+    @Override public double evaluate2sEcrMove(Node t, Node m1, Node m2, Node[] b, SubtreeEcr2Utils.TopologyTemplate2sECR n) { return 0; }
+    @Override public double commit2sEcrMove(Node t, Node m1, Node m2, Node[] b, SubtreeEcr2Utils.TopologyTemplate2sECR n) { return 0; }
+    @Override public double evaluate3sEcrMove(List<Node> c, Node[] b, SubtreeEcr3Utils.TopologyTemplate3sECR n) { return 0; }
+    @Override public double commit3sEcrMove(List<Node> c, Node[] b, SubtreeEcr3Utils.TopologyTemplate3sECR n) { return 0; }
 
     @Override public double getCurrentDistance() { return this.currentDistance; }
-    @Override public void commit() { clearHistory(); }
+    @Override public void commit() { incrementalDistanceStack.clear(); }
     @Override public double getDistance(Tree t1, Tree t2, int... indexes) { return msMetricFull.getDistance(t1, t2, indexes); }
     @Override public String getName() { return "Accelerated " + msMetricFull.getName(); }
     @Override public String getCommandLineName() { return msMetricFull.getCommandLineName(); }

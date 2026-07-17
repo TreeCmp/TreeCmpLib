@@ -28,10 +28,23 @@ public abstract class IncrementalHeuristicBaseMetric extends BaseMetric {
     }
 
     // Służy wyłącznie do testów wydajnościowych (Single-Step Benchmark)
-    public double evaluateSingleStep(pal.tree.Tree tree1, pal.tree.Tree tree2) {
+    public double evaluateSingleStep(Tree tree1, Tree tree2) {
+        // 1. KLUCZOWA POPRAWKA: Twarda inicjalizacja stanu bazowego dla metryki
+        // To wykonuje mapowanie liści i zlicza bazowy dystans przed jakimkolwiek ruchem
         this.incMetric.initCalculationState(tree1, tree2);
-        // Przeszukanie całego otoczenia bez robienia fizycznego kroku (applyPhysicalMove)
+
+        this.improved = false;
+
+        // 2. Ustawiamy najgorszy możliwy dystans (Nieskończoność),
+        // aby upewnić się, że pobierzemy najlepszego sąsiada z całego otoczenia,
+        // dokładnie tak samo, jak robi to pętla 'for' w klasycznych benchmarkach.
+        this.bestDist = Double.POSITIVE_INFINITY;
+        this.bestMove = null;
+
+        // 3. Wypuszczamy Walkera (który wykona ułamkowe ewaluacje O(1))
         searchNeighborhood(tree1);
+
+        // 4. Zwracamy najniższy znaleziony dystans w otoczeniu
         return this.bestDist;
     }
 

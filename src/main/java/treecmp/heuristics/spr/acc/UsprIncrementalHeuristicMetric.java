@@ -10,7 +10,7 @@ import treecmp.metrics.IncrementalMetric;
 
 public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetric {
 
-    protected final UsprNeighborhoodWalker walker;
+    protected final ClassicUsprWalker walker;
     protected final UsprUtils usprUtils;
     private final String metricShortName;
 
@@ -18,7 +18,7 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
     public UsprIncrementalHeuristicMetric(IncrementalMetric metric, String metricShortName) {
         super(metric.isRooted(), metric);
         this.metricShortName = metricShortName;
-        this.walker = new UsprNeighborhoodWalker();
+        this.walker = new ClassicUsprWalker();
         this.usprUtils = new UsprUtils();
     }
 

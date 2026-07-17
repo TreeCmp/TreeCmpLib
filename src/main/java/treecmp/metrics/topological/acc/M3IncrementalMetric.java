@@ -11,6 +11,7 @@ import treecmp.common.TreeCmpUtils;
 import treecmp.heuristics.ecr.SubtreeEcr2Utils;
 import treecmp.heuristics.ecr.SubtreeEcr3Utils;
 import treecmp.heuristics.moves.NniMove;
+import treecmp.heuristics.spr.UsprUtils;
 import treecmp.metrics.IncrementalMetric;
 import treecmp.metrics.topological.MatchingTripletMetric;
 
@@ -578,11 +579,19 @@ public class M3IncrementalMetric implements IncrementalMetric {
         }
     }
 
-    @Override public double evaluateSprRegraft(Node pruneNode, Node targetNode) { return Double.POSITIVE_INFINITY; }
-    @Override public void applySprPrune(Node pruneNode) {}
-    @Override public void undoSprPrune(Node pruneNode) {}
-    @Override public void applySprRegraftStep(Node pruneNode, Node currentNode) {}
-    @Override public void undoSprRegraftStep() { }
+    @Override public void applySprPrune(Node pruneNode) { /* Puste */ }
+    @Override public void undoSprPrune(Node pruneNode) { /* Puste */ }
+    @Override public void applySprRegraftStep(Node pruneNode, Node currentNode) { /* Puste */ }
+    @Override public void undoSprRegraftStep() { /* Puste */ }
+
+    @Override
+    public double evaluateSprRegraft(Node pruneNode, Node targetNode) {
+        Tree tempTree = new UsprUtils().createUsprTree(this.baseTree, pruneNode, targetNode);
+        if (tempTree != null) {
+            return mtMetricFull.getDistance(tempTree, this.targetTree);
+        }
+        return Double.POSITIVE_INFINITY;
+    }
 
     @Override public double getCurrentDistance() { return this.currentDistance; }
     @Override public void commit() { history.clear(); }
