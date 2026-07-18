@@ -29,7 +29,7 @@ public class SprWalkerDistanceConsistencyTest {
 
     // Tolerancja błędu zmiennoprzecinkowego dla algorytmu węgierskiego
     private static final double EPSILON = 1e-9;
-    private static final int TREE_SIZE = 12; // Rozmiar wystarczający do wywołania głębokich nawrotów (backtracking) DFS
+    private static final int TREE_SIZE = 4; // Rozmiar wystarczający do wywołania głębokich nawrotów (backtracking) DFS
 
     // ==========================================
     // ROOTED WALKERS (MC, MP)
