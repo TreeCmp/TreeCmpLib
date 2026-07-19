@@ -36,7 +36,7 @@ public class SprSingleStepBenchmark {
     public String metricName;
 
     //@Param({"10", "20", "30", "50", "80", "120", "200", "300", "500", "800", "1200", "2000"})
-    @Param({"10", "20", "30", "50"})
+    @Param({"10", "20", "30", "50", "80"})
     public int treeSize;
 
     private Tree t1;

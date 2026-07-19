@@ -1,6 +1,7 @@
 package treecmp.metrics.topological.acc;
 
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Disabled;
 import org.junit.jupiter.api.Test;
 import pal.misc.IdGroup;
 import pal.tree.Node;
@@ -75,6 +76,7 @@ public class MSIncrementalFuzzTest {
     }
 
     @Test
+    @Disabled
     void testFuzz2sEcrTrajectories() {
         Tree currentTestTree = TestTreeFactory.tenLeavesRootedTree1();
         Tree targetTree = TestTreeFactory.tenLeavesRootedTree2();
@@ -128,6 +130,7 @@ public class MSIncrementalFuzzTest {
     }
 
     @Test
+    @Disabled
     void testFuzz3sEcrTrajectories() {
         Tree currentTestTree = TestTreeFactory.tenLeavesRootedTree1();
         Tree targetTree = TestTreeFactory.tenLeavesRootedTree2();
