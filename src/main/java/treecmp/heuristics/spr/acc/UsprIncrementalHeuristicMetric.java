@@ -10,15 +10,14 @@ import treecmp.metrics.IncrementalMetric;
 
 public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetric {
 
-    protected final ClassicUsprWalker walker;
+    protected final IncrementalUsprWalker walker;
     protected final UsprUtils usprUtils;
     private final String metricShortName;
 
-    // WZORZEC KOMPOZYCJI: Uniwersalny wstrzykiwacz metryki
     public UsprIncrementalHeuristicMetric(IncrementalMetric metric, String metricShortName) {
         super(metric.isRooted(), metric);
         this.metricShortName = metricShortName;
-        this.walker = new ClassicUsprWalker();
+        this.walker = new IncrementalUsprWalker();
         this.usprUtils = new UsprUtils();
     }
 
