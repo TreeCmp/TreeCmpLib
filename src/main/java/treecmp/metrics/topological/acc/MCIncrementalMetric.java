@@ -29,6 +29,7 @@ public class MCIncrementalMetric implements IncrementalMetric, IncrementalSprWal
     private Tree targetTree;
     private double currentDistance;
     private IdGroup idGroup;
+    private int N;
 
     private final MatchingClusterMetric mcMetricFull = new MatchingClusterMetric();
 
@@ -85,6 +86,7 @@ public class MCIncrementalMetric implements IncrementalMetric, IncrementalSprWal
         if (baseTree != null && targetTree != null) {
             clearHistory();
             this.idGroup = TreeUtils.getLeafIdGroup(baseTree);
+            this.N = baseTree.getExternalNodeCount();
 
             int size1 = baseTree.getInternalNodeCount() - 1;
             int size2 = targetTree.getInternalNodeCount() - 1;
@@ -219,6 +221,16 @@ public class MCIncrementalMetric implements IncrementalMetric, IncrementalSprWal
         }
     }
 
+    private Node resolveWandering(Node wanderingSource, Node pruneNode) {
+        if (wanderingSource != null && wanderingSource.isRoot()) {
+            Node p = pruneNode.getParent();
+            for (int i = 0; i < p.getChildCount(); i++) {
+                if (p.getChild(i) != pruneNode) return p.getChild(i);
+            }
+        }
+        return wanderingSource;
+    }
+
     @Override
     public void setPrunedState(Node pruneNode, Node wanderingSource) {
         BitSet P = getCluster(pruneNode);
@@ -230,12 +242,13 @@ public class MCIncrementalMetric implements IncrementalMetric, IncrementalSprWal
             if (r != null) {
                 BitSet bs = (BitSet) currentClusters.get(curr).clone();
                 bs.andNot(P);
+                if (bs.cardinality() == N) bs.clear();
                 updates.put(r, bs);
             }
             curr = curr.getParent();
         }
 
-        Integer r_p = nodeToRow.get(wanderingSource);
+        Integer r_p = nodeToRow.get(resolveWandering(wanderingSource, pruneNode));
         if (r_p != null) {
             BitSet empty = new BitSet();
             updates.put(r_p, empty);
@@ -248,10 +261,11 @@ public class MCIncrementalMetric implements IncrementalMetric, IncrementalSprWal
         BitSet P = getCluster(pruneNode);
         Map<Integer, BitSet> updates = new HashMap<>();
 
-        Integer r_p = nodeToRow.get(wanderingSource);
+        Integer r_p = nodeToRow.get(resolveWandering(wanderingSource, pruneNode));
         if (r_p != null) {
             BitSet newRp = (BitSet) getCluster(baseTree.getRoot()).clone();
             newRp.andNot(P);
+            if (newRp.cardinality() == N) newRp.clear();
             updates.put(r_p, newRp);
         }
         updateRowSafelyAndSave(updates);
@@ -262,19 +276,22 @@ public class MCIncrementalMetric implements IncrementalMetric, IncrementalSprWal
         BitSet P = getCluster(pruneNode);
         Map<Integer, BitSet> updates = new HashMap<>();
 
-        Integer r_p = nodeToRow.get(wanderingSource);
+        Node resolvedWandering = resolveWandering(wanderingSource, pruneNode);
+        Integer r_p = nodeToRow.get(resolvedWandering);
         if (r_p != null) {
             BitSet childCluster = currentClusters.containsKey(childTarget) ? currentClusters.get(childTarget) : getCluster(childTarget);
             BitSet newRp = (BitSet) childCluster.clone();
             newRp.or(P);
+            if (newRp.cardinality() == N) newRp.clear();
             updates.put(r_p, newRp);
         }
 
         Integer r_parent = nodeToRow.get(parentTarget);
-        if (r_parent != null && parentTarget != wanderingSource) {
+        if (r_parent != null && parentTarget != wanderingSource && parentTarget != resolvedWandering) {
             BitSet parentCluster = currentClusters.get(parentTarget);
             BitSet newParent = (BitSet) parentCluster.clone();
             newParent.or(P);
+            if (newParent.cardinality() == N) newParent.clear();
             updates.put(r_parent, newParent);
         }
 
@@ -308,10 +325,6 @@ public class MCIncrementalMetric implements IncrementalMetric, IncrementalSprWal
         }
         this.currentDistance = delta.oldDistance;
     }
-
-    // ========================================================================
-    // NOWA LOGIKA NNI (Oparta na LapSolverze)
-    // ========================================================================
 
     @Override
     public double applyNni(NniMove move) {
@@ -353,6 +366,8 @@ public class MCIncrementalMetric implements IncrementalMetric, IncrementalSprWal
         if (bitsOut != null) newCluster.andNot(bitsOut);
         if (bitsIn != null) newCluster.or(bitsIn);
 
+        if (newCluster.cardinality() == N) newCluster.clear();
+
         Map<Integer, BitSet> updates = new HashMap<>();
         updates.put(rIndex, newCluster);
         updateRowSafelyAndSave(updates);
@@ -362,10 +377,6 @@ public class MCIncrementalMetric implements IncrementalMetric, IncrementalSprWal
     public void undoNniStep() {
         undoDeltaStack();
     }
-
-    // ========================================================================
-    // POZOSTAŁE METODY
-    // ========================================================================
 
     @Override public void applySprPrune(Node pruneNode) { saveCurrentStateToHistory(); }
     @Override public void undoSprPrune(Node pruneNode) { undoSprRegraftStep(); }
@@ -394,28 +405,103 @@ public class MCIncrementalMetric implements IncrementalMetric, IncrementalSprWal
         return Double.POSITIVE_INFINITY;
     }
 
-    // --- STUBY DLA TESTÓW ECR ---
-    // Zwracają currentDistance, dzięki czemu testy spójności (Consistency)
-    // przejdą bez błędu 'Expected: 0.0, Actual: 2.0', a stan pozostanie nienaruszony.
+    @Override
+    public double evaluate2sEcrMove(Node top, Node m1, Node m2, Node[] b, SubtreeEcr2Utils.TopologyTemplate2sECR template) {
+        double dist = commit2sEcrMove(top, m1, m2, b, template);
+        undoDeltaStack();
+        return dist;
+    }
 
     @Override
-    public double evaluate2sEcrMove(Node t, Node m1, Node m2, Node[] b, SubtreeEcr2Utils.TopologyTemplate2sECR n) {
+    public double commit2sEcrMove(Node top, Node m1, Node m2, Node[] b, SubtreeEcr2Utils.TopologyTemplate2sECR template) {
+        Map<Integer, BitSet> updates = new HashMap<>();
+        BitSet[] bBits = new BitSet[4];
+        for (int i = 0; i < 4; i++) {
+            bBits[i] = getCluster(b[i]);
+        }
+
+        BitSet newM1 = new BitSet();
+        BitSet newM2 = new BitSet();
+
+        if (template.isFork) {
+            newM1.or(bBits[template.indices[0]]);
+            newM1.or(bBits[template.indices[1]]);
+            newM2.or(bBits[template.indices[2]]);
+            newM2.or(bBits[template.indices[3]]);
+        } else {
+            newM2.or(bBits[template.indices[2]]);
+            newM2.or(bBits[template.indices[3]]);
+            newM1.or(bBits[template.indices[1]]);
+            newM1.or(newM2);
+        }
+
+        Integer r1 = nodeToRow.get(m1);
+        if (r1 != null) {
+            if (newM1.cardinality() == N) newM1.clear();
+            updates.put(r1, newM1);
+        }
+        Integer r2 = nodeToRow.get(m2);
+        if (r2 != null) {
+            if (newM2.cardinality() == N) newM2.clear();
+            updates.put(r2, newM2);
+        }
+
+        updateRowSafelyAndSave(updates);
         return this.currentDistance;
     }
 
     @Override
-    public double commit2sEcrMove(Node t, Node m1, Node m2, Node[] b, SubtreeEcr2Utils.TopologyTemplate2sECR n) {
-        return this.currentDistance;
+    public double evaluate3sEcrMove(List<Node> cluster, Node[] b, SubtreeEcr3Utils.TopologyTemplate3sECR template) {
+        double dist = commit3sEcrMove(cluster, b, template);
+        undoDeltaStack();
+        return dist;
     }
 
     @Override
-    public double evaluate3sEcrMove(List<Node> c, Node[] b, SubtreeEcr3Utils.TopologyTemplate3sECR n) {
+    public double commit3sEcrMove(List<Node> cluster, Node[] b, SubtreeEcr3Utils.TopologyTemplate3sECR template) {
+        Map<Integer, BitSet> updates = new HashMap<>();
+        BitSet[] bBits = new BitSet[5];
+        for (int i = 0; i < 5; i++) {
+            bBits[i] = getCluster(b[i]);
+        }
+
+        Node[] available = cluster.toArray(new Node[0]);
+        int[] idxArr = {1};
+
+        compute3sEcrTemplateBits(template, available[0], available, idxArr, bBits, updates);
+
+        updateRowSafelyAndSave(updates);
         return this.currentDistance;
     }
 
-    @Override
-    public double commit3sEcrMove(List<Node> c, Node[] b, SubtreeEcr3Utils.TopologyTemplate3sECR n) {
-        return this.currentDistance;
+    private BitSet compute3sEcrTemplateBits(SubtreeEcr3Utils.TopologyTemplate3sECR temp, Node currentInternal, Node[] available, int[] idxArr, BitSet[] bBits, Map<Integer, BitSet> updates) {
+        BitSet myBits = new BitSet();
+
+        if (temp.left.leafIndex != -1) {
+            myBits.or(bBits[temp.left.leafIndex]);
+        } else {
+            Node nextInternal = available[idxArr[0]++];
+            BitSet leftBits = compute3sEcrTemplateBits(temp.left, nextInternal, available, idxArr, bBits, updates);
+            myBits.or(leftBits);
+        }
+
+        if (temp.right.leafIndex != -1) {
+            myBits.or(bBits[temp.right.leafIndex]);
+        } else {
+            Node nextInternal = available[idxArr[0]++];
+            BitSet rightBits = compute3sEcrTemplateBits(temp.right, nextInternal, available, idxArr, bBits, updates);
+            myBits.or(rightBits);
+        }
+
+        if (currentInternal != available[0]) {
+            Integer r = nodeToRow.get(currentInternal);
+            if (r != null) {
+                if (myBits.cardinality() == N) myBits.clear();
+                updates.put(r, myBits);
+            }
+        }
+
+        return myBits;
     }
 
     private void clearHistory() {

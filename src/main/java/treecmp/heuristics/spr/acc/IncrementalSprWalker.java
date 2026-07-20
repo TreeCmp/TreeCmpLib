@@ -32,8 +32,9 @@ public class IncrementalSprWalker {
         for (Node pruneNode : allNodes) {
             if (pruneNode.isRoot() || pruneNode.getParent() == null) continue;
 
-            // Gdy rodzicem odcinanego węzła jest korzeń, to brat staje się nowym korzeniem.
-            Node wanderingSource = pruneNode.getParent().isRoot() ? getSibling(pruneNode) : pruneNode.getParent();
+            // POPRAWKA: Wędrujące źródło to ZAWSZE oryginalny rodzic odcinanego węzła.
+            // Nawet dla korzenia nie możemy nadpisywać wiersza "Brata", by nie niszczyć macierzy!
+            Node wanderingSource = pruneNode.getParent();
 
             // 1. Inicjalizacja wyciętego stanu
             metric.setPrunedState(pruneNode, wanderingSource);
@@ -67,20 +68,12 @@ public class IncrementalSprWalker {
         metric.moveTargetUp(parentTarget, targetNode, pruneNode, wanderingSource);
     }
 
-    private Node getSibling(Node node) {
-        Node p = node.getParent();
-        for (int i = 0; i < p.getChildCount(); i++) {
-            if (p.getChild(i) != node) return p.getChild(i);
-        }
-        return null;
-    }
-
     // Pozwala wędrowcowi bezpiecznie omijać "dziurę" po wyciętym węźle
     private List<Node> getPrunedChildren(Node n, Node pruneNode) {
         List<Node> children = new ArrayList<>();
         Node pParent = pruneNode.getParent();
 
-        // Poprawka: gdy przeszukujemy węzeł z którego wyrwano gałąź (np. korzeń)
+        // Jeśli wędrujemy przez węzeł, który fizycznie znika (pParent)
         if (n == pParent) {
             for (int i = 0; i < n.getChildCount(); i++) {
                 if (n.getChild(i) != pruneNode) {

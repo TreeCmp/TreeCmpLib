@@ -398,11 +398,104 @@ public class MSIncrementalMetric implements IncrementalMetric {
         }
     }
 
-    @Override public double evaluate2sEcrMove(Node t, Node m1, Node m2, Node[] b, SubtreeEcr2Utils.TopologyTemplate2sECR n) { return this.currentDistance; }
-    @Override public double commit2sEcrMove(Node t, Node m1, Node m2, Node[] b, SubtreeEcr2Utils.TopologyTemplate2sECR n) { return this.currentDistance; }
-    @Override public double evaluate3sEcrMove(List<Node> c, Node[] b, SubtreeEcr3Utils.TopologyTemplate3sECR n) { return this.currentDistance; }
-    @Override public double commit3sEcrMove(List<Node> c, Node[] b, SubtreeEcr3Utils.TopologyTemplate3sECR n) { return this.currentDistance; }
+    // ========================================================================
+    // O(1) INCREMENTAL EXTENDED CLUSTER REDUCTION (ECR)
+    // ========================================================================
 
+    @Override
+    public double evaluate2sEcrMove(Node top, Node m1, Node m2, Node[] b, SubtreeEcr2Utils.TopologyTemplate2sECR template) {
+        double dist = commit2sEcrMove(top, m1, m2, b, template);
+        undoDeltaStack(); // Bezpieczne cofnięcie transakcji
+        return dist;
+    }
+
+    @Override
+    public double commit2sEcrMove(Node top, Node m1, Node m2, Node[] b, SubtreeEcr2Utils.TopologyTemplate2sECR template) {
+        Map<Integer, BitSet> updates = new HashMap<>();
+        BitSet[] bBits = new BitSet[4];
+        for (int i = 0; i < 4; i++) {
+            bBits[i] = getSplitBits(b[i]);
+        }
+
+        BitSet newM1 = new BitSet();
+        BitSet newM2 = new BitSet();
+
+        if (template.isFork) {
+            newM1.or(bBits[template.indices[0]]);
+            newM1.or(bBits[template.indices[1]]);
+            newM2.or(bBits[template.indices[2]]);
+            newM2.or(bBits[template.indices[3]]);
+        } else {
+            newM2.or(bBits[template.indices[2]]);
+            newM2.or(bBits[template.indices[3]]);
+            newM1.or(bBits[template.indices[1]]);
+            newM1.or(newM2); // CHAIN: m1 zawiera m2
+        }
+
+        Integer r1 = nodeToRow.get(m1);
+        if (r1 != null) updates.put(r1, newM1);
+        Integer r2 = nodeToRow.get(m2);
+        if (r2 != null) updates.put(r2, newM2);
+
+        updateRowSafelyAndSave(updates);
+        return this.currentDistance;
+    }
+
+    @Override
+    public double evaluate3sEcrMove(List<Node> cluster, Node[] b, SubtreeEcr3Utils.TopologyTemplate3sECR template) {
+        double dist = commit3sEcrMove(cluster, b, template);
+        undoDeltaStack(); // Bezpieczne cofnięcie transakcji
+        return dist;
+    }
+
+    @Override
+    public double commit3sEcrMove(List<Node> cluster, Node[] b, SubtreeEcr3Utils.TopologyTemplate3sECR template) {
+        Map<Integer, BitSet> updates = new HashMap<>();
+        BitSet[] bBits = new BitSet[5];
+        for (int i = 0; i < 5; i++) {
+            bBits[i] = getSplitBits(b[i]);
+        }
+
+        Node[] available = cluster.toArray(new Node[0]);
+        int[] idxArr = {1}; // indeks 0 to 'top' (niezmienny), alokujemy od 1
+
+        compute3sEcrTemplateBits(template, available[0], available, idxArr, bBits, updates);
+
+        updateRowSafelyAndSave(updates);
+        return this.currentDistance;
+    }
+
+    private BitSet compute3sEcrTemplateBits(SubtreeEcr3Utils.TopologyTemplate3sECR temp, Node currentInternal, Node[] available, int[] idxArr, BitSet[] bBits, Map<Integer, BitSet> updates) {
+        BitSet myBits = new BitSet();
+
+        // Lewe poddrzewo z szablonu
+        if (temp.left.leafIndex != -1) {
+            myBits.or(bBits[temp.left.leafIndex]);
+        } else {
+            Node nextInternal = available[idxArr[0]++];
+            BitSet leftBits = compute3sEcrTemplateBits(temp.left, nextInternal, available, idxArr, bBits, updates);
+            myBits.or(leftBits);
+        }
+
+        // Prawe poddrzewo z szablonu
+        if (temp.right.leafIndex != -1) {
+            myBits.or(bBits[temp.right.leafIndex]);
+        } else {
+            Node nextInternal = available[idxArr[0]++];
+            BitSet rightBits = compute3sEcrTemplateBits(temp.right, nextInternal, available, idxArr, bBits, updates);
+            myBits.or(rightBits);
+        }
+
+        // Top Node pozostaje niezmienny (reprezentuje cały klaster), aktualizujemy tylko wewnętrzne
+        if (currentInternal != available[0]) {
+            Integer r = nodeToRow.get(currentInternal);
+            if (r != null) {
+                updates.put(r, myBits);
+            }
+        }
+
+        return myBits;
+    }
     private void saveCurrentStateToHistory() {
         short[][] costCopy = new short[dim][dim];
         for (int i = 0; i < dim; i++) {
