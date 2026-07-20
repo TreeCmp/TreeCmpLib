@@ -23,20 +23,19 @@ import treecmp.metrics.topological.acc.*;
 import treecmp.util.TestTreeFactory;
 
 @BenchmarkMode(Mode.AverageTime)
-@OutputTimeUnit(TimeUnit.MICROSECONDS) // Mikrosekundy dla SPR 1-Step
+@OutputTimeUnit(TimeUnit.MICROSECONDS)
 @State(Scope.Benchmark)
 @Warmup(iterations = 1, time = 1)
 @Measurement(iterations = 5, time = 1)
 @Fork(1)
 public class SprSingleStepBenchmark {
 
-    // Możesz odkomentować pełną listę, gdy będziesz chciał przetestować wszystkie metryki naraz
-    // @Param({"RF", "RFC", "MS", "MC", "MP", "M3"})
-    @Param({"MS"})
+    //@Param({"RF", "RFC", "MS", "MC", "MP", "M3"})
+    @Param({"MP"})
     public String metricName;
 
-    //@Param({"10", "20", "30", "50", "80", "120", "200", "300", "500", "800", "1200", "2000"})
-    @Param({"10", "20", "30", "50", "80"})
+    //@Param({"10", "20", "30", "50", "80", "120", "200", "300", "500", "800", "1200", "2000" })
+    @Param({"10", "20", "30", "50", "80", "120", "200", "300", "500", "800", "1200", "2000" })
     public int treeSize;
 
     private Tree t1;
@@ -59,11 +58,6 @@ public class SprSingleStepBenchmark {
     public void setup() {
         boolean isRooted = false;
 
-        // =========================================================================
-        // WZORZEC STRATEGII (Kompozycja):
-        // Wstrzykujemy silnik inkrementalny do uniwersalnej heurystyki SPR/uSPR.
-        // Limity ustawione na 100, ponieważ mamy pamięć O(1) dzięki Leniwym Generatorom!
-        // =========================================================================
         switch (metricName) {
             case "RF":
                 isRooted = false; classicProtectionLimit = 500;
@@ -82,15 +76,12 @@ public class SprSingleStepBenchmark {
                 break;
             case "MC":
                 isRooted = true; classicProtectionLimit = 300;
-
-                // Wymuszenie na fasadzie używania optymalizacji BitSet / XOR
                 treecmp.config.IOSettings.getIOSettings().setOptMsMcByRf(true);
-
                 classicMetric = new MatchingClusterMetric();
                 incrementalMetric = new SprIncrementalHeuristicMetric(new MCIncrementalMetric(), "MC");
                 break;
             case "MP":
-                isRooted = true; classicProtectionLimit = 500;
+                isRooted = true; classicProtectionLimit = 120;
                 classicMetric = new MatchingPairMetric();
                 incrementalMetric = new SprIncrementalHeuristicMetric(new MPIncrementalMetric(), "MP");
                 break;
@@ -114,8 +105,6 @@ public class SprSingleStepBenchmark {
         }
 
         assignNumbers(t1); assignNumbers(t2); assignNumbers(t1ForIncr);
-
-        // Wybór klasycznego generatora (Rooted vs Unrooted)
         classicUtils = isRooted ? new SprUtils() : new UsprUtils();
 
         System.out.println("\n" + "=".repeat(60));
@@ -130,14 +119,15 @@ public class SprSingleStepBenchmark {
         if (treeSize <= classicProtectionLimit) {
             try {
                 long startClassic = System.nanoTime();
-
-                // Tablica 1-elementowa pozwala na mutację wewnątrz Lambdy (Consumer)
                 final double[] bestClassicDist = {Double.POSITIVE_INFINITY};
 
                 if (classicUtils instanceof SprUtils) {
                     ((SprUtils) classicUtils).forEachSprTree(t1, neighbor -> {
                         double d = 0;
                         try {
+                            if (neighbor instanceof pal.tree.SimpleTree) {
+                                ((pal.tree.SimpleTree) neighbor).createNodeList();
+                            }
                             d = classicMetric.getDistance(neighbor, t2);
                         } catch (TreeCmpException e) {
                             throw new RuntimeException(e);
@@ -148,6 +138,9 @@ public class SprSingleStepBenchmark {
                     ((UsprUtils) classicUtils).forEachUsprTree(t1, neighbor -> {
                         double d = 0;
                         try {
+                            if (neighbor instanceof pal.tree.SimpleTree) {
+                                ((pal.tree.SimpleTree) neighbor).createNodeList();
+                            }
                             d = classicMetric.getDistance(neighbor, t2);
                         } catch (TreeCmpException e) {
                             throw new RuntimeException(e);
@@ -168,8 +161,6 @@ public class SprSingleStepBenchmark {
                 System.out.println("Classic 1-Step         : [BŁĄD KLASYCZNEJ IMPLEMENTACJI]");
                 t.printStackTrace();
             }
-        } else {
-            System.out.printf("Classic 1-Step %-3s     : Pominięto (Limit bezpieczeństwa N<=%d)%n", metricName, classicProtectionLimit);
         }
         System.out.println("=".repeat(60) + "\n");
     }
@@ -184,6 +175,9 @@ public class SprSingleStepBenchmark {
                 ((SprUtils) classicUtils).forEachSprTree(t1, neighbor -> {
                     double d = 0;
                     try {
+                        if (neighbor instanceof pal.tree.SimpleTree) {
+                            ((pal.tree.SimpleTree) neighbor).createNodeList();
+                        }
                         d = classicMetric.getDistance(neighbor, t2);
                     } catch (TreeCmpException e) {
                         throw new RuntimeException(e);
@@ -194,6 +188,9 @@ public class SprSingleStepBenchmark {
                 ((UsprUtils) classicUtils).forEachUsprTree(t1, neighbor -> {
                     double d = 0;
                     try {
+                        if (neighbor instanceof pal.tree.SimpleTree) {
+                            ((pal.tree.SimpleTree) neighbor).createNodeList();
+                        }
                         d = classicMetric.getDistance(neighbor, t2);
                     } catch (TreeCmpException e) {
                         throw new RuntimeException(e);
@@ -216,7 +213,6 @@ public class SprSingleStepBenchmark {
         Options opt = new OptionsBuilder()
                 .include(SprSingleStepBenchmark.class.getSimpleName())
                 .addProfiler("stack")
-                // .addProfiler("gc")
                 .build();
         new Runner(opt).run();
     }
