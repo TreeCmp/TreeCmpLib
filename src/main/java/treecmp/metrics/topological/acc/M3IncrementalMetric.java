@@ -19,6 +19,7 @@ import java.util.*;
 
 public class M3IncrementalMetric implements IncrementalMetric {
 
+    private Tree originalBaseTree;
     private Tree baseTree;
     private Tree targetTree;
     private Tree currentVirtualTree;
@@ -32,6 +33,11 @@ public class M3IncrementalMetric implements IncrementalMetric {
     private int[][] targetLcaMatrix;
     private int[] targetIdToCol;
 
+    private Map<Node, BitSet> baseSplits;
+    private Map<Node, BitSet> currentSplits;
+    private Node activePruneNode = null;
+    private Map<Node, Integer> nodeToRow;
+
     private int[][] assigncost;
     private int[] rowsol;
     private int[] colsol;
@@ -44,12 +50,32 @@ public class M3IncrementalMetric implements IncrementalMetric {
 
     private final MatchingTripletMetric mtMetricFull = new MatchingTripletMetric();
     private final Stack<StateRecord> history = new Stack<>();
+    private final Stack<LapStateDelta> deltaStack = new Stack<>();
+
+    private static class LapStateDelta {
+        final int[] rows;
+        final int[][] oldRows;
+        final int[] oldTripletCounts;
+        final int[] oldU, oldV, oldRowsol, oldColsol;
+        final double oldDistance;
+        final Map<Node, BitSet> oldSplits;
+
+        LapStateDelta(int[] rows, int[][] oldRows, int[] oldTripletCounts,
+                      int[] oldU, int[] oldV, int[] oldRowsol, int[] oldColsol, double oldDistance, Map<Node, BitSet> oldSplits) {
+            this.rows = rows; this.oldRows = oldRows; this.oldTripletCounts = oldTripletCounts;
+            this.oldU = oldU; this.oldV = oldV; this.oldRowsol = oldRowsol; this.oldColsol = oldColsol;
+            this.oldDistance = oldDistance;
+            this.oldSplits = oldSplits;
+        }
+    }
 
     @Override
     public void initCalculationState(Tree baseTree, Tree targetTree) {
         history.clear();
+        deltaStack.clear();
 
         if (baseTree != null && targetTree != null) {
+            this.originalBaseTree = baseTree;
             this.baseIdGroup = TreeUtils.getLeafIdGroup(baseTree);
             this.baseTree = createCleanCopy(baseTree);
             this.targetTree = createCleanCopy(targetTree);
@@ -63,8 +89,13 @@ public class M3IncrementalMetric implements IncrementalMetric {
             this.assigncost = new int[dim][dim];
             this.rowsol = new int[dim];
             this.colsol = new int[dim];
+            this.u = new int[dim];
+            this.v = new int[dim];
 
-            // 1. Translacja Target Tree (Unikalne PAL ID -> Kolumna LAP)
+            this.nodeToRow = new IdentityHashMap<>();
+            this.baseSplits = new IdentityHashMap<>();
+            this.currentSplits = new IdentityHashMap<>();
+
             int maxNodesT2 = getSafeMaxNodeId(this.targetTree);
             this.targetIdToCol = new int[maxNodesT2];
             Arrays.fill(this.targetIdToCol, -1);
@@ -72,16 +103,38 @@ public class M3IncrementalMetric implements IncrementalMetric {
                 this.targetIdToCol[this.targetTree.getInternalNode(i).getNumber()] = i;
             }
 
-            // 2. Translacja Base Tree (Unikalne PAL ID -> Wiersz LAP)
             int maxNodesT1 = getSafeMaxNodeId(this.baseTree);
             int[] baseIdToRow = new int[maxNodesT1];
             Arrays.fill(baseIdToRow, -1);
+
+            // Rejestracja wierszy tylko dla węzłów wewnętrznych
             for (int i = 0; i < intT1Num; i++) {
-                baseIdToRow[this.baseTree.getInternalNode(i).getNumber()] = i;
+                Node n = this.baseTree.getInternalNode(i);
+                baseIdToRow[n.getNumber()] = i;
+                nodeToRow.put(n, i);
             }
 
-            // ROZWIĄZANIE: Obie macierze budujemy na bazie TEJ SAMEJ globalnej grupy ID!
-            // Dzięki temu indeksy i, j, k w pętlach oznaczają fizycznie te same liście w obu drzewach.
+            // KLUCZOWY FIX: Mapowanie splits dla WSZYSTKICH węzłów (również liści!)
+            Node[] allNodesBaseCopy = TreeCmpUtils.getAllNodes(this.baseTree);
+            for (Node n : allNodesBaseCopy) {
+                BitSet split = getLeaves(n, baseIdGroup);
+                baseSplits.put(n, split);
+                currentSplits.put(n, (BitSet) split.clone());
+            }
+
+            Node[] allNodesOriginal = TreeCmpUtils.getAllNodes(this.originalBaseTree);
+            for (Node nOrig : allNodesOriginal) {
+                Node nCopy = getMappedNode(this.baseTree, nOrig);
+                if (nCopy != null) {
+                    Integer row = nodeToRow.get(nCopy);
+                    if (row != null) {
+                        nodeToRow.put(nOrig, row);
+                    }
+                    baseSplits.put(nOrig, baseSplits.get(nCopy));
+                    currentSplits.put(nOrig, (BitSet) currentSplits.get(nCopy).clone());
+                }
+            }
+
             int[][] lcaMatrix1 = TreeCmpUtils.calcLcaMatrix(this.baseTree, this.baseIdGroup);
             this.targetLcaMatrix = TreeCmpUtils.calcLcaMatrix(this.targetTree, this.baseIdGroup);
 
@@ -103,7 +156,6 @@ public class M3IncrementalMetric implements IncrementalMetric {
                 this.currentT1TripletCount[i] = coutTriplets(this.baseTree.getInternalNode(i), cSize1);
             }
 
-            // 3. Bezbłędne liczenie Intersection na bezpiecznych i spójnych osiach N
             int[][] initialIntersection = new int[dim][dim];
             for (int i = 0; i < N; i++) {
                 for (int j = i + 1; j < N; j++) {
@@ -141,9 +193,6 @@ public class M3IncrementalMetric implements IncrementalMetric {
                 System.arraycopy(assigncost[i], 0, lapCost[i], 0, dim);
             }
 
-            this.u = new int[dim];
-            this.v = new int[dim];
-
             int rawMetric = LapSolver.lap(dim, lapCost, rowsol, colsol, this.u, this.v);
             this.currentDistance = 0.5 * rawMetric;
         } else {
@@ -151,20 +200,242 @@ public class M3IncrementalMetric implements IncrementalMetric {
         }
     }
 
+    @Override public void applySprPrune(Node pruneNode) { this.activePruneNode = pruneNode; }
+    @Override public void undoSprPrune(Node pruneNode) { this.activePruneNode = null; }
+    @Override public void applySprRegraftStep(Node pruneNode, Node currentNode) { throw new UnsupportedOperationException(); }
+    @Override public void undoSprRegraftStep() { throw new UnsupportedOperationException(); }
+
+    public boolean applyNniStep(Node nodeToUpdate, BitSet bitsOut, BitSet bitsIn) {
+        Node v = nodeToUpdate;
+        Node u = v.getParent();
+
+        Integer rVIndex = nodeToRow.get(v);
+        Integer rUIndex = nodeToRow.get(u);
+
+        if (rVIndex == null && rUIndex == null) return false;
+
+        // Aktualizujemy splits NAWET JEŚLI węzeł to liść (rVIndex = null)
+        BitSet newSplitV = (BitSet) currentSplits.get(v).clone();
+        if (bitsOut != null) newSplitV.andNot(bitsOut);
+        if (bitsIn != null) newSplitV.or(bitsIn);
+
+        List<Integer> rowsToUpdate = new ArrayList<>();
+        if (rVIndex != null) rowsToUpdate.add(rVIndex);
+        if (rUIndex != null) rowsToUpdate.add(rUIndex);
+
+        int[] rows = rowsToUpdate.stream().mapToInt(i -> i).toArray();
+        int[][] oldRows = new int[rows.length][dim];
+        int[] oldTripletCounts = new int[rows.length];
+
+        for (int i = 0; i < rows.length; i++) {
+            oldRows[i] = Arrays.copyOf(assigncost[rows[i]], dim);
+            oldTripletCounts[i] = currentT1TripletCount[rows[i]];
+        }
+
+        Map<Node, BitSet> oldSplits = new IdentityHashMap<>();
+        oldSplits.put(v, currentSplits.get(v));
+
+        deltaStack.push(new LapStateDelta(rows, oldRows, oldTripletCounts,
+                Arrays.copyOf(this.u, dim), Arrays.copyOf(this.v, dim),
+                Arrays.copyOf(rowsol, dim), Arrays.copyOf(colsol, dim), currentDistance, oldSplits));
+
+        // Bezpieczny zapis dla każdego węzła włączając liście
+        currentSplits.put(v, newSplitV);
+
+        if (rVIndex != null) computeRowCost(rVIndex, getPartitionsForNode(v));
+        if (rUIndex != null) computeRowCost(rUIndex, getPartitionsForNode(u));
+
+        if (rows.length > 0) {
+            int rawMetric = LapSolver.lapUpdate(dim, assigncost, rowsol, colsol, this.u, this.v, rows);
+            this.currentDistance = 0.5 * rawMetric;
+        }
+
+        return true;
+    }
+
+    public void undoNniStep() {
+        if (deltaStack.isEmpty()) return;
+        LapStateDelta delta = deltaStack.pop();
+
+        for (int i = 0; i < delta.rows.length; i++) {
+            System.arraycopy(delta.oldRows[i], 0, assigncost[delta.rows[i]], 0, dim);
+            currentT1TripletCount[delta.rows[i]] = delta.oldTripletCounts[i];
+        }
+
+        System.arraycopy(delta.oldU, 0, u, 0, dim);
+        System.arraycopy(delta.oldV, 0, v, 0, dim);
+        System.arraycopy(delta.oldRowsol, 0, rowsol, 0, dim);
+        System.arraycopy(delta.oldColsol, 0, colsol, 0, dim);
+
+        for (Map.Entry<Node, BitSet> e : delta.oldSplits.entrySet()) {
+            currentSplits.put(e.getKey(), e.getValue());
+        }
+
+        this.currentDistance = delta.oldDistance;
+    }
+
+    public double getFixedDistanceForRegraft(Node targetNode, Node wanderingSource, BitSet pruneMask, Node pruneNode) {
+        Integer r_w = nodeToRow.get(wanderingSource);
+
+        if (r_w == null) {
+            return evaluateSprRegraft(pruneNode, targetNode);
+        }
+
+        BitSet setA = (BitSet) pruneMask.clone();
+        BitSet setB = (BitSet) currentSplits.get(targetNode).clone();
+        setB.andNot(setA);
+
+        BitSet setC = new BitSet(N);
+        setC.set(0, N);
+        setC.andNot(setA);
+        setC.andNot(setB);
+
+        BitSet[] sets = {setA, setB, setC};
+
+        int[] oldRow = Arrays.copyOf(assigncost[r_w], dim);
+        int[] oldU = Arrays.copyOf(u, dim);
+        int[] oldV = Arrays.copyOf(v, dim);
+        int[] oldRowsol = Arrays.copyOf(rowsol, dim);
+        int[] oldColsol = Arrays.copyOf(colsol, dim);
+        int oldTripletCount = currentT1TripletCount[r_w];
+
+        computeRowCost(r_w, sets);
+
+        int rawMetric = LapSolver.lapUpdate(dim, assigncost, rowsol, colsol, u, v, new int[]{r_w});
+        double fixedDist = 0.5 * rawMetric;
+
+        System.arraycopy(oldRow, 0, assigncost[r_w], 0, dim);
+        System.arraycopy(oldU, 0, u, 0, dim);
+        System.arraycopy(oldV, 0, v, 0, dim);
+        System.arraycopy(oldRowsol, 0, rowsol, 0, dim);
+        System.arraycopy(oldColsol, 0, colsol, 0, dim);
+        currentT1TripletCount[r_w] = oldTripletCount;
+
+        return fixedDist;
+    }
+
+    private BitSet[] getPartitionsForNode(Node n) {
+        if (n == activePruneNode.getParent()) {
+            return new BitSet[0];
+        }
+
+        int chCount = n.getChildCount();
+        int numNeighbors = (n.getParent() == null) ? chCount : chCount + 1;
+        BitSet[] cSets = new BitSet[numNeighbors];
+
+        int idx = 0;
+        BitSet childrenUnion = new BitSet(N);
+
+        for (int i = 0; i < chCount; i++) {
+            Node child = n.getChild(i);
+            if (child == activePruneNode) {
+                cSets[idx] = new BitSet(N);
+            } else {
+                cSets[idx] = (BitSet) currentSplits.get(child).clone();
+                childrenUnion.or(cSets[idx]);
+            }
+            idx++;
+        }
+
+        if (n.getParent() != null) {
+            BitSet pSet = new BitSet(N);
+            pSet.set(0, N);
+            pSet.andNot(childrenUnion);
+            cSets[idx++] = pSet;
+        }
+
+        return cSets;
+    }
+
+    private void computeRowCost(int row, BitSet[] sets) {
+        if (sets == null || sets.length == 0) {
+            currentT1TripletCount[row] = 0;
+            return;
+        }
+
+        int[] newIntersections = new int[dim];
+        int tripletCount = 0;
+
+        for (int i = 0; i < sets.length; i++) {
+            if (sets[i] == null || sets[i].isEmpty()) continue;
+            for (int j = i + 1; j < sets.length; j++) {
+                if (sets[j] == null || sets[j].isEmpty()) continue;
+                for (int k = j + 1; k < sets.length; k++) {
+                    if (sets[k] == null || sets[k].isEmpty()) continue;
+
+                    BitSet sA = sets[i];
+                    BitSet sB = sets[j];
+                    BitSet sC = sets[k];
+
+                    for (int l1 = sA.nextSetBit(0); l1 >= 0; l1 = sA.nextSetBit(l1 + 1)) {
+                        for (int l2 = sB.nextSetBit(0); l2 >= 0; l2 = sB.nextSetBit(l2 + 1)) {
+                            int min12 = Math.min(l1, l2), max12 = Math.max(l1, l2);
+                            int lca12 = targetLcaMatrix[min12][max12];
+
+                            for (int l3 = sC.nextSetBit(0); l3 >= 0; l3 = sC.nextSetBit(l3 + 1)) {
+                                int min13 = Math.min(l1, l3), max13 = Math.max(l1, l3);
+                                int lca13 = targetLcaMatrix[min13][max13];
+
+                                int min23 = Math.min(l2, l3), max23 = Math.max(l2, l3);
+                                int lca23 = targetLcaMatrix[min23][max23];
+
+                                int ind2 = -1;
+                                if (lca12 == lca13) ind2 = lca23;
+                                else if (lca12 == lca23) ind2 = lca13;
+                                else ind2 = lca12;
+
+                                if (ind2 >= 0) {
+                                    int col = targetIdToCol[ind2];
+                                    if (col >= 0) newIntersections[col]++;
+                                }
+                                tripletCount++;
+                            }
+                        }
+                    }
+                }
+            }
+        }
+
+        currentT1TripletCount[row] = tripletCount;
+
+        for (int c = 0; c < dim; c++) {
+            if (c < intT2Num) {
+                assigncost[row][c] = tripletCount + t2IntTripletCount[c] - (newIntersections[c] << 1);
+            } else if (c >= intT2Num) {
+                assigncost[row][c] = tripletCount;
+            }
+        }
+    }
+
+    private static BitSet getLeaves(Node n, IdGroup idGroup) {
+        BitSet bs = new BitSet(); populate(n, bs, idGroup); return bs;
+    }
+
+    private static void populate(Node n, BitSet bs, IdGroup idGroup) {
+        if (n.isLeaf()) bs.set(idGroup.whichIdNumber(n.getIdentifier().getName()));
+        else for (int i = 0; i < n.getChildCount(); i++) populate(n.getChild(i), bs, idGroup);
+    }
+
+    @Override
+    public double evaluateSprRegraft(Node pruneNode, Node targetNode) {
+        Tree tempTree = new UsprUtils().createUsprTree(this.baseTree, pruneNode, targetNode);
+        if (tempTree != null) {
+            return mtMetricFull.getDistance(tempTree, this.targetTree);
+        }
+        return Double.POSITIVE_INFINITY;
+    }
+
     private double calculateCleanSlateDistance(SimpleTree tNew, boolean isCommit, int maxCostBound) {
 
-        // 1. Zapisujemy sygnatury przed czyszczeniem
         Map<String, Integer> sigToOldRow = new HashMap<>();
         for (int i = 0; i < intT1Num; i++) {
-            Node n = tNew.getInternalNode(i);
+            Node n = this.currentVirtualTree.getInternalNode(i);
             Signature sig = new Signature(n, N, baseIdGroup);
             sigToOldRow.put(sig.hash, i);
         }
 
-        // 2. Klonujemy drzewo (tym razem bezpiecznie, bez gmerania w ID)
         Tree tPerfect = createCleanCopy(tNew);
 
-        // 3. Permutacje oparte na odpornych na wszystko Sygnaturach
         int[] newToOld = new int[dim];
         int[] oldToNew = new int[dim];
         for (int i = 0; i < dim; i++) { newToOld[i] = i; oldToNew[i] = i; }
@@ -179,7 +450,6 @@ public class M3IncrementalMetric implements IncrementalMetric {
             }
         }
 
-        // 4. Translacja unikalnych ID biblioteki PAL -> Wiersze LAP
         int maxNodesNew = getSafeMaxNodeId(tPerfect);
         int[] idToRow = new int[maxNodesNew];
         Arrays.fill(idToRow, -1);
@@ -187,7 +457,6 @@ public class M3IncrementalMetric implements IncrementalMetric {
             idToRow[tPerfect.getInternalNode(r_new).getNumber()] = r_new;
         }
 
-        // 5. Bezbłędne LCA wymuszone na globalnej, uniwersalnej osi baseIdGroup!
         int[][] lcaNew = TreeCmpUtils.calcLcaMatrix(tPerfect, this.baseIdGroup);
         int[][] newIntersection = new int[dim][dim];
 
@@ -217,7 +486,6 @@ public class M3IncrementalMetric implements IncrementalMetric {
             newT1TripletCount[r_new] = coutTriplets(tPerfect.getInternalNode(r_new), cSizeNew);
         }
 
-        // 6. Składanie przypisań kosztów
         int[][] tempAssigncost = new int[dim][dim];
         for (int r = 0; r < dim; r++) {
             for (int c = 0; c < dim; c++) {
@@ -238,7 +506,6 @@ public class M3IncrementalMetric implements IncrementalMetric {
             System.arraycopy(tempAssigncost[i], 0, lapCost[i], 0, dim);
         }
 
-        // 7. Bezpieczna permutacja Zmiennych Dualnych LAP
         int[] tempRowsol = new int[dim];
         int[] tempColsol = new int[dim];
         int[] tempU = new int[dim];
@@ -255,31 +522,12 @@ public class M3IncrementalMetric implements IncrementalMetric {
             tempColsol[c] = oldToNew[r_old];
         }
 
-        int[][] mappedOldAssigncost = new int[dim][dim];
-        for (int r_new = 0; r_new < dim; r_new++) {
-            mappedOldAssigncost[r_new] = this.assigncost[newToOld[r_new]];
-        }
-
-        List<Integer> changedRowsList = new ArrayList<>();
-        for (int r_new = 0; r_new < dim; r_new++) {
-            if (!Arrays.equals(mappedOldAssigncost[r_new], tempAssigncost[r_new])) {
-                changedRowsList.add(r_new);
-            }
-        }
-        int[] changedRows = changedRowsList.stream().mapToInt(i -> i).toArray();
-
-        int rawMetric;
-        if (changedRows.length > 0 && changedRows.length < dim && maxCostBound >= 0) {
-            rawMetric = LapSolver.lapUpdateBoundedInt(dim, lapCost, tempRowsol, tempColsol, tempU, tempV, changedRows, maxCostBound);
-        } else {
-            rawMetric = LapSolver.lap(dim, lapCost, tempRowsol, tempColsol, tempU, tempV);
-        }
-
+        int rawMetric = LapSolver.lap(dim, lapCost, tempRowsol, tempColsol, tempU, tempV);
         double dist = 0.5 * rawMetric;
 
-        // 8. Commit
         if (isCommit) {
-            history.push(new StateRecord(this.assigncost, this.rowsol, this.colsol, this.u, this.v, this.currentDistance, this.currentVirtualTree, this.currentT1TripletCount));
+            history.push(new StateRecord(this.assigncost, this.rowsol, this.colsol, this.u, this.v, this.currentDistance, this.currentVirtualTree, this.currentT1TripletCount, this.currentSplits));
+
             this.assigncost = tempAssigncost;
             this.currentVirtualTree = tPerfect;
             this.currentT1TripletCount = newT1TripletCount;
@@ -288,13 +536,27 @@ public class M3IncrementalMetric implements IncrementalMetric {
             this.u = tempU;
             this.v = tempV;
             this.currentDistance = dist;
+
+            this.currentSplits.clear();
+            Node[] allNodesPerfect = TreeCmpUtils.getAllNodes(tPerfect);
+            for (Node n : allNodesPerfect) {
+                BitSet split = getLeaves(n, baseIdGroup);
+                this.currentSplits.put(n, split);
+            }
+            Node[] allNodesOriginal = TreeCmpUtils.getAllNodes(this.originalBaseTree);
+            for (Node nOrig : allNodesOriginal) {
+                Node nCopy = getMappedNode(tPerfect, nOrig);
+                if (nCopy != null) {
+                    this.currentSplits.put(nOrig, (BitSet) this.currentSplits.get(nCopy).clone());
+                }
+            }
         }
 
         return dist;
     }
 
     private double pushUnchangedState() {
-        history.push(new StateRecord(assigncost, rowsol, colsol, u, v, currentDistance, currentVirtualTree, currentT1TripletCount));
+        history.push(new StateRecord(assigncost, rowsol, colsol, u, v, currentDistance, currentVirtualTree, currentT1TripletCount, currentSplits));
         return this.currentDistance;
     }
 
@@ -442,10 +704,14 @@ public class M3IncrementalMetric implements IncrementalMetric {
             this.currentDistance = r.distance;
             this.currentVirtualTree = r.oldTree;
             this.currentT1TripletCount = r.oldTripletCount;
+
+            this.currentSplits.clear();
+            for (Map.Entry<Node, BitSet> e : r.oldSplits.entrySet()) {
+                this.currentSplits.put(e.getKey(), (BitSet) e.getValue().clone());
+            }
         }
     }
 
-    // Bezpieczna kopia szanująca strukturę ID wymuszaną przez bibliotekę PAL.
     private Tree createCleanCopy(Tree original) {
         SimpleTree copy = new SimpleTree(original);
         copy.createNodeList();
@@ -461,6 +727,7 @@ public class M3IncrementalMetric implements IncrementalMetric {
     }
 
     private Node getMappedNode(Tree destTree, Node srcNode) {
+        if (srcNode == null) return null;
         if (srcNode.isLeaf()) return TreeUtils.getNodeByName(destTree, srcNode.getIdentifier().getName());
         Signature targetSig = new Signature(srcNode, N, baseIdGroup);
         for (int i = 0; i < destTree.getInternalNodeCount(); i++) {
@@ -503,15 +770,6 @@ public class M3IncrementalMetric implements IncrementalMetric {
         }
         @Override
         public String toString() { return hash; }
-    }
-
-    private static BitSet getLeaves(Node n, IdGroup idGroup) {
-        BitSet bs = new BitSet(); populate(n, bs, idGroup); return bs;
-    }
-
-    private static void populate(Node n, BitSet bs, IdGroup idGroup) {
-        if (n.isLeaf()) bs.set(idGroup.whichIdNumber(n.getIdentifier().getName()));
-        else for (int i = 0; i < n.getChildCount(); i++) populate(n.getChild(i), bs, idGroup);
     }
 
     private int getSafeMaxNodeId(Tree tree) {
@@ -566,8 +824,9 @@ public class M3IncrementalMetric implements IncrementalMetric {
         double distance;
         Tree oldTree;
         int[] oldTripletCount;
+        Map<Node, BitSet> oldSplits;
 
-        StateRecord(int[][] assigncost, int[] rs, int[] cs, int[] u, int[] v, double d, Tree oldTree, int[] tc) {
+        StateRecord(int[][] assigncost, int[] rs, int[] cs, int[] u, int[] v, double d, Tree oldTree, int[] tc, Map<Node, BitSet> currentSplits) {
             this.oldAssigncost = assigncost;
             this.rowsol = rs.clone();
             this.colsol = cs.clone();
@@ -576,27 +835,17 @@ public class M3IncrementalMetric implements IncrementalMetric {
             this.distance = d;
             this.oldTree = oldTree;
             this.oldTripletCount = tc.clone();
+            this.oldSplits = new IdentityHashMap<>();
+            for (Map.Entry<Node, BitSet> e : currentSplits.entrySet()) {
+                this.oldSplits.put(e.getKey(), (BitSet) e.getValue().clone());
+            }
         }
-    }
-
-    @Override public void applySprPrune(Node pruneNode) { /* Puste */ }
-    @Override public void undoSprPrune(Node pruneNode) { /* Puste */ }
-    @Override public void applySprRegraftStep(Node pruneNode, Node currentNode) { /* Puste */ }
-    @Override public void undoSprRegraftStep() { /* Puste */ }
-
-    @Override
-    public double evaluateSprRegraft(Node pruneNode, Node targetNode) {
-        Tree tempTree = new UsprUtils().createUsprTree(this.baseTree, pruneNode, targetNode);
-        if (tempTree != null) {
-            return mtMetricFull.getDistance(tempTree, this.targetTree);
-        }
-        return Double.POSITIVE_INFINITY;
     }
 
     @Override public double getCurrentDistance() { return this.currentDistance; }
-    @Override public void commit() { history.clear(); }
+    @Override public void commit() { history.clear(); deltaStack.clear(); }
     @Override public double getDistance(Tree t1, Tree t2, int... indexes) { return mtMetricFull.getDistance(t1, t2, indexes); }
-    @Override public String getName() { return "Zero-Alloc SPR " + mtMetricFull.getName(); }
+    @Override public String getName() { return "Accelerated " + mtMetricFull.getName(); }
     @Override public String getCommandLineName() { return mtMetricFull.getCommandLineName(); }
     @Override public void setCommandLineName(String cln) { mtMetricFull.setCommandLineName(cln); }
     @Override public void setName(String name) { mtMetricFull.setName(name); }
