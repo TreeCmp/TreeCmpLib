@@ -27,17 +27,21 @@ public class M3IncrementalMetricTest {
 
     private static final double DELTA = 0.000001;
 
-    private Tree baseTree;
-    private Tree targetTree;
+    private Tree base6LTree;
+    private Tree target6LTree;
+    private Tree base10LTree;
+    private Tree target10LTree;
 
     @BeforeEach
     void setUp() {
         incrementalMetric = new M3IncrementalMetric();
 
-        baseTree = TestTreeFactory.tenLeavesUnrootedTree1(); // UNROOTED
-        targetTree = TestTreeFactory.tenLeavesUnrootedTree2();
-        testIdGroup = TreeUtils.getLeafIdGroup(baseTree);
-        N = baseTree.getExternalNodeCount();
+        base6LTree = TestTreeFactory.sixLeavesUnrootedTree1();
+        target6LTree = TestTreeFactory.sixLeavesUnrootedTree2();
+        base10LTree = TestTreeFactory.tenLeavesUnrootedTree1();
+        target10LTree = TestTreeFactory.tenLeavesUnrootedTree2();
+        testIdGroup = TreeUtils.getLeafIdGroup(base10LTree);
+        N = base10LTree.getExternalNodeCount();
     }
 
     /**
@@ -52,8 +56,8 @@ public class M3IncrementalMetricTest {
 
     @Test
     void testInitialDistanceConsistency() {
-        incrementalMetric.initCalculationState(baseTree, targetTree);
-        double expectedOracleDist = getOracleDistance(baseTree, targetTree);
+        incrementalMetric.initCalculationState(base10LTree, target10LTree);
+        double expectedOracleDist = getOracleDistance(base10LTree, target10LTree);
 
         assertEquals(expectedOracleDist, incrementalMetric.getCurrentDistance(), DELTA,
                 "Initial MT distance must be identical between incremental and oracle metrics!");
@@ -61,7 +65,7 @@ public class M3IncrementalMetricTest {
 
     @Test
     void testSingleNniMoveAndUndoConsistency() {
-        incrementalMetric.initCalculationState(baseTree, targetTree);
+        incrementalMetric.initCalculationState(base10LTree, target10LTree);
         double initialDist = incrementalMetric.getCurrentDistance();
 
         Tree freshTree = TestTreeFactory.tenLeavesUnrootedTree1();
@@ -70,7 +74,7 @@ public class M3IncrementalMetricTest {
         double actualDistAfterMove = incrementalMetric.applyNni(move);
 
         Tree expectedNewTree = applyNniToTreeForOracle(freshTree, move);
-        double expectedDistAfterMove = getOracleDistance(expectedNewTree, targetTree);
+        double expectedDistAfterMove = getOracleDistance(expectedNewTree, target10LTree);
 
         assertEquals(expectedDistAfterMove, actualDistAfterMove, DELTA,
                 "The target-matching NNI move failed to correctly update the NCV assignments!");
@@ -83,10 +87,10 @@ public class M3IncrementalMetricTest {
 
     @Test
     void testMultipleSequentialNniMovesMaintainStateConsistency() {
-        incrementalMetric.initCalculationState(baseTree, targetTree);
+        incrementalMetric.initCalculationState(base10LTree, target10LTree);
         double initialDist = incrementalMetric.getCurrentDistance();
 
-        List<NniMove> moves = getDeterministicValidMoves(baseTree);
+        List<NniMove> moves = getDeterministicValidMoves(base10LTree);
         assertTrue(moves.size() >= 3, "Test tree does not support enough valid NNI structural moves!");
 
         NniMove move1 = moves.get(0);
@@ -112,7 +116,7 @@ public class M3IncrementalMetricTest {
 
     @Test
     void testComplexBranchingTrajectoryWithNestedUndos() {
-        incrementalMetric.initCalculationState(baseTree, targetTree);
+        incrementalMetric.initCalculationState(base10LTree, target10LTree);
         double initialDist = incrementalMetric.getCurrentDistance();
 
         Tree freshTreeA = TestTreeFactory.tenLeavesUnrootedTree1();
@@ -136,7 +140,7 @@ public class M3IncrementalMetricTest {
         double distAfterPathB = incrementalMetric.applyNni(pathB_step1);
 
         Tree expectedTreeB = applyNniToTreeForOracle(freshTreeB, pathB_step1);
-        double expectedOracleB = getOracleDistance(expectedTreeB, targetTree);
+        double expectedOracleB = getOracleDistance(expectedTreeB, target10LTree);
 
         assertEquals(expectedOracleB, distAfterPathB, DELTA,
                 "Cross-contamination detected! Switching trajectories broke the NCV tracking matrix.");
@@ -150,31 +154,48 @@ public class M3IncrementalMetricTest {
         for (int i = 0; i < dirtyTree.getInternalNodeCount(); i++) dirtyTree.getInternalNode(i).setNumber(0);
         for (int i = 0; i < dirtyTree.getExternalNodeCount(); i++) dirtyTree.getExternalNode(i).setNumber(0);
 
-        incrementalMetric.initCalculationState(dirtyTree, targetTree);
+        incrementalMetric.initCalculationState(dirtyTree, target10LTree);
         double incDist = incrementalMetric.getCurrentDistance();
 
         // Wyroczni (też M3IncrementalMetric) dajemy czyste drzewo dla referencji
         Tree cleanTree = createCleanCopyForOracle(TestTreeFactory.tenLeavesUnrootedTree1());
-        double expectedDist = getOracleDistance(cleanTree, targetTree);
+        double expectedDist = getOracleDistance(cleanTree, target10LTree);
 
         assertEquals(expectedDist, incDist, DELTA,
                 "[REGRESSION BUG] Metryka uległa korupcji! Brak izolacji przed zniszczonymi ID biblioteki PAL!");
     }
 
     @Test
-    void testPhantomRootTripletConservation() {
-        Tree baseUnrooted = TestTreeFactory.tenLeavesUnrootedTree1();
-        incrementalMetric.initCalculationState(baseUnrooted, targetTree);
+    void testPhantomRootTripletConservation6L() {
+        incrementalMetric.initCalculationState(base6LTree, target6LTree);
 
-        List<NniMove> moves = getDeterministicValidMoves(baseUnrooted);
+        List<NniMove> moves = getDeterministicValidMoves(base6LTree);
         assertTrue(moves.size() > 0, "Brak ruchów NNI do przetestowania!");
 
         NniMove rootAdjacentMove = moves.get(0);
 
         double actualDist = incrementalMetric.applyNni(rootAdjacentMove);
 
-        Tree physicalNeighbor = applyNniToTreeForOracle(baseUnrooted, rootAdjacentMove);
-        double expectedDist = getOracleDistance(physicalNeighbor, targetTree);
+        Tree physicalNeighbor = applyNniToTreeForOracle(base6LTree, rootAdjacentMove);
+        double expectedDist = getOracleDistance(physicalNeighbor, target6LTree);
+
+        assertEquals(expectedDist, actualDist, DELTA,
+                "[REGRESSION BUG] Zgubiono triplety w 'newIntersection'! Metryka nie radzi sobie z widmowym korzeniem drzewa.");
+    }
+
+    @Test
+    void testPhantomRootTripletConservation10L() {
+        incrementalMetric.initCalculationState(base10LTree, target10LTree);
+
+        List<NniMove> moves = getDeterministicValidMoves(base10LTree);
+        assertTrue(moves.size() > 0, "Brak ruchów NNI do przetestowania!");
+
+        NniMove rootAdjacentMove = moves.get(0);
+
+        double actualDist = incrementalMetric.applyNni(rootAdjacentMove);
+
+        Tree physicalNeighbor = applyNniToTreeForOracle(base10LTree, rootAdjacentMove);
+        double expectedDist = getOracleDistance(physicalNeighbor, target10LTree);
 
         assertEquals(expectedDist, actualDist, DELTA,
                 "[REGRESSION BUG] Zgubiono triplety w 'newIntersection'! Metryka nie radzi sobie z widmowym korzeniem drzewa.");
@@ -182,13 +203,13 @@ public class M3IncrementalMetricTest {
 
     @Test
     void testLapDualVariablePermutationStability() {
-        incrementalMetric.initCalculationState(baseTree, targetTree);
+        incrementalMetric.initCalculationState(base10LTree, target10LTree);
 
-        List<NniMove> initialMoves = getDeterministicValidMoves(baseTree);
+        List<NniMove> initialMoves = getDeterministicValidMoves(base10LTree);
         NniMove move1 = initialMoves.get(0);
 
         incrementalMetric.applyNni(move1);
-        Tree step1Tree = applyNniToTreeForOracle(baseTree, move1);
+        Tree step1Tree = applyNniToTreeForOracle(base10LTree, move1);
 
         List<NniMove> nextMoves = getDeterministicValidMoves(step1Tree);
         NniMove move2 = nextMoves.get(1);
@@ -196,7 +217,7 @@ public class M3IncrementalMetricTest {
         double actualDist = incrementalMetric.applyNni(move2);
 
         Tree step2Tree = applyNniToTreeForOracle(step1Tree, move2);
-        double expectedDist = getOracleDistance(step2Tree, targetTree);
+        double expectedDist = getOracleDistance(step2Tree, target10LTree);
 
         assertEquals(expectedDist, actualDist, DELTA,
                 "[REGRESSION BUG] Awaria Signature Mapping! Zmienne dualne LAP (u, v) zostały błędnie skojarzone z wierszami po permutacji topologii.");

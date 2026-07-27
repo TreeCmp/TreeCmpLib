@@ -525,6 +525,9 @@ public abstract class TreeNeighborhoodUtils {
         return resultTree;
     }
 
+    // ==========================================
+    // POPRAWIONE createUsprTree - BEZ PĘTLI I CRASHY
+    // ==========================================
     public Tree createUsprTree(Tree baseTree, Node s, Node t){
         Boolean isInnerMove = false;
         if (isInnerMove(s, t)) {
@@ -590,7 +593,7 @@ public abstract class TreeNeighborhoodUtils {
             Node newRoot = null;
             if(child1.isLeaf()) {
                 child0.setParent(null);
-                child1.setParent(child1);
+                child1.setParent(child0); // POPRAWIONE: Łączymy z child0, uniemożliwiamy stworzenie pętli
                 child0.addChild(child1);
                 newRoot = child0;
             } else {
@@ -614,13 +617,19 @@ public abstract class TreeNeighborhoodUtils {
             newNode.setParent(null);
             resultTree.setRoot(newNode);
         } else if (isSourceParentRoot){
-            otherSourceChildren[0].setParent(null);
-            otherSourceChildren[1].setParent(null);
-            if (otherSourceChildren[0].isLeaf()) {
-                otherSourceChildren[1].addChild(otherSourceChildren[0]);
-                resultTree.setRoot(otherSourceChildren[1]);
-            } else {
-                otherSourceChildren[0].addChild(otherSourceChildren[1]);
+            // POPRAWIONE: Bezpieczne zarządzanie dziećmi odcinanego korzenia
+            if (otherSourceChildren.length >= 2) {
+                otherSourceChildren[0].setParent(null);
+                otherSourceChildren[1].setParent(null);
+                if (otherSourceChildren[0].isLeaf()) {
+                    otherSourceChildren[1].addChild(otherSourceChildren[0]);
+                    resultTree.setRoot(otherSourceChildren[1]);
+                } else {
+                    otherSourceChildren[0].addChild(otherSourceChildren[1]);
+                    resultTree.setRoot(otherSourceChildren[0]);
+                }
+            } else if (otherSourceChildren.length == 1) {
+                otherSourceChildren[0].setParent(null);
                 resultTree.setRoot(otherSourceChildren[0]);
             }
         } else{
@@ -717,4 +726,20 @@ public abstract class TreeNeighborhoodUtils {
     }
 
     abstract public Tree[] generateNeighbours(Tree tree);
+
+    protected java.util.IdentityHashMap<pal.tree.Tree, Double> treeCosts = new java.util.IdentityHashMap<>();
+
+    public double getTreeCost(pal.tree.Tree t) {
+        return treeCosts.getOrDefault(t, 1.0);
+    }
+
+    protected void registerTreeCost(pal.tree.Tree t, double cost) {
+        if (t != null) {
+            treeCosts.put(t, cost);
+        }
+    }
+
+    public void clearCosts() {
+        treeCosts.clear();
+    }
 }

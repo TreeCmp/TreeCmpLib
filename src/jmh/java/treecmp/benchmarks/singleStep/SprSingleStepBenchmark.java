@@ -31,7 +31,7 @@ import treecmp.util.TestTreeFactory;
 public class SprSingleStepBenchmark {
 
     //@Param({"RF", "RFC", "MS", "MC", "MP", "M3"})
-    @Param({"M3"})
+    @Param({"MC"})
     public String metricName;
 
     //@Param({"10", "20", "30", "50", "80", "120", "200", "300", "500", "800", "1200", "2000" })
@@ -86,7 +86,7 @@ public class SprSingleStepBenchmark {
                 incrementalMetric = new SprIncrementalHeuristicMetric(new MPIncrementalMetric(), "MP");
                 break;
             case "M3":
-                isRooted = false; classicProtectionLimit = 500;
+                isRooted = false; classicProtectionLimit = 120;
                 classicMetric = new MatchingTripletMetric();
                 incrementalMetric = new UsprIncrementalHeuristicMetric(new M3IncrementalMetric(), "M3");
                 break;
@@ -213,6 +213,7 @@ public class SprSingleStepBenchmark {
         Options opt = new OptionsBuilder()
                 .include(SprSingleStepBenchmark.class.getSimpleName())
                 .addProfiler("stack")
+                // .addProfiler("gc")
                 .build();
         new Runner(opt).run();
     }
