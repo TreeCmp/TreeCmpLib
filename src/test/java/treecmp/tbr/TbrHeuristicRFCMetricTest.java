@@ -39,8 +39,8 @@ class TbrHeuristicRFCMetricTest {
         // Cel: Kręgosłup opadający w prawo (1,(2,(3,4)))
         Tree t2 = TestTreeFactory.sixLeavesRootedTargetTree1();
 
-        // Używamy zunifikowanych klas dla SPR i TBR
-        SprHeuristicMetric sprMetric = new SprHeuristicMetric(new RFClusterMetric(), "RFC");
+        // FIX: Dodana flaga 'true' dla drzew ukorzenionych (Rooted)
+        SprHeuristicMetric sprMetric = new SprHeuristicMetric(new RFClusterMetric(), true, "RFC");
         TbrClassicHeuristic tbrMetric = new TbrClassicHeuristic(new RFClusterMetric(), true, "RFC");
 
         double sprDist = sprMetric.getDistance(t1, t2);
@@ -55,8 +55,8 @@ class TbrHeuristicRFCMetricTest {
         Tree t1 = TestTreeFactory.tenLeavesRootedTree1();
         Tree t2 = TestTreeFactory.tenLeavesRootedTree2();
 
-        // Używamy zunifikowanych klas dla SPR i TBR
-        SprHeuristicMetric sprMetric = new SprHeuristicMetric(new RFClusterMetric(), "RFC");
+        // FIX: Dodana flaga 'true' dla drzew ukorzenionych (Rooted)
+        SprHeuristicMetric sprMetric = new SprHeuristicMetric(new RFClusterMetric(), true, "RFC");
         TbrClassicHeuristic tbrMetric = new TbrClassicHeuristic(new RFClusterMetric(), true, "RFC");
 
         double sprDist = sprMetric.getDistance(t1, t2);

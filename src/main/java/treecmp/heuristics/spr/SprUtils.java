@@ -172,7 +172,11 @@ public class SprUtils extends TreeNeighborhoodUtils {
                 t = tree.getExternalNode(j);
                 if (isValidSprMove(s, t)) {
                     resultTree = createAndFixSprTree(tree, s, t);
-                    if (resultTree != null) sprTreeSet.add(new treecmp.heuristics.TreeRootedHolder(resultTree, idGroup));
+                    if (resultTree != null) {
+                        double moveCost = new treecmp.heuristics.moves.SprMove(s, t).getNniEquivalentCost();
+                        registerTreeCost(resultTree, moveCost);
+                        sprTreeSet.add(new treecmp.heuristics.TreeRootedHolder(resultTree, idGroup));
+                    }
                 }
             }
         }
@@ -183,7 +187,11 @@ public class SprUtils extends TreeNeighborhoodUtils {
                 t = tree.getExternalNode(j);
                 if (isValidSprMove(s, t)) {
                     resultTree = createAndFixSprTree(tree, s, t);
-                    if (resultTree != null) sprTreeSet.add(new treecmp.heuristics.TreeRootedHolder(resultTree, idGroup));
+                    if (resultTree != null) {
+                        double moveCost = new treecmp.heuristics.moves.SprMove(s, t).getNniEquivalentCost();
+                        registerTreeCost(resultTree, moveCost);
+                        sprTreeSet.add(new treecmp.heuristics.TreeRootedHolder(resultTree, idGroup));
+                    }
                 }
             }
         }
@@ -193,7 +201,11 @@ public class SprUtils extends TreeNeighborhoodUtils {
                 t = tree.getInternalNode(j);
                 if (isValidSprMove(s, t)) {
                     resultTree = createAndFixSprTree(tree, s, t);
-                    if (resultTree != null) sprTreeSet.add(new treecmp.heuristics.TreeRootedHolder(resultTree, idGroup));
+                    if (resultTree != null) {
+                        double moveCost = new treecmp.heuristics.moves.SprMove(s, t).getNniEquivalentCost();
+                        registerTreeCost(resultTree, moveCost);
+                        sprTreeSet.add(new treecmp.heuristics.TreeRootedHolder(resultTree, idGroup));
+                    }
                 }
             }
         }
@@ -204,7 +216,11 @@ public class SprUtils extends TreeNeighborhoodUtils {
                 t = tree.getInternalNode(j);
                 if (isValidSprMove(s, t)) {
                     resultTree = createAndFixSprTree(tree, s, t);
-                    if (resultTree != null) sprTreeSet.add(new treecmp.heuristics.TreeRootedHolder(resultTree, idGroup));
+                    if (resultTree != null) {
+                        double moveCost = new treecmp.heuristics.moves.SprMove(s, t).getNniEquivalentCost();
+                        registerTreeCost(resultTree, moveCost);
+                        sprTreeSet.add(new treecmp.heuristics.TreeRootedHolder(resultTree, idGroup));
+                    }
                 }
             }
         }

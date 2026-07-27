@@ -29,25 +29,26 @@ class SprClassicHeuristicTest {
     static Stream<Arguments> provideRootedMetrics() {
         return Stream.of(
                 // 1. RF Cluster (RFC) - Wymaga drzew ukorzenionych
-                Arguments.of(new SprHeuristicMetric(new RFClusterMetric(), "RFC")),
+                // Zaktualizowano o flagę isRooted (true)
+                Arguments.of(new SprHeuristicMetric(new RFClusterMetric(), true, "RFC")),
 
                 // 2. Triplets (TT)
-                Arguments.of(new SprHeuristicMetric(new TripletMetric(), "TT")),
+                Arguments.of(new SprHeuristicMetric(new TripletMetric(), true, "TT")),
 
                 // 3. Cophenetic L2 (Coph)
-                Arguments.of(new SprHeuristicMetric(new CopheneticL2Metric(), "Coph")),
+                Arguments.of(new SprHeuristicMetric(new CopheneticL2Metric(), true, "Coph")),
 
                 // 4. Rooted MAST
-                Arguments.of(new SprHeuristicMetric(new RMASTMetric(), "MAST")),
+                Arguments.of(new SprHeuristicMetric(new RMASTMetric(), true, "MAST")),
 
                 // 5. Matching Cluster O(N^3) (MC)
-                Arguments.of(new SprHeuristicMetric(new MatchingClusterMetricO3(), "MC")),
+                Arguments.of(new SprHeuristicMetric(new MatchingClusterMetricO3(), true, "MC")),
 
                 // 6. Matching Pair (MP)
-                Arguments.of(new SprHeuristicMetric(new MatchingPairMetric(), "MP")),
+                Arguments.of(new SprHeuristicMetric(new MatchingPairMetric(), true, "MP")),
 
                 // 7. Nodal L2 Splitted (NS)
-                Arguments.of(new SprHeuristicMetric(new NodalL2SplittedMetric(), "NS"))
+                Arguments.of(new SprHeuristicMetric(new NodalL2SplittedMetric(), true, "NS"))
         );
     }
 

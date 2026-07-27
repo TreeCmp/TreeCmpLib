@@ -27,7 +27,8 @@ class SprHeuristicMetricTest {
     void testIncrementalMetricMatchesClassicMetric(Tree tree1, Tree tree2, String testName) {
 
         // WZORZEC KOMPOZYCJI W AKCJI: Testujemy ujednolicony silnik SPR wstrzykując mu RFC
-        SprHeuristicMetric classicMetric = new SprHeuristicMetric(new RFClusterMetric(), "RFC");
+        // Zaktualizowano konstruktor o flagę isRooted (true)
+        SprHeuristicMetric classicMetric = new SprHeuristicMetric(new RFClusterMetric(), true, "RFC");
         SprIncrementalHeuristicMetric incrementalMetric = new SprIncrementalHeuristicMetric(new RFClusterIncrementalMetric(), "RFC");
 
         double expectedDistance = classicMetric.getDistance(tree1, tree2);
@@ -45,8 +46,10 @@ class SprHeuristicMetricTest {
         SprIncrementalHeuristicMetric metric = new SprIncrementalHeuristicMetric(new RFClusterIncrementalMetric(), "RFC");
         double dist = metric.getDistance(baseTree, targetTree);
 
-        assertEquals(1.0, dist, DELTA,
-                "Jeśli cel jest oddalony dokładnie o 1 ruch SPR, dystans musi wynosić 1.0");
+        // ZMIANA: Skok SPR z drzewa zbalansowanego do gąsienicy (4 liście, ukorzenione)
+        // pokonuje 2 krawędzie, więc jego waga topologiczna (NNI-Equivalent) wynosi 2.0!
+        assertEquals(2.0, dist, 0.0001,
+                "Jeśli cel jest oddalony o 1 ruch SPR pokonujący 2 krawędzie, ekwiwalent NNI musi wynosić 2.0");
     }
 
     @Test

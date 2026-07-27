@@ -13,23 +13,30 @@ public class SprHeuristicMetric extends HeuristicBaseMetric {
     private final Metric metric;
     private final Metric primaryMetric; // Opcjonalny szybki filtr
     private final String metricShortName;
+    private final boolean forceUspr;
 
-    // 1. Podstawowy konstruktor (dla pojedynczych metryk, np. RFC, TT, MC)
-    public SprHeuristicMetric(Metric metric, String metricShortName) {
-        this(metric, null, metricShortName);
+    public SprHeuristicMetric(Metric metric, boolean isRooted, String metricShortName) {
+        super(isRooted);
+        this.metric = metric;
+        this.primaryMetric = null;
+        this.metricShortName = metricShortName;
+        this.forceUspr = !isRooted;
     }
 
-    // 2. Rozszerzony konstruktor z filtrem (np. jeśli chcemy użyć RFC jako filtra dla innej metryki)
-    public SprHeuristicMetric(Metric metric, Metric primaryMetric, String metricShortName) {
-        super(true); // Klasyczne otoczenie SPR z definicji operuje na drzewach ukorzenionych (rooted)
+    public SprHeuristicMetric(Metric metric, Metric primaryMetric, boolean isRooted, String metricShortName) {
+        super(isRooted);
         this.metric = metric;
         this.primaryMetric = primaryMetric;
         this.metricShortName = metricShortName;
+        this.forceUspr = !isRooted;
     }
 
     @Override
     protected TreeNeighborhoodUtils getTreeNeighborhoodUtils() {
-        return new SprUtils();
+        // Zabezpieczenie: UsprUtils odpali się tylko, jeśli w nowym konstruktorze
+        // wyraźnie ustawimy isRooted = false (np. w benchmarkach). 
+        // W przeciwnym razie bezpiecznie działa stary SprUtils.
+        return this.forceUspr ? new UsprUtils() : new SprUtils();
     }
 
     @Override
@@ -39,8 +46,6 @@ public class SprHeuristicMetric extends HeuristicBaseMetric {
 
     @Override
     protected Metric getPrimaryMetric() {
-        // Jeśli wstrzyknięto szybki filtr (primaryMetric), użyj go.
-        // W przeciwnym razie zachowaj domyślne zachowanie klasy bazowej.
         return this.primaryMetric != null ? this.primaryMetric : super.getPrimaryMetric();
     }
 

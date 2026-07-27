@@ -12,6 +12,9 @@ import treecmp.metrics.topological.acc.MCIncrementalMetric;
 import treecmp.metrics.topological.acc.MPIncrementalMetric;
 import treecmp.metrics.topological.acc.MSIncrementalMetric;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetric {
 
     protected final ClassicSprWalker standardWalker;
@@ -19,26 +22,48 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
     protected final SprUtils sprUtils;
     private final String metricShortName;
 
-    public SprIncrementalHeuristicMetric(IncrementalMetric metric, String metricShortName) {
+    protected IncrementalMetric primaryMetric;
+    protected List<TreeMove> tiedMoves = new ArrayList<>();
+    protected double currentPrimaryBestDist;
+
+    public SprIncrementalHeuristicMetric(IncrementalMetric metric, IncrementalMetric primaryMetric, String metricShortName) {
         super(metric.isRooted(), metric);
+        this.primaryMetric = primaryMetric;
         this.metricShortName = metricShortName;
         this.standardWalker = new ClassicSprWalker();
         this.rootedWalker = new IncrementalSprWalker();
         this.sprUtils = new SprUtils();
     }
 
+    public SprIncrementalHeuristicMetric(IncrementalMetric metric, String metricShortName) {
+        this(metric, null, metricShortName);
+    }
+
+    private void checkImprovementWithTies(double currentDist, TreeMove move) {
+        if (currentDist < this.currentPrimaryBestDist) {
+            this.currentPrimaryBestDist = currentDist;
+            this.tiedMoves.clear();
+            this.tiedMoves.add(move);
+        } else if (currentDist == this.currentPrimaryBestDist && currentDist != Double.POSITIVE_INFINITY) {
+            this.tiedMoves.add(move);
+        }
+    }
+
     @Override
     protected void searchNeighborhood(Tree currentTree) {
-        // Dodajemy MPIncrementalMetric do warunku korzystającego z Continuous Walkera!
-        if (this.incMetric instanceof MSIncrementalMetric ||
-                this.incMetric instanceof MPIncrementalMetric ||
-                this.incMetric instanceof MCIncrementalMetric) {
-            rootedWalker.walk(currentTree, (IncrementalSprWalker.RootedMetric) this.incMetric, (currentDist, movingNode, targetNode) -> {
-                checkImprovement(currentDist, new SprMove(movingNode, targetNode));
+        IncrementalMetric activeMetric = primaryMetric != null ? primaryMetric : this.incMetric;
+        this.tiedMoves.clear();
+        this.currentPrimaryBestDist = Double.POSITIVE_INFINITY;
+
+        if (activeMetric instanceof MSIncrementalMetric ||
+                activeMetric instanceof MPIncrementalMetric ||
+                activeMetric instanceof MCIncrementalMetric) {
+            rootedWalker.walk(currentTree, (IncrementalSprWalker.RootedMetric) activeMetric, (currentDist, movingNode, targetNode) -> {
+                checkImprovementWithTies(currentDist, new SprMove(movingNode, targetNode));
             });
         } else {
-            standardWalker.walk(currentTree, this.incMetric, (currentDist, movingNode, targetNode) -> {
-                checkImprovement(currentDist, new SprMove(movingNode, targetNode));
+            standardWalker.walk(currentTree, activeMetric, (currentDist, movingNode, targetNode) -> {
+                checkImprovementWithTies(currentDist, new SprMove(movingNode, targetNode));
             });
         }
     }
@@ -49,7 +74,6 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
             SprMove sprMove = (SprMove) move;
             Tree newTree = sprUtils.applyPhysicalSprMove(tree, sprMove);
             if (newTree != null) {
-                // POPRAWKA: Prawidłowe wywołania z incMetric oraz TreeCmpUtils
                 if (this.incMetric.isRooted()) {
                     newTree.getRoot().setBranchLength(0.0);
                 } else {
@@ -67,33 +91,83 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
         return this.incMetric.getCurrentDistance();
     }
 
+    // =========================================================
+    // KLUCZOWA ZMIANA: Implementacja kontraktu Orkiestratora
+    // =========================================================
     @Override
-    public double getDistance(Tree tree1, Tree tree2, int... indexes) {
-        Tree currentTree = tree1;
-        this.improved = true;
-        int totalSteps = 0;
+    public double performLocalDescent(Tree startTree, Tree targetTree) {
+        Tree currentTree = new pal.tree.SimpleTree(startTree);
+        if (currentTree instanceof pal.tree.SimpleTree) {
+            ((pal.tree.SimpleTree) currentTree).createNodeList();
+        }
 
-        this.incMetric.initCalculationState(currentTree, tree2);
-        double currentDist = this.incMetric.getCurrentDistance();
+        this.improved = true;
+        this.accumulatedNniCost = 0.0;
+        IncrementalMetric activeMetric = primaryMetric != null ? primaryMetric : this.incMetric;
+
+        activeMetric.initCalculationState(currentTree, targetTree);
+        double currentDist = activeMetric.getCurrentDistance();
+
+        if (currentDist == 0) {
+            this.lastOptimumTree = currentTree;
+            return 0.0;
+        }
 
         while (this.improved && currentDist > 0) {
             this.improved = false;
-            this.bestDist = currentDist;
-            this.bestMove = null;
-
             searchNeighborhood(currentTree);
 
-            if (this.improved && this.bestMove != null) {
-                currentTree = applyPhysicalMove(currentTree, this.bestMove);
-                totalSteps++;
+            if (!this.tiedMoves.isEmpty() && this.currentPrimaryBestDist < currentDist) {
+                TreeMove bestMove = null;
 
-                TreeUtils.computeParentPointers(currentTree.getRoot());
+                if (primaryMetric == null || tiedMoves.size() == 1) {
+                    bestMove = tiedMoves.get(0);
+                } else {
+                    double bestSecondaryDist = Double.POSITIVE_INFINITY;
+                    for (TreeMove move : tiedMoves) {
+                        Tree candidateTree = applyPhysicalMove(currentTree, move);
+                        pal.tree.TreeUtils.computeParentPointers(candidateTree.getRoot());
+                        this.incMetric.initCalculationState(candidateTree, targetTree);
 
-                this.incMetric.initCalculationState(currentTree, tree2);
-                currentDist = this.incMetric.getCurrentDistance();
+                        double secDist = this.incMetric.getCurrentDistance();
+                        if (secDist < bestSecondaryDist) {
+                            bestSecondaryDist = secDist;
+                            bestMove = move;
+                        }
+                    }
+                }
+
+                if (bestMove != null) {
+                    // 1. NAJPIERW ZLICZAMY KOSZT NNI (na oryginalnym drzewie)
+                    this.accumulatedNniCost += bestMove.getNniEquivalentCost();
+
+                    // 2. DOPIERO POTEM APLIKUJEMY RUCH I ZMIENIAMY DRZEWO
+                    currentTree = applyPhysicalMove(currentTree, bestMove);
+
+                    pal.tree.TreeUtils.computeParentPointers(currentTree.getRoot());
+                    activeMetric.initCalculationState(currentTree, targetTree);
+                    double newDist = activeMetric.getCurrentDistance();
+
+                    // Circuit Breaker: Przerywamy na płaskowyżu
+                    if (newDist >= currentDist) {
+                        break;
+                    }
+
+                    currentDist = newDist;
+                    this.improved = true;
+                }
             }
         }
-        return (currentDist == 0) ? (double) totalSteps : Double.POSITIVE_INFINITY;
+
+        this.lastOptimumTree = currentTree;
+        return currentDist;
+    }
+
+    // Zapewnienie kompatybilności wstecznej dla starszych testów
+    @Override
+    public double getDistance(Tree tree1, Tree tree2, int... indexes) {
+        double dist = performLocalDescent(tree1, tree2);
+        return dist == 0.0 ? this.accumulatedNniCost : Double.POSITIVE_INFINITY;
     }
 
     @Override public boolean isRooted() { return this.incMetric.isRooted(); }
