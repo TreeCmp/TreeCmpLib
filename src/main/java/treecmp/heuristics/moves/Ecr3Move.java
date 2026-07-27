@@ -20,4 +20,9 @@ public class Ecr3Move implements TreeMove {
     public String getDescription() {
         return "3-sECR: Resolving a 4-node cluster into a new binary topology (1 of 105)";
     }
+
+    @Override
+    public int getNniEquivalentCost() {
+        return 3; // Bezpieczna średnia dla 3-sECR
+    }
 }

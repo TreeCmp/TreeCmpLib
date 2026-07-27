@@ -29,4 +29,9 @@ public class Ecr2Move implements TreeMove {
         return String.format("2-sECR [%s] applying permutation: %s",
                 clusterType, Arrays.toString(template.indices));
     }
+
+    @Override
+    public int getNniEquivalentCost() {
+        return 2; // Bezpieczna średnia dla 2-sECR
+    }
 }

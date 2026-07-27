@@ -23,4 +23,9 @@ public class NniMove implements TreeMove {
         return "Swap " + movingSubtree.getIdentifier().getName() +
                 " with " + swapPartner.getIdentifier().getName();
     }
+
+    @Override
+    public int getNniEquivalentCost() {
+        return 1; // 1 NNI to 1 NNI
+    }
 }

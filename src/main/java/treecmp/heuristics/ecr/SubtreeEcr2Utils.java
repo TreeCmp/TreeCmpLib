@@ -104,6 +104,11 @@ public class SubtreeEcr2Utils extends TreeNeighborhoodUtils {
 
             Tree newTree = createEcrTree(tree, top, m1, m2, s, template, isOriginalFork);
             if (newTree != null) {
+
+                // DODANO: Obliczenie i rejestracja poprawnego kosztu NNI do bufora
+                double moveCost = new treecmp.heuristics.moves.Ecr2Move(top, m1, m2, s, template).getNniEquivalentCost();
+                registerTreeCost(newTree, moveCost);
+
                 if (unrooted) {
                     set.add(new TreeUnrootedHolder(newTree, idGroup));
                 } else {
