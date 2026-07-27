@@ -1,7 +1,3 @@
-/*
- * To change this template, choose Tools | Templates
- * and open the template in the editor.
- */
 package treecmp.heuristics.base;
 
 import java.io.IOException;
@@ -20,54 +16,95 @@ import treecmp.metrics.*;
 import pal.tree.Tree;
 
 /**
- *
- * @author Damian
+ * Zintegrowana klasa bazowa dla klasycznych heurystyk.
+ * Obsługuje teraz bezpośrednie wywołania (zwracając koszt) 
+ * oraz tryb Orkiestratora VND (zwracając dystans metryki i zmutowane drzewo).
  */
 public abstract class HeuristicBaseMetric extends BaseMetric implements Metric {
 
     protected boolean reduceCommonBinarySubtreesTrees = false;
+    protected Tree lastOptimumTree;
+    protected double accumulatedNniCost = 0.0;
+
+    public Tree getLastOptimumTree() {
+        return this.lastOptimumTree;
+    }
+
+    public double getAccumulatedNniCost() {
+        return this.accumulatedNniCost;
+    }
 
     protected HeuristicBaseMetric(boolean rooted) {
         super();
         this.rooted = rooted;
     }
 
-    // To jest Twoja metryka docelowa (np. MAST)
     protected abstract Metric getMetric();
     protected abstract TreeNeighborhoodUtils getTreeNeighborhoodUtils();
 
-    // NOWOŚĆ: Domyślnie metryką prowadzącą jest ta sama, co docelowa (czyli normalna heurystyka)
     protected Metric getPrimaryMetric() {
         return getMetric();
     }
 
+    protected double getBaseStepCost() {
+        return 1.0;
+    }
+
+    // ========================================================================
+    // NOWOŚĆ: Metoda dla Orkiestratora do pobierania początkowego dystansu
+    // ========================================================================
+    public double evaluateInitialDistance(Tree startTree, Tree targetTree) {
+        try {
+            return getPrimaryMetric().getDistance(startTree, targetTree);
+        } catch (TreeCmpException e) {
+            throw new RuntimeException(e);
+        }
+    }
+
+    @Override
     public double getDistance(Tree tree1, Tree tree2, int... indexes) {
+        double finalMetricDist = performLocalDescent(tree1, tree2);
+
+        if (finalMetricDist == 0.0) {
+            return this.accumulatedNniCost;
+        }
+        return Double.POSITIVE_INFINITY;
+    }
+
+    public double performLocalDescent(Tree startTree, Tree targetTree) {
         Metric primary = getPrimaryMetric();
         Metric secondary = getMetric();
         TreeNeighborhoodUtils tnu = getTreeNeighborhoodUtils();
 
-        try {
-            // Używamy primary do sprawdzenia stanu początkowego
-            if (primary.getDistance(tree1, tree2) == 0) return 0;
+        this.accumulatedNniCost = 0.0;
+        Tree currentStepTree = startTree;
+        Tree targetStepTree = targetTree;
 
-            Tree currentStepTree = tree1;
+        try {
             if (reduceCommonBinarySubtreesTrees) {
-                Tree[] reducedTrees = SubtreeUtils.reduceCommonBinarySubtreesEx(tree1, tree2, null);
+                Tree[] reducedTrees = SubtreeUtils.reduceCommonBinarySubtreesEx(startTree, targetTree, null);
                 currentStepTree = reducedTrees[0];
-                tree2 = reducedTrees[1];
+                targetStepTree = reducedTrees[1];
             }
 
-            int stepCount = 0;
-            double bestDist1 = Double.POSITIVE_INFINITY, bestDist2 = Double.POSITIVE_INFINITY;
+            double currentBestDist = primary.getDistance(currentStepTree, targetStepTree);
+
+            if (currentBestDist == 0) {
+                this.lastOptimumTree = currentStepTree;
+                return 0.0;
+            }
+
+            double previousDist;
 
             do {
+                tnu.clearCosts(); // 1. Czyścimy pamięć przed generowaniem nowego otoczenia
+
                 Tree[] treeList = tnu.generateNeighbours(currentStepTree);
                 double bestDist = Double.POSITIVE_INFINITY;
-                List<Tree> bestTreeList = new ArrayList<>(); // Obsługa remisów
-                stepCount++;
+                List<Tree> bestTreeList = new ArrayList<>();
 
                 for (Tree tempTree : treeList) {
-                    double tempDist = primary.getDistance(tempTree, tree2);
+                    double tempDist = primary.getDistance(tempTree, targetStepTree);
                     if (tempDist < bestDist) {
                         bestDist = tempDist;
                         bestTreeList.clear();
@@ -77,34 +114,43 @@ public abstract class HeuristicBaseMetric extends BaseMetric implements Metric {
                     }
                 }
 
-                // Rozstrzyganie remisów (jeśli primary == secondary, weźmie po prostu pierwsze drzewo)
-                Tree bestTree = findBestTree(bestTreeList, tree2, secondary);
+                Tree bestTree = findBestTree(bestTreeList, targetStepTree, secondary);
 
-                if (bestTree == null) return Double.POSITIVE_INFINITY;
+                if (bestTree == null) {
+                    break;
+                }
 
-                // Aktualizacja drzewa
+                previousDist = currentBestDist;
+
+                if (bestDist >= previousDist) {
+                    break;
+                }
+
+                currentBestDist = bestDist;
+
+                // 2. Pobieramy prawdziwą wagę topologiczną wybranego ruchu!
+                this.accumulatedNniCost += tnu.getTreeCost(bestTree);
+
                 String bestTreeString = bestTree.toString();
                 try (InputSource is = InputSource.openString(bestTreeString)) {
                     currentStepTree = new ReadTree(is);
                 }
 
-                bestDist1 = bestDist2;
-                bestDist2 = bestDist;
-                if (bestDist1 <= bestDist2) return Double.POSITIVE_INFINITY;
+            } while (currentBestDist > 0);
 
-            } while (bestDist2 != 0);
-
-            return (double) stepCount;
+            this.lastOptimumTree = currentStepTree;
+            return currentBestDist;
 
         } catch (TreeCmpException | TreeParseException | IOException ex) {
             Logger.getLogger(HeuristicBaseMetric.class.getName()).log(Level.SEVERE, null, ex);
         }
+
+        this.lastOptimumTree = currentStepTree;
         return Double.POSITIVE_INFINITY;
     }
 
     protected Tree findBestTree(List<Tree> treeList, Tree t2, Metric secondary) throws TreeCmpException {
         if (treeList.isEmpty()) return null;
-        // Jeśli nie ma filtrowania (metryki są te same), nie trać czasu na pętlę
         if (getPrimaryMetric() == secondary || treeList.size() == 1) return treeList.get(0);
 
         Tree bestTree = null;
@@ -117,5 +163,24 @@ public abstract class HeuristicBaseMetric extends BaseMetric implements Metric {
             }
         }
         return bestTree;
+    }
+
+    // =========================================================
+    // BUFOR WAG TOPOLOGICZNYCH (DLA KLASYCZNYCH HEURYSTYK)
+    // =========================================================
+    protected java.util.IdentityHashMap<pal.tree.Tree, Double> treeCosts = new java.util.IdentityHashMap<>();
+
+    public double getTreeCost(pal.tree.Tree t) {
+        return treeCosts.getOrDefault(t, 1.0); // Zwraca koszt lub 1.0 dla zwykłego NNI
+    }
+
+    protected void registerTreeCost(pal.tree.Tree t, double cost) {
+        if (t != null) {
+            treeCosts.put(t, cost);
+        }
+    }
+
+    public void clearCosts() {
+        treeCosts.clear();
     }
 }

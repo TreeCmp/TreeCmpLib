@@ -53,4 +53,55 @@ public abstract class IncrementalHeuristicBaseMetric extends BaseMetric {
     protected abstract Tree applyPhysicalMove(Tree tree, TreeMove move);
 
     protected abstract double commitMoveToMetric(TreeMove move);
+
+    // =========================================================
+    // ROZSZERZENIE DLA VND (Variable Neighborhood Descent)
+    // =========================================================
+    protected Tree lastOptimumTree;
+
+    public Tree getLastOptimumTree() {
+        return this.lastOptimumTree;
+    }
+
+    protected double accumulatedNniCost = 0.0;
+
+    public double getAccumulatedNniCost() {
+        return this.accumulatedNniCost;
+    }
+    /**
+     * W odróżnieniu od klasycznego getDistance (które czasem zwraca liczbe krokow lub Infinity),
+     * ta metoda rygorystycznie zwraca najlepszy fizyczny dystans i zapisuje wynikowe drzewo.
+     */
+    public double performLocalDescent(Tree startTree, Tree targetTree) {
+        Tree currentTree = new pal.tree.SimpleTree(startTree);
+        if (currentTree instanceof pal.tree.SimpleTree) {
+            ((pal.tree.SimpleTree) currentTree).createNodeList();
+        }
+
+        this.improved = true;
+        this.incMetric.initCalculationState(currentTree, targetTree);
+        double currentDist = this.incMetric.getCurrentDistance();
+
+        while (this.improved && currentDist > 0) {
+            this.improved = false;
+            this.bestDist = currentDist;
+            this.bestMove = null;
+
+            searchNeighborhood(currentTree);
+
+            if (this.improved && this.bestMove != null) {
+                currentDist = commitMoveToMetric(this.bestMove);
+                this.incMetric.commit();
+                currentTree = applyPhysicalMove(currentTree, this.bestMove);
+            }
+        }
+
+        this.lastOptimumTree = currentTree;
+        return currentDist;
+    }
+
+    public double evaluateInitialDistance(Tree startTree, Tree targetTree) {
+        this.incMetric.initCalculationState(startTree, targetTree);
+        return this.incMetric.getCurrentDistance();
+    }
 }

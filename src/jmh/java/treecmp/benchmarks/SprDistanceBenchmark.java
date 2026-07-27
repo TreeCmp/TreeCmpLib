@@ -53,9 +53,6 @@ public class SprDistanceBenchmark {
     public void setup() {
         boolean isRooted = false;
 
-        // =========================================================================
-        // Wszystkie limity bezpieczeństwa ustawione na 100!
-        // =========================================================================
         switch (metricName) {
             case "RF":
                 isRooted = false; classicProtectionLimit = 100;
@@ -64,7 +61,8 @@ public class SprDistanceBenchmark {
                 break;
             case "RFC":
                 isRooted = true; classicProtectionLimit = 100;
-                classicMetric     = new SprHeuristicMetric(new RFClusterMetric(), "RFC");
+                // Dodano argument isRooted = true
+                classicMetric     = new SprHeuristicMetric(new RFClusterMetric(), true, "RFC");
                 incrementalMetric = new SprIncrementalHeuristicMetric(new RFClusterIncrementalMetric(), "RFC");
                 break;
             case "MS":
@@ -74,12 +72,14 @@ public class SprDistanceBenchmark {
                 break;
             case "MC":
                 isRooted = true; classicProtectionLimit = 100;
-                classicMetric     = new SprHeuristicMetric(new MatchingClusterMetric(), "MC");
+                // Dodano argument isRooted = true
+                classicMetric     = new SprHeuristicMetric(new MatchingClusterMetric(), true, "MC");
                 incrementalMetric = new SprIncrementalHeuristicMetric(new MCIncrementalMetric(), "MC");
                 break;
             case "MP":
                 isRooted = true; classicProtectionLimit = 100;
-                classicMetric     = new SprHeuristicMetric(new MatchingPairMetric(), "MP");
+                // Dodano argument isRooted = true
+                classicMetric     = new SprHeuristicMetric(new MatchingPairMetric(), true, "MP");
                 incrementalMetric = new SprIncrementalHeuristicMetric(new MPIncrementalMetric(), "MP");
                 break;
             case "M3":
