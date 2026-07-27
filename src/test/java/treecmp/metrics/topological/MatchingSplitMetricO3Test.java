@@ -9,7 +9,7 @@ public class MatchingSplitMetricO3Test {
 
     @Test
     void getMatchingSplitDistance_identicalTrees_returnsZero() {
-        var t1 = TestTreeFactory.fourLeavesTree1();
+        var t1 = TestTreeFactory.fourLeavesRootedTree1();
 
         var ms = new MatchingSplitMetricO3();
 
@@ -20,14 +20,14 @@ public class MatchingSplitMetricO3Test {
 
     @Test
     void getMatchingSplitDistance_4leafsTrees_returnsTwo() {
-        var t1 = TestTreeFactory.fourLeavesTree1();
-        var t2 = TestTreeFactory.fourLeavesTree2();
+        var t1 = TestTreeFactory.fourLeavesUnrootedTree1();
+        var t2 = TestTreeFactory.fourLeavesUnrootedTree2();
 
         var ms = new MatchingSplitMetricO3();
 
         double distance = ms.getDistance(t1, t2);
 
-        assertEquals(4.0, distance);
+        assertEquals(2.0, distance);
     }
 
     @Test
