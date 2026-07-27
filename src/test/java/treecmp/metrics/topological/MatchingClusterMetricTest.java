@@ -9,7 +9,7 @@ class MatchingClusterMetricTest {
 
     @Test
     void getMatchingClusterDistance_identicalTrees_returnsZero() {
-        var t1 = TestTreeFactory.fourLeavesTree1();
+        var t1 = TestTreeFactory.fourLeavesRootedTree1();
         var mcm = new MatchingClusterMetric();
 
         double distance = mcm.getDistance(t1, t1);
@@ -19,8 +19,8 @@ class MatchingClusterMetricTest {
 
     @Test
     void getMatchingClusterDistance_4leafsTrees_returnsFour() {
-        var t1 = TestTreeFactory.fourLeavesTree1();
-        var t2 = TestTreeFactory.fourLeavesTree2();
+        var t1 = TestTreeFactory.fourLeavesRootedTree1();
+        var t2 = TestTreeFactory.fourLeavesRootedTree2();
 
         var mcm = new MatchingClusterMetric();
 

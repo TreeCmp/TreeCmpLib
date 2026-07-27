@@ -10,7 +10,7 @@ class MatchingClusterMetricO3Test {
 
     @Test
     void getMatchingClusterDistance_identicalTrees_returnsZero() {
-        var t1 = TestTreeFactory.fourLeavesTree1();
+        var t1 = TestTreeFactory.fourLeavesRootedTree1();
         var mcm = new MatchingClusterMetricO3();
 
         double distance = mcm.getDistance(t1, t1);
@@ -20,8 +20,8 @@ class MatchingClusterMetricO3Test {
 
     @Test
     void getMatchingClusterDistance_4leafsTrees_returnsFour() {
-        var t1 = TestTreeFactory.fourLeavesTree1();
-        var t2 = TestTreeFactory.fourLeavesTree2();
+        var t1 = TestTreeFactory.fourLeavesRootedTree1();
+        var t2 = TestTreeFactory.fourLeavesRootedTree2();
 
         var mcm = new MatchingClusterMetricO3();
 
@@ -45,8 +45,8 @@ class MatchingClusterMetricO3Test {
     @Test
     void getMatchingClusterAlignment_4leafsTrees_returnsCorrectAlignInfo() {
         // given
-        var t1 = TestTreeFactory.fourLeavesTree1();
-        var t2 = TestTreeFactory.fourLeavesTree2();
+        var t1 = TestTreeFactory.fourLeavesRootedTree1();
+        var t2 = TestTreeFactory.fourLeavesRootedTree2();
         var mcm = new MatchingClusterMetricO3();
 
         // Wymagane do poprawnej inicjalizacji wewnętrznych struktur do mapowania węzłów.

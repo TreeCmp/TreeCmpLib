@@ -9,7 +9,7 @@ class TripletMetricSimpleTest {
 
     @Test
     void getTripletSimpleDistance_identicalTrees_returnsZero() {
-        var t1 = TestTreeFactory.fourLeavesTree1();
+        var t1 = TestTreeFactory.fourLeavesRootedTree1();
         var tm = new TripletMetricSimple();
 
         double distance = tm.getDistance(t1, t1);
@@ -19,8 +19,8 @@ class TripletMetricSimpleTest {
 
     @Test
     void getTripletSimpleDistance_4leafsTrees_returnsFour() {
-        var t1 = TestTreeFactory.fourLeavesTree1();
-        var t2 = TestTreeFactory.fourLeavesTree2();
+        var t1 = TestTreeFactory.fourLeavesRootedTree1();
+        var t2 = TestTreeFactory.fourLeavesRootedTree2();
 
         var tm = new TripletMetricSimple();
 

@@ -20,8 +20,8 @@ public class MatchingSplitMetricOptRFTest {
 
     @Test
     void getMatchingSplitDistance_4leafsTrees_returnsTwo() {
-        var t1 = TestTreeFactory.fourLeavesTree1();
-        var t2 = TestTreeFactory.fourLeavesTree2();
+        var t1 = TestTreeFactory.fourLeavesRootedTree1();
+        var t2 = TestTreeFactory.fourLeavesRootedTree2();
 
         var ms = new MatchingSplitMetricOptRF();
 

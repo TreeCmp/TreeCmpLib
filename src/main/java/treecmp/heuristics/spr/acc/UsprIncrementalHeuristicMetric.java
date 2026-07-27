@@ -1,42 +1,69 @@
 package treecmp.heuristics.spr.acc;
 
 import pal.tree.Tree;
-import pal.tree.TreeUtils;
+import treecmp.common.TreeCmpUtils;
 import treecmp.heuristics.base.IncrementalHeuristicBaseMetric;
 import treecmp.heuristics.moves.TreeMove;
 import treecmp.heuristics.moves.SprMove;
 import treecmp.heuristics.spr.UsprUtils;
 import treecmp.metrics.IncrementalMetric;
 
+import java.util.ArrayList;
+import java.util.List;
+
 public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetric {
 
-    protected final IncrementalUsprWalker walker;
+    protected final ClassicUsprWalker standardWalker;
     protected final UsprUtils usprUtils;
     private final String metricShortName;
 
-    public UsprIncrementalHeuristicMetric(IncrementalMetric metric, String metricShortName) {
-        super(metric.isRooted(), metric);
+    protected IncrementalMetric primaryMetric;
+    protected List<TreeMove> tiedMoves = new ArrayList<>();
+    protected double currentPrimaryBestDist;
+
+    public UsprIncrementalHeuristicMetric(IncrementalMetric metric, IncrementalMetric primaryMetric, String metricShortName) {
+        super(false, metric); // FALSE = Nieukorzenione
+        this.primaryMetric = primaryMetric;
         this.metricShortName = metricShortName;
-        this.walker = new IncrementalUsprWalker();
+        this.standardWalker = new ClassicUsprWalker();
         this.usprUtils = new UsprUtils();
+    }
+
+    public UsprIncrementalHeuristicMetric(IncrementalMetric metric, String metricShortName) {
+        this(metric, null, metricShortName);
+    }
+
+    private void checkImprovementWithTies(double currentDist, TreeMove move) {
+        if (currentDist < this.currentPrimaryBestDist) {
+            this.currentPrimaryBestDist = currentDist;
+            this.tiedMoves.clear();
+            this.tiedMoves.add(move);
+        } else if (currentDist == this.currentPrimaryBestDist && currentDist != Double.POSITIVE_INFINITY) {
+            this.tiedMoves.add(move);
+        }
     }
 
     @Override
     protected void searchNeighborhood(Tree currentTree) {
-        walker.walk(currentTree, this.incMetric, (currentDist, movingNode, targetNode) -> {
-            checkImprovement(currentDist, new SprMove(movingNode, targetNode));
+        IncrementalMetric activeMetric = primaryMetric != null ? primaryMetric : this.incMetric;
+        this.tiedMoves.clear();
+        this.currentPrimaryBestDist = Double.POSITIVE_INFINITY;
+
+        standardWalker.walk(currentTree, activeMetric, (currentDist, movingNode, targetNode) -> {
+            checkImprovementWithTies(currentDist, new SprMove(movingNode, targetNode));
         });
     }
 
     @Override
     protected Tree applyPhysicalMove(Tree tree, TreeMove move) {
         if (move instanceof SprMove) {
-            SprMove sm = (SprMove) move;
-            Tree newTree = usprUtils.createUsprTree(tree, sm.movingNode, sm.targetNode);
+            SprMove sprMove = (SprMove) move;
+
+            Tree newTree = usprUtils.createUsprTree(tree, sprMove.movingNode, sprMove.targetNode);
+
             if (newTree != null) {
-                if (newTree instanceof pal.tree.SimpleTree) {
-                    ((pal.tree.SimpleTree) newTree).createNodeList();
-                }
+                TreeCmpUtils.unrootTreeIfNeeded(newTree);
+                newTree.createNodeList();
                 return newTree;
             }
         }
@@ -49,36 +76,81 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
     }
 
     @Override
-    public double getDistance(Tree tree1, Tree tree2, int... indexes) {
-        Tree currentTree = tree1;
-        this.improved = true;
-        int totalSteps = 0;
+    public double performLocalDescent(Tree startTree, Tree targetTree) {
+        Tree currentTree = new pal.tree.SimpleTree(startTree);
+        if (currentTree instanceof pal.tree.SimpleTree) {
+            ((pal.tree.SimpleTree) currentTree).createNodeList();
+        }
 
-        this.incMetric.initCalculationState(currentTree, tree2);
-        double currentDist = this.incMetric.getCurrentDistance();
+        this.improved = true;
+        this.accumulatedNniCost = 0.0;
+        IncrementalMetric activeMetric = primaryMetric != null ? primaryMetric : this.incMetric;
+
+        activeMetric.initCalculationState(currentTree, targetTree);
+        double currentDist = activeMetric.getCurrentDistance();
+
+        if (currentDist == 0) {
+            this.lastOptimumTree = currentTree;
+            return 0.0;
+        }
 
         while (this.improved && currentDist > 0) {
             this.improved = false;
-            this.bestDist = currentDist;
-            this.bestMove = null;
-
             searchNeighborhood(currentTree);
 
-            if (this.improved && this.bestMove != null) {
-                currentTree = applyPhysicalMove(currentTree, this.bestMove);
-                totalSteps++;
+            if (!this.tiedMoves.isEmpty() && this.currentPrimaryBestDist < currentDist) {
+                TreeMove bestMove = null;
 
-                TreeUtils.computeParentPointers(currentTree.getRoot());
+                if (primaryMetric == null || tiedMoves.size() == 1) {
+                    bestMove = tiedMoves.get(0);
+                } else {
+                    double bestSecondaryDist = Double.POSITIVE_INFINITY;
+                    for (TreeMove move : tiedMoves) {
+                        Tree candidateTree = applyPhysicalMove(currentTree, move);
+                        pal.tree.TreeUtils.computeParentPointers(candidateTree.getRoot());
+                        this.incMetric.initCalculationState(candidateTree, targetTree);
 
-                this.incMetric.initCalculationState(currentTree, tree2);
-                currentDist = this.incMetric.getCurrentDistance();
+                        double secDist = this.incMetric.getCurrentDistance();
+                        if (secDist < bestSecondaryDist) {
+                            bestSecondaryDist = secDist;
+                            bestMove = move;
+                        }
+                    }
+                }
+
+                if (bestMove != null) {
+                    // PRAWIDŁOWA KOLEJNOŚĆ ODKRYTA DZIĘKI SKANEROWI:
+                    // Najpierw bezpieczny odczyt kosztu ze stabilnego grafu
+                    this.accumulatedNniCost += bestMove.getNniEquivalentCost();
+
+                    // Następnie fizyczna destrukcja i mutacja
+                    currentTree = applyPhysicalMove(currentTree, bestMove);
+
+                    pal.tree.TreeUtils.computeParentPointers(currentTree.getRoot());
+                    activeMetric.initCalculationState(currentTree, targetTree);
+                    double newDist = activeMetric.getCurrentDistance();
+
+                    if (newDist >= currentDist) {
+                        break;
+                    }
+
+                    currentDist = newDist;
+                    this.improved = true;
+                }
             }
         }
-        return (currentDist == 0) ? (double) totalSteps : Double.POSITIVE_INFINITY;
+
+        this.lastOptimumTree = currentTree;
+        return currentDist;
     }
 
     @Override
-    public String getName() {
-        return "uSPR_IncrementalHeuristic_" + metricShortName;
+    public double getDistance(Tree tree1, Tree tree2, int... indexes) {
+        double dist = performLocalDescent(tree1, tree2);
+        return dist == 0.0 ? this.accumulatedNniCost : Double.POSITIVE_INFINITY;
     }
+
+    @Override public boolean isRooted() { return false; }
+    @Override public String getName() { return "Heur. uSPR " + this.metricShortName; }
+    @Override public String getCommandLineName() { return "huspr_" + this.incMetric.getCommandLineName(); }
 }

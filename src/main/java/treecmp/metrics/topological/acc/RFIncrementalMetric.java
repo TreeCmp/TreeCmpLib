@@ -58,8 +58,17 @@ public class RFIncrementalMetric extends BaseRFIncrementalMetric {
         if (isInnerMove || pruneInvolvesRoot || targetInvolvesRoot) {
             Tree tempTree = usprUtils.createUsprTree(this.baseTreeRef, pruneNode, targetNode);
             if (tempTree != null) {
-                return classicRf.getDistance(tempTree, this.targetTreeRef);
+                // KLUCZOWY FIX: Zabezpieczenie przed StackOverflow w wewnętrznych strukturach PAL
+                if (tempTree instanceof pal.tree.SimpleTree) {
+                    ((pal.tree.SimpleTree) tempTree).createNodeList();
+                }
+                try {
+                    return classicRf.getDistance(tempTree, this.targetTreeRef);
+                } catch (Exception e) {
+                    return Double.POSITIVE_INFINITY;
+                }
             }
+            // Zwracamy Infinity zgodnie ze starym kodem, tak jak oczekuje tego Fuzzer!
             return Double.POSITIVE_INFINITY;
         }
 

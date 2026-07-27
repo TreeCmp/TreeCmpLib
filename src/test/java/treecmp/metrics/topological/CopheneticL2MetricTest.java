@@ -9,7 +9,7 @@ class CopheneticL2MetricTest {
 
     @Test
     void getCopheneticL2Distance_identicalTrees_returnsZero() {
-        var t1 = TestTreeFactory.fourLeavesTree1();
+        var t1 = TestTreeFactory.fourLeavesRootedTree1();
         var mcm = new CopheneticL2Metric();
 
         double distance = mcm.getDistance(t1, t1);
@@ -19,8 +19,8 @@ class CopheneticL2MetricTest {
 
     @Test
     void getCopheneticL2Distance_4leafsTrees_returnsFour() {
-        var t1 = TestTreeFactory.fourLeavesTree1();
-        var t2 = TestTreeFactory.fourLeavesTree2();
+        var t1 = TestTreeFactory.fourLeavesRootedTree1();
+        var t2 = TestTreeFactory.fourLeavesRootedTree2();
 
         var mcm = new CopheneticL2Metric();
 

@@ -44,37 +44,37 @@ public class RFIncrementalMetricFuzzTest {
         return copy;
     }
 
-    @Test
-    void testFuzzUsprDFSAcceleration() {
-        Random rng = new Random(123);
-        totalEvaluations = 0;
+        @Test
+        void testFuzzUsprDFSAcceleration() {
+            Random rng = new Random(123);
+            totalEvaluations = 0;
 
-        for (int i = 0; i < FUZZ_ITERATIONS; i++) {
-            int numLeaves = 10 + rng.nextInt(41);
+            for (int i = 0; i < FUZZ_ITERATIONS; i++) {
+                int numLeaves = 10 + rng.nextInt(41);
 
-            // RF korzysta z drzew unrooted
-            Tree baseTree = createCleanCopy(TestTreeFactory.randomUnrootedBinaryTree(numLeaves, rng.nextLong()));
-            Tree targetTree = createCleanCopy(TestTreeFactory.randomUnrootedBinaryTree(numLeaves, rng.nextLong()));
+                // RF korzysta z drzew unrooted
+                Tree baseTree = createCleanCopy(TestTreeFactory.randomUnrootedBinaryTree(numLeaves, rng.nextLong()));
+                Tree targetTree = createCleanCopy(TestTreeFactory.randomUnrootedBinaryTree(numLeaves, rng.nextLong()));
 
-            incrementalMetric.initCalculationState(baseTree, targetTree);
-            double initialDist = incrementalMetric.getCurrentDistance();
+                incrementalMetric.initCalculationState(baseTree, targetTree);
+                double initialDist = incrementalMetric.getCurrentDistance();
 
-            Node[] allNodes = TreeCmpUtils.getAllNodes(baseTree);
-            for (Node pruneNode : allNodes) {
-                // uSPR: Pomijamy główną trifurkację z powodu wirtualnego korzenia stopnia 3
-                if (pruneNode.isRoot() || pruneNode.getParent() == null) continue;
+                Node[] allNodes = TreeCmpUtils.getAllNodes(baseTree);
+                for (Node pruneNode : allNodes) {
+                    // uSPR: Pomijamy główną trifurkację z powodu wirtualnego korzenia stopnia 3
+                    if (pruneNode.isRoot() || pruneNode.getParent() == null) continue;
 
-                incrementalMetric.applySprPrune(pruneNode);
-                dfsUsprFuzz(pruneNode, baseTree.getRoot(), baseTree, targetTree);
-                incrementalMetric.undoSprPrune(pruneNode);
+                    incrementalMetric.applySprPrune(pruneNode);
+                    dfsUsprFuzz(pruneNode, baseTree.getRoot(), baseTree, targetTree);
+                    incrementalMetric.undoSprPrune(pruneNode);
 
-                assertEquals(initialDist, incrementalMetric.getCurrentDistance(), DELTA,
-                        "Błąd wycofywania stosu (Undo Prune leak) w drzewie nr " + i);
+                    assertEquals(initialDist, incrementalMetric.getCurrentDistance(), DELTA,
+                            "Błąd wycofywania stosu (Undo Prune leak) w drzewie nr " + i);
+                }
             }
+            System.out.println("RF uSPR DFS Fuzz Passed! Zweryfikowano bezbłędnie " + totalEvaluations +
+                    " kroków uSPR (wliczając Inner Moves) w pełnym cyklu odcięcie/wpięcie.");
         }
-        System.out.println("RF uSPR DFS Fuzz Passed! Zweryfikowano bezbłędnie " + totalEvaluations +
-                " kroków uSPR (wliczając Inner Moves) w pełnym cyklu odcięcie/wpięcie.");
-    }
 
     private void dfsUsprFuzz(Node pruneNode, Node currentNode, Tree baseTree, Tree targetTree) {
         if (currentNode != pruneNode && currentNode != pruneNode.getParent()) {

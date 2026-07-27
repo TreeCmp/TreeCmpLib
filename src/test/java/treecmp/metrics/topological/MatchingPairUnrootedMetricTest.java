@@ -9,7 +9,7 @@ public class MatchingPairUnrootedMetricTest {
 
     @Test
     void getMatchingPairUnrootedDistance_identicalTrees_returnsZero() {
-        var t1 = TestTreeFactory.fourLeavesTree1();
+        var t1 = TestTreeFactory.fourLeavesRootedTree1();
 
         var mpu = new MatchingPairMetric();
 
@@ -20,8 +20,8 @@ public class MatchingPairUnrootedMetricTest {
 
     @Test
     void getMatchingPairUnrootedDistance_4leafsTrees_returnsTwo() {
-        var t1 = TestTreeFactory.fourLeavesTree1();
-        var t2 = TestTreeFactory.fourLeavesTree2();
+        var t1 = TestTreeFactory.fourLeavesRootedTree1();
+        var t2 = TestTreeFactory.fourLeavesRootedTree2();
 
         var mpu = new MatchingTripletMetric();
 

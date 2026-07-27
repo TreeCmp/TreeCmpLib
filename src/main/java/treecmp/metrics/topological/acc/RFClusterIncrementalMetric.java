@@ -10,7 +10,6 @@ public class RFClusterIncrementalMetric extends BaseRFIncrementalMetric {
 
     @Override
     protected BitSet normalizeSplit(BitSet rawSplit) {
-
         return rawSplit;
     }
 
