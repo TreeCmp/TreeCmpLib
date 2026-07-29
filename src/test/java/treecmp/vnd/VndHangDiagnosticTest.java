@@ -1,4 +1,4 @@
-package treecmp.benchmarks;
+package treecmp.vnd;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -10,7 +10,7 @@ import treecmp.heuristics.ecr.acc.Ecr2IncrementalHeuristic;
 import treecmp.heuristics.ecr.acc.Ecr3IncrementalHeuristic;
 import treecmp.heuristics.nni.acc.NniIncrementalHeuristic;
 import treecmp.heuristics.spr.acc.UsprIncrementalHeuristicMetric;
-import treecmp.heuristics.vnd.acc.VndIncrementalHeuristic;
+import treecmp.heuristics.vnd.acc.NniVndIncrementalHeuristic;
 import treecmp.metrics.topological.acc.RFIncrementalMetric;
 import treecmp.util.TreeCreator;
 
@@ -51,7 +51,7 @@ public class VndHangDiagnosticTest {
                 new NniIncrementalHeuristic(rfInc, "RF"),
                 new UsprIncrementalHeuristicMetric(rfInc, "RF")
         );
-        VndIncrementalHeuristic vndShort = new VndIncrementalHeuristic(chainShort, null, "RF");
+        NniVndIncrementalHeuristic vndShort = new NniVndIncrementalHeuristic(chainShort, null, "RF");
 
         double dist = vndShort.getDistance(t1, t2);
         System.out.println("[SUKCES] Wariant krótki zakończony. Dystans: " + dist);
@@ -69,7 +69,7 @@ public class VndHangDiagnosticTest {
                 new Ecr3IncrementalHeuristic(rfInc, "RF"),
                 new UsprIncrementalHeuristicMetric(rfInc, "RF")
         );
-        VndIncrementalHeuristic vndFull = new VndIncrementalHeuristic(chainFull, null, "RF");
+        NniVndIncrementalHeuristic vndFull = new NniVndIncrementalHeuristic(chainFull, null, "RF");
 
         double dist = vndFull.getDistance(t1, t2);
         System.out.println("[SUKCES] Wariant pełny zakończony. Dystans: " + dist);
@@ -107,7 +107,7 @@ public class VndHangDiagnosticTest {
                     new NniIncrementalHeuristic(rfInc, "RF"),
                     new UsprIncrementalHeuristicMetric(rfInc, "RF")
             );
-            VndIncrementalHeuristic vnd = new VndIncrementalHeuristic(chain, null, "RF");
+            NniVndIncrementalHeuristic vnd = new NniVndIncrementalHeuristic(chain, null, "RF");
 
             double dist = vnd.getDistance(t1, t2);
             System.out.println("[OK] Para " + pairIndex + " policzona. Dystans: " + dist);

@@ -8,8 +8,8 @@ import treecmp.heuristics.nni.acc.NniIncrementalHeuristic;
 import treecmp.heuristics.spr.SprHeuristicMetric;
 import treecmp.heuristics.spr.acc.SprIncrementalHeuristicMetric;
 import treecmp.heuristics.spr.acc.UsprIncrementalHeuristicMetric;
-import treecmp.heuristics.vnd.VndHeuristic;
-import treecmp.heuristics.vnd.acc.VndIncrementalHeuristic;
+import treecmp.heuristics.vnd.NniVndHeuristic;
+import treecmp.heuristics.vnd.acc.NniVndIncrementalHeuristic;
 import treecmp.heuristics.base.HeuristicBaseMetric;
 import treecmp.heuristics.base.IncrementalHeuristicBaseMetric;
 
@@ -174,7 +174,7 @@ public class VndQualityVsTimeMacroBenchmark {
                 new Ecr3ClassicHeuristic(classicMetric, isRooted, shortName),
                 new SprHeuristicMetric(classicMetric, isRooted, shortName)
         );
-        return new VndHeuristic(chain, shortName);
+        return new NniVndHeuristic(chain, shortName);
     }
 
     private static Metric buildClassicVndShort(Metric classicMetric, boolean isRooted, String shortName) {
@@ -182,7 +182,7 @@ public class VndQualityVsTimeMacroBenchmark {
                 new NniClassicHeuristic(classicMetric, isRooted, shortName),
                 new SprHeuristicMetric(classicMetric, isRooted, shortName)
         );
-        return new VndHeuristic(chain, shortName);
+        return new NniVndHeuristic(chain, shortName);
     }
 
     private static Metric buildIncrementalVndFull(IncrementalMetric incMetric, boolean isRooted, String shortName) {
@@ -199,7 +199,7 @@ public class VndQualityVsTimeMacroBenchmark {
                 new Ecr3IncrementalHeuristic(incMetric, shortName),
                 sprStep
         );
-        return new VndIncrementalHeuristic(chain, null, shortName);
+        return new NniVndIncrementalHeuristic(chain, null, shortName);
     }
 
     private static Metric buildIncrementalVndShort(IncrementalMetric incMetric, boolean isRooted, String shortName) {
@@ -212,7 +212,7 @@ public class VndQualityVsTimeMacroBenchmark {
                 new NniIncrementalHeuristic(incMetric, shortName),
                 sprStep
         );
-        return new VndIncrementalHeuristic(chain, null, shortName);
+        return new NniVndIncrementalHeuristic(chain, null, shortName);
     }
 
     // =========================================================================

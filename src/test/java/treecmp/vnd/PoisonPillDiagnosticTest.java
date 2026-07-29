@@ -1,4 +1,4 @@
-package treecmp.benchmarks;
+package treecmp.vnd;
 
 import org.junit.jupiter.api.Test;
 import pal.tree.SimpleTree;
@@ -6,7 +6,7 @@ import pal.tree.Tree;
 import treecmp.heuristics.base.IncrementalHeuristicBaseMetric;
 import treecmp.heuristics.nni.acc.NniIncrementalHeuristic;
 import treecmp.heuristics.spr.acc.UsprIncrementalHeuristicMetric;
-import treecmp.heuristics.vnd.acc.VndIncrementalHeuristic;
+import treecmp.heuristics.vnd.acc.NniVndIncrementalHeuristic;
 import treecmp.metrics.topological.acc.RFIncrementalMetric;
 import treecmp.util.TreeCreator;
 
@@ -45,7 +45,7 @@ public class PoisonPillDiagnosticTest {
                 new NniIncrementalHeuristic(rfInc, "RF"),
                 new UsprIncrementalHeuristicMetric(rfInc, "RF")
         );
-        VndIncrementalHeuristic vnd = new VndIncrementalHeuristic(chain, null, "RF");
+        NniVndIncrementalHeuristic vnd = new NniVndIncrementalHeuristic(chain, null, "RF");
 
         double dist = vnd.getDistance(t1, t2);
         System.out.println("ZAKONCZONO. Dystans: " + dist);
