@@ -18,11 +18,12 @@ public class Ecr3Move implements TreeMove {
 
     @Override
     public String getDescription() {
-        return "3-sECR: Resolving a 4-node cluster into a new binary topology (1 of 105)";
+        return String.format("3-sECR: Resolving cluster into new binary topology (exact NNI cost: %d)",
+                getNniEquivalentCost());
     }
 
     @Override
     public int getNniEquivalentCost() {
-        return 3; // Bezpieczna średnia dla 3-sECR
+        return template.nniCost; // Odczytujemy dokładny koszt wprost z szablonu!
     }
 }

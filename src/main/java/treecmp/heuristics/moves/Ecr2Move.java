@@ -2,7 +2,6 @@ package treecmp.heuristics.moves;
 
 import pal.tree.Node;
 import treecmp.heuristics.ecr.SubtreeEcr2Utils.TopologyTemplate2sECR;
-
 import java.util.Arrays;
 
 public class Ecr2Move implements TreeMove {
@@ -22,16 +21,22 @@ public class Ecr2Move implements TreeMove {
 
     @Override
     public String getDescription() {
-        // Określamy, z jakiego typu gwiazdy (oryginalnego klastra) zrobiliśmy rozplecenie
         String clusterType = template.isFork ? "Fork" : "Chain";
-
-        // Zwracamy czytelny opis, np.: "2-sECR [Chain] applying permutation: [0, 2, 1, 3]"
-        return String.format("2-sECR [%s] applying permutation: %s",
-                clusterType, Arrays.toString(template.indices));
+        return String.format("2-sECR [%s] applying permutation: %s (NNI cost: %d)",
+                clusterType, Arrays.toString(template.indices), getNniEquivalentCost());
     }
 
     @Override
     public int getNniEquivalentCost() {
-        return 2; // Bezpieczna średnia dla 2-sECR
+        // Jeśli szablon ma pole exactNniCost, zwracamy je bezpośrednio:
+        // return template.exactNniCost;
+
+        // Alternatywnie: wyliczenie deterministyczne na podstawie permutacji indeksów
+        // W 2-sECR brak zmiany to 0, prosta rotacja to 1 NNI, pełna przebudowa to 2 NNI.
+        int diffCount = 0;
+        for (int i = 0; i < template.indices.length; i++) {
+            if (template.indices[i] != i) diffCount++;
+        }
+        return (diffCount <= 2) ? 1 : 2;
     }
 }

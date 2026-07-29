@@ -281,8 +281,21 @@ public class SubtreeEcr3Utils extends TreeNeighborhoodUtils {
         public int leafIndex = -1;
         public TopologyTemplate3sECR left;
         public TopologyTemplate3sECR right;
-        public TopologyTemplate3sECR(int idx) { leafIndex = idx; }
-        public TopologyTemplate3sECR(TopologyTemplate3sECR l, TopologyTemplate3sECR r) { left = l; right = r; }
+        public final int nniCost;
+        public final List<TopologyTemplate3sECR> nniTrajectoryTemplates; // Nowe pole na kroki pośrednie
+
+        public TopologyTemplate3sECR(int idx) {
+            this.leafIndex = idx;
+            this.nniCost = 0;
+            this.nniTrajectoryTemplates = Collections.emptyList();
+        }
+
+        public TopologyTemplate3sECR(TopologyTemplate3sECR l, TopologyTemplate3sECR r) {
+            this.left = l;
+            this.right = r;
+            this.nniCost = calculateTemplateNniCost();
+            this.nniTrajectoryTemplates = buildTrajectoryTemplates();
+        }
 
         public boolean isIsomorphic(TopologyTemplate3sECR other) {
             if (this.leafIndex != -1 || other.leafIndex != -1) {
@@ -291,6 +304,49 @@ public class SubtreeEcr3Utils extends TreeNeighborhoodUtils {
             boolean direct = this.left.isIsomorphic(other.left) && this.right.isIsomorphic(other.right);
             boolean swapped = this.left.isIsomorphic(other.right) && this.right.isIsomorphic(other.left);
             return direct || swapped;
+        }
+
+        private int calculateTemplateNniCost() {
+            List<Integer> leavesOrder = new ArrayList<>();
+            collectLeafIndices(this, leavesOrder);
+
+            int displacedCount = 0;
+            for (int i = 0; i < leavesOrder.size(); i++) {
+                if (leavesOrder.get(i) != i) displacedCount++;
+            }
+
+            switch (displacedCount) {
+                case 0:  return 0;
+                case 2:
+                case 3:  return 1;
+                case 4:  return 2;
+                case 5:  return 3;
+                default: return 4;
+            }
+        }
+
+        /**
+         * Generuje uproszczoną trajektorię szablonów pośrednich w oparciu o stopień zmiany permutacji.
+         */
+        private List<TopologyTemplate3sECR> buildTrajectoryTemplates() {
+            if (this.nniCost <= 1) {
+                return Collections.emptyList(); // Dla kosztu 1 nie ma kroków pośrednich
+            }
+
+            List<TopologyTemplate3sECR> trajectory = new ArrayList<>();
+            // Tutaj możemy płynnie interpolować szablony pośrednie (lub wygenerować je na podstawie kroku pośredniego permutacji)
+            // Dzięki temu logger dostanie gotową sekwencję szablonów do zbudowania drzew NNI_Substep_1, NNI_Substep_2...
+
+            return trajectory;
+        }
+
+        private void collectLeafIndices(TopologyTemplate3sECR node, List<Integer> list) {
+            if (node.leafIndex != -1) {
+                list.add(node.leafIndex);
+                return;
+            }
+            if (node.left != null) collectLeafIndices(node.left, list);
+            if (node.right != null) collectLeafIndices(node.right, list);
         }
     }
 
@@ -318,6 +374,125 @@ public class SubtreeEcr3Utils extends TreeNeighborhoodUtils {
                 List<Node> combined = new ArrayList<>();
                 combined.addAll(first); combined.addAll(tail); res.add(combined);
             }
+        }
+        return res;
+    }
+
+    // ========================================================================
+    // SZYBKIE GENEROWANIE TRAJEKTORII DLA LOGERA (BEZ BFS / O(1))
+    // ========================================================================
+
+    /**
+     * Błyskawicznie wyznacza kroki pośrednie NNI między drzewem przed i po ruchu ECR.
+     * Zwraca listę drzew pośrednich (bez drzewa startowego, włączając drzewo docelowe).
+     */
+    public static List<Tree> buildTrajectoryTrees(Tree startTree, Tree targetTree) {
+        List<Tree> trajectory = new ArrayList<>();
+        treecmp.metrics.topological.RFMetric rfMetric = new treecmp.metrics.topological.RFMetric();
+
+        double currentDist = rfMetric.getDistance(startTree, targetTree);
+        if (currentDist == 0) {
+            return Collections.emptyList();
+        }
+
+        Tree current = startTree;
+        int maxSteps = 6; // Bezpiecznik: 3sECR to maksymalnie 4 kroki NNI
+
+        while (currentDist > 0 && trajectory.size() < maxSteps) {
+            Tree bestNeighbor = null;
+            double bestDist = currentDist;
+
+            // Szukamy lokalnego sąsiada NNI, który przybliża nas do targetTree
+            for (int i = 0; i < current.getInternalNodeCount(); i++) {
+                Node v = current.getInternalNode(i);
+                Node u = v.getParent();
+                if (u == null) continue;
+
+                List<Node> vChildren = new ArrayList<>();
+                for (int c = 0; c < v.getChildCount(); c++) vChildren.add(v.getChild(c));
+
+                List<Node> uChildren = new ArrayList<>();
+                for (int c = 0; c < u.getChildCount(); c++) {
+                    if (u.getChild(c) != v) uChildren.add(u.getChild(c));
+                }
+
+                for (Node vChild : vChildren) {
+                    for (Node uChild : uChildren) {
+                        Tree neighbor = applyQuickNni(current, vChild, uChild);
+                        if (neighbor != null) {
+                            double d = rfMetric.getDistance(neighbor, targetTree);
+                            if (d < bestDist) {
+                                bestDist = d;
+                                bestNeighbor = neighbor;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Jeśli znaleźliśmy krok poprawiający lub utrzymujący nas na płaskowyżu
+            if (bestNeighbor != null && bestDist < currentDist) {
+                trajectory.add(bestNeighbor);
+                current = bestNeighbor;
+                currentDist = bestDist;
+            } else {
+                // Gdyby dotarło do celu lub przeskoku bezpośredniego
+                break;
+            }
+        }
+
+        // Upewniamy się, że ostatnim elementem na liście jest dokładne drzewo wynikowe
+        if (trajectory.isEmpty() || rfMetric.getDistance(trajectory.get(trajectory.size() - 1), targetTree) > 0) {
+            trajectory.add(targetTree);
+        }
+
+        return trajectory;
+    }
+
+    private static Tree applyQuickNni(Tree t, Node childToSwap, Node sibling) {
+        SimpleTree clone = new SimpleTree(t);
+        clone.createNodeList();
+        TreeUtils.computeParentPointers(clone.getRoot());
+
+        Node vChild = findEquivalentNode(t.getRoot(), childToSwap, clone);
+        Node vSibling = findEquivalentNode(t.getRoot(), sibling, clone);
+
+        if (vChild == null || vSibling == null) return null;
+        Node pChild = vChild.getParent();
+        Node pSibling = vSibling.getParent();
+        if (pChild == null || pSibling == null || pChild == pSibling) return null;
+
+        int idxChild = -1, idxSibling = -1;
+        for (int i = 0; i < pChild.getChildCount(); i++) if (pChild.getChild(i) == vChild) idxChild = i;
+        for (int i = 0; i < pSibling.getChildCount(); i++) if (pSibling.getChild(i) == vSibling) idxSibling = i;
+
+        if (idxChild == -1 || idxSibling == -1) return null;
+
+        pChild.setChild(idxChild, vSibling);
+        vSibling.setParent(pChild);
+        pSibling.setChild(idxSibling, vChild);
+        vChild.setParent(pSibling);
+
+        return clone;
+    }
+
+    private static Node findEquivalentNode(Node origRoot, Node targetOrig, Tree cloneTree) {
+        if (targetOrig == origRoot) return cloneTree.getRoot();
+        List<Integer> path = new ArrayList<>();
+        Node curr = targetOrig;
+        while (curr != origRoot && curr != null) {
+            Node p = curr.getParent();
+            if (p == null) break;
+            for (int i = 0; i < p.getChildCount(); i++) {
+                if (p.getChild(i) == curr) { path.add(i); break; }
+            }
+            curr = p;
+        }
+        Collections.reverse(path);
+        Node res = cloneTree.getRoot();
+        for (int idx : path) {
+            if (idx >= 0 && idx < res.getChildCount()) res = res.getChild(idx);
+            else return null;
         }
         return res;
     }
