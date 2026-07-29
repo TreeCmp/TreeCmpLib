@@ -93,8 +93,16 @@ public class NniVndIncrementalHeuristic implements Metric {
 
                         for (int i = 0; i < nniSteps.size(); i++) {
                             stepCounter++;
-                            String subStepName = neighborhoodName + " -> NNI_Substep_" + (i + 1);
-                            HeuristicPathLogger.logStep(logFile, stepCounter, subStepName, nniSteps.get(i), currentBestValue);
+                            String subStepName = (nniSteps.size() > 1)
+                                    ? neighborhoodName + " -> NNI_Substep_" + (i + 1)
+                                    : neighborhoodName; // Jeśli jest tylko 1 krok, nie dodawaj dopisku "NNI_Substep_1"
+                            // Dla ostatniego drzewa w trajektorii bierzemy gotowe currentBestValue,
+                            // dla drzew pośrednich wyliczamy rzeczywisty dystans:
+                            double stepDist = (i == nniSteps.size() - 1)
+                                    ? currentBestValue
+                                    : this.getDistance(nniSteps.get(i), tree2);
+
+                            HeuristicPathLogger.logStep(logFile, stepCounter, subStepName, nniSteps.get(i), stepDist);
                         }
                     } else {
                         // Dla standardowych ruchów (np. NNI, SPR, Classic_TBR_Fallback) logujemy bezpośrednio jeden krok

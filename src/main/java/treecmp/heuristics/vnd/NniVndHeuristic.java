@@ -76,7 +76,9 @@ public class NniVndHeuristic implements Metric {
 
                         for (int i = 0; i < nniSteps.size(); i++) {
                             stepCounter++;
-                            String subStepName = neighborhoodName + " -> NNI_Substep_" + (i + 1);
+                            String subStepName = (nniSteps.size() > 1)
+                                    ? neighborhoodName + " -> NNI_Substep_" + (i + 1)
+                                    : neighborhoodName;
                             HeuristicPathLogger.logStep(logFile, stepCounter, subStepName, nniSteps.get(i), currentBestValue);
                         }
                     } else {
