@@ -7,6 +7,7 @@ import treecmp.common.TreeCmpException;
 import treecmp.heuristics.HeuristicPathLogger;
 import treecmp.heuristics.base.IncrementalHeuristicBaseMetric;
 import treecmp.heuristics.ecr.SubtreeEcr3Utils;
+import treecmp.heuristics.spr.SprUtils;
 import treecmp.metrics.Metric;
 
 import java.time.LocalDateTime;
@@ -95,17 +96,32 @@ public class NniVndIncrementalHeuristic implements Metric {
                             stepCounter++;
                             String subStepName = (nniSteps.size() > 1)
                                     ? neighborhoodName + " -> NNI_Substep_" + (i + 1)
-                                    : neighborhoodName; // Jeśli jest tylko 1 krok, nie dodawaj dopisku "NNI_Substep_1"
-                            // Dla ostatniego drzewa w trajektorii bierzemy gotowe currentBestValue,
-                            // dla drzew pośrednich wyliczamy rzeczywisty dystans:
+                                    : neighborhoodName;
                             double stepDist = (i == nniSteps.size() - 1)
                                     ? currentBestValue
                                     : this.getDistance(nniSteps.get(i), tree2);
 
                             HeuristicPathLogger.logStep(logFile, stepCounter, subStepName, nniSteps.get(i), stepDist);
                         }
+                    } else if (neighborhoodName.contains("SPR")) {
+                        // NOWOŚĆ: Dekompozycja SPR na kroki pośrednie NNI
+                        List<Tree> nniSteps = SprUtils.buildTrajectoryTrees(treeBeforeSearch, currentBestTree);
+
+                        for (int i = 0; i < nniSteps.size(); i++) {
+                            stepCounter++;
+                            String subStepName = (nniSteps.size() > 1)
+                                    ? neighborhoodName + " -> NNI_Substep_" + (i + 1)
+                                    : neighborhoodName;
+
+                            // BEZPIECZNE OBLICZENIE DYSTANSU (bez rekurencyjnego startu VND!):
+                            double stepDist = (i == nniSteps.size() - 1)
+                                    ? currentBestValue
+                                    : incrementalNeighborhoods.get(0).evaluateInitialDistance(nniSteps.get(i), tree2);
+
+                            HeuristicPathLogger.logStep(logFile, stepCounter, subStepName, nniSteps.get(i), stepDist);
+                        }
                     } else {
-                        // Dla standardowych ruchów (np. NNI, SPR, Classic_TBR_Fallback) logujemy bezpośrednio jeden krok
+                        // Standardowe logowanie pojedynczego kroku dla NNI i fallbacku TBR
                         stepCounter++;
                         HeuristicPathLogger.logStep(logFile, stepCounter, neighborhoodName, currentBestTree, currentBestValue);
                     }

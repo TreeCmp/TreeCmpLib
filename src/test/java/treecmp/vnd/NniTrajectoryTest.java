@@ -1,10 +1,11 @@
-package treecmp.heuristics.ecr;
+package treecmp.vnd;
 
 import org.junit.jupiter.api.Test;
 import static org.junit.jupiter.api.Assertions.*;
 
 import pal.tree.Tree;
 import pal.tree.ReadTree;
+import treecmp.heuristics.ecr.SubtreeEcr3Utils;
 import treecmp.metrics.topological.RFMetric;
 
 import java.io.PushbackReader;

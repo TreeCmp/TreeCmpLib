@@ -320,4 +320,121 @@ public class SprUtils extends TreeNeighborhoodUtils {
         sb.append(")");
         return sb.toString();
     }
+
+    // ========================================================================
+    // SZYBKIE GENEROWANIE TRAJEKTORII NNI DLA LOGERA SPR (BEZ BFS)
+    // ========================================================================
+
+    /**
+     * Błyskawicznie wyznacza kroki pośrednie NNI między drzewem przed i po ruchu SPR.
+     * Zwraca listę drzew pośrednich (bez drzewa startowego, włączając drzewo docelowe).
+     */
+    public static List<Tree> buildTrajectoryTrees(Tree startTree, Tree targetTree) {
+        List<Tree> trajectory = new ArrayList<>();
+        treecmp.metrics.topological.RFMetric rfMetric = new treecmp.metrics.topological.RFMetric();
+
+        double currentDist = rfMetric.getDistance(startTree, targetTree);
+        if (currentDist == 0) {
+            return Collections.emptyList();
+        }
+
+        Tree current = startTree;
+        int maxSteps = 30; // Bezpiecznik: ruch SPR w typowym drzewie to najwyżej kilkanaście rotacji NNI
+
+        while (currentDist > 0 && trajectory.size() < maxSteps) {
+            Tree bestNeighbor = null;
+            double bestDist = currentDist;
+
+            for (int i = 0; i < current.getInternalNodeCount(); i++) {
+                Node v = current.getInternalNode(i);
+                Node u = v.getParent();
+                if (u == null) continue;
+
+                List<Node> vChildren = new ArrayList<>();
+                for (int c = 0; c < v.getChildCount(); c++) vChildren.add(v.getChild(c));
+
+                List<Node> uChildren = new ArrayList<>();
+                for (int c = 0; c < u.getChildCount(); c++) {
+                    if (u.getChild(c) != v) uChildren.add(u.getChild(c));
+                }
+
+                for (Node vChild : vChildren) {
+                    for (Node uChild : uChildren) {
+                        Tree neighbor = applyQuickNni(current, vChild, uChild);
+                        if (neighbor != null) {
+                            double d = rfMetric.getDistance(neighbor, targetTree);
+                            if (d < bestDist) {
+                                bestDist = d;
+                                bestNeighbor = neighbor;
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Jeśli odnaleziono rotację NNI przybliżającą do celu
+            if (bestNeighbor != null && bestDist < currentDist) {
+                trajectory.add(bestNeighbor);
+                current = bestNeighbor;
+                currentDist = bestDist;
+            } else {
+                break;
+            }
+        }
+
+        // Gwarantujemy, że ostatnim elementem na liście jest dokładne drzewo wynikowe
+        if (trajectory.isEmpty() || rfMetric.getDistance(trajectory.get(trajectory.size() - 1), targetTree) > 0) {
+            trajectory.add(targetTree);
+        }
+
+        return trajectory;
+    }
+
+    private static Tree applyQuickNni(Tree t, Node childToSwap, Node sibling) {
+        SimpleTree clone = new SimpleTree(t);
+        clone.createNodeList();
+        pal.tree.TreeUtils.computeParentPointers(clone.getRoot());
+
+        Node vChild = findEquivalentNode(t.getRoot(), childToSwap, clone);
+        Node vSibling = findEquivalentNode(t.getRoot(), sibling, clone);
+
+        if (vChild == null || vSibling == null) return null;
+        Node pChild = vChild.getParent();
+        Node pSibling = vSibling.getParent();
+        if (pChild == null || pSibling == null || pChild == pSibling) return null;
+
+        int idxChild = -1, idxSibling = -1;
+        for (int i = 0; i < pChild.getChildCount(); i++) if (pChild.getChild(i) == vChild) idxChild = i;
+        for (int i = 0; i < pSibling.getChildCount(); i++) if (pSibling.getChild(i) == vSibling) idxSibling = i;
+
+        if (idxChild == -1 || idxSibling == -1) return null;
+
+        pChild.setChild(idxChild, vSibling);
+        vSibling.setParent(pChild);
+        pSibling.setChild(idxSibling, vChild);
+        vChild.setParent(pSibling);
+
+        return clone;
+    }
+
+    private static Node findEquivalentNode(Node origRoot, Node targetOrig, Tree cloneTree) {
+        if (targetOrig == origRoot) return cloneTree.getRoot();
+        List<Integer> path = new ArrayList<>();
+        Node curr = targetOrig;
+        while (curr != origRoot && curr != null) {
+            Node p = curr.getParent();
+            if (p == null) break;
+            for (int i = 0; i < p.getChildCount(); i++) {
+                if (p.getChild(i) == curr) { path.add(i); break; }
+            }
+            curr = p;
+        }
+        Collections.reverse(path);
+        Node res = cloneTree.getRoot();
+        for (int idx : path) {
+            if (idx >= 0 && idx < res.getChildCount()) res = res.getChild(idx);
+            else return null;
+        }
+        return res;
+    }
 }

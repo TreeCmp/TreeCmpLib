@@ -7,6 +7,7 @@ import treecmp.common.TreeCmpException;
 import treecmp.heuristics.HeuristicPathLogger;
 import treecmp.heuristics.base.HeuristicBaseMetric;
 import treecmp.heuristics.ecr.SubtreeEcr3Utils;
+import treecmp.heuristics.spr.SprUtils;
 import treecmp.metrics.Metric;
 
 import java.time.LocalDateTime;
@@ -36,7 +37,6 @@ public class NniVndHeuristic implements Metric {
 
         String logFile = null;
         if (ENABLE_LOGGING) {
-            // --- WPIĘCIE LOGERA: Dynamiczna nazwa pliku z datą, czasem i metryką ---
             DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
             String timestamp = LocalDateTime.now().format(dtf);
             logFile = "logs/proof_pair_vnd_classic_" + metricName + "_" + timestamp + ".txt";
@@ -79,10 +79,30 @@ public class NniVndHeuristic implements Metric {
                             String subStepName = (nniSteps.size() > 1)
                                     ? neighborhoodName + " -> NNI_Substep_" + (i + 1)
                                     : neighborhoodName;
-                            HeuristicPathLogger.logStep(logFile, stepCounter, subStepName, nniSteps.get(i), currentBestValue);
+                            // BEZPIECZNE OBLICZENIE DYSTANSU DLA ECR:
+                            double stepDist = (i == nniSteps.size() - 1)
+                                    ? currentBestValue
+                                    : classicNeighborhoods.get(0).evaluateInitialDistance(nniSteps.get(i), tree2);
+
+                            HeuristicPathLogger.logStep(logFile, stepCounter, subStepName, nniSteps.get(i), stepDist);
+                        }
+                    } else if (neighborhoodName.contains("SPR")) {
+                        List<Tree> nniSteps = SprUtils.buildTrajectoryTrees(treeBeforeSearch, currentBestTree);
+
+                        for (int i = 0; i < nniSteps.size(); i++) {
+                            stepCounter++;
+                            String subStepName = (nniSteps.size() > 1)
+                                    ? neighborhoodName + " -> NNI_Substep_" + (i + 1)
+                                    : neighborhoodName;
+                            // BEZPIECZNE OBLICZENIE DYSTANSU DLA SPR:
+                            double stepDist = (i == nniSteps.size() - 1)
+                                    ? currentBestValue
+                                    : classicNeighborhoods.get(0).evaluateInitialDistance(nniSteps.get(i), tree2);
+
+                            HeuristicPathLogger.logStep(logFile, stepCounter, subStepName, nniSteps.get(i), stepDist);
                         }
                     } else {
-                        // Dla standardowych ruchów (np. NNI, SPR) logujemy bezpośrednio jeden krok
+                        // Standardowe logowanie pojedynczego kroku dla NNI
                         stepCounter++;
                         HeuristicPathLogger.logStep(logFile, stepCounter, neighborhoodName, currentBestTree, currentBestValue);
                     }

@@ -379,13 +379,9 @@ public class SubtreeEcr3Utils extends TreeNeighborhoodUtils {
     }
 
     // ========================================================================
-    // SZYBKIE GENEROWANIE TRAJEKTORII DLA LOGERA (BEZ BFS / O(1))
+    // SZYBKIE GENEROWANIE TRAJEKTORII NNI DLA LOGERA SPR (BEZ REKURENCJI / O(1))
     // ========================================================================
 
-    /**
-     * Błyskawicznie wyznacza kroki pośrednie NNI między drzewem przed i po ruchu ECR.
-     * Zwraca listę drzew pośrednich (bez drzewa startowego, włączając drzewo docelowe).
-     */
     public static List<Tree> buildTrajectoryTrees(Tree startTree, Tree targetTree) {
         List<Tree> trajectory = new ArrayList<>();
         treecmp.metrics.topological.RFMetric rfMetric = new treecmp.metrics.topological.RFMetric();
@@ -396,13 +392,12 @@ public class SubtreeEcr3Utils extends TreeNeighborhoodUtils {
         }
 
         Tree current = startTree;
-        int maxSteps = 6; // Bezpiecznik: 3sECR to maksymalnie 4 kroki NNI
+        int maxSteps = 30; // Bezpiecznik: ruch SPR to najwyżej kilkanaście rotacji NNI
 
         while (currentDist > 0 && trajectory.size() < maxSteps) {
             Tree bestNeighbor = null;
             double bestDist = currentDist;
 
-            // Szukamy lokalnego sąsiada NNI, który przybliża nas do targetTree
             for (int i = 0; i < current.getInternalNodeCount(); i++) {
                 Node v = current.getInternalNode(i);
                 Node u = v.getParent();
@@ -430,18 +425,15 @@ public class SubtreeEcr3Utils extends TreeNeighborhoodUtils {
                 }
             }
 
-            // Jeśli znaleźliśmy krok poprawiający lub utrzymujący nas na płaskowyżu
             if (bestNeighbor != null && bestDist < currentDist) {
                 trajectory.add(bestNeighbor);
                 current = bestNeighbor;
                 currentDist = bestDist;
             } else {
-                // Gdyby dotarło do celu lub przeskoku bezpośredniego
                 break;
             }
         }
 
-        // Upewniamy się, że ostatnim elementem na liście jest dokładne drzewo wynikowe
         if (trajectory.isEmpty() || rfMetric.getDistance(trajectory.get(trajectory.size() - 1), targetTree) > 0) {
             trajectory.add(targetTree);
         }
@@ -452,7 +444,7 @@ public class SubtreeEcr3Utils extends TreeNeighborhoodUtils {
     private static Tree applyQuickNni(Tree t, Node childToSwap, Node sibling) {
         SimpleTree clone = new SimpleTree(t);
         clone.createNodeList();
-        TreeUtils.computeParentPointers(clone.getRoot());
+        pal.tree.TreeUtils.computeParentPointers(clone.getRoot());
 
         Node vChild = findEquivalentNode(t.getRoot(), childToSwap, clone);
         Node vSibling = findEquivalentNode(t.getRoot(), sibling, clone);
@@ -472,6 +464,10 @@ public class SubtreeEcr3Utils extends TreeNeighborhoodUtils {
         vSibling.setParent(pChild);
         pSibling.setChild(idxSibling, vChild);
         vChild.setParent(pSibling);
+
+        // KLUCZOWE: Po zmianie wskaźników odświeżamy struktury PAL w sklonowanym drzewie!
+        clone.createNodeList();
+        pal.tree.TreeUtils.computeParentPointers(clone.getRoot());
 
         return clone;
     }
