@@ -159,51 +159,6 @@ public class M3IncrementalMetric implements IncrementalMetric {
     @Override public void undoSprPrune(Node pruneNode) { this.activePruneNode = null; }
 
     @Override
-    public void applySprRegraftStep(Node pruneNode, Node currentNode) {
-        Node root = pruneNode;
-        while (root.getParent() != null) root = root.getParent();
-
-        SimpleTree clonedOrch = new SimpleTree(root);
-        clonedOrch.createNodeList();
-
-        Node mappedPrune = mapByPath(root, pruneNode, clonedOrch);
-        Node mappedTarget = mapByPath(root, currentNode, clonedOrch);
-
-        if (mappedPrune == null || mappedTarget == null) {
-            pushUnchangedState();
-            return;
-        }
-
-        Tree tempTree = null;
-        try {
-            if (this.isRooted()) {
-                tempTree = new SprUtils().createSprTree(clonedOrch, mappedPrune, mappedTarget);
-            } else {
-                tempTree = new UsprUtils().createUsprTree(clonedOrch, mappedPrune, mappedTarget);
-            }
-        } catch (Throwable t) {
-            pushUnchangedState();
-            return;
-        }
-
-        if (tempTree != null) {
-            try {
-                if (tempTree instanceof pal.tree.SimpleTree) {
-                    ((pal.tree.SimpleTree) tempTree).createNodeList();
-                }
-                if (this.baseIdGroup != null) {
-                    pal.tree.TreeUtils.mapExternalIdentifiers(this.baseIdGroup, tempTree);
-                }
-                calculateCleanSlateDistance((SimpleTree) tempTree, true);
-            } catch (Throwable t) {
-                pushUnchangedState();
-            }
-        } else {
-            pushUnchangedState();
-        }
-    }
-
-    @Override
     public void undoSprRegraftStep() {
         if (!history.isEmpty()) {
             StateRecord r = history.pop();
@@ -269,25 +224,12 @@ public class M3IncrementalMetric implements IncrementalMetric {
     public double evaluateSprRegraft(Node pruneNode, Node targetNode) {
         if (targetNode == pruneNode) return this.getCurrentDistance();
 
-        Node root = pruneNode;
-        while (root.getParent() != null) root = root.getParent();
-
-        SimpleTree clonedOrch = new SimpleTree(root);
-        clonedOrch.createNodeList();
-
-        Node mappedPrune = mapByPath(root, pruneNode, clonedOrch);
-        Node mappedTarget = mapByPath(root, targetNode, clonedOrch);
-
-        if (mappedPrune == null || mappedTarget == null) {
-            return Double.POSITIVE_INFINITY;
-        }
-
         Tree tempTree;
         try {
             if (this.isRooted()) {
-                tempTree = new SprUtils().createSprTree(clonedOrch, mappedPrune, mappedTarget);
+                tempTree = new SprUtils().createSprTree(this.originalBaseTree, pruneNode, targetNode);
             } else {
-                tempTree = new UsprUtils().createUsprTree(clonedOrch, mappedPrune, mappedTarget);
+                tempTree = new UsprUtils().createUsprTree(this.originalBaseTree, pruneNode, targetNode);
             }
         } catch (Throwable t) {
             return Double.POSITIVE_INFINITY;
@@ -307,6 +249,37 @@ public class M3IncrementalMetric implements IncrementalMetric {
             }
         }
         return Double.POSITIVE_INFINITY;
+    }
+
+    @Override
+    public void applySprRegraftStep(Node pruneNode, Node currentNode) {
+        Tree tempTree = null;
+        try {
+            if (this.isRooted()) {
+                tempTree = new SprUtils().createSprTree(this.originalBaseTree, pruneNode, currentNode);
+            } else {
+                tempTree = new UsprUtils().createUsprTree(this.originalBaseTree, pruneNode, currentNode);
+            }
+        } catch (Throwable t) {
+            pushUnchangedState();
+            return;
+        }
+
+        if (tempTree != null) {
+            try {
+                if (tempTree instanceof pal.tree.SimpleTree) {
+                    ((pal.tree.SimpleTree) tempTree).createNodeList();
+                }
+                if (this.baseIdGroup != null) {
+                    pal.tree.TreeUtils.mapExternalIdentifiers(this.baseIdGroup, tempTree);
+                }
+                calculateCleanSlateDistance((SimpleTree) tempTree, true);
+            } catch (Throwable t) {
+                pushUnchangedState();
+            }
+        } else {
+            pushUnchangedState();
+        }
     }
 
     private double calculateCleanSlateDistance(SimpleTree tPerfect, boolean isCommit) {
