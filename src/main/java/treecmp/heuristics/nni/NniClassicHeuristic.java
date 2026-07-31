@@ -1,22 +1,26 @@
 package treecmp.heuristics.nni;
 
+import pal.tree.SimpleTree;
+import pal.tree.Tree;
+import pal.tree.TreeUtils;
+import treecmp.common.TreeCmpUtils;
 import treecmp.heuristics.base.HeuristicBaseMetric;
 import treecmp.heuristics.TreeNeighborhoodUtils;
 import treecmp.metrics.Metric;
 
+import java.util.List;
+
 public class NniClassicHeuristic extends HeuristicBaseMetric {
 
     private final Metric metric;
-    private final Metric primaryMetric; // Dodane: wsparcie dla opcjonalnego szybkiego filtra
+    private final Metric primaryMetric;
     private final boolean isRooted;
     private final String metricShortName;
 
-    // 1. Podstawowy konstruktor (dla zwykłych metryk np. RF, RFC, M3)
     public NniClassicHeuristic(Metric metric, boolean isRooted, String metricShortName) {
-        this(metric, null, isRooted, metricShortName); // Delegacja do pełnego konstruktora
+        this(metric, null, isRooted, metricShortName);
     }
 
-    // 2. Rozszerzony konstruktor z filtrem (dla metryk łączonych np. UMAST + RF)
     public NniClassicHeuristic(Metric metric, Metric primaryMetric, boolean isRooted, String metricShortName) {
         super(isRooted);
         this.metric = metric;
@@ -37,13 +41,46 @@ public class NniClassicHeuristic extends HeuristicBaseMetric {
 
     @Override
     protected Metric getPrimaryMetric() {
-        // Jeśli wstrzyknięto szybki filtr (primaryMetric), użyj go.
-        // W przeciwnym razie zachowaj domyślne zachowanie klasy bazowej.
         return this.primaryMetric != null ? this.primaryMetric : super.getPrimaryMetric();
     }
 
     @Override
     public String getName() {
         return "NNI_ClassicHeuristic_" + metricShortName;
+    }
+
+    @Override
+    public double performLocalDescent(Tree startTree, Tree targetTree) {
+        double dist = super.performLocalDescent(startTree, targetTree);
+        sanitizeTree(super.getLastOptimumTree());
+        return dist;
+    }
+
+    @Override
+    public Tree getLastOptimumTree() {
+        return sanitizeTree(super.getLastOptimumTree());
+    }
+
+    @Override
+    public List<Tree> getLastOptimumTrajectory(Tree startTree) {
+        List<Tree> trajectory = super.getLastOptimumTrajectory(startTree);
+        if (trajectory != null) {
+            for (Tree t : trajectory) {
+                sanitizeTree(t);
+            }
+        }
+        return trajectory;
+    }
+
+    private Tree sanitizeTree(Tree t) {
+        if (t == null) return null;
+        if (!isRooted()) {
+            TreeCmpUtils.unrootTreeIfNeeded(t);
+        }
+        if (t instanceof SimpleTree) {
+            ((SimpleTree) t).createNodeList();
+        }
+        TreeUtils.computeParentPointers(t.getRoot());
+        return t;
     }
 }
