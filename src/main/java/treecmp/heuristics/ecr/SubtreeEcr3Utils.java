@@ -44,10 +44,15 @@ public class SubtreeEcr3Utils extends TreeNeighborhoodUtils {
 
                     Tree newTree = createEcr3Tree(tree, cluster, s, template);
                     if (newTree != null) {
+                        // 1. Tworzymy obiekt ruchu i przypisujemy do zmiennej
+                        treecmp.heuristics.moves.Ecr3Move move =
+                                new treecmp.heuristics.moves.Ecr3Move(cluster, s, template);
 
-                        // DODANO: Obliczenie i rejestracja poprawnego kosztu NNI do bufora
-                        double moveCost = new treecmp.heuristics.moves.Ecr3Move(cluster, s, template).getNniEquivalentCost();
-                        registerTreeCost(newTree, moveCost);
+                        // 2. Rejestrujemy koszt
+                        registerTreeCost(newTree, move.getNniEquivalentCost());
+
+                        // 3. Rejestrujemy ruch w mapie
+                        registerTreeMove(newTree, move);
 
                         if (unrooted) {
                             ecrTreeSet.add(new TreeUnrootedHolder(newTree, idGroup));
@@ -132,16 +137,18 @@ public class SubtreeEcr3Utils extends TreeNeighborhoodUtils {
     // ODBUDOWA DRZEWA (WSTRZYKIWANIE 105 SZABLONÓW - CLONE & IN PLACE)
     // ========================================================================
 
-    private Tree createEcr3Tree(Tree tree, List<Node> cluster, Node[] s, TopologyTemplate3sECR template) {
+    public Tree createEcr3Tree(Tree tree, List<Node> cluster, Node[] s, TopologyTemplate3sECR template) {
         try {
             List<List<Integer>> pathCluster = new ArrayList<>();
             for (Node n : cluster) {
                 List<Integer> p = new ArrayList<>(); getPathToNode(tree.getRoot(), n, p);
+                if (n != tree.getRoot() && p.isEmpty()) return null; // Zabezpieczenie
                 pathCluster.add(p);
             }
             List<List<Integer>> pathS = new ArrayList<>();
             for (Node sub : s) {
                 List<Integer> p = new ArrayList<>(); getPathToNode(tree.getRoot(), sub, p);
+                if (sub != tree.getRoot() && p.isEmpty()) return null; // Zabezpieczenie
                 pathS.add(p);
             }
 
@@ -243,7 +250,15 @@ public class SubtreeEcr3Utils extends TreeNeighborhoodUtils {
 
     private static List<TopologyTemplate3sECR> generate105Templates() {
         List<Integer> leaves = Arrays.asList(0, 1, 2, 3, 4);
-        return generateTrees(leaves);
+        List<TopologyTemplate3sECR> list = generateTrees(leaves);
+
+        // BEZPIECZNY ETAP 2: Cała lista jest już gotowa w pamięci,
+        // więc możemy bez ryzyka NPE wyliczyć kroki pośrednie:
+        for (TopologyTemplate3sECR t : list) {
+            t.nniTrajectoryTemplates = t.buildTrajectoryTemplates(list);
+        }
+
+        return list;
     }
 
     private static List<TopologyTemplate3sECR> generateTrees(List<Integer> elements) {
@@ -276,34 +291,36 @@ public class SubtreeEcr3Utils extends TreeNeighborhoodUtils {
         }
         return result;
     }
-
     public static class TopologyTemplate3sECR {
         public int leafIndex = -1;
         public TopologyTemplate3sECR left;
         public TopologyTemplate3sECR right;
         public final int nniCost;
-        public final List<TopologyTemplate3sECR> nniTrajectoryTemplates; // Nowe pole na kroki pośrednie
+        public List<TopologyTemplate3sECR> nniTrajectoryTemplates;
 
-        public TopologyTemplate3sECR(int idx) {
-            this.leafIndex = idx;
+        // 1. Konstruktor dla liścia
+        public TopologyTemplate3sECR(int leafIndex) {
+            this.leafIndex = leafIndex;
             this.nniCost = 0;
             this.nniTrajectoryTemplates = Collections.emptyList();
         }
 
+        // 2. Konstruktor dla węzła wewnętrznego
         public TopologyTemplate3sECR(TopologyTemplate3sECR l, TopologyTemplate3sECR r) {
             this.left = l;
             this.right = r;
             this.nniCost = calculateTemplateNniCost();
-            this.nniTrajectoryTemplates = buildTrajectoryTemplates();
+            this.nniTrajectoryTemplates = Collections.emptyList();
         }
 
+        // 3. BRAKUJĄCA METODA: Sprawdzenie izomorfizmu (identyczności struktury)
         public boolean isIsomorphic(TopologyTemplate3sECR other) {
+            if (other == null) return false;
             if (this.leafIndex != -1 || other.leafIndex != -1) {
                 return this.leafIndex == other.leafIndex;
             }
-            boolean direct = this.left.isIsomorphic(other.left) && this.right.isIsomorphic(other.right);
-            boolean swapped = this.left.isIsomorphic(other.right) && this.right.isIsomorphic(other.left);
-            return direct || swapped;
+            return (this.left != null && this.left.isIsomorphic(other.left))
+                    && (this.right != null && this.right.isIsomorphic(other.right));
         }
 
         private int calculateTemplateNniCost() {
@@ -315,29 +332,78 @@ public class SubtreeEcr3Utils extends TreeNeighborhoodUtils {
                 if (leavesOrder.get(i) != i) displacedCount++;
             }
 
+            // Prawdziwa wycena topologiczna w 5-liściowym klastrze:
             switch (displacedCount) {
-                case 0:  return 0;
-                case 2:
-                case 3:  return 1;
-                case 4:  return 2;
-                case 5:  return 3;
-                default: return 4;
+                case 0:  return 0; // Identity (brak ruchu)
+                case 2:  return 1; // Prawdziwa 1 rotacja NNI (wymiana 2 liści)
+                case 3:
+                case 4:  return 2; // 2 rotacje NNI
+                case 5:  return 3; // 3 rotacje NNI
+                default: return 2;
             }
         }
 
-        /**
-         * Generuje uproszczoną trajektorię szablonów pośrednich w oparciu o stopień zmiany permutacji.
-         */
-        private List<TopologyTemplate3sECR> buildTrajectoryTemplates() {
-            if (this.nniCost <= 1) {
-                return Collections.emptyList(); // Dla kosztu 1 nie ma kroków pośrednich
+        public List<TopologyTemplate3sECR> buildTrajectoryTemplates(List<TopologyTemplate3sECR> allTemplates) {
+            // Jeśli to szablon startowy (Identity) lub brak katalogu - brak trajektorii
+            if (this.leafIndex != -1 || this.nniCost == 0 || allTemplates == null || allTemplates.isEmpty()) {
+                return Collections.emptyList();
             }
 
             List<TopologyTemplate3sECR> trajectory = new ArrayList<>();
-            // Tutaj możemy płynnie interpolować szablony pośrednie (lub wygenerować je na podstawie kroku pośredniego permutacji)
-            // Dzięki temu logger dostanie gotową sekwencję szablonów do zbudowania drzew NNI_Substep_1, NNI_Substep_2...
+            List<Integer> targetOrder = new ArrayList<>();
+            collectLeafIndices(this, targetOrder);
+
+            // KROK 1: Szukamy PRAWDZIWEGO szablonu 1-NNI (o katalogowym koszcie dokładnie 1)
+            TopologyTemplate3sECR step1 = findBestIntermediateTemplate(targetOrder, 1, allTemplates, this, null);
+            if (step1 != null) {
+                trajectory.add(step1);
+            }
+
+            // KROK 2: Jeśli ruch jest oddalony o >= 3 NNI, szukamy drugiego szablonu o koszcie 2 NNI
+            if (this.nniCost >= 3) {
+                TopologyTemplate3sECR step2 = findBestIntermediateTemplate(targetOrder, 2, allTemplates, this, step1);
+                if (step2 != null) {
+                    trajectory.add(step2);
+                }
+            }
 
             return trajectory;
+        }
+
+        private TopologyTemplate3sECR findBestIntermediateTemplate(
+                List<Integer> targetOrder,
+                int desiredCost,
+                List<TopologyTemplate3sECR> allTemplates,
+                TopologyTemplate3sECR exclude1,
+                TopologyTemplate3sECR exclude2) {
+
+            TopologyTemplate3sECR bestMatch = null;
+            int bestAgreement = -1;
+
+            for (TopologyTemplate3sECR candidate : allTemplates) {
+                // WYMÓG: Kandydat MUSI mieć dokładnie żądany koszt NNI (np. 1 dla step1)
+                if (candidate.nniCost != desiredCost ||
+                        (exclude1 != null && (candidate == exclude1 || candidate.isIsomorphic(exclude1))) ||
+                        (exclude2 != null && (candidate == exclude2 || candidate.isIsomorphic(exclude2)))) {
+                    continue;
+                }
+
+                List<Integer> candidateOrder = new ArrayList<>();
+                collectLeafIndices(candidate, candidateOrder);
+
+                int agreement = 0;
+                for (int i = 0; i < targetOrder.size(); i++) {
+                    if (candidateOrder.get(i).equals(targetOrder.get(i))) {
+                        agreement++;
+                    }
+                }
+
+                if (agreement > bestAgreement) {
+                    bestAgreement = agreement;
+                    bestMatch = candidate;
+                }
+            }
+            return bestMatch;
         }
 
         private void collectLeafIndices(TopologyTemplate3sECR node, List<Integer> list) {
@@ -374,121 +440,6 @@ public class SubtreeEcr3Utils extends TreeNeighborhoodUtils {
                 List<Node> combined = new ArrayList<>();
                 combined.addAll(first); combined.addAll(tail); res.add(combined);
             }
-        }
-        return res;
-    }
-
-    // ========================================================================
-    // SZYBKIE GENEROWANIE TRAJEKTORII NNI DLA LOGERA SPR (BEZ REKURENCJI / O(1))
-    // ========================================================================
-
-    public static List<Tree> buildTrajectoryTrees(Tree startTree, Tree targetTree) {
-        List<Tree> trajectory = new ArrayList<>();
-        treecmp.metrics.topological.RFMetric rfMetric = new treecmp.metrics.topological.RFMetric();
-
-        double currentDist = rfMetric.getDistance(startTree, targetTree);
-        if (currentDist == 0) {
-            return Collections.emptyList();
-        }
-
-        Tree current = startTree;
-        int maxSteps = 30; // Bezpiecznik: ruch SPR to najwyżej kilkanaście rotacji NNI
-
-        while (currentDist > 0 && trajectory.size() < maxSteps) {
-            Tree bestNeighbor = null;
-            double bestDist = currentDist;
-
-            for (int i = 0; i < current.getInternalNodeCount(); i++) {
-                Node v = current.getInternalNode(i);
-                Node u = v.getParent();
-                if (u == null) continue;
-
-                List<Node> vChildren = new ArrayList<>();
-                for (int c = 0; c < v.getChildCount(); c++) vChildren.add(v.getChild(c));
-
-                List<Node> uChildren = new ArrayList<>();
-                for (int c = 0; c < u.getChildCount(); c++) {
-                    if (u.getChild(c) != v) uChildren.add(u.getChild(c));
-                }
-
-                for (Node vChild : vChildren) {
-                    for (Node uChild : uChildren) {
-                        Tree neighbor = applyQuickNni(current, vChild, uChild);
-                        if (neighbor != null) {
-                            double d = rfMetric.getDistance(neighbor, targetTree);
-                            if (d < bestDist) {
-                                bestDist = d;
-                                bestNeighbor = neighbor;
-                            }
-                        }
-                    }
-                }
-            }
-
-            if (bestNeighbor != null && bestDist < currentDist) {
-                trajectory.add(bestNeighbor);
-                current = bestNeighbor;
-                currentDist = bestDist;
-            } else {
-                break;
-            }
-        }
-
-        if (trajectory.isEmpty() || rfMetric.getDistance(trajectory.get(trajectory.size() - 1), targetTree) > 0) {
-            trajectory.add(targetTree);
-        }
-
-        return trajectory;
-    }
-
-    private static Tree applyQuickNni(Tree t, Node childToSwap, Node sibling) {
-        SimpleTree clone = new SimpleTree(t);
-        clone.createNodeList();
-        pal.tree.TreeUtils.computeParentPointers(clone.getRoot());
-
-        Node vChild = findEquivalentNode(t.getRoot(), childToSwap, clone);
-        Node vSibling = findEquivalentNode(t.getRoot(), sibling, clone);
-
-        if (vChild == null || vSibling == null) return null;
-        Node pChild = vChild.getParent();
-        Node pSibling = vSibling.getParent();
-        if (pChild == null || pSibling == null || pChild == pSibling) return null;
-
-        int idxChild = -1, idxSibling = -1;
-        for (int i = 0; i < pChild.getChildCount(); i++) if (pChild.getChild(i) == vChild) idxChild = i;
-        for (int i = 0; i < pSibling.getChildCount(); i++) if (pSibling.getChild(i) == vSibling) idxSibling = i;
-
-        if (idxChild == -1 || idxSibling == -1) return null;
-
-        pChild.setChild(idxChild, vSibling);
-        vSibling.setParent(pChild);
-        pSibling.setChild(idxSibling, vChild);
-        vChild.setParent(pSibling);
-
-        // KLUCZOWE: Po zmianie wskaźników odświeżamy struktury PAL w sklonowanym drzewie!
-        clone.createNodeList();
-        pal.tree.TreeUtils.computeParentPointers(clone.getRoot());
-
-        return clone;
-    }
-
-    private static Node findEquivalentNode(Node origRoot, Node targetOrig, Tree cloneTree) {
-        if (targetOrig == origRoot) return cloneTree.getRoot();
-        List<Integer> path = new ArrayList<>();
-        Node curr = targetOrig;
-        while (curr != origRoot && curr != null) {
-            Node p = curr.getParent();
-            if (p == null) break;
-            for (int i = 0; i < p.getChildCount(); i++) {
-                if (p.getChild(i) == curr) { path.add(i); break; }
-            }
-            curr = p;
-        }
-        Collections.reverse(path);
-        Node res = cloneTree.getRoot();
-        for (int idx : path) {
-            if (idx >= 0 && idx < res.getChildCount()) res = res.getChild(idx);
-            else return null;
         }
         return res;
     }

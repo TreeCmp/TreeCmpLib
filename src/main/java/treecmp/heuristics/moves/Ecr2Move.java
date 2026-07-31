@@ -1,8 +1,14 @@
 package treecmp.heuristics.moves;
 
 import pal.tree.Node;
+import pal.tree.Tree;
+import treecmp.heuristics.ecr.SubtreeEcr2Utils;
 import treecmp.heuristics.ecr.SubtreeEcr2Utils.TopologyTemplate2sECR;
+
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
+import java.util.List;
 
 public class Ecr2Move implements TreeMove {
     public final Node top;
@@ -21,22 +27,72 @@ public class Ecr2Move implements TreeMove {
 
     @Override
     public String getDescription() {
-        String clusterType = template.isFork ? "Fork" : "Chain";
+        String clusterType = template.isFork ? "Fork" : "Chain"; //[cite: 38]
         return String.format("2-sECR [%s] applying permutation: %s (NNI cost: %d)",
-                clusterType, Arrays.toString(template.indices), getNniEquivalentCost());
+                clusterType, Arrays.toString(template.indices), getNniEquivalentCost()); //[cite: 38]
     }
 
     @Override
     public int getNniEquivalentCost() {
-        // Jeśli szablon ma pole exactNniCost, zwracamy je bezpośrednio:
-        // return template.exactNniCost;
+        return calculateCost(this.template);
+    }
 
-        // Alternatywnie: wyliczenie deterministyczne na podstawie permutacji indeksów
-        // W 2-sECR brak zmiany to 0, prosta rotacja to 1 NNI, pełna przebudowa to 2 NNI.
-        int diffCount = 0;
-        for (int i = 0; i < template.indices.length; i++) {
-            if (template.indices[i] != i) diffCount++;
+    @Override
+    public List<Tree> getNniTrajectory(Tree startTree) {
+        List<Tree> trajectory = new ArrayList<>();
+        boolean isOriginalFork = (m2.getParent() == top); //[cite: 38]
+
+        // 1. Jeśli ruch 2sECR ma koszt 2 NNI, generujemy drzewo z szablonu pośredniego (koszt 1 NNI)
+        if (getNniEquivalentCost() == 2) {
+            TopologyTemplate2sECR step1Template = findStep1Template();
+            if (step1Template != null) {
+                Tree step1Tree = SubtreeEcr2Utils.createEcrTree(
+                        startTree, top, m1, m2, boundarySubtrees, step1Template, isOriginalFork
+                ); //[cite: 38]
+                if (step1Tree != null) {
+                    trajectory.add(step1Tree);
+                }
+            }
         }
-        return (diffCount <= 2) ? 1 : 2;
+
+        // 2. Na końcu zawsze umieszczamy ostateczne drzewo docelowe
+        Tree finalTree = SubtreeEcr2Utils.createEcrTree(
+                startTree, top, m1, m2, boundarySubtrees, template, isOriginalFork
+        ); //[cite: 38]
+        if (finalTree != null) {
+            trajectory.add(finalTree);
+        }
+
+        return trajectory;
+    }
+
+    private TopologyTemplate2sECR findStep1Template() {
+        TopologyTemplate2sECR bestMatch = null;
+        int maxAgreement = -1;
+
+        for (TopologyTemplate2sECR candidate : SubtreeEcr2Utils.getTemplates()) { //[cite: 38]
+            // Wybieramy szablon o koszcie 1 NNI tego samego typu strukturalnego (Fork/Chain)
+            if (candidate.isFork == template.isFork && calculateCost(candidate) == 1) { //[cite: 38]
+                int agreement = 0;
+                for (int i = 0; i < 4; i++) {
+                    if (candidate.indices[i] == template.indices[i]) { //[cite: 38]
+                        agreement++;
+                    }
+                }
+                if (agreement > maxAgreement) {
+                    maxAgreement = agreement;
+                    bestMatch = candidate;
+                }
+            }
+        }
+        return bestMatch;
+    }
+
+    private static int calculateCost(TopologyTemplate2sECR t) {
+        int diffCount = 0;
+        for (int i = 0; i < t.indices.length; i++) {
+            if (t.indices[i] != i) diffCount++; //[cite: 38]
+        }
+        return (diffCount == 0) ? 0 : ((diffCount == 2) ? 1 : 2);
     }
 }

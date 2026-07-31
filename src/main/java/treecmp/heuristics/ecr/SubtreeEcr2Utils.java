@@ -104,10 +104,15 @@ public class SubtreeEcr2Utils extends TreeNeighborhoodUtils {
 
             Tree newTree = createEcrTree(tree, top, m1, m2, s, template, isOriginalFork);
             if (newTree != null) {
+                // 1. Tworzymy obiekt ruchu i przypisujemy do zmiennej
+                treecmp.heuristics.moves.Ecr2Move move =
+                        new treecmp.heuristics.moves.Ecr2Move(top, m1, m2, s, template);
 
-                // DODANO: Obliczenie i rejestracja poprawnego kosztu NNI do bufora
-                double moveCost = new treecmp.heuristics.moves.Ecr2Move(top, m1, m2, s, template).getNniEquivalentCost();
-                registerTreeCost(newTree, moveCost);
+                // 2. Rejestrujemy koszt
+                registerTreeCost(newTree, move.getNniEquivalentCost());
+
+                // 3. NOWOŚĆ: Rejestrujemy ruch w mapie!
+                registerTreeMove(newTree, move);
 
                 if (unrooted) {
                     set.add(new TreeUnrootedHolder(newTree, idGroup));
@@ -133,11 +138,15 @@ public class SubtreeEcr2Utils extends TreeNeighborhoodUtils {
         return -1;
     }
 
-    private static Tree createEcrTree(Tree tree, Node top, Node m1, Node m2, Node[] s, TopologyTemplate2sECR template, boolean isOriginalFork) {
+    public static Tree createEcrTree(Tree tree, Node top, Node m1, Node m2, Node[] s, TopologyTemplate2sECR template, boolean isOriginalFork) {
         try {
             List<Integer> pathTop = new ArrayList<>(); getPathToNode(tree.getRoot(), top, pathTop);
             List<Integer> pathM1 = new ArrayList<>(); getPathToNode(tree.getRoot(), m1, pathM1);
             List<Integer> pathM2 = new ArrayList<>(); getPathToNode(tree.getRoot(), m2, pathM2);
+
+            if ((top != tree.getRoot() && pathTop.isEmpty()) || pathM1.isEmpty() || pathM2.isEmpty()) {
+                return null;
+            }
 
             List<List<Integer>> pathS = new ArrayList<>();
             for (int i = 0; i < 4; i++) {
@@ -244,7 +253,7 @@ public class SubtreeEcr2Utils extends TreeNeighborhoodUtils {
         public boolean isFork;
         public int[] indices;
 
-        TopologyTemplate2sECR(boolean isFork, int[] indices) {
+        public TopologyTemplate2sECR(boolean isFork, int[] indices) {
             this.isFork = isFork;
             this.indices = indices;
         }
