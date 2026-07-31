@@ -5,6 +5,8 @@ import pal.tree.*;
 import treecmp.common.TreeCmpException;
 import treecmp.heuristics.TreeNeighborhoodUtils;
 import treecmp.heuristics.TreeUnrootedHolder;
+import treecmp.heuristics.moves.SprMove;
+
 import java.util.function.Consumer;
 import java.util.List;
 import java.util.ArrayList;
@@ -20,73 +22,77 @@ public class UsprUtils extends TreeNeighborhoodUtils {
         int intNum = tree.getInternalNodeCount();
         IdGroup idGroup = TreeUtils.getLeafIdGroup(tree);
         int neighSize = calcUsprNeighbours(tree);
-        Set<TreeUnrootedHolder> usprTreeSet = new HashSet<TreeUnrootedHolder>((4*neighSize)/3);
-        Node s,t;
+        Set<TreeUnrootedHolder> usprTreeSet = new HashSet<TreeUnrootedHolder>((4 * neighSize) / 3);
+        Node s, t;
         Tree resultTree;
 
-        for (int i=0; i<extNum; i++) {
+        for (int i = 0; i < extNum; i++) {
             s = tree.getExternalNode(i);
-            for (int j=0; j<extNum; j++){
+            for (int j = 0; j < extNum; j++) {
                 t = tree.getExternalNode(j);
-                if (isValidUsprMove(s,t)) {
-                    resultTree = createUsprTree(tree,s,t);
+                if (isValidUsprMove(s, t)) {
+                    resultTree = createUsprTree(tree, s, t);
                     if (resultTree != null) {
-                        double moveCost = new treecmp.heuristics.moves.SprMove(s, t).getNniEquivalentCost();
-                        registerTreeCost(resultTree, moveCost);
-                        usprTreeSet.add(new TreeUnrootedHolder(resultTree,idGroup));
+                        SprMove move = new SprMove(s, t);
+                        registerTreeCost(resultTree, move.getNniEquivalentCost());
+                        registerTreeMove(resultTree, move);
+                        usprTreeSet.add(new TreeUnrootedHolder(resultTree, idGroup));
                     }
                 }
             }
         }
-        for (int i=0; i<intNum; i++){
+        for (int i = 0; i < intNum; i++) {
             s = tree.getInternalNode(i);
-            if(s.isRoot()) continue;
-            for (int j=0; j<extNum; j++){
+            if (s.isRoot()) continue;
+            for (int j = 0; j < extNum; j++) {
                 t = tree.getExternalNode(j);
-                if (isValidUsprMove(s,t)) {
-                    resultTree = createUsprTree(tree,s,t);
+                if (isValidUsprMove(s, t)) {
+                    resultTree = createUsprTree(tree, s, t);
                     if (resultTree != null) {
-                        double moveCost = new treecmp.heuristics.moves.SprMove(s, t).getNniEquivalentCost();
-                        registerTreeCost(resultTree, moveCost);
+                        SprMove move = new SprMove(s, t);
+                        registerTreeCost(resultTree, move.getNniEquivalentCost());
+                        registerTreeMove(resultTree, move);
                         try { usprTreeSet.add(new TreeUnrootedHolder(resultTree, idGroup)); } catch (Exception e) {}
                     }
                 }
             }
         }
-        for (int i=0; i<extNum; i++){
+        for (int i = 0; i < extNum; i++) {
             s = tree.getExternalNode(i);
-            for (int j=0; j<intNum; j++){
+            for (int j = 0; j < intNum; j++) {
                 t = tree.getInternalNode(j);
-                if (isValidUsprMove(s,t)) {
-                    resultTree = createUsprTree(tree,s,t);
+                if (isValidUsprMove(s, t)) {
+                    resultTree = createUsprTree(tree, s, t);
                     if (resultTree != null) {
-                        double moveCost = new treecmp.heuristics.moves.SprMove(s, t).getNniEquivalentCost();
-                        registerTreeCost(resultTree, moveCost);
-                        usprTreeSet.add(new TreeUnrootedHolder(resultTree,idGroup));
+                        SprMove move = new SprMove(s, t);
+                        registerTreeCost(resultTree, move.getNniEquivalentCost());
+                        registerTreeMove(resultTree, move);
+                        usprTreeSet.add(new TreeUnrootedHolder(resultTree, idGroup));
                     }
                 }
             }
         }
-        for (int i=0; i<intNum; i++){
+        for (int i = 0; i < intNum; i++) {
             s = tree.getInternalNode(i);
-            if(s.isRoot()) continue;
-            for (int j=0; j<intNum; j++){
+            if (s.isRoot()) continue;
+            for (int j = 0; j < intNum; j++) {
                 t = tree.getInternalNode(j);
-                if (isValidUsprMove(s,t)) {
-                    resultTree = createUsprTree(tree,s,t);
+                if (isValidUsprMove(s, t)) {
+                    resultTree = createUsprTree(tree, s, t);
                     if (resultTree != null) {
-                        double moveCost = new treecmp.heuristics.moves.SprMove(s, t).getNniEquivalentCost();
-                        registerTreeCost(resultTree, moveCost);
-                        usprTreeSet.add(new TreeUnrootedHolder(resultTree,idGroup));
+                        SprMove move = new SprMove(s, t);
+                        registerTreeCost(resultTree, move.getNniEquivalentCost());
+                        registerTreeMove(resultTree, move);
+                        usprTreeSet.add(new TreeUnrootedHolder(resultTree, idGroup));
                     }
                 }
             }
         }
 
         int n = usprTreeSet.size();
-        Tree [] usprTreeArray = new Tree[n];
-        int i=0;
-        for (TreeUnrootedHolder th: usprTreeSet ){
+        Tree[] usprTreeArray = new Tree[n];
+        int i = 0;
+        for (TreeUnrootedHolder th : usprTreeSet) {
             usprTreeArray[i] = th.tree;
             i++;
         }

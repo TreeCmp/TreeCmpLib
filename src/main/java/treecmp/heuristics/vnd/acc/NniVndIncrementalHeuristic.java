@@ -8,10 +8,14 @@ import treecmp.heuristics.HeuristicPathLogger;
 import treecmp.heuristics.base.IncrementalHeuristicBaseMetric;
 import treecmp.heuristics.ecr.SubtreeEcr3Utils;
 import treecmp.heuristics.spr.SprUtils;
+import treecmp.heuristics.vnd.DetailedTrajectoryVndLogger;
+import treecmp.heuristics.vnd.NoOpVndLogger;
+import treecmp.heuristics.vnd.VndStepListener;
 import treecmp.metrics.Metric;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.Collections;
 import java.util.List;
 
 public class NniVndIncrementalHeuristic implements Metric {
@@ -37,16 +41,20 @@ public class NniVndIncrementalHeuristic implements Metric {
 
         double initialValue = incrementalNeighborhoods.get(0).evaluateInitialDistance(currentTree, tree2);
 
-        // --- WPIĘCIE LOGERA: Dynamiczna nazwa pliku z datą, czasem i metryką ---
-        DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
-        String timestamp = LocalDateTime.now().format(dtf);
-        String logFile = "logs/proof_pair_nni_vnd_inc_" + metricName + "_" + timestamp + ".txt";
+        // --- 1. WYBÓR STRATEGII LOGOWANIA ---
+        VndStepListener logger = ENABLE_LOGGING
+                ? new DetailedTrajectoryVndLogger(
+                "proof_pair_nni_vnd_inc",
+                metricName,
+                incrementalNeighborhoods.get(0)::evaluateInitialDistance
+        )
+                : new NoOpVndLogger();
 
         int stepCounter = 0;
         double currentBestValue = initialValue;
         Tree currentBestTree = currentTree;
 
-        HeuristicPathLogger.startNewLog(logFile, "VND Incremental (" + metricName + ")", currentBestTree, currentBestValue);
+        logger.onStart("VND Incremental (" + metricName + ")", currentBestTree, currentBestValue);
 
         double totalNniCost = 0.0;
         int k = 0;
@@ -60,6 +68,8 @@ public class NniVndIncrementalHeuristic implements Metric {
             Tree treeAfterSearch = currentBestTree;
             String neighborhoodName = "";
 
+            List<Tree> trajectory = null;
+
             if (k < incrementalNeighborhoods.size()) {
                 IncrementalHeuristicBaseMetric currentHeuristic = incrementalNeighborhoods.get(k);
                 neighborhoodName = currentHeuristic.getName();
@@ -68,6 +78,8 @@ public class NniVndIncrementalHeuristic implements Metric {
                 treeAfterSearch = currentHeuristic.getLastOptimumTree();
 
                 totalNniCost += currentHeuristic.getAccumulatedNniCost();
+
+                trajectory = currentHeuristic.getLastOptimumTrajectory(treeBeforeSearch);
             } else {
                 neighborhoodName = "Classic_TBR_Fallback";
                 double tbrDist = 0;
@@ -80,6 +92,8 @@ public class NniVndIncrementalHeuristic implements Metric {
                 if (tbrDist != Double.POSITIVE_INFINITY && tbrDist < currentBestValue) {
                     distAfterSearch = 0;
                     totalNniCost += (tbrDist * 4.0);
+
+                    trajectory = Collections.singletonList(currentBestTree);
                 }
             }
 
@@ -87,45 +101,13 @@ public class NniVndIncrementalHeuristic implements Metric {
                 currentBestValue = distAfterSearch;
                 currentBestTree = treeAfterSearch;
 
-                // --- INTEGRACJA LOGOWANIA I DEKOMPOZYCJI ---
-                if (ENABLE_LOGGING) {
-                    if (neighborhoodName.contains("ECR")) {
-                        List<Tree> nniSteps = SubtreeEcr3Utils.buildTrajectoryTrees(treeBeforeSearch, currentBestTree);
-
-                        for (int i = 0; i < nniSteps.size(); i++) {
-                            stepCounter++;
-                            String subStepName = (nniSteps.size() > 1)
-                                    ? neighborhoodName + " -> NNI_Substep_" + (i + 1)
-                                    : neighborhoodName;
-                            double stepDist = (i == nniSteps.size() - 1)
-                                    ? currentBestValue
-                                    : this.getDistance(nniSteps.get(i), tree2);
-
-                            HeuristicPathLogger.logStep(logFile, stepCounter, subStepName, nniSteps.get(i), stepDist);
-                        }
-                    } else if (neighborhoodName.contains("SPR")) {
-                        // NOWOŚĆ: Dekompozycja SPR na kroki pośrednie NNI
-                        List<Tree> nniSteps = SprUtils.buildTrajectoryTrees(treeBeforeSearch, currentBestTree);
-
-                        for (int i = 0; i < nniSteps.size(); i++) {
-                            stepCounter++;
-                            String subStepName = (nniSteps.size() > 1)
-                                    ? neighborhoodName + " -> NNI_Substep_" + (i + 1)
-                                    : neighborhoodName;
-
-                            // BEZPIECZNE OBLICZENIE DYSTANSU (bez rekurencyjnego startu VND!):
-                            double stepDist = (i == nniSteps.size() - 1)
-                                    ? currentBestValue
-                                    : incrementalNeighborhoods.get(0).evaluateInitialDistance(nniSteps.get(i), tree2);
-
-                            HeuristicPathLogger.logStep(logFile, stepCounter, subStepName, nniSteps.get(i), stepDist);
-                        }
-                    } else {
-                        // Standardowe logowanie pojedynczego kroku dla NNI i fallbacku TBR
-                        stepCounter++;
-                        HeuristicPathLogger.logStep(logFile, stepCounter, neighborhoodName, currentBestTree, currentBestValue);
-                    }
+                // Bezpiecznik na wypadek pustej listy
+                if (trajectory == null || trajectory.isEmpty()) {
+                    trajectory = Collections.singletonList(currentBestTree);
                 }
+
+                // Przekazujemy pełną trajektorię do loggera
+                logger.onStep(neighborhoodName, trajectory, currentBestValue, tree2);
 
                 k = 0; // Reset VND
             } else {
@@ -134,8 +116,7 @@ public class NniVndIncrementalHeuristic implements Metric {
             failSafeCounter++;
         }
 
-        // --- WPIĘCIE LOGERA: Zakończenie i podsumowanie ścieżki ---
-        HeuristicPathLogger.finishLog(logFile, stepCounter, currentBestValue);
+        logger.onFinish(currentBestValue);
 
         return (currentBestValue == 0) ? totalNniCost : Double.POSITIVE_INFINITY;
     }

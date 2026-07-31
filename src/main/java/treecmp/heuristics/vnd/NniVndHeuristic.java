@@ -1,17 +1,14 @@
 package treecmp.heuristics.vnd;
 
-import pal.tree.Tree;
 import pal.tree.SimpleTree;
+import pal.tree.Tree;
 import treecmp.common.AlignInfo;
-import treecmp.common.TreeCmpException;
-import treecmp.heuristics.HeuristicPathLogger;
 import treecmp.heuristics.base.HeuristicBaseMetric;
 import treecmp.heuristics.ecr.SubtreeEcr3Utils;
 import treecmp.heuristics.spr.SprUtils;
 import treecmp.metrics.Metric;
 
-import java.time.LocalDateTime;
-import java.time.format.DateTimeFormatter;
+import java.util.Collections;
 import java.util.List;
 
 public class NniVndHeuristic implements Metric {
@@ -35,90 +32,57 @@ public class NniVndHeuristic implements Metric {
 
         double initialValue = classicNeighborhoods.get(0).evaluateInitialDistance(currentTree, tree2);
 
-        String logFile = null;
-        if (ENABLE_LOGGING) {
-            DateTimeFormatter dtf = DateTimeFormatter.ofPattern("yyyyMMdd_HHmmss");
-            String timestamp = LocalDateTime.now().format(dtf);
-            logFile = "logs/proof_pair_vnd_classic_" + metricName + "_" + timestamp + ".txt";
-            HeuristicPathLogger.startNewLog(logFile, "VND Classic (" + metricName + ")", currentTree, initialValue);
-        }
+        // Wybór strategii logowania
+        VndStepListener logger = ENABLE_LOGGING
+                ? new DetailedTrajectoryVndLogger(
+                "proof_pair_vnd_classic",
+                metricName,
+                classicNeighborhoods.get(0)::evaluateInitialDistance
+        )
+                : new NoOpVndLogger();
 
-        int stepCounter = 0;
+        logger.onStart("VND Classic (" + metricName + ")", currentTree, initialValue);
+
         double currentBestValue = initialValue;
         Tree currentBestTree = currentTree;
-
         double totalNniCost = 0.0;
         int k = 0;
         int failSafeCounter = 0;
 
         while (k < classicNeighborhoods.size() && currentBestValue > 0 && failSafeCounter < 5000) {
             HeuristicBaseMetric currentHeuristic = classicNeighborhoods.get(k);
-
-            // ZAPAMIĘTUJEMY DRZEWO PRZED RUCHEM
             Tree treeBeforeSearch = currentBestTree;
 
-            // Wykonujemy zejście w lokalnym otoczeniu (np. NNI, ECR lub SPR)
             double distAfterSearch = currentHeuristic.performLocalDescent(currentBestTree, tree2);
             Tree treeAfterSearch = currentHeuristic.getLastOptimumTree();
-
             totalNniCost += currentHeuristic.getAccumulatedNniCost();
 
+            // WARUNEK POPRAWY DYSTANSU
             if (distAfterSearch < currentBestValue) {
                 currentBestValue = distAfterSearch;
                 currentBestTree = treeAfterSearch;
 
-                // --- INTEGRACJA LOGOWANIA I DEKOMPOZYCJI ---
-                if (ENABLE_LOGGING) {
-                    String neighborhoodName = currentHeuristic.getName();
+                // 1. Pobieramy domyślną trajektorię z heurystyki
+                List<Tree> trajectory = currentHeuristic.getLastOptimumTrajectory(treeBeforeSearch);
 
-                    if (neighborhoodName.contains("ECR")) {
-                        List<Tree> nniSteps = SubtreeEcr3Utils.buildTrajectoryTrees(treeBeforeSearch, currentBestTree);
+                String name = currentHeuristic.getName();
 
-                        for (int i = 0; i < nniSteps.size(); i++) {
-                            stepCounter++;
-                            String subStepName = (nniSteps.size() > 1)
-                                    ? neighborhoodName + " -> NNI_Substep_" + (i + 1)
-                                    : neighborhoodName;
-                            // BEZPIECZNE OBLICZENIE DYSTANSU DLA ECR:
-                            double stepDist = (i == nniSteps.size() - 1)
-                                    ? currentBestValue
-                                    : classicNeighborhoods.get(0).evaluateInitialDistance(nniSteps.get(i), tree2);
-
-                            HeuristicPathLogger.logStep(logFile, stepCounter, subStepName, nniSteps.get(i), stepDist);
-                        }
-                    } else if (neighborhoodName.contains("SPR")) {
-                        List<Tree> nniSteps = SprUtils.buildTrajectoryTrees(treeBeforeSearch, currentBestTree);
-
-                        for (int i = 0; i < nniSteps.size(); i++) {
-                            stepCounter++;
-                            String subStepName = (nniSteps.size() > 1)
-                                    ? neighborhoodName + " -> NNI_Substep_" + (i + 1)
-                                    : neighborhoodName;
-                            // BEZPIECZNE OBLICZENIE DYSTANSU DLA SPR:
-                            double stepDist = (i == nniSteps.size() - 1)
-                                    ? currentBestValue
-                                    : classicNeighborhoods.get(0).evaluateInitialDistance(nniSteps.get(i), tree2);
-
-                            HeuristicPathLogger.logStep(logFile, stepCounter, subStepName, nniSteps.get(i), stepDist);
-                        }
-                    } else {
-                        // Standardowe logowanie pojedynczego kroku dla NNI
-                        stepCounter++;
-                        HeuristicPathLogger.logStep(logFile, stepCounter, neighborhoodName, currentBestTree, currentBestValue);
-                    }
+                // 3. Bezpiecznik na wypadek pustej listy
+                if (trajectory == null || trajectory.isEmpty()) {
+                    trajectory = Collections.singletonList(currentBestTree);
                 }
 
-                k = 0; // Zgodnie z VND - po poprawie wracamy do pierwszego otoczenia
+                // 4. Przekazujemy pełną trajektorię do loggera
+                logger.onStep(name, trajectory, currentBestValue, tree2);
+
+                k = 0; // Reset VND
             } else {
                 k++;
             }
             failSafeCounter++;
         }
 
-        // --- WPIĘCIE LOGERA: Zakończenie i podsumowanie ścieżki ---
-        if (ENABLE_LOGGING) {
-            HeuristicPathLogger.finishLog(logFile, stepCounter, currentBestValue);
-        }
+        logger.onFinish(currentBestValue);
 
         return (currentBestValue == 0) ? totalNniCost : Double.POSITIVE_INFINITY;
     }
