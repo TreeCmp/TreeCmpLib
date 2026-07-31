@@ -5,16 +5,31 @@ import pal.misc.IdGroup;
 import pal.misc.Identifier;
 import pal.tree.*;
 import treecmp.common.TreeCmpException;
+import treecmp.heuristics.moves.TreeMove;
 import treecmp.heuristics.spr.BestTreeChooser;
 import treecmp.heuristics.spr.TreeValuePair;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.IdentityHashMap;
 import java.util.List;
+import java.util.Map;
 
 public abstract class TreeNeighborhoodUtils {
 
     public int num = 0;
+
+    private final Map<Tree, TreeMove> treeMoves = new IdentityHashMap<>();
+
+    public void registerTreeMove(Tree tree, TreeMove move) {
+        if (tree != null && move != null) {
+            treeMoves.put(tree, move);
+        }
+    }
+
+    public TreeMove getMoveForTree(Tree tree) {
+        return treeMoves.get(tree);
+    }
 
     public Tree getTreeFromString(String treeStr) {
         Tree tree = null;

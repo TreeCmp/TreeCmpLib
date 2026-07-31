@@ -2,6 +2,7 @@ package treecmp.heuristics.base;
 
 import java.io.IOException;
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
@@ -11,20 +12,18 @@ import pal.tree.ReadTree;
 import pal.tree.TreeParseException;
 import treecmp.common.TreeCmpException;
 import treecmp.heuristics.TreeNeighborhoodUtils;
+import treecmp.heuristics.moves.TreeMove;
 import treecmp.heuristics.spr.SubtreeUtils;
 import treecmp.metrics.*;
 import pal.tree.Tree;
 
-/**
- * Zintegrowana klasa bazowa dla klasycznych heurystyk.
- * Obsługuje teraz bezpośrednie wywołania (zwracając koszt) 
- * oraz tryb Orkiestratora VND (zwracając dystans metryki i zmutowane drzewo).
- */
 public abstract class HeuristicBaseMetric extends BaseMetric implements Metric {
 
     protected boolean reduceCommonBinarySubtreesTrees = false;
     protected Tree lastOptimumTree;
     protected double accumulatedNniCost = 0.0;
+    protected TreeMove lastOptimumMove = null;
+    protected Tree lastMoveBaseTree = null; // NOWOŚĆ: Zapamiętujemy właściwe drzewo bazowe dla ruchu
 
     public Tree getLastOptimumTree() {
         return this.lastOptimumTree;
@@ -50,9 +49,6 @@ public abstract class HeuristicBaseMetric extends BaseMetric implements Metric {
         return 1.0;
     }
 
-    // ========================================================================
-    // NOWOŚĆ: Metoda dla Orkiestratora do pobierania początkowego dystansu
-    // ========================================================================
     public double evaluateInitialDistance(Tree startTree, Tree targetTree) {
         try {
             return getPrimaryMetric().getDistance(startTree, targetTree);
@@ -77,6 +73,8 @@ public abstract class HeuristicBaseMetric extends BaseMetric implements Metric {
         TreeNeighborhoodUtils tnu = getTreeNeighborhoodUtils();
 
         this.accumulatedNniCost = 0.0;
+        this.lastOptimumMove = null;
+        this.lastMoveBaseTree = null;
         Tree currentStepTree = startTree;
         Tree targetStepTree = targetTree;
 
@@ -97,7 +95,7 @@ public abstract class HeuristicBaseMetric extends BaseMetric implements Metric {
             double previousDist;
 
             do {
-                tnu.clearCosts(); // 1. Czyścimy pamięć przed generowaniem nowego otoczenia
+                tnu.clearCosts();
 
                 Tree[] treeList = tnu.generateNeighbours(currentStepTree);
                 double bestDist = Double.POSITIVE_INFINITY;
@@ -128,8 +126,9 @@ public abstract class HeuristicBaseMetric extends BaseMetric implements Metric {
 
                 currentBestDist = bestDist;
 
-                // 2. Pobieramy prawdziwą wagę topologiczną wybranego ruchu!
                 this.accumulatedNniCost += tnu.getTreeCost(bestTree);
+                this.lastOptimumMove = tnu.getMoveForTree(bestTree);
+                this.lastMoveBaseTree = currentStepTree; // Zapamiętujemy drzewo bazowe z tego kroku
 
                 String bestTreeString = bestTree.toString();
                 try (InputSource is = InputSource.openString(bestTreeString)) {
@@ -165,13 +164,10 @@ public abstract class HeuristicBaseMetric extends BaseMetric implements Metric {
         return bestTree;
     }
 
-    // =========================================================
-    // BUFOR WAG TOPOLOGICZNYCH (DLA KLASYCZNYCH HEURYSTYK)
-    // =========================================================
     protected java.util.IdentityHashMap<pal.tree.Tree, Double> treeCosts = new java.util.IdentityHashMap<>();
 
     public double getTreeCost(pal.tree.Tree t) {
-        return treeCosts.getOrDefault(t, 1.0); // Zwraca koszt lub 1.0 dla zwykłego NNI
+        return treeCosts.getOrDefault(t, 1.0);
     }
 
     protected void registerTreeCost(pal.tree.Tree t, double cost) {
@@ -182,5 +178,24 @@ public abstract class HeuristicBaseMetric extends BaseMetric implements Metric {
 
     public void clearCosts() {
         treeCosts.clear();
+    }
+
+    public List<Tree> getLastOptimumTrajectory(Tree startTree) {
+        if (lastOptimumTree == null) {
+            return Collections.emptyList();
+        }
+
+        if (lastOptimumMove != null && lastMoveBaseTree != null) {
+            try {
+                List<Tree> traj = lastOptimumMove.getNniTrajectory(lastMoveBaseTree);
+                if (traj != null && !traj.isEmpty()) {
+                    return traj;
+                }
+            } catch (Exception e) {
+                // Bezpieczny fallback
+            }
+        }
+
+        return Collections.singletonList(lastOptimumTree);
     }
 }

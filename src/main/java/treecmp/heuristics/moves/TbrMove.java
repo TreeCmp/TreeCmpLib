@@ -1,6 +1,10 @@
 package treecmp.heuristics.moves;
 
 import pal.tree.Node;
+import pal.tree.Tree;
+
+import java.util.Collections;
+import java.util.List;
 
 /**
  * Klasa reprezentująca pojedynczy ruch TBR (Tree Bisection and Reconnection).
@@ -28,6 +32,13 @@ public class TbrMove implements TreeMove {
     @Override
     public int getNniEquivalentCost() {
         return 0;
+    }
+
+    @Override
+    public List<Tree> getNniTrajectory(Tree startTree) {
+        // TODO: Zaimplementować dekompozycję ruchu TBR na trajektorię pojedynczych kroków NNI
+        // Na ten moment zwracamy pustą listę, aby kod się kompilował i nie wywracał loggera.
+        return Collections.emptyList();
     }
 
     @Override

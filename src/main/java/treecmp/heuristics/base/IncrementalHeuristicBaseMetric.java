@@ -5,6 +5,9 @@ import treecmp.heuristics.moves.TreeMove;
 import treecmp.metrics.BaseMetric;
 import treecmp.metrics.IncrementalMetric;
 
+import java.util.Collections;
+import java.util.List;
+
 public abstract class IncrementalHeuristicBaseMetric extends BaseMetric {
 
     protected final boolean rooted;
@@ -13,6 +16,8 @@ public abstract class IncrementalHeuristicBaseMetric extends BaseMetric {
     protected double bestDist;
     protected treecmp.heuristics.moves.TreeMove bestMove;
     protected boolean improved;
+
+    protected treecmp.heuristics.moves.TreeMove lastOptimumMove;
 
     public IncrementalHeuristicBaseMetric(boolean rooted, IncrementalMetric metric) {
         this.rooted = rooted;
@@ -103,5 +108,16 @@ public abstract class IncrementalHeuristicBaseMetric extends BaseMetric {
     public double evaluateInitialDistance(Tree startTree, Tree targetTree) {
         this.incMetric.initCalculationState(startTree, targetTree);
         return this.incMetric.getCurrentDistance();
+    }
+
+    /**
+     * Zwraca trajektorię drzew pośrednich NNI dla wygrywającego ruchu.
+     * Jeśli ruch nie został zarejestrowany, zwraca listę z samym drzewem docelowym.
+     */
+    public List<Tree> getLastOptimumTrajectory(Tree startTree) {
+        if (lastOptimumMove == null) {
+            return Collections.singletonList(getLastOptimumTree());
+        }
+        return lastOptimumMove.getNniTrajectory(startTree);
     }
 }

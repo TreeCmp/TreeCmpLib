@@ -1,10 +1,11 @@
 package treecmp.heuristics.moves;
 
+import pal.tree.Tree;
+
+import java.util.List;
+
 public interface TreeMove {
     String getDescription();
-
-    /**
-     * Zwraca koszt danego ruchu wyrażony jako ekwiwalent liczby prostych kroków NNI.
-     */
     int getNniEquivalentCost();
+    List<Tree> getNniTrajectory(Tree startTree);
 }
