@@ -6,6 +6,7 @@ import pal.tree.Tree;
 import treecmp.heuristics.nni.NniClassicHeuristic;
 import treecmp.heuristics.nni.acc.NniIncrementalHeuristic;
 import treecmp.heuristics.spr.SprHeuristicMetric;
+import treecmp.heuristics.spr.UsprHeuristicMetric;
 import treecmp.heuristics.spr.acc.SprIncrementalHeuristicMetric;
 import treecmp.heuristics.spr.acc.UsprIncrementalHeuristicMetric;
 import treecmp.heuristics.vnd.NniVndHeuristic;
@@ -61,6 +62,10 @@ public class VndQualityVsTimeMacroBenchmark {
         System.out.println("===============================================================================================================");
         System.out.println("                         VND ULTIMATE QUALITY VS TIME MACRO-BENCHMARK (100 PAR DRZEW)");
         System.out.println("===============================================================================================================");
+
+        // 1. Wyłączenie generowania plików dowodowych dla czystych pomiarów czasu
+        treecmp.heuristics.vnd.acc.NniVndIncrementalHeuristic.ENABLE_LOGGING = false;
+        treecmp.heuristics.vnd.NniVndHeuristic.ENABLE_LOGGING = false;
 
         runTestSuite(true);  // Faza 1: Ukorzenione (Rooted)
         runTestSuite(false); // Faza 2: Nieukorzenione (Unrooted)
@@ -146,7 +151,8 @@ public class VndQualityVsTimeMacroBenchmark {
                     successCount++;
                 }
             } catch (Exception e) {
-                // Tłumienie błędów jednostkowych
+                System.err.println("BŁĄD dla " + variantName + ": " + e.getClass().getSimpleName() + " - " + e.getMessage());
+                e.printStackTrace(System.err);
             }
             totalTimeNs += (System.nanoTime() - start);
             processedPairs++;
@@ -168,23 +174,30 @@ public class VndQualityVsTimeMacroBenchmark {
     // =========================================================================
 
     private static Metric buildClassicVndFull(Metric classicMetric, boolean isRooted, String shortName) {
+        HeuristicBaseMetric sprStep = isRooted ?
+                new SprHeuristicMetric(classicMetric, isRooted, shortName) :
+                new UsprHeuristicMetric(classicMetric, shortName);
+
         List<HeuristicBaseMetric> chain = Arrays.asList(
                 new NniClassicHeuristic(classicMetric, isRooted, shortName),
                 new Ecr2ClassicHeuristic(classicMetric, isRooted, shortName),
                 new Ecr3ClassicHeuristic(classicMetric, isRooted, shortName),
-                new SprHeuristicMetric(classicMetric, isRooted, shortName)
+                sprStep
         );
         return new NniVndHeuristic(chain, shortName);
     }
 
     private static Metric buildClassicVndShort(Metric classicMetric, boolean isRooted, String shortName) {
+        HeuristicBaseMetric sprStep = isRooted ?
+                new SprHeuristicMetric(classicMetric, isRooted, shortName) :
+                new UsprHeuristicMetric(classicMetric, shortName);
+
         List<HeuristicBaseMetric> chain = Arrays.asList(
                 new NniClassicHeuristic(classicMetric, isRooted, shortName),
-                new SprHeuristicMetric(classicMetric, isRooted, shortName)
+                sprStep
         );
         return new NniVndHeuristic(chain, shortName);
     }
-
     private static Metric buildIncrementalVndFull(IncrementalMetric incMetric, boolean isRooted, String shortName) {
         // Dynamiczny wybór między SPR a uSPR w zależności od ukorzenienia
         IncrementalHeuristicBaseMetric sprStep = isRooted ?
