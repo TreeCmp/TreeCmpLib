@@ -87,7 +87,9 @@ public class NniIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
         // Metoda wymagana przez klasę bazową.
         // W NNI commity są obsługiwane bezpośrednio w zoptymalizowanej pętli getDistance.
         if (move instanceof NniMove) {
-            return this.incMetric.applyNni((NniMove) move);
+            double dist = this.incMetric.applyNni((NniMove) move);
+            this.incMetric.commit();
+            return dist;
         }
         return this.incMetric.getCurrentDistance();
     }
@@ -173,6 +175,59 @@ public class NniIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
             }
         }
         return (currentDist == 0) ? (double) totalSteps : Double.POSITIVE_INFINITY;
+    }
+
+    @Override
+    public double performLocalDescent(Tree startTree, Tree targetTree) {
+        Tree currentTree = new pal.tree.SimpleTree(startTree);
+        if (currentTree instanceof pal.tree.SimpleTree) {
+            ((pal.tree.SimpleTree) currentTree).createNodeList();
+        }
+
+        this.improved = true;
+        this.accumulatedNniCost = 0.0;
+        IncrementalMetric activeMetric = primaryMetric != null ? primaryMetric : this.incMetric;
+
+        activeMetric.initCalculationState(currentTree, targetTree);
+        double currentDist = activeMetric.getCurrentDistance();
+
+        if (currentDist == 0) {
+            this.lastOptimumTree = currentTree;
+            return 0.0;
+        }
+
+        int maxSteps = 1000;
+        int steps = 0;
+
+        while (this.improved && currentDist > 0 && steps < maxSteps) {
+            this.improved = false;
+            searchNeighborhood(currentTree);
+
+            if (!this.tiedMoves.isEmpty() && this.currentPrimaryBestDist < currentDist) {
+                treecmp.heuristics.moves.TreeMove bestMove = this.tiedMoves.get(0);
+
+                if (bestMove != null) {
+                    this.accumulatedNniCost += bestMove.getNniEquivalentCost();
+                    this.lastOptimumMove = bestMove;
+
+                    currentTree = applyPhysicalMove(currentTree, bestMove);
+                    pal.tree.TreeUtils.computeParentPointers(currentTree.getRoot());
+                    activeMetric.initCalculationState(currentTree, targetTree);
+                    double newDist = activeMetric.getCurrentDistance();
+
+                    if (newDist >= currentDist) {
+                        break;
+                    }
+
+                    currentDist = newDist;
+                    this.improved = true;
+                    steps++;
+                }
+            }
+        }
+
+        this.lastOptimumTree = currentTree;
+        return currentDist;
     }
 
     @Override
