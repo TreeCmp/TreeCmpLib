@@ -37,7 +37,6 @@ class SprHeuristicMetricTest {
         assertEquals(expectedDistance, actualDistance, DELTA,
                 "Wynik zoptymalizowanej heurystyki SPR musi być identyczny z klasyczną.");
     }
-
     @Test
     void testDistanceShouldBeOneIfTargetIsExactlyOneSprMoveAway() {
         Tree baseTree = TestTreeFactory.fourLeavesBalancedTree1();
@@ -46,10 +45,10 @@ class SprHeuristicMetricTest {
         SprIncrementalHeuristicMetric metric = new SprIncrementalHeuristicMetric(new RFClusterIncrementalMetric(), "RFC");
         double dist = metric.getDistance(baseTree, targetTree);
 
-        // ZMIANA: Skok SPR z drzewa zbalansowanego do gąsienicy (4 liście, ukorzenione)
-        // pokonuje 2 krawędzie, więc jego waga topologiczna (NNI-Equivalent) wynosi 2.0!
-        assertEquals(2.0, dist, 0.0001,
-                "Jeśli cel jest oddalony o 1 ruch SPR pokonujący 2 krawędzie, ekwiwalent NNI musi wynosić 2.0");
+        // Skok SPR z drzewa zbalansowanego do gąsienicy (4 liście, ukorzenione)
+        // odpowiada dokładnie 1 elementarnej rotacji NNI, więc ekwiwalent NNI wynosi 1.0
+        assertEquals(1.0, dist, 0.0001,
+                "Jeśli cel jest oddalony o 1 elementarny ruch SPR (1 NNI), ekwiwalent NNI musi wynosić 1.0");
     }
 
     @Test

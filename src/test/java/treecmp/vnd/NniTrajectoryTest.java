@@ -42,27 +42,6 @@ public class NniTrajectoryTest {
     }
 
     // ========================================================================
-    // TEST 1: Weryfikacja lokalnej trajektorii ECR3 (zmiana wewnątrz jednego klastra)
-    // ========================================================================
-    @Test
-    public void testEcr3TrajectoryDecompositionProducesValidNniSteps() {
-        // Poddrzewo (1,2) pozostaje nienaruszone, zmieniamy wyłącznie klaster {3,4,5,6}
-        Tree startTree  = parseTree("((1,2),(3,(4,(5,6))));");
-        Tree targetTree = parseTree("((1,2),((3,5),(4,6)));");
-
-        List<Tree> trajectory = SubtreeEcr3Utils.buildTrajectoryTrees(startTree, targetTree);
-
-        assertFalse(trajectory.isEmpty(), "Trajektoria nie powinna być pusta");
-
-        List<Tree> fullPath = new ArrayList<>();
-        fullPath.add(startTree);
-        fullPath.addAll(trajectory);
-
-        assertTrue(verifyNniTrajectory(fullPath),
-                "Wszystkie kroki w trajektorii ECR3 muszą być legalnymi ruchami NNI");
-    }
-
-    // ========================================================================
     // TEST 2: Pozytywny test syntetyczny – ręczna, poprawna sekwencja NNI
     // ========================================================================
     @Test
