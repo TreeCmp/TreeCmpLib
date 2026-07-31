@@ -17,9 +17,6 @@ public class NniIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
     private final String metricShortName;
     private final IncrementalMetric primaryMetric; // Opcjonalny filtr (np. RF)
 
-    protected List<TreeMove> tiedMoves = new ArrayList<>();
-    protected double currentPrimaryBestDist;
-
     // 1. Konstruktor podstawowy (bez filtra)
     public NniIncrementalHeuristic(IncrementalMetric metric, String metricShortName) {
         this(metric, null, metricShortName);
@@ -38,7 +35,7 @@ public class NniIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
         IncrementalMetric activeMetric = primaryMetric != null ? primaryMetric : this.incMetric;
 
         this.tiedMoves.clear();
-        this.currentPrimaryBestDist = Double.POSITIVE_INFINITY;
+        this.bestDist = Double.POSITIVE_INFINITY;
 
         exploreNniRecursive(currentTree.getRoot(), activeMetric);
     }
@@ -122,7 +119,7 @@ public class NniIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
 
             searchNeighborhood(currentTree);
 
-            if (!this.tiedMoves.isEmpty() && this.currentPrimaryBestDist < currentDist) {
+            if (!this.tiedMoves.isEmpty() && this.bestDist < currentDist) {
                 TreeMove bestMove = null;
 
                 // Brak remisów lub brak filtra -> bierzemy pierwszy lepszy ruch
@@ -193,7 +190,7 @@ public class NniIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
             this.improved = false;
             searchNeighborhood(currentTree);
 
-            if (!this.tiedMoves.isEmpty() && this.currentPrimaryBestDist < currentDist) {
+            if (!this.tiedMoves.isEmpty() && this.bestDist < currentDist) {
                 treecmp.heuristics.moves.TreeMove bestMove = this.tiedMoves.get(0);
 
                 if (bestMove != null) {

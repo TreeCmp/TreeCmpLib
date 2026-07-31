@@ -29,7 +29,6 @@ public abstract class IncrementalHeuristicBaseMetric extends BaseMetric {
         if (currentDist < this.bestDist) {
             this.bestDist = currentDist;
             this.bestMove = move;
-            this.improved = true;
             this.tiedMoves.clear();
             this.tiedMoves.add(move);
         } else if (currentDist == this.bestDist && currentDist != Double.POSITIVE_INFINITY) {
