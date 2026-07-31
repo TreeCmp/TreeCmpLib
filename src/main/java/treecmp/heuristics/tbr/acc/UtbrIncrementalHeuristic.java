@@ -27,7 +27,7 @@ public class UtbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
     @Override
     protected void searchNeighborhood(Tree currentTree) {
         walker.walk(currentTree, this.incMetric, (currentDist, pruneNode, rerootNode, targetNode) -> {
-            checkImprovement(currentDist, new TbrMove(pruneNode, rerootNode, targetNode));
+            checkImprovementWithTies(currentDist, new TbrMove(pruneNode, rerootNode, targetNode));
         });
     }
 

@@ -19,9 +19,6 @@ public class Ecr2IncrementalHeuristic extends IncrementalHeuristicBaseMetric {
     private final String metricShortName;
     protected IncrementalMetric primaryMetric; // Opcjonalny filtr (np. RF)
 
-    protected List<TreeMove> tiedMoves = new ArrayList<>();
-    protected double currentPrimaryBestDist;
-
     // 1. Podstawowy konstruktor (bez filtra)
     public Ecr2IncrementalHeuristic(IncrementalMetric metric, String metricShortName) {
         this(metric, null, metricShortName);
@@ -35,22 +32,13 @@ public class Ecr2IncrementalHeuristic extends IncrementalHeuristicBaseMetric {
         this.ecr2Utils = new SubtreeEcr2Utils(!metric.isRooted());
     }
 
-    private void checkImprovementWithTies(double currentDist, TreeMove move) {
-        if (currentDist < this.currentPrimaryBestDist) {
-            this.currentPrimaryBestDist = currentDist;
-            this.tiedMoves.clear();
-            this.tiedMoves.add(move);
-        } else if (currentDist == this.currentPrimaryBestDist && currentDist != Double.POSITIVE_INFINITY) {
-            this.tiedMoves.add(move);
-        }
-    }
 
     @Override
     protected void searchNeighborhood(Tree currentTree) {
         IncrementalMetric activeMetric = primaryMetric != null ? primaryMetric : this.incMetric;
 
         this.tiedMoves.clear();
-        this.currentPrimaryBestDist = Double.POSITIVE_INFINITY;
+        this.bestDist = Double.POSITIVE_INFINITY;
 
         int intNum = currentTree.getInternalNodeCount();
 
@@ -126,7 +114,7 @@ public class Ecr2IncrementalHeuristic extends IncrementalHeuristicBaseMetric {
 
             searchNeighborhood(currentTree);
 
-            if (!this.tiedMoves.isEmpty() && this.currentPrimaryBestDist < currentDist) {
+            if (!this.tiedMoves.isEmpty() && this.bestDist < currentDist) {
                 TreeMove bestMove = null;
 
                 // Brak remisów lub brak filtra -> bierzemy pierwszy lepszy ruch

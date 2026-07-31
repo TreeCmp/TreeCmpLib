@@ -21,8 +21,6 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
     private final String metricShortName;
 
     protected IncrementalMetric primaryMetric;
-    protected List<TreeMove> tiedMoves = new ArrayList<>();
-    protected double currentPrimaryBestDist;
 
     public UsprIncrementalHeuristicMetric(IncrementalMetric metric, IncrementalMetric primaryMetric, String metricShortName) {
         super(false, metric); // false dla drzew nieukorzenionych
@@ -37,21 +35,10 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
         this(metric, null, metricShortName);
     }
 
-    private void checkImprovementWithTies(double currentDist, TreeMove move) {
-        if (currentDist < this.currentPrimaryBestDist) {
-            this.currentPrimaryBestDist = currentDist;
-            this.tiedMoves.clear();
-            this.tiedMoves.add(move);
-        } else if (currentDist == this.currentPrimaryBestDist && currentDist != Double.POSITIVE_INFINITY) {
-            this.tiedMoves.add(move);
-        }
-    }
-
     @Override
     protected void searchNeighborhood(Tree currentTree) {
         IncrementalMetric activeMetric = primaryMetric != null ? primaryMetric : this.incMetric;
         this.tiedMoves.clear();
-        this.currentPrimaryBestDist = Double.POSITIVE_INFINITY;
 
         // Wybór zoptymalizowanego walkera dla metryk wspieranych przez IncrementalUsprWalker
         if (activeMetric instanceof MSIncrementalMetric ||
@@ -111,7 +98,7 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
             this.improved = false;
             searchNeighborhood(currentTree);
 
-            if (!this.tiedMoves.isEmpty() && this.currentPrimaryBestDist < currentDist) {
+            if (!this.tiedMoves.isEmpty() && this.bestDist < currentDist) {
                 TreeMove bestMove = null;
 
                 if (primaryMetric == null || tiedMoves.size() == 1) {

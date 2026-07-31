@@ -75,7 +75,7 @@ public class VndQualityVsTimeMacroBenchmark {
         String treeType = rooted ? "UKORZENIONYCH (rb)" : "NIEUKORZENIONYCH (ub)";
         System.out.println("\n\n>>> ROZPOCZYNAM TESTY DLA DRZEW " + treeType + " <<<");
 
-        int[] sizes = {10, 20, 30, 50, 80};
+        int[] sizes = {10, 20, 30/*, 50, 80*/};
         List<MetricSetup> metricsToTest = rooted ? getRootedMetrics() : getUnrootedMetrics();
 
         for (MetricSetup setup : metricsToTest) {

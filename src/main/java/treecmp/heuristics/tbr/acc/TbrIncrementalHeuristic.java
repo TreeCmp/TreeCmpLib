@@ -30,7 +30,7 @@ public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
         // Wizytator TBR przyjmuje 3 parametry węzłowe: odcięty korzeń, nowy wirtualny korzeń i cel
         walker.walk(currentTree, this.incMetric, (currentDist, pruneNode, rerootNode, targetNode) -> {
             // Rejestrujemy ruch TBR zawierający informację o przekorzenieniu
-            checkImprovement(currentDist, new TbrMove(pruneNode, rerootNode, targetNode));
+            checkImprovementWithTies(currentDist, new TbrMove(pruneNode, rerootNode, targetNode));
         });
     }
 

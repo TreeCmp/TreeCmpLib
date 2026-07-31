@@ -5,6 +5,7 @@ import treecmp.heuristics.moves.TreeMove;
 import treecmp.metrics.BaseMetric;
 import treecmp.metrics.IncrementalMetric;
 
+import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 
@@ -14,42 +15,37 @@ public abstract class IncrementalHeuristicBaseMetric extends BaseMetric {
     protected final IncrementalMetric incMetric;
 
     protected double bestDist;
-    protected treecmp.heuristics.moves.TreeMove bestMove;
+    protected TreeMove bestMove;
     protected boolean improved;
-
-    protected treecmp.heuristics.moves.TreeMove lastOptimumMove;
+    protected TreeMove lastOptimumMove;
+    protected final List<TreeMove> tiedMoves = new ArrayList<>();
 
     public IncrementalHeuristicBaseMetric(boolean rooted, IncrementalMetric metric) {
         this.rooted = rooted;
         this.incMetric = metric;
     }
 
-    protected void checkImprovement(double currentDist, TreeMove move) {
+    protected void checkImprovementWithTies(double currentDist, TreeMove move) {
         if (currentDist < this.bestDist) {
             this.bestDist = currentDist;
             this.bestMove = move;
             this.improved = true;
+            this.tiedMoves.clear();
+            this.tiedMoves.add(move);
+        } else if (currentDist == this.bestDist && currentDist != Double.POSITIVE_INFINITY) {
+            this.tiedMoves.add(move);
         }
     }
 
-    // Służy wyłącznie do testów wydajnościowych (Single-Step Benchmark)
     public double evaluateSingleStep(Tree tree1, Tree tree2) {
-        // 1. KLUCZOWA POPRAWKA: Twarda inicjalizacja stanu bazowego dla metryki
-        // To wykonuje mapowanie liści i zlicza bazowy dystans przed jakimkolwiek ruchem
         this.incMetric.initCalculationState(tree1, tree2);
-
         this.improved = false;
-
-        // 2. Ustawiamy najgorszy możliwy dystans (Nieskończoność),
-        // aby upewnić się, że pobierzemy najlepszego sąsiada z całego otoczenia,
-        // dokładnie tak samo, jak robi to pętla 'for' w klasycznych benchmarkach.
         this.bestDist = Double.POSITIVE_INFINITY;
         this.bestMove = null;
+        this.tiedMoves.clear(); // Czyścimy remisy przed startem
 
-        // 3. Wypuszczamy Walkera (który wykona ułamkowe ewaluacje O(1))
         searchNeighborhood(tree1);
 
-        // 4. Zwracamy najniższy znaleziony dystans w otoczeniu
         return this.bestDist;
     }
 

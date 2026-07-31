@@ -33,16 +33,6 @@ public class NniIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
         this.nniUtils = new NniUtils(!metric.isRooted());
     }
 
-    private void checkImprovementWithTies(double currentDist, TreeMove move) {
-        if (currentDist < this.currentPrimaryBestDist) {
-            this.currentPrimaryBestDist = currentDist;
-            this.tiedMoves.clear();
-            this.tiedMoves.add(move);
-        } else if (currentDist == this.currentPrimaryBestDist && currentDist != Double.POSITIVE_INFINITY) {
-            this.tiedMoves.add(move);
-        }
-    }
-
     @Override
     protected void searchNeighborhood(Tree currentTree) {
         IncrementalMetric activeMetric = primaryMetric != null ? primaryMetric : this.incMetric;
