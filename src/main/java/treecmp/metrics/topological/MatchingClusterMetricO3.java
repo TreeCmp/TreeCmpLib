@@ -17,7 +17,6 @@
 
 package treecmp.metrics.topological;
 
-
 import pal.misc.IdGroup;
 import pal.misc.SimpleIdGroup;
 import pal.tree.Node;
@@ -28,6 +27,8 @@ import treecmp.common.ClustIntersectInfoMatrix.ClustPair;
 import treecmp.config.IOSettings;
 import treecmp.metrics.*;
 
+import java.util.Arrays;
+
 public class MatchingClusterMetricO3 extends BaseMetric implements Metric {
 
     protected int[] costId2NumT1;
@@ -37,14 +38,45 @@ public class MatchingClusterMetricO3 extends BaseMetric implements Metric {
     protected short[][] assigncost;
     protected ClustIntersectInfoMatrix cIntM;
 
-    public double getDistance(Tree t1, Tree t2, int... indexes) {
+    // PREALOKOWANE BUFORY ROBOCZE (Scratchpad Buffers) - eliminacja alokacji w gorących ścieżkach
+    private int currentLapCapacity = 0;
+    private int currentItCapacity = 0;
+    private int currentLapSize = 0;
+    private int[] u;
+    private int[] v;
+    private int[] t1Ids;
+    private int[] t1Sizes;
+    private int[] t2Ids;
+    private int[] t2Sizes;
 
-        int metric, t1NodeNum, t2NodeNum, il, jl;
-        Node t1Node, t2Node;
+    private void ensureCapacity(int lapSize, int itSize) {
+        if (assigncost == null || currentLapCapacity < lapSize) {
+            int newLap = Math.max(lapSize, (currentLapCapacity == 0 ? 32 : currentLapCapacity * 2));
+            assigncost = new short[newLap][newLap];
+            rowsol = new int[newLap];
+            colsol = new int[newLap];
+            u = new int[newLap];
+            v = new int[newLap];
+            currentLapCapacity = newLap;
+        }
+        if (t1Ids == null || currentItCapacity < itSize) {
+            int newIt = Math.max(itSize, (currentItCapacity == 0 ? 32 : currentItCapacity * 2));
+            t1Ids = new int[newIt];
+            t1Sizes = new int[newIt];
+            t2Ids = new int[newIt];
+            t2Sizes = new int[newIt];
+            costId2NumT1 = new int[newIt];
+            costId2NumT2 = new int[newIt];
+            currentItCapacity = newIt;
+        }
+    }
+
+    public double getDistance(Tree t1, Tree t2, int... indexes) {
 
         IdGroup idGroup1 = TreeUtils.getLeafIdGroup(t1);
         IdGroup idGroup2 = TreeUtils.getLeafIdGroup(t2);
-        IdGroup idGroup = new SimpleIdGroup(idGroup1,idGroup2);
+        // OPTYMALIZACJA 3: Unikanie zbędnej alokacji SimpleIdGroup, gdy grupy liści są tożsame
+        IdGroup idGroup = (idGroup1 == idGroup2 || idGroup1.equals(idGroup2)) ? idGroup1 : new SimpleIdGroup(idGroup1, idGroup2);
         cIntM = TreeCmpUtils.calcClustIntersectMatrix(t1, t2, idGroup);
 
         int size1 = t1.getInternalNodeCount();
@@ -54,107 +86,84 @@ public class MatchingClusterMetricO3 extends BaseMetric implements Metric {
         int size = Math.max(size1 - eqClustSize, size2 - eqClustSize);
         int sizeIt = Math.max(size1, size2);
 
-        assigncost = new short[size][size];
-        rowsol = new int[size];
-        colsol = new int[size];
-        int[] u = new int[size];
-        int[] v = new int[size];
-        
         if (size <= 0) {
+            currentLapSize = 0;
             return 0;
         }
-        
-        // used for alignement generation
+
+        // OPTYMALIZACJA 1: Zero-Allocation — korzystamy z prealokowanych buforów instancji
+        ensureCapacity(size, sizeIt);
+        this.currentLapSize = size;
+
+        // OPTYMALIZACJA 2a: Row Hoisting — wyciągamy ważne atrybuty węzłów poza pętlę LAP
+        int n1 = 0;
+        for (int i = 0; i < size1; i++) {
+            Node t1Node = t1.getInternalNode(i);
+            if (t1Node.isRoot()) continue;
+            int t1NodeNum = t1Node.getNumber();
+            if (cIntM.eqClustT1[t1NodeNum]) continue;
+            t1Ids[n1] = t1NodeNum;
+            t1Sizes[n1] = cIntM.cSize1[t1NodeNum];
+            n1++;
+        }
+
+        int n2 = 0;
+        for (int j = 0; j < size2; j++) {
+            Node t2Node = t2.getInternalNode(j);
+            if (t2Node.isRoot()) continue;
+            int t2NodeNum = t2Node.getNumber();
+            if (cIntM.eqClustT2[t2NodeNum]) continue;
+            t2Ids[n2] = t2NodeNum;
+            t2Sizes[n2] = cIntM.cSize2[t2NodeNum];
+            n2++;
+        }
+
         if (IOSettings.getIOSettings().isGenAlignments()) {
-            //start of initialization of alignemnt helper tabels
-            costId2NumT1 = new int[sizeIt];
-            costId2NumT2 = new int[sizeIt];
-
-            //store id map for alignemnt T1
-            int ii = 0;
-            for (int i = 0; i < size1; i++) {
-                t1Node = t1.getInternalNode(i);
-                if (t1Node.isRoot()) {
-                    continue;
-                }
-                t1NodeNum = t1Node.getNumber();
-                //there is indetical cluster in T2 skip it
-                if (cIntM.eqClustT1[t1NodeNum]) {
-                    continue;
-                }
-                costId2NumT1[ii] = t1NodeNum;
-                ii++;
-            }
-            for (int i = ii; i < sizeIt; i++) {
-                // -1 means unparied
-                costId2NumT1[i] = -1;
-            }
-
-            ii = 0;
-            //store id map for alignemnt T2
-            for (int i = 0; i < size2; i++) {
-                t2Node = t2.getInternalNode(i);
-                if (t2Node.isRoot()) {
-                    continue;
-                }
-                t2NodeNum = t2Node.getNumber();
-                //there is indetical cluster in T2 skip it
-                if (cIntM.eqClustT2[t2NodeNum]) {
-                    continue;
-                }
-                costId2NumT2[ii] = t2NodeNum;
-                ii++;
-            }
-
-            for (int i = ii; i < sizeIt; i++) {
-                // -1 means unparied
-                costId2NumT2[i] = -1;
-            }
-            //end of initialization of alignemnt helper tabels
-        }
-        il = 0;
-        for (int i = 0; i < sizeIt; i++) {
-            t1NodeNum = -1;
-            if (i < size1){
-                t1Node = t1.getInternalNode(i);
-                if (t1Node.isRoot()) {
-                    continue;
-                }
-                t1NodeNum = t1Node.getNumber();
-                //there is indetical cluster in T2 skip it
-                if (cIntM.eqClustT1[t1NodeNum]) {
-                    continue;
-                }
-            }
-            jl = 0;
-            for (int j = 0; j < sizeIt; j++) {
-                t2NodeNum = -1;
-                if (j < size2){
-                    t2Node = t2.getInternalNode(j);
-                    if (t2Node.isRoot()) {
-                        continue;
-                    }
-                        t2NodeNum = t2Node.getNumber();
-                //there is indetical cluster in T1 skip it
-                    if (cIntM.eqClustT2[t2NodeNum]) {
-                        continue;
-                    }
-                }
-                if (i < size1 && j < size2) {
-                    assigncost[il][jl] = (short) (cIntM.cSize1[t1NodeNum] + cIntM.cSize2[t2NodeNum] - (cIntM.intCladeSize[t1NodeNum][t2NodeNum] << 1));
-
-                } else if (i >= size1 && j < size2) {
-                    assigncost[il][jl] = cIntM.cSize2[t2NodeNum];
-                } else {
-                    assigncost[il][jl] = cIntM.cSize1[t1NodeNum];
-                }
-                jl++;
-            }
-            il++;
+            System.arraycopy(t1Ids, 0, costId2NumT1, 0, n1);
+            Arrays.fill(costId2NumT1, n1, sizeIt, -1);
+            System.arraycopy(t2Ids, 0, costId2NumT2, 0, n2);
+            Arrays.fill(costId2NumT2, n2, sizeIt, -1);
         }
 
-        metric = LapSolver.lapShort(size, assigncost, rowsol, colsol, u, v);
-        return metric;
+        // OPTYMALIZACJA 2b: 4-Quadrant Branchless Matrix Filling (zero warunków if/else wewnątrz!)
+        // Kwadrant 1: Prawdziwe pary [0..n1-1][0..n2-1]
+        for (int r = 0; r < n1; r++) {
+            int id1 = t1Ids[r];
+            int s1 = t1Sizes[r];
+            short[] row = assigncost[r];
+            short[] interRow = cIntM.intCladeSize[id1];
+            for (int c = 0; c < n2; c++) {
+                int id2 = t2Ids[c];
+                row[c] = (short) (s1 + t2Sizes[c] - (interRow[id2] << 1));
+            }
+        }
+
+        // Kwadrant 2: Widmowe T1 / koszt klastrów T2 [n1..size-1][0..n2-1]
+        for (int r = n1; r < size; r++) {
+            short[] row = assigncost[r];
+            for (int c = 0; c < n2; c++) {
+                row[c] = (short) t2Sizes[c];
+            }
+        }
+
+        // Kwadrant 3: Widmowe T2 / koszt klastrów T1 [0..n1-1][n2..size-1]
+        for (int r = 0; r < n1; r++) {
+            short[] row = assigncost[r];
+            short s1 = (short) t1Sizes[r];
+            for (int c = n2; c < size; c++) {
+                row[c] = s1;
+            }
+        }
+
+        // Kwadrant 4: Zera [n1..size-1][n2..size-1]
+        for (int r = n1; r < size; r++) {
+            short[] row = assigncost[r];
+            for (int c = n2; c < size; c++) {
+                row[c] = 0;
+            }
+        }
+
+        return LapSolver.lapShort(size, assigncost, rowsol, colsol, u, v);
     }
 
     @Override
@@ -170,32 +179,29 @@ public class MatchingClusterMetricO3 extends BaseMetric implements Metric {
         int j, cost;
         int size = Math.max(size1, size2);
 
-        int sizeWithoutRoot = size -1;
+        int sizeWithoutRoot = size - 1;
         IntNodePair[] aln = new IntNodePair[sizeWithoutRoot];
-         //store id map for alignemnt T1
         int alnNum = 0;
-        for (ClustPair cp: cIntM.eqClustList){
-            //skip root clusters
+        for (ClustPair cp : cIntM.eqClustList) {
             if (cIntM.cSize1[cp.t1IntId] == leafSize)
-                 continue;
-             aln[alnNum] = new IntNodePair();
-             aln[alnNum].t1_node = cp.t1IntId;
-             aln[alnNum].t2_node = cp.t2IntId;
-             aln[alnNum].cost = 0;
-             alnNum++;
+                continue;
+            aln[alnNum] = new IntNodePair();
+            aln[alnNum].t1_node = cp.t1IntId;
+            aln[alnNum].t2_node = cp.t2IntId;
+            aln[alnNum].cost = 0;
+            alnNum++;
         }
 
         int totalCost = 0;
-        for (int i = 0; i<rowsol.length; i++){
+        for (int i = 0; i < currentLapSize; i++) {
             j = rowsol[i];
-            cost =  assigncost[i][j];
+            cost = assigncost[i][j];
             totalCost += cost;
             aln[alnNum] = new IntNodePair();
-             // -1 means unparied
-             aln[alnNum].t1_node = costId2NumT1[i];
-             aln[alnNum].t2_node = costId2NumT2[j];
-             aln[alnNum].cost = cost;
-             alnNum++;
+            aln[alnNum].t1_node = costId2NumT1[i];
+            aln[alnNum].t2_node = costId2NumT2[j];
+            aln[alnNum].cost = cost;
+            alnNum++;
         }
 
         alignInfo.setAln(aln);
@@ -205,6 +211,4 @@ public class MatchingClusterMetricO3 extends BaseMetric implements Metric {
         alignInfo.setTotalCost(totalCost);
         return alignInfo;
     }
-
-
 }

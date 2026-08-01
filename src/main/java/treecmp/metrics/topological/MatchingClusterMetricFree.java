@@ -17,7 +17,6 @@
 
 package treecmp.metrics.topological;
 
-
 import pal.misc.IdGroup;
 import pal.tree.Node;
 import pal.tree.Tree;
@@ -36,123 +35,114 @@ public class MatchingClusterMetricFree extends BaseMetric implements Metric {
     protected short[][] assigncost;
     protected ClustIntersectInfoMatrix cIntM;
 
-    public double getDistance(Tree t1, Tree t2, int... indexes) {
+    // PREALOKOWANE BUFORY ROBOCZE (Scratchpad Buffers) - eliminacja alokacji w gorących ścieżkach
+    private int currentLapCapacity = 0;
+    private int currentNodeCapacity = 0;
+    private int[] u;
+    private int[] v;
+    private int[] t1Nums;
+    private int[] t1Sizes;
+    private int[] t2Nums;
+    private int[] t2Sizes;
+    private Node[] scratchNodesT1;
+    private Node[] scratchNodesT2;
 
-        int metric;
+    private void ensureCapacity(int lapSize, int nodeSize) {
+        if (assigncost == null || currentLapCapacity < lapSize) {
+            int newLap = Math.max(lapSize, (currentLapCapacity == 0 ? 32 : currentLapCapacity * 2));
+            assigncost = new short[newLap][newLap];
+            rowsol = new int[newLap];
+            colsol = new int[newLap];
+            u = new int[newLap];
+            v = new int[newLap];
+            currentLapCapacity = newLap;
+        }
+        if (t1Nums == null || currentNodeCapacity < nodeSize) {
+            int newNodes = Math.max(nodeSize, (currentNodeCapacity == 0 ? 32 : currentNodeCapacity * 2));
+            t1Nums = new int[newNodes];
+            t1Sizes = new int[newNodes];
+            t2Nums = new int[newNodes];
+            t2Sizes = new int[newNodes];
+            scratchNodesT1 = new Node[newNodes];
+            scratchNodesT2 = new Node[newNodes];
+            currentNodeCapacity = newNodes;
+        }
+    }
+
+    public double getDistance(Tree t1, Tree t2, int... indexes) {
 
         IdGroup idGroup1 = TreeUtils.getLeafIdGroup(t1);
         IdGroup idGroup2 = TreeUtils.getLeafIdGroup(t2);
-        IdGroup idGroup = TreeCmpUtils.mergeIdGroups(idGroup1,idGroup2);
+        // OPTYMALIZACJA 3: Szybkie sprawdzenie tożsamości grup liści przed łączeniem
+        IdGroup idGroup = (idGroup1 == idGroup2 || idGroup1.equals(idGroup2)) ? idGroup1 : TreeCmpUtils.mergeIdGroups(idGroup1, idGroup2);
         cIntM = TreeCmpUtils.calcClustIntersectMatrix(t1, t2, idGroup);
 
-        int intSize1 = t1.getInternalNodeCount();
-        int intSize2 = t2.getInternalNodeCount();
-        int extSize1 = t1.getExternalNodeCount();
-        int extSize2 = t2.getExternalNodeCount();
-
-        int totSize1 = intSize1 + extSize1;
-        int totSize2 = intSize2 + extSize2;
-
+        int totSize1 = t1.getInternalNodeCount() + t1.getExternalNodeCount();
+        int totSize2 = t2.getInternalNodeCount() + t2.getExternalNodeCount();
         int size = Math.max(totSize1, totSize2);
-
-        assigncost = new short[size][size];
-        rowsol = new int[size];
-        colsol = new int[size];
-        int[] u = new int[size];
-        int[] v = new int[size];
 
         if (size <= 0) {
             return 0;
         }
 
+        // OPTYMALIZACJA 1: Zero-Allocation na stercie
+        ensureCapacity(size, Math.max(totSize1, totSize2));
+
         Node[] nodeT1 = TreeCmpUtils.getAllNodes(t1);
         Node[] nodeT2 = TreeCmpUtils.getAllNodes(t2);
-        int n1Num,n2Num, n1Csize = 0, n2Csize = 0, intCsize = 0;
-        short cost = 0;
-        boolean isLeafN1, isLeafN2;
-        Node n1 = null, n2 = null;
-        for (int i = 0; i < size; i++){
-            if (i < totSize1 ){
 
-                n1 = nodeT1[i];
-                n1Num = n1.getNumber();
-                isLeafN1 = n1.isLeaf();
-                if (isLeafN1)
-                    n1Csize = 1;
-                else
-                    n1Csize = cIntM.cSize1[n1Num];
-            }
-            for (int j = 0; j < size; j++){
-                if (j < totSize2 ){
-                    n2 = nodeT2[j];
-                    n2Num = n2.getNumber();
-                    isLeafN2 = n2.isLeaf();
-                    if (isLeafN2)
-                        n2Csize = 1;
-                    else
-                        n2Csize = cIntM.cSize2[n2Num];
-                }
+        // OPTYMALIZACJA 2a: Hoisting — wyciągamy rozmiary klastrów z wyprzedzeniem
+        for (int i = 0; i < totSize1; i++) {
+            Node n1 = nodeT1[i];
+            scratchNodesT1[i] = n1;
+            t1Nums[i] = n1.getNumber();
+            t1Sizes[i] = n1.isLeaf() ? 1 : cIntM.cSize1[t1Nums[i]];
+        }
 
-                if (i < totSize1 && j < totSize2 ){
-                    //norma distance
-                    intCsize = cIntM.getInterSize(n1, n2);
-                    cost = (short) (n1Csize + n2Csize - (intCsize << 1));
+        for (int j = 0; j < totSize2; j++) {
+            Node n2 = nodeT2[j];
+            scratchNodesT2[j] = n2;
+            t2Nums[j] = n2.getNumber();
+            t2Sizes[j] = n2.isLeaf() ? 1 : cIntM.cSize2[t2Nums[j]];
+        }
 
-                } else if (i < totSize1 ){
-                    cost = (short) n1Csize;
-                }else{
-                    cost = (short) n2Csize;
-                }
-
-                assigncost[i][j] = cost;
+        // OPTYMALIZACJA 2b: 4-Quadrant Branchless Matrix Filling
+        // Kwadrant 1: Pary węzłów [0..totSize1-1][0..totSize2-1]
+        for (int r = 0; r < totSize1; r++) {
+            Node n1 = scratchNodesT1[r];
+            int s1 = t1Sizes[r];
+            short[] row = assigncost[r];
+            for (int c = 0; c < totSize2; c++) {
+                int intCsize = cIntM.getInterSize(n1, scratchNodesT2[c]);
+                row[c] = (short) (s1 + t2Sizes[c] - (intCsize << 1));
             }
         }
-/*
 
-        il = 0;
-        for (int i = 0; i < sizeIt; i++) {
-            t1NodeNum = -1;
-            if (i < size1){
-                t1Node = t1.getInternalNode(i);
-                if (t1Node.isRoot()) {
-                    continue;
-                }
-                t1NodeNum = t1Node.getNumber();
-                //there is indetical cluster in T2 skip it
-                if (cIntM.eqClustT1[t1NodeNum]) {
-                    continue;
-                }
+        // Kwadrant 2: Widmowe T1 / koszt węzłów T2 [totSize1..size-1][0..totSize2-1]
+        for (int r = totSize1; r < size; r++) {
+            short[] row = assigncost[r];
+            for (int c = 0; c < totSize2; c++) {
+                row[c] = (short) t2Sizes[c];
             }
-            jl = 0;
-            for (int j = 0; j < sizeIt; j++) {
-                t2NodeNum = -1;
-                if (j < size2){
-                    t2Node = t2.getInternalNode(j);
-                    if (t2Node.isRoot()) {
-                        continue;
-                    }
-                        t2NodeNum = t2Node.getNumber();
-                //there is indetical cluster in T1 skip it
-                    if (cIntM.eqClustT2[t2NodeNum]) {
-                        continue;
-                    }
-                }
-                if (i < size1 && j < size2) {
-                    assigncost[il][jl] = (short) (cIntM.cSize1[t1NodeNum] + cIntM.cSize2[t2NodeNum] - (cIntM.intCladeSize[t1NodeNum][t2NodeNum] << 1));
-
-                } else if (i >= size1 && j < size2) {
-                    assigncost[il][jl] = cIntM.cSize2[t2NodeNum];
-                } else {
-                    assigncost[il][jl] = cIntM.cSize1[t1NodeNum];
-                }
-                jl++;
-            }
-            il++;
         }
-*/
-        metric = LapSolver.lapShort(size, assigncost, rowsol, colsol, u, v);
-        return metric;
+
+        // Kwadrant 3: Widmowe T2 / koszt węzłów T1 [0..totSize1-1][totSize2..size-1]
+        for (int r = 0; r < totSize1; r++) {
+            short[] row = assigncost[r];
+            short s1 = (short) t1Sizes[r];
+            for (int c = totSize2; c < size; c++) {
+                row[c] = s1;
+            }
+        }
+
+        // Kwadrant 4: Zera [totSize1..size-1][totSize2..size-1]
+        for (int r = totSize1; r < size; r++) {
+            short[] row = assigncost[r];
+            for (int c = totSize2; c < size; c++) {
+                row[c] = 0;
+            }
+        }
+
+        return LapSolver.lapShort(size, assigncost, rowsol, colsol, u, v);
     }
-
-
 }
