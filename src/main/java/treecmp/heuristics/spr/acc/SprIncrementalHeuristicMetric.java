@@ -130,6 +130,8 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
                     this.accumulatedNniCost += bestMove.getNniEquivalentCost();
 
                     // 2. DOPIERO POTEM APLIKUJEMY RUCH I ZMIENIAMY DRZEWO
+                    this.lastOptimumMove = bestMove;
+                    this.lastMoveBaseTree = currentTree;
                     currentTree = applyPhysicalMove(currentTree, bestMove);
 
                     pal.tree.TreeUtils.computeParentPointers(currentTree.getRoot());

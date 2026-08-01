@@ -1,6 +1,7 @@
 package treecmp.heuristics.spr.acc;
 
 import pal.tree.Tree;
+import pal.tree.TreeUtils;
 import treecmp.common.TreeCmpUtils;
 import treecmp.heuristics.base.IncrementalHeuristicBaseMetric;
 import treecmp.heuristics.moves.TreeMove;
@@ -39,6 +40,7 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
     protected void searchNeighborhood(Tree currentTree) {
         IncrementalMetric activeMetric = primaryMetric != null ? primaryMetric : this.incMetric;
         this.tiedMoves.clear();
+        this.bestDist = Double.POSITIVE_INFINITY;
 
         // Wybór zoptymalizowanego walkera dla metryk wspieranych przez IncrementalUsprWalker
         if (activeMetric instanceof MSIncrementalMetric ||
@@ -120,12 +122,14 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
 
                 if (bestMove != null) {
                     // 1. NAJPIERW ZLICZAMY KOSZT NNI (na oryginalnym drzewie)
-                    this.accumulatedNniCost += bestMove.getNniEquivalentCost(); //[cite: 22]
+                    this.accumulatedNniCost += bestMove.getNniEquivalentCost();
 
-                    // 2. DOPIERO POTEM APLIKUJEMY RUCH I ZMIENIAMY DRZEWO[cite: 20]
+                    // 2. DOPIERO POTEM APLIKUJEMY RUCH I ZMIENIAMY DRZEWO
+                    this.lastOptimumMove = bestMove;
+                    this.lastMoveBaseTree = currentTree;
                     currentTree = applyPhysicalMove(currentTree, bestMove);
 
-                    pal.tree.TreeUtils.computeParentPointers(currentTree.getRoot());
+                    TreeUtils.computeParentPointers(currentTree.getRoot());
                     activeMetric.initCalculationState(currentTree, targetTree);
                     double newDist = activeMetric.getCurrentDistance();
 
