@@ -41,18 +41,18 @@ public class NniQualityVsTimeMacroBenchmark {
 
     public static void main(String[] args) {
         System.out.println("===============================================================================================================");
-        System.out.println("                               NNI QUALITY VS TIME MACRO-BENCHMARK (100 PAR DRZEW)");
+        System.out.println("                               NNI QUALITY VS TIME MACRO-BENCHMARK (100 TREE PAIRS)");
         System.out.println("===============================================================================================================");
 
-        //runTestSuite(true);  // Faza 1: Ukorzenione (Rooted)
-        runTestSuite(false); // Faza 2: Nieukorzenione (Unrooted)
+        //runTestSuite(true);  // Phase 1: Rooted
+        runTestSuite(false); // Phase 2: Unrooted
     }
 
     private static void runTestSuite(boolean rooted) {
-        String treeType = rooted ? "UKORZENIONYCH (rb)" : "NIEUKORZENIONYCH (ub)";
-        System.out.println("\n\n>>> ROZPOCZYNAM TESTY DLA DRZEW " + treeType + " <<<");
+        String treeType = rooted ? "ROOTED (rb)" : "UNROOTED (ub)";
+        System.out.println("\n\n>>> STARTING TESTS FOR " + treeType + " TREES <<<");
 
-        int[] sizes = {10, 20, 30, 50, 80};
+        int[] sizes = {10, 20, 30, 50, 80, 120, 200};
 
         List<MetricSetup> metricsToTest = rooted ? getRootedMetrics() : getUnrootedMetrics();
 
@@ -62,26 +62,26 @@ public class NniQualityVsTimeMacroBenchmark {
             File file = new File(fileName);
 
             if (!file.exists()) {
-                System.out.println("Brak pliku: " + fileName + " (Pominiecie)");
+                System.out.println("Missing file: " + fileName + " (Skipping)");
                 continue;
             }
 
             List<Tree> trees = loadTrees(fileName);
             if (trees == null || trees.size() < 200) {
-                System.out.println("Plik " + fileName + " nie zawiera wystarczajacej liczby drzew.");
+                System.out.println("File " + fileName + " does not contain enough trees.");
                 continue;
             }
 
-            System.out.println("\n--- WYNIKI DLA ROZMIARU N=" + size + " (" + fileName + ") ---");
+            System.out.println("\n--- RESULTS FOR SIZE N=" + size + " (" + fileName + ") ---");
             System.out.printf("%-18s | %-20s | %-12s | %-15s | %-15s | %-15s\n",
-                    "Metryka", "Wariant Heurystyki", "Sukcesy", "Sr. Dystans NNI", "Calk. Czas", "Czas/Pare");
+                    "Metric", "Heuristic Variant", "Successes", "Avg NNI Distance", "Total Time", "Time/Pair");
             System.out.println("-".repeat(110));
 
             for (MetricSetup setup : metricsToTest) {
-                evaluateAndReport(setup.name, "Klasyczna (Czysta)", setup.classicPure, trees);
-                evaluateAndReport(setup.name, "Inkrement (Czysta)", setup.incrementalPure, trees);
-                evaluateAndReport(setup.name, "Klasyczna + RF (Tie)", setup.classicFiltered, trees);
-                evaluateAndReport(setup.name, "Inkrement + RF (Tie)", setup.incrementalFiltered, trees);
+                evaluateAndReport(setup.name, "Classic (Pure)", setup.classicPure, trees);
+                evaluateAndReport(setup.name, "Incremental (Pure)", setup.incrementalPure, trees);
+                evaluateAndReport(setup.name, "Classic + RF (Tie)", setup.classicFiltered, trees);
+                evaluateAndReport(setup.name, "Incremental + RF (Tie)", setup.incrementalFiltered, trees);
                 System.out.println("-".repeat(110));
             }
         }
@@ -98,7 +98,7 @@ public class NniQualityVsTimeMacroBenchmark {
         int successCount = 0;
         boolean timedOut = false;
 
-        // Ustawienie limitu czasu (5 godzin w milisekundach)
+        // Set time limit (5 hours in milliseconds)
         long TIMEOUT_MS = 5L * 60 * 60 * 1000;
         long overallStartMs = System.currentTimeMillis();
 
@@ -122,7 +122,7 @@ public class NniQualityVsTimeMacroBenchmark {
                     successCount++;
                 }
             } catch (Exception e) {
-                // Tłumi błędy
+                // Suppress errors
             }
             totalTimeNs += (System.nanoTime() - start);
             processedPairs++;
@@ -132,7 +132,7 @@ public class NniQualityVsTimeMacroBenchmark {
         double totalTimeMs = totalTimeNs / 1_000_000.0;
         double avgTimeMs = processedPairs > 0 ? (totalTimeMs / processedPairs) : 0.0;
 
-        String distStr = successCount > 0 ? String.format(Locale.US, "%.4f", avgDistance) : "Brak (Inf)";
+        String distStr = successCount > 0 ? String.format(Locale.US, "%.4f", avgDistance) : "None (Inf)";
         String successStr = successCount + "/" + processedPairs + (timedOut ? " (TO)" : "");
 
         System.out.printf("%-18s | %-20s | %-12s | %-15s | %-12.0f ms | %-12.2f ms\n",
@@ -142,7 +142,7 @@ public class NniQualityVsTimeMacroBenchmark {
     private static List<MetricSetup> getRootedMetrics() {
         List<MetricSetup> list = new ArrayList<>();
 
-        // Dla RFCluster nie stosujemy filtrów, bo to metryka bazowa
+        // For RFCluster we do not use filters, as it is a base metric
         list.add(new MetricSetup("RFCluster",
                 new NniClassicHeuristic(new RFClusterMetric(), true, "RFC"),
                 new NniIncrementalHeuristic(new RFClusterIncrementalMetric(), "RFCinc"),
@@ -170,7 +170,7 @@ public class NniQualityVsTimeMacroBenchmark {
     private static List<MetricSetup> getUnrootedMetrics() {
         List<MetricSetup> list = new ArrayList<>();
 
-        // Dla RF nie stosujemy filtrów, bo to metryka bazowa
+        // For RF we do not use filters, as it is a base metric
         list.add(new MetricSetup("RF",
                 new NniClassicHeuristic(new RFMetric(), false, "RF"),
                 new NniIncrementalHeuristic(new RFIncrementalMetric(), "RFinc"),
@@ -209,7 +209,7 @@ public class NniQualityVsTimeMacroBenchmark {
                 }
             }
         } catch (Exception e) {
-            System.err.println("Błąd wczytywania z " + filename + ": " + e.getMessage());
+            System.err.println("Error loading from " + filename + ": " + e.getMessage());
         }
         return trees;
     }

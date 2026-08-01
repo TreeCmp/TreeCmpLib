@@ -48,13 +48,15 @@ public class M3IncrementalMetric implements IncrementalMetric {
     private int[] currentT1TripletCount;
     private int[] t2IntTripletCount;
 
-    // PREALOKOWANE BUFORY ROBOCZE (Scratchpad Buffers) - eliminacja alokacji w gorących ścieżkach SPR
+    // PREALOKOWANE BUFORY ROBOCZE (Scratchpad Buffers) - eliminacja alokacji w gorących ścieżkach SPR i NNI
     private int[] scratchOldRow;
     private int[] scratchOldU;
     private int[] scratchOldV;
     private int[] scratchOldRowsol;
     private int[] scratchOldColsol;
     private int[] scratchChangedRow;
+    private int[] scratchChangedRows2;
+    private int[] scratchChangedRowAll;
     private int[] scratchIntersections;
 
     private BitSet scratchSetA;
@@ -106,13 +108,14 @@ public class M3IncrementalMetric implements IncrementalMetric {
             this.u = new int[dim];
             this.v = new int[dim];
 
-            // Inicjalizacja buforów roboczych bez alokacji w pętlach
             this.scratchOldRow = new int[dim];
             this.scratchOldU = new int[dim];
             this.scratchOldV = new int[dim];
             this.scratchOldRowsol = new int[dim];
             this.scratchOldColsol = new int[dim];
             this.scratchChangedRow = new int[1];
+            this.scratchChangedRows2 = new int[2];
+            this.scratchChangedRowAll = new int[dim];
             this.scratchIntersections = new int[dim];
 
             this.scratchSetA = new BitSet(N);
@@ -136,14 +139,25 @@ public class M3IncrementalMetric implements IncrementalMetric {
             int[] baseIdToRow = new int[maxNodesT1];
             Arrays.fill(baseIdToRow, -1);
 
+            // KLUCZOWA POPRAWKA: Rejestrujemy wiersze ZARÓWNO dla baseTree, jak i currentVirtualTree!
             for (int i = 0; i < intT1Num; i++) {
-                Node n = this.baseTree.getInternalNode(i);
-                baseIdToRow[n.getNumber()] = i;
-                nodeToRow.put(n, i);
+                Node nBase = this.baseTree.getInternalNode(i);
+                Node nVirt = this.currentVirtualTree.getInternalNode(i);
+                baseIdToRow[nBase.getNumber()] = i;
+                nodeToRow.put(nBase, i);
+                nodeToRow.put(nVirt, i);
             }
 
             Node[] allNodesBaseCopy = TreeCmpUtils.getAllNodes(this.baseTree);
             for (Node n : allNodesBaseCopy) {
+                BitSet split = getLeaves(n, baseIdGroup);
+                baseSplits.put(n, split);
+                currentSplits.put(n, (BitSet) split.clone());
+            }
+
+            // KLUCZOWA POPRAWKA: Rejestrujemy maski bitowe dla każdego węzła w currentVirtualTree!
+            Node[] allNodesVirtCopy = TreeCmpUtils.getAllNodes(this.currentVirtualTree);
+            for (Node n : allNodesVirtCopy) {
                 BitSet split = getLeaves(n, baseIdGroup);
                 baseSplits.put(n, split);
                 currentSplits.put(n, (BitSet) split.clone());
@@ -248,7 +262,8 @@ public class M3IncrementalMetric implements IncrementalMetric {
         if (n == null || n.isLeaf()) return null;
         Integer row = nodeToRow.get(n);
         if (row != null) return row;
-        Node mapped = getMappedNode(this.baseTree, n);
+        Node mapped = getMappedNode(this.currentVirtualTree, n);
+        if (mapped == null) mapped = getMappedNode(this.baseTree, n);
         if (mapped != null && !mapped.isLeaf()) {
             row = nodeToRow.get(mapped);
             if (row != null) {
@@ -346,14 +361,12 @@ public class M3IncrementalMetric implements IncrementalMetric {
         this.currentDistance = delta.oldDistance;
     }
 
-    // GORĄCA ŚCIEŻKA SPR - zero alokacji (100% obciążenia na buforach prealokowanych)
     public double getFixedDistanceForRegraft(Node targetNode, Node wanderingSource, BitSet pruneMask, Node pruneNode) {
         Integer r_w = getRowForNode(wanderingSource);
         if (r_w == null) {
             return evaluateSprRegraft(pruneNode, targetNode);
         }
 
-        // Klonowanie operacji na stałych BitSetach bez wywoływania konstruktorów
         scratchSetA.clear();
         scratchSetA.or(pruneMask);
 
@@ -366,7 +379,6 @@ public class M3IncrementalMetric implements IncrementalMetric {
         scratchSetC.andNot(scratchSetA);
         scratchSetC.andNot(scratchSetB);
 
-        // Zapamiętywanie stanu w buforach bez alokacji int[]
         System.arraycopy(assigncost[r_w], 0, scratchOldRow, 0, dim);
         System.arraycopy(u, 0, scratchOldU, 0, dim);
         System.arraycopy(v, 0, scratchOldV, 0, dim);
@@ -380,7 +392,6 @@ public class M3IncrementalMetric implements IncrementalMetric {
         int rawMetric = LapSolver.lapUpdate(dim, assigncost, rowsol, colsol, u, v, scratchChangedRow);
         double fixedDist = 0.5 * rawMetric;
 
-        // Błyskawiczne przywrócenie stanu
         System.arraycopy(scratchOldRow, 0, assigncost[r_w], 0, dim);
         System.arraycopy(scratchOldU, 0, u, 0, dim);
         System.arraycopy(scratchOldV, 0, v, 0, dim);
@@ -392,7 +403,7 @@ public class M3IncrementalMetric implements IncrementalMetric {
     }
 
     private BitSet[] getPartitionsForNode(Node n) {
-        if (n == activePruneNode.getParent()) {
+        if (activePruneNode != null && n == activePruneNode.getParent()) {
             return new BitSet[0];
         }
 
@@ -405,7 +416,7 @@ public class M3IncrementalMetric implements IncrementalMetric {
 
         for (int i = 0; i < chCount; i++) {
             Node child = n.getChild(i);
-            if (child == activePruneNode) {
+            if (activePruneNode != null && child == activePruneNode) {
                 cSets[idx] = new BitSet(N);
             } else {
                 cSets[idx] = (BitSet) getSplitForNode(child).clone();
@@ -654,7 +665,7 @@ public class M3IncrementalMetric implements IncrementalMetric {
         double dist = 0.5 * rawMetric;
 
         if (isCommit) {
-            history.push(new StateRecord(this.assigncost, this.rowsol, this.colsol, this.u, this.v, this.currentDistance, this.currentVirtualTree, this.currentT1TripletCount, this.currentSplits, this.nodeToRow));
+            history.push(new StateRecord(this.assigncost, this.rowsol, this.colsol, this.u, this.v, this.currentDistance, this.currentVirtualTree, this.currentT1TripletCount, this.currentSplits, this.nodeToRow, null, null));
 
             this.assigncost = tempAssigncost;
             this.currentVirtualTree = tPerfect;
@@ -697,31 +708,61 @@ public class M3IncrementalMetric implements IncrementalMetric {
     }
 
     private double pushUnchangedState() {
-        history.push(new StateRecord(assigncost, rowsol, colsol, u, v, currentDistance, currentVirtualTree, currentT1TripletCount, currentSplits, nodeToRow));
+        history.push(new StateRecord(assigncost, rowsol, colsol, u, v, currentDistance, currentVirtualTree, currentT1TripletCount, currentSplits, nodeToRow, null, null));
         return this.currentDistance;
+    }
+
+    private void refreshAllRowsInPlace() {
+        int[] countWrap = {0};
+        postOrderRefresh(this.currentVirtualTree.getRoot(), countWrap);
+        if (countWrap[0] > 0) {
+            int[] rowsToUpdate = Arrays.copyOf(scratchChangedRowAll, countWrap[0]);
+            int rawMetric = LapSolver.lapUpdate(dim, assigncost, rowsol, colsol, u, v, rowsToUpdate);
+            this.currentDistance = 0.5 * rawMetric;
+        }
+    }
+
+    private void postOrderRefresh(Node n, int[] countWrap) {
+        if (n == null || n.isLeaf()) return;
+        for (int i = 0; i < n.getChildCount(); i++) {
+            postOrderRefresh(n.getChild(i), countWrap);
+        }
+        BitSet split = new BitSet(N);
+        for (int i = 0; i < n.getChildCount(); i++) {
+            split.or(getSplitForNode(n.getChild(i)));
+        }
+        currentSplits.put(n, split);
+
+        Integer row = getRowForNode(n);
+        if (row != null) {
+            scratchChangedRowAll[countWrap[0]++] = row;
+            computeRowCost(row, getPartitionsForNode(n));
+        }
     }
 
     @Override
     public double applyNni(NniMove move) {
-        SimpleTree tNew = (SimpleTree) createCleanCopy(this.currentVirtualTree);
-        Node virtMoving = getMappedNode(tNew, move.movingSubtree);
-        Node virtSwapPartner = getMappedNode(tNew, move.swapPartner);
+        Node virtMoving = getMappedNode(this.currentVirtualTree, move.movingSubtree);
+        Node virtPartner = getMappedNode(this.currentVirtualTree, move.swapPartner);
 
-        if (virtMoving == null || virtSwapPartner == null) return pushUnchangedState();
+        if (virtMoving == null || virtPartner == null) return pushUnchangedState();
 
         Node p1 = virtMoving.getParent();
-        Node p2 = virtSwapPartner.getParent();
+        Node p2 = virtPartner.getParent();
         if (p1 == null || p2 == null || p1 == p2) return pushUnchangedState();
 
         int idx1 = findChildPos(virtMoving, p1);
-        int idx2 = findChildPos(virtSwapPartner, p2);
+        int idx2 = findChildPos(virtPartner, p2);
         if (idx1 == -1 || idx2 == -1) return pushUnchangedState();
 
-        p1.setChild(idx1, virtSwapPartner); virtSwapPartner.setParent(p1);
+        history.push(new StateRecord(assigncost, rowsol, colsol, u, v, currentDistance, currentVirtualTree, currentT1TripletCount, currentSplits, nodeToRow, virtMoving, virtPartner));
+
+        p1.setChild(idx1, virtPartner); virtPartner.setParent(p1);
         p2.setChild(idx2, virtMoving); virtMoving.setParent(p2);
 
-        int maxCostBound = N * N * N;
-        return calculateCleanSlateDistance(tNew, true, maxCostBound);
+        refreshAllRowsInPlace();
+
+        return this.currentDistance;
     }
 
     @Override
@@ -843,13 +884,25 @@ public class M3IncrementalMetric implements IncrementalMetric {
             this.u = r.u;
             this.v = r.v;
             this.currentDistance = r.distance;
-            this.currentVirtualTree = r.oldTree;
             this.currentT1TripletCount = r.oldTripletCount;
 
-            this.currentSplits.clear();
-            for (Map.Entry<Node, BitSet> e : r.oldSplits.entrySet()) {
-                this.currentSplits.put(e.getKey(), (BitSet) e.getValue().clone());
+            if (r.nniMovingNode != null && r.nniPartnerNode != null) {
+                Node p1 = r.nniPartnerNode.getParent();
+                Node p2 = r.nniMovingNode.getParent();
+                if (p1 != null && p2 != null) {
+                    int i1 = findChildPos(r.nniPartnerNode, p1);
+                    int i2 = findChildPos(r.nniMovingNode, p2);
+                    if (i1 != -1 && i2 != -1) {
+                        p1.setChild(i1, r.nniMovingNode); r.nniMovingNode.setParent(p1);
+                        p2.setChild(i2, r.nniPartnerNode); r.nniPartnerNode.setParent(p2);
+                    }
+                }
+            } else {
+                this.currentVirtualTree = r.oldTree;
             }
+
+            this.currentSplits.clear();
+            this.currentSplits.putAll(r.oldSplits);
             this.nodeToRow = new IdentityHashMap<>(r.oldNodeToRow);
         }
     }
@@ -968,8 +1021,12 @@ public class M3IncrementalMetric implements IncrementalMetric {
         int[] oldTripletCount;
         Map<Node, BitSet> oldSplits;
         Map<Node, Integer> oldNodeToRow;
+        Node nniMovingNode;
+        Node nniPartnerNode;
 
-        StateRecord(int[][] assigncost, int[] rs, int[] cs, int[] u, int[] v, double d, Tree oldTree, int[] tc, Map<Node, BitSet> currentSplits, Map<Node, Integer> nodeToRow) {
+        StateRecord(int[][] assigncost, int[] rs, int[] cs, int[] u, int[] v, double d, Tree oldTree,
+                    int[] tc, Map<Node, BitSet> currentSplits, Map<Node, Integer> nodeToRow,
+                    Node nniMovingNode, Node nniPartnerNode) {
             this.oldAssigncost = new int[assigncost.length][];
             for (int i = 0; i < assigncost.length; i++) {
                 this.oldAssigncost[i] = assigncost[i].clone();
@@ -981,11 +1038,10 @@ public class M3IncrementalMetric implements IncrementalMetric {
             this.distance = d;
             this.oldTree = oldTree;
             this.oldTripletCount = tc.clone();
-            this.oldSplits = new IdentityHashMap<>();
-            for (Map.Entry<Node, BitSet> e : currentSplits.entrySet()) {
-                this.oldSplits.put(e.getKey(), (BitSet) e.getValue().clone());
-            }
+            this.oldSplits = new IdentityHashMap<>(currentSplits);
             this.oldNodeToRow = new IdentityHashMap<>(nodeToRow);
+            this.nniMovingNode = nniMovingNode;
+            this.nniPartnerNode = nniPartnerNode;
         }
     }
 

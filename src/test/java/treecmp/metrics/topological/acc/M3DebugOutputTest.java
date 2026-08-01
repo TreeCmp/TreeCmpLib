@@ -1,4 +1,4 @@
-package treecmp.heuristics.spr;
+package treecmp.metrics.topological.acc;
 
 import org.junit.jupiter.api.Test;
 import pal.tree.Node;

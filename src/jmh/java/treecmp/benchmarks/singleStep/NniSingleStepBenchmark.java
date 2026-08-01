@@ -27,10 +27,11 @@ import treecmp.util.TestTreeFactory;
 @Fork(1)
 public class NniSingleStepBenchmark {
 
-    @Param({"RF", "RFC", "MS", "MC", "MP", "M3"})
+    @Param({/*"RF", "RFC", "MS", "MC", "MP", */"M3"})
     public String metricName;
 
-    @Param({"10", "20", "30", "50", "70", "100"})
+    @Param({"10", "20", "30", "50", "80", "120", "200", "300", "500", "800", "1200", "2000" })
+    //@Param({"10", "20", "30", "50", "80", "120", "200"})
     public int treeSize;
 
     private Tree t1;
@@ -40,8 +41,6 @@ public class NniSingleStepBenchmark {
     private TreeNeighborhoodUtils classicUtils;
     private Metric classicMetric;
     private IncrementalHeuristicBaseMetric incrementalMetric;
-
-    private int classicProtectionLimit;
 
     private void assignNumbers(Tree tree) {
         if (tree instanceof SimpleTree) {
@@ -54,42 +53,42 @@ public class NniSingleStepBenchmark {
         boolean isRooted = false;
 
         // =========================================================================
-        // WZORZEC STRATEGII (Kompozycja):
-        // Dynamiczne wstrzykiwanie silnika inkrementalnego do uniwersalnej heurystyki NNI
+        // STRATEGY PATTERN (Composition):
+        // Dynamic injection of an incremental engine into a universal NNI heuristic
         // =========================================================================
         switch (metricName) {
             case "RF":
-                isRooted = false; classicProtectionLimit = 250;
+                isRooted = false;
                 classicMetric = new RFMetric();
                 incrementalMetric = new NniIncrementalHeuristic(new RFIncrementalMetric(), "RF");
                 break;
             case "RFC":
-                isRooted = true; classicProtectionLimit = 250;
+                isRooted = true;
                 classicMetric = new RFClusterMetric();
                 incrementalMetric = new NniIncrementalHeuristic(new RFClusterIncrementalMetric(), "RFC");
                 break;
             case "MS":
-                isRooted = false; classicProtectionLimit = 250;
+                isRooted = false;
                 classicMetric = new MatchingSplitMetric();
                 incrementalMetric = new NniIncrementalHeuristic(new MSIncrementalMetric(), "MS");
                 break;
             case "MC":
-                isRooted = true; classicProtectionLimit = 250;
+                isRooted = true;
                 classicMetric = new MatchingClusterMetric();
                 incrementalMetric = new NniIncrementalHeuristic(new MCIncrementalMetric(), "MC");
                 break;
             case "MP":
-                isRooted = true; classicProtectionLimit = 250;
+                isRooted = true;
                 classicMetric = new MatchingPairMetric();
                 incrementalMetric = new NniIncrementalHeuristic(new MPIncrementalMetric(), "MP");
                 break;
             case "M3":
-                isRooted = false; classicProtectionLimit = 150; // O(N^5)
+                isRooted = false;
                 classicMetric = new MatchingTripletMetric();
                 incrementalMetric = new NniIncrementalHeuristic(new M3IncrementalMetric(), "M3");
                 break;
             default:
-                throw new IllegalArgumentException("Nieznana metryka: " + metricName);
+                throw new IllegalArgumentException("Unknown metric: " + metricName);
         }
 
         if (isRooted) {
@@ -104,47 +103,41 @@ public class NniSingleStepBenchmark {
 
         assignNumbers(t1); assignNumbers(t2); assignNumbers(t1ForIncr);
 
-        // NniUtils przyjmuje boolean "unrooted"
+        // NniUtils accepts boolean "unrooted"
         classicUtils = new NniUtils(!isRooted);
 
         System.out.println("\n" + "=".repeat(60));
-        System.out.printf(" WERYFIKACJA NNI (%s) DLA ROZMIARU: %d%n", metricName, treeSize);
+        System.out.printf(" VERIFICATION NNI (%s) FOR SIZE: %d%n", metricName, treeSize);
         System.out.println("-".repeat(60));
 
         long startIncr = System.nanoTime();
         double distIncr = incrementalMetric.evaluateSingleStep(t1ForIncr, t2);
         long timeIncr = System.nanoTime() - startIncr;
-        System.out.printf("Incremental 1-Step %-3s : %.2f (czas: %,d ns)%n", metricName, distIncr, timeIncr);
-
-        if (treeSize <= classicProtectionLimit) {
-            try {
-                long startClassic = System.nanoTime();
-                Tree[] neighbors = classicUtils.generateNeighbours(t1);
-                double bestClassicDist = Double.POSITIVE_INFINITY;
-                for (Tree n : neighbors) {
-                    double d = classicMetric.getDistance(n, t2);
-                    if (d < bestClassicDist) bestClassicDist = d;
-                }
-                long timeClassic = System.nanoTime() - startClassic;
-                System.out.printf("Classic 1-Step %-3s     : %.2f (czas: %,d ns)%n", metricName, bestClassicDist, timeClassic);
-
-                if (bestClassicDist == distIncr || Math.abs(bestClassicDist - distIncr) < 1e-9) {
-                    System.out.println("** STATUS: ZGODNOŚĆ POTWIERDZONA [OK] **");
-                } else {
-                    System.out.println("!! STATUS: ROZBIEŻNOŚĆ WYNIKÓW [BŁĄD!] !!");
-                }
-            } catch (Throwable t) {
-                System.out.println("Classic 1-Step         : [BŁĄD KLASYCZNEJ IMPLEMENTACJI]");
+        System.out.printf("Incremental 1-Step %-3s : %.2f (time: %,d ns)%n", metricName, distIncr, timeIncr);
+        try {
+            long startClassic = System.nanoTime();
+            Tree[] neighbors = classicUtils.generateNeighbours(t1);
+            double bestClassicDist = Double.POSITIVE_INFINITY;
+            for (Tree n : neighbors) {
+                double d = classicMetric.getDistance(n, t2);
+                if (d < bestClassicDist) bestClassicDist = d;
             }
-        } else {
-            System.out.printf("Classic 1-Step %-3s     : Pominięto (Limit bezpieczeństwa N<=%d)%n", metricName, classicProtectionLimit);
+            long timeClassic = System.nanoTime() - startClassic;
+            System.out.printf("Classic 1-Step %-3s     : %.2f (time: %,d ns)%n", metricName, bestClassicDist, timeClassic);
+
+            if (bestClassicDist == distIncr || Math.abs(bestClassicDist - distIncr) < 1e-9) {
+                System.out.println("** STATUS: MATCH CONFIRMED [OK] **");
+            } else {
+                System.out.println("!! STATUS: MISMATCH DETECTED [ERROR!] !!");
+            }
+        } catch (Throwable t) {
+            System.out.println("Classic 1-Step         : [CLASSIC IMPLEMENTATION ERROR]");
         }
         System.out.println("=".repeat(60) + "\n");
     }
 
     @Benchmark
     public double benchmarkClassicSingleStep() {
-        if (treeSize > classicProtectionLimit) return Double.NaN;
         try {
             Tree[] neighbors = classicUtils.generateNeighbours(t1);
             double bestDist = Double.POSITIVE_INFINITY;

@@ -22,7 +22,7 @@ import treecmp.metrics.topological.acc.*;
 import treecmp.util.TestTreeFactory;
 
 @BenchmarkMode(Mode.AverageTime)
-@OutputTimeUnit(TimeUnit.MILLISECONDS) // Milisekundy, ponieważ TBR bada O(n^3) sąsiadów w 1 kroku
+@OutputTimeUnit(TimeUnit.MILLISECONDS) // Milliseconds, since TBR evaluates O(n^3) neighbors in 1 step
 @State(Scope.Benchmark)
 @Warmup(iterations = 1, time = 1)
 @Measurement(iterations = 5, time = 1)
@@ -56,8 +56,8 @@ public class TbrSingleStepBenchmark {
         boolean isRooted = false;
 
         // =========================================================================
-        // WZORZEC STRATEGII (Kompozycja):
-        // Wstrzykujemy silnik inkrementalny do uniwersalnej heurystyki TBR/uTBR.
+        // STRATEGY PATTERN (Composition):
+        // Injecting incremental engine into a universal TBR/uTBR heuristic.
         // =========================================================================
         switch (metricName) {
             case "RF":
@@ -86,12 +86,12 @@ public class TbrSingleStepBenchmark {
                 incrementalMetric = new TbrIncrementalHeuristic(new MPIncrementalMetric(), "MP");
                 break;
             case "M3":
-                isRooted = false; classicProtectionLimit = 20; // Gigantyczna złożoność dla klasycznego M3
+                isRooted = false; classicProtectionLimit = 20; // Massive complexity for classic M3
                 classicMetric = new MatchingTripletMetric();
                 incrementalMetric = new UtbrIncrementalHeuristic(new M3IncrementalMetric(), "M3");
                 break;
             default:
-                throw new IllegalArgumentException("Nieznana metryka: " + metricName);
+                throw new IllegalArgumentException("Unknown metric: " + metricName);
         }
 
         if (isRooted) {
@@ -106,17 +106,17 @@ public class TbrSingleStepBenchmark {
 
         assignNumbers(t1); assignNumbers(t2); assignNumbers(t1ForIncr);
 
-        // Wybór klasycznego generatora (Rooted vs Unrooted)
+        // Choice of classic generator (Rooted vs Unrooted)
         classicUtils = isRooted ? new TbrUtils() : new UTbrUtils();
 
         System.out.println("\n" + "=".repeat(60));
-        System.out.printf(" WERYFIKACJA 1-STEP TBR/uTBR (%s) DLA ROZMIARU: %d%n", metricName, treeSize);
+        System.out.printf(" VERIFICATION 1-STEP TBR/uTBR (%s) FOR SIZE: %d%n", metricName, treeSize);
         System.out.println("-".repeat(60));
 
         long startIncr = System.nanoTime();
         double distIncr = incrementalMetric.evaluateSingleStep(t1ForIncr, t2);
         long timeIncr = System.nanoTime() - startIncr;
-        System.out.printf("Incremental 1-Step %-3s : %.2f (czas: %,d ms)%n", metricName, distIncr, timeIncr / 1_000_000);
+        System.out.printf("Incremental 1-Step %-3s : %.2f (time: %,d ms)%n", metricName, distIncr, timeIncr / 1_000_000);
 
         if (treeSize <= classicProtectionLimit) {
             try {
@@ -128,18 +128,18 @@ public class TbrSingleStepBenchmark {
                     if (d < bestClassicDist) bestClassicDist = d;
                 }
                 long timeClassic = System.nanoTime() - startClassic;
-                System.out.printf("Classic 1-Step %-3s     : %.2f (czas: %,d ms)%n", metricName, bestClassicDist, timeClassic / 1_000_000);
+                System.out.printf("Classic 1-Step %-3s     : %.2f (time: %,d ms)%n", metricName, bestClassicDist, timeClassic / 1_000_000);
 
                 if (bestClassicDist == distIncr || Math.abs(bestClassicDist - distIncr) < 1e-9) {
-                    System.out.println("** STATUS: ZGODNOŚĆ POTWIERDZONA [OK] **");
+                    System.out.println("** STATUS: MATCH CONFIRMED [OK] **");
                 } else {
-                    System.out.println("!! STATUS: ROZBIEŻNOŚĆ WYNIKÓW [BŁĄD!] !!");
+                    System.out.println("!! STATUS: MISMATCH DETECTED [ERROR!] !!");
                 }
             } catch (Throwable t) {
-                System.out.println("Classic 1-Step         : [BŁĄD KLASYCZNEJ IMPLEMENTACJI]");
+                System.out.println("Classic 1-Step         : [CLASSIC IMPLEMENTATION ERROR]");
             }
         } else {
-            System.out.printf("Classic 1-Step %-3s     : Pominięto (Limit bezpieczeństwa N<=%d)%n", metricName, classicProtectionLimit);
+            System.out.printf("Classic 1-Step %-3s     : Skipped (Safety limit N<=%d)%n", metricName, classicProtectionLimit);
         }
         System.out.println("=".repeat(60) + "\n");
     }

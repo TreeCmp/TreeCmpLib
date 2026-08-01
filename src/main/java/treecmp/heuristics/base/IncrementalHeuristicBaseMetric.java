@@ -18,6 +18,7 @@ public abstract class IncrementalHeuristicBaseMetric extends BaseMetric {
     protected TreeMove bestMove;
     protected boolean improved;
     protected TreeMove lastOptimumMove;
+    protected Tree lastMoveBaseTree;
     protected final List<TreeMove> tiedMoves = new ArrayList<>();
 
     public IncrementalHeuristicBaseMetric(boolean rooted, IncrementalMetric metric) {
@@ -110,9 +111,20 @@ public abstract class IncrementalHeuristicBaseMetric extends BaseMetric {
      * Jeśli ruch nie został zarejestrowany, zwraca listę z samym drzewem docelowym.
      */
     public List<Tree> getLastOptimumTrajectory(Tree startTree) {
-        if (lastOptimumMove == null) {
-            return Collections.singletonList(getLastOptimumTree());
+        if (lastOptimumTree == null) {
+            return Collections.emptyList();
         }
-        return lastOptimumMove.getNniTrajectory(startTree);
+
+        if (lastOptimumMove != null && lastMoveBaseTree != null) {
+            try {
+                List<Tree> traj = lastOptimumMove.getNniTrajectory(lastMoveBaseTree);
+                if (traj != null && !traj.isEmpty()) {
+                    return traj;
+                }
+            } catch (Exception e) {
+            }
+        }
+
+        return Collections.singletonList(lastOptimumTree);
     }
 }

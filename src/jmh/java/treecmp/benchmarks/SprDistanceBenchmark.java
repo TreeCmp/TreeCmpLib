@@ -28,10 +28,10 @@ import treecmp.util.TestTreeFactory;
 @Fork(1)
 public class SprDistanceBenchmark {
 
-    @Param({"MC"}) // Do pełnych testów możesz przywrócić {"RF", "RFC", "MS", "MC", "MP", "M3"}
+    @Param({"MP"}) // Do pełnych testów możesz przywrócić {"RF", "RFC", "MS", "MC", "MP", "M3"}
     public String metricName;
 
-    @Param({"10", "20", "30", "50", "70", "100"})
+    @Param({"10", "20", "30", "50"/*, "80", "120"*/})
     public int treeSize;
 
     private Tree t1;

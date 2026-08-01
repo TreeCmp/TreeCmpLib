@@ -31,11 +31,11 @@ import treecmp.util.TestTreeFactory;
 public class SprSingleStepBenchmark {
 
     //@Param({"RF", "RFC", "MS", "MC", "MP", "M3"})
-    @Param({"MC"})
+    @Param({"M3"})
     public String metricName;
 
     //@Param({"10", "20", "30", "50", "80", "120", "200", "300", "500", "800", "1200", "2000" })
-    @Param({"10", "20", "30"})
+    @Param({"10", "20", "30", "50", "80"})
     public int treeSize;
 
     private Tree t1;
@@ -91,7 +91,7 @@ public class SprSingleStepBenchmark {
                 incrementalMetric = new UsprIncrementalHeuristicMetric(new M3IncrementalMetric(), "M3");
                 break;
             default:
-                throw new IllegalArgumentException("Nieznana metryka: " + metricName);
+                throw new IllegalArgumentException("Unknown metric: " + metricName);
         }
 
         if (isRooted) {
@@ -108,13 +108,13 @@ public class SprSingleStepBenchmark {
         classicUtils = isRooted ? new SprUtils() : new UsprUtils();
 
         System.out.println("\n" + "=".repeat(60));
-        System.out.printf(" WERYFIKACJA 1-STEP SPR/uSPR (%s) DLA ROZMIARU: %d%n", metricName, treeSize);
+        System.out.printf(" VERIFICATION 1-STEP SPR/uSPR (%s) FOR SIZE: %d%n", metricName, treeSize);
         System.out.println("-".repeat(60));
 
         long startIncr = System.nanoTime();
         double distIncr = incrementalMetric.evaluateSingleStep(t1ForIncr, t2);
         long timeIncr = System.nanoTime() - startIncr;
-        System.out.printf("Incremental 1-Step %-3s : %.2f (czas: %,d ns)%n", metricName, distIncr, timeIncr);
+        System.out.printf("Incremental 1-Step %-3s : %.2f (time: %,d ns)%n", metricName, distIncr, timeIncr);
 
         if (treeSize <= classicProtectionLimit) {
             try {
@@ -150,15 +150,15 @@ public class SprSingleStepBenchmark {
                 }
 
                 long timeClassic = System.nanoTime() - startClassic;
-                System.out.printf("Classic 1-Step %-3s     : %.2f (czas: %,d ns)%n", metricName, bestClassicDist[0], timeClassic);
+                System.out.printf("Classic 1-Step %-3s     : %.2f (time: %,d ns)%n", metricName, bestClassicDist[0], timeClassic);
 
                 if (bestClassicDist[0] == distIncr || Math.abs(bestClassicDist[0] - distIncr) < 1e-9) {
-                    System.out.println("** STATUS: ZGODNOŚĆ POTWIERDZONA [OK] **");
+                    System.out.println("** STATUS: MATCH CONFIRMED [OK] **");
                 } else {
-                    System.out.println("!! STATUS: ROZBIEŻNOŚĆ WYNIKÓW [BŁĄD!] !!");
+                    System.out.println("!! STATUS: MISMATCH DETECTED [ERROR!] !!");
                 }
             } catch (Throwable t) {
-                System.out.println("Classic 1-Step         : [BŁĄD KLASYCZNEJ IMPLEMENTACJI]");
+                System.out.println("Classic 1-Step         : [CLASSIC IMPLEMENTATION ERROR]");
                 t.printStackTrace();
             }
         }

@@ -14,7 +14,7 @@ import treecmp.heuristics.vnd.acc.NniVndIncrementalHeuristic;
 import treecmp.heuristics.base.HeuristicBaseMetric;
 import treecmp.heuristics.base.IncrementalHeuristicBaseMetric;
 
-// Importy dla pełnej kaskady (upewnij się, że masz te klasy w projekcie)
+// Imports for full cascade (make sure you have these classes in the project)
 import treecmp.heuristics.ecr.Ecr2ClassicHeuristic;
 import treecmp.heuristics.ecr.Ecr3ClassicHeuristic;
 import treecmp.heuristics.ecr.acc.Ecr2IncrementalHeuristic;
@@ -60,27 +60,27 @@ public class VndQualityVsTimeMacroBenchmark {
 
     public static void main(String[] args) {
         System.out.println("===============================================================================================================");
-        System.out.println("                         VND ULTIMATE QUALITY VS TIME MACRO-BENCHMARK (100 PAR DRZEW)");
+        System.out.println("                         VND ULTIMATE QUALITY VS TIME MACRO-BENCHMARK (100 TREE PAIRS)");
         System.out.println("===============================================================================================================");
 
-        // 1. Wyłączenie generowania plików dowodowych dla czystych pomiarów czasu
+        // 1. Disable generating proof files for clean time measurements
         treecmp.heuristics.vnd.acc.NniVndIncrementalHeuristic.ENABLE_LOGGING = false;
         treecmp.heuristics.vnd.NniVndHeuristic.ENABLE_LOGGING = false;
 
-        runTestSuite(true);  // Faza 1: Ukorzenione (Rooted)
-        runTestSuite(false); // Faza 2: Nieukorzenione (Unrooted)
+        //runTestSuite(true);  // Phase 1: Rooted
+        runTestSuite(false); // Phase 2: Unrooted
     }
 
     private static void runTestSuite(boolean rooted) {
-        String treeType = rooted ? "UKORZENIONYCH (rb)" : "NIEUKORZENIONYCH (ub)";
-        System.out.println("\n\n>>> ROZPOCZYNAM TESTY DLA DRZEW " + treeType + " <<<");
+        String treeType = rooted ? "ROOTED (rb)" : "UNROOTED (ub)";
+        System.out.println("\n\n>>> STARTING TESTS FOR " + treeType + " TREES <<<");
 
-        int[] sizes = {10, 20, 30/*, 50, 80*/};
+        int[] sizes = {10, 20, 30, 50, 80};
         List<MetricSetup> metricsToTest = rooted ? getRootedMetrics() : getUnrootedMetrics();
 
         for (MetricSetup setup : metricsToTest) {
             System.out.println("\n====================================================================================================");
-            System.out.println("TESTOWANA METRYKA: " + setup.name);
+            System.out.println("TESTED METRIC: " + setup.name);
             System.out.println("====================================================================================================");
 
             for (int size : sizes) {
@@ -89,19 +89,19 @@ public class VndQualityVsTimeMacroBenchmark {
                 File file = new File(fileName);
 
                 if (!file.exists()) {
-                    System.out.println("Brak pliku: " + fileName + " (Pominięcie rozmiaru N=" + size + ")");
+                    System.out.println("Missing file: " + fileName + " (Skipping size N=" + size + ")");
                     continue;
                 }
 
                 List<Tree> trees = loadTrees(fileName);
                 if (trees == null || trees.size() < 200) {
-                    System.out.println("Plik " + fileName + " nie zawiera wystarczającej liczby drzew.");
+                    System.out.println("File " + fileName + " does not contain enough trees.");
                     continue;
                 }
 
-                System.out.println("\n--- WYNIKI DLA ROZMIARU N=" + size + " (" + fileName + ") ---");
+                System.out.println("\n--- RESULTS FOR SIZE N=" + size + " (" + fileName + ") ---");
                 System.out.printf("%-35s | %-12s | %-15s | %-15s | %-15s\n",
-                        "Wariant Heurystyki", "Sukcesy", "Sr. Dystans", "Calk. Czas", "Czas/Pare");
+                        "Heuristic Variant", "Successes", "Avg Distance", "Total Time", "Time/Pair");
                 System.out.println("-".repeat(100));
 
                 evaluateAndReport("1. NNI (Classic)", setup.classicNni, trees);
@@ -126,7 +126,7 @@ public class VndQualityVsTimeMacroBenchmark {
         int successCount = 0;
         boolean timedOut = false;
 
-        // --- ZABEZPIECZENIE 5 GODZIN (TIMEOUT) ---
+        // --- 5 HOUR TIMEOUT SAFETY ---
         long TIMEOUT_MS = 5L * 60 * 60 * 1000;
 
         long overallStartMs = System.currentTimeMillis();
@@ -151,7 +151,7 @@ public class VndQualityVsTimeMacroBenchmark {
                     successCount++;
                 }
             } catch (Exception e) {
-                System.err.println("BŁĄD dla " + variantName + ": " + e.getClass().getSimpleName() + " - " + e.getMessage());
+                System.err.println("ERROR for " + variantName + ": " + e.getClass().getSimpleName() + " - " + e.getMessage());
                 e.printStackTrace(System.err);
             }
             totalTimeNs += (System.nanoTime() - start);
@@ -162,7 +162,7 @@ public class VndQualityVsTimeMacroBenchmark {
         double totalTimeMs = totalTimeNs / 1_000_000.0;
         double avgTimeMs = processedPairs > 0 ? (totalTimeMs / processedPairs) : 0.0;
 
-        String distStr = successCount > 0 ? String.format(Locale.US, "%.4f", avgDistance) : "Brak (Inf)";
+        String distStr = successCount > 0 ? String.format(Locale.US, "%.4f", avgDistance) : "None (Inf)";
         String successStr = successCount + "/" + processedPairs + (timedOut ? " (TO)" : "");
 
         System.out.printf("%-35s | %-12s | %-15s | %-12.0f ms | %-12.2f ms\n",
@@ -170,7 +170,7 @@ public class VndQualityVsTimeMacroBenchmark {
     }
 
     // =========================================================================
-    // BUILDERY ORKIESTRATORÓW
+    // ORCHESTRATOR BUILDERS
     // =========================================================================
 
     private static Metric buildClassicVndFull(Metric classicMetric, boolean isRooted, String shortName) {
@@ -198,16 +198,15 @@ public class VndQualityVsTimeMacroBenchmark {
         );
         return new NniVndHeuristic(chain, shortName);
     }
+
     private static Metric buildIncrementalVndFull(IncrementalMetric incMetric, boolean isRooted, String shortName) {
-        // Dynamiczny wybór między SPR a uSPR w zależności od ukorzenienia
+        // Dynamic selection between SPR and uSPR depending on rooting
         IncrementalHeuristicBaseMetric sprStep = isRooted ?
                 new SprIncrementalHeuristicMetric(incMetric, shortName) :
                 new UsprIncrementalHeuristicMetric(incMetric, shortName);
 
         List<IncrementalHeuristicBaseMetric> chain = Arrays.asList(
                 new NniIncrementalHeuristic(incMetric, shortName),
-                // UWAGA: Jeśli ECR2 i ECR3 nie są gotowe dla drzew nieukorzenionych,
-                // musisz je zabezpieczyć podobnym if-em. Zakładam, że mają wsparcie.
                 new Ecr2IncrementalHeuristic(incMetric, shortName),
                 new Ecr3IncrementalHeuristic(incMetric, shortName),
                 sprStep
@@ -216,7 +215,6 @@ public class VndQualityVsTimeMacroBenchmark {
     }
 
     private static Metric buildIncrementalVndShort(IncrementalMetric incMetric, boolean isRooted, String shortName) {
-        // Dynamiczny wybór między SPR a uSPR w zależności od ukorzenienia
         IncrementalHeuristicBaseMetric sprStep = isRooted ?
                 new SprIncrementalHeuristicMetric(incMetric, shortName) :
                 new UsprIncrementalHeuristicMetric(incMetric, shortName);
@@ -229,7 +227,7 @@ public class VndQualityVsTimeMacroBenchmark {
     }
 
     // =========================================================================
-    // LISTY METRYK (Rooted & Unrooted)
+    // METRIC LISTS (Rooted & Unrooted)
     // =========================================================================
 
     private static List<MetricSetup> getRootedMetrics() {
@@ -268,7 +266,7 @@ public class VndQualityVsTimeMacroBenchmark {
     private static List<MetricSetup> getUnrootedMetrics() {
         List<MetricSetup> list = new ArrayList<>();
 
-        list.add(new MetricSetup("RF",
+        /*list.add(new MetricSetup("RF",
                 new NniClassicHeuristic(new RFMetric(), false, "RF"),
                 new NniIncrementalHeuristic(new RFIncrementalMetric(), "RF"),
                 buildClassicVndFull(new RFMetric(), false, "RF"),
@@ -284,7 +282,7 @@ public class VndQualityVsTimeMacroBenchmark {
                 buildClassicVndShort(new MatchingSplitMetric(), false, "MS"),
                 buildIncrementalVndFull(new MSIncrementalMetric(), false, "MS"),
                 buildIncrementalVndShort(new MSIncrementalMetric(), false, "MS")
-        ));
+        ));*/
 
         list.add(new MetricSetup("M3",
                 new NniClassicHeuristic(new MatchingTripletMetric(), false, "M3"),
@@ -312,7 +310,7 @@ public class VndQualityVsTimeMacroBenchmark {
                 }
             }
         } catch (Exception e) {
-            System.err.println("Błąd wczytywania z " + filename + ": " + e.getMessage());
+            System.err.println("Error loading from " + filename + ": " + e.getMessage());
         }
         return trees;
     }

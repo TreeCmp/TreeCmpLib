@@ -30,7 +30,7 @@ public class Ecr3SingleStepBenchmark {
     @Param({"MC"})
     public String metricName;
 
-    //@Param({"10", "20", "50", "80", "120", "200"})
+    //@Param({"10", "20", "30", "50", "80", "120", "200", "300", "500", "800", "1200", "2000" })
     @Param({"10", "20", "50", "80", "120", "200"})
     public int treeSize;
 
@@ -55,9 +55,9 @@ public class Ecr3SingleStepBenchmark {
         boolean isRooted = false;
 
         // =========================================================================
-        // WZORZEC STRATEGII (Kompozycja):
-        // Zamiast dedykowanych klas dla każdej metryki, wstrzykujemy silnik
-        // inkrementalny (np. M3IncrementalMetric) do uniwersalnej heurystyki 3-sECR.
+        // STRATEGY PATTERN (Composition):
+        // Instead of dedicated classes for each metric, we inject an incremental
+        // engine (e.g., M3IncrementalMetric) into a universal 3-sECR heuristic.
         // =========================================================================
         switch (metricName) {
             case "RF":
@@ -91,7 +91,7 @@ public class Ecr3SingleStepBenchmark {
                 incrementalMetric = new Ecr3IncrementalHeuristic(new M3IncrementalMetric(), "M3");
                 break;
             default:
-                throw new IllegalArgumentException("Nieznana metryka: " + metricName);
+                throw new IllegalArgumentException("Unknown metric: " + metricName);
         }
 
         if (isRooted) {
@@ -106,17 +106,17 @@ public class Ecr3SingleStepBenchmark {
 
         assignNumbers(t1); assignNumbers(t2); assignNumbers(t1ForIncr);
 
-        // SubtreeEcr3Utils przyjmuje boolean "unrooted"
+        // SubtreeEcr3Utils accepts boolean "unrooted"
         classicUtils = new SubtreeEcr3Utils(!isRooted);
 
         System.out.println("\n" + "=".repeat(60));
-        System.out.printf(" WERYFIKACJA 3-sECR (%s) DLA ROZMIARU: %d%n", metricName, treeSize);
+        System.out.printf(" VERIFICATION 3-sECR (%s) FOR SIZE: %d%n", metricName, treeSize);
         System.out.println("-".repeat(60));
 
         long startIncr = System.nanoTime();
         double distIncr = incrementalMetric.evaluateSingleStep(t1ForIncr, t2);
         long timeIncr = System.nanoTime() - startIncr;
-        System.out.printf("Incremental 1-Step %-3s : %.2f (czas: %,d ns)%n", metricName, distIncr, timeIncr);
+        System.out.printf("Incremental 1-Step %-3s : %.2f (time: %,d ns)%n", metricName, distIncr, timeIncr);
 
         if (treeSize <= classicProtectionLimit) {
             try {
@@ -128,18 +128,18 @@ public class Ecr3SingleStepBenchmark {
                     if (d < bestClassicDist) bestClassicDist = d;
                 }
                 long timeClassic = System.nanoTime() - startClassic;
-                System.out.printf("Classic 1-Step %-3s     : %.2f (czas: %,d ns)%n", metricName, bestClassicDist, timeClassic);
+                System.out.printf("Classic 1-Step %-3s     : %.2f (time: %,d ns)%n", metricName, bestClassicDist, timeClassic);
 
                 if (bestClassicDist == distIncr || Math.abs(bestClassicDist - distIncr) < 1e-9) {
-                    System.out.println("** STATUS: ZGODNOŚĆ POTWIERDZONA [OK] **");
+                    System.out.println("** STATUS: MATCH CONFIRMED [OK] **");
                 } else {
-                    System.out.println("!! STATUS: ROZBIEŻNOŚĆ WYNIKÓW [BŁĄD!] !!");
+                    System.out.println("!! STATUS: MISMATCH DETECTED [ERROR!] !!");
                 }
             } catch (Throwable t) {
-                System.out.println("Classic 1-Step         : [BŁĄD KLASYCZNEJ IMPLEMENTACJI]");
+                System.out.println("Classic 1-Step         : [CLASSIC IMPLEMENTATION ERROR]");
             }
         } else {
-            System.out.printf("Classic 1-Step %-3s     : Pominięto (Limit bezpieczeństwa N<=%d)%n", metricName, classicProtectionLimit);
+            System.out.printf("Classic 1-Step %-3s     : Skipped (Safety limit N<=%d)%n", metricName, classicProtectionLimit);
         }
         System.out.println("=".repeat(60) + "\n");
     }

@@ -74,7 +74,6 @@ public class IncrementalUsprWalker {
 
         if (usprUtils.isValidUsprMove(pruneNode, currentNode)) {
             double dist;
-            // Piekielnie szybki, jednowierszowy update LapSolvera
             if (isFastMs) {
                 dist = ((MSIncrementalMetric) metric).getFixedDistanceForRegraft(currentNode, pruneNode.getParent(), pruneMask, pruneNode);
             } else if (isFastM3) {
