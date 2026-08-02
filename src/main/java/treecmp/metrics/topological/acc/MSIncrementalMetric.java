@@ -86,7 +86,6 @@ public class MSIncrementalMetric implements IncrementalMetric {
             this.idGroup = TreeUtils.getLeafIdGroup(baseTree);
             int numLeaves = baseTree.getExternalNodeCount();
 
-            // Klasyczny wymiar N-3 (bez liści i korzenia wirtualnego)
             int size1 = baseTree.getInternalNodeCount() - 1;
             int size2 = targetTree.getInternalNodeCount() - 1;
             this.dim = Math.max(size1, size2);
@@ -170,7 +169,6 @@ public class MSIncrementalMetric implements IncrementalMetric {
                 Node n2 = colToNode[j];
                 if (n1 != null && n2 != null) {
                     short cost = (short) ClusterDist.getDistXorBit(canonicalSplit, targetSplits.get(n2));
-                    // Prawdziwy dystans MS to min(koszt, N - koszt)
                     this.assigncost[i][j] = (short) Math.min(cost, numLeaves - cost);
                 } else if (n1 != null) {
                     short cost = (short) canonicalSplit.cardinality();
@@ -405,7 +403,7 @@ public class MSIncrementalMetric implements IncrementalMetric {
     @Override
     public double evaluate2sEcrMove(Node top, Node m1, Node m2, Node[] b, SubtreeEcr2Utils.TopologyTemplate2sECR template) {
         double dist = commit2sEcrMove(top, m1, m2, b, template);
-        undoDeltaStack(); // Bezpieczne cofnięcie transakcji
+        undoDeltaStack();
         return dist;
     }
 
@@ -429,7 +427,7 @@ public class MSIncrementalMetric implements IncrementalMetric {
             newM2.or(bBits[template.indices[2]]);
             newM2.or(bBits[template.indices[3]]);
             newM1.or(bBits[template.indices[1]]);
-            newM1.or(newM2); // CHAIN: m1 zawiera m2
+            newM1.or(newM2);
         }
 
         Integer r1 = nodeToRow.get(m1);
@@ -444,7 +442,7 @@ public class MSIncrementalMetric implements IncrementalMetric {
     @Override
     public double evaluate3sEcrMove(List<Node> cluster, Node[] b, SubtreeEcr3Utils.TopologyTemplate3sECR template) {
         double dist = commit3sEcrMove(cluster, b, template);
-        undoDeltaStack(); // Bezpieczne cofnięcie transakcji
+        undoDeltaStack();
         return dist;
     }
 
@@ -457,7 +455,7 @@ public class MSIncrementalMetric implements IncrementalMetric {
         }
 
         Node[] available = cluster.toArray(new Node[0]);
-        int[] idxArr = {1}; // indeks 0 to 'top' (niezmienny), alokujemy od 1
+        int[] idxArr = {1};
 
         compute3sEcrTemplateBits(template, available[0], available, idxArr, bBits, updates);
 
@@ -465,28 +463,28 @@ public class MSIncrementalMetric implements IncrementalMetric {
         return this.currentDistance;
     }
 
+    // POPRAWKA: Bezpieczne przypisanie indeksu zapobiegające ArrayIndexOutOfBoundsException
     private BitSet compute3sEcrTemplateBits(SubtreeEcr3Utils.TopologyTemplate3sECR temp, Node currentInternal, Node[] available, int[] idxArr, BitSet[] bBits, Map<Integer, BitSet> updates) {
         BitSet myBits = new BitSet();
 
-        // Lewe poddrzewo z szablonu
         if (temp.left.leafIndex != -1) {
             myBits.or(bBits[temp.left.leafIndex]);
         } else {
-            Node nextInternal = available[idxArr[0]++];
+            int nextIdx = (idxArr[0] < available.length) ? idxArr[0]++ : available.length - 1;
+            Node nextInternal = available[nextIdx];
             BitSet leftBits = compute3sEcrTemplateBits(temp.left, nextInternal, available, idxArr, bBits, updates);
             myBits.or(leftBits);
         }
 
-        // Prawe poddrzewo z szablonu
         if (temp.right.leafIndex != -1) {
             myBits.or(bBits[temp.right.leafIndex]);
         } else {
-            Node nextInternal = available[idxArr[0]++];
+            int nextIdx = (idxArr[0] < available.length) ? idxArr[0]++ : available.length - 1;
+            Node nextInternal = available[nextIdx];
             BitSet rightBits = compute3sEcrTemplateBits(temp.right, nextInternal, available, idxArr, bBits, updates);
             myBits.or(rightBits);
         }
 
-        // Top Node pozostaje niezmienny (reprezentuje cały klaster), aktualizujemy tylko wewnętrzne
         if (currentInternal != available[0]) {
             Integer r = nodeToRow.get(currentInternal);
             if (r != null) {
@@ -496,6 +494,7 @@ public class MSIncrementalMetric implements IncrementalMetric {
 
         return myBits;
     }
+
     private void saveCurrentStateToHistory() {
         short[][] costCopy = new short[dim][dim];
         for (int i = 0; i < dim; i++) {

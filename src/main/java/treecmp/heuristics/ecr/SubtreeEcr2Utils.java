@@ -45,7 +45,6 @@ public class SubtreeEcr2Utils extends TreeNeighborhoodUtils {
         for (int i = 0; i < intNum; i++) {
             Node node = tree.getInternalNode(i);
 
-            // 1. Wyszukiwanie kształtu CHAIN (p -> c -> node)
             if (node != tree.getRoot()) {
                 Node c = node.getParent();
                 if (c != null && !c.isLeaf()) {
@@ -56,7 +55,6 @@ public class SubtreeEcr2Utils extends TreeNeighborhoodUtils {
                 }
             }
 
-            // 2. Wyszukiwanie kształtu FORK (c1 <- node -> c2)
             List<Node> internalChildren = new ArrayList<>();
             for (int j = 0; j < node.getChildCount(); j++) {
                 Node child = node.getChild(j);
@@ -104,14 +102,10 @@ public class SubtreeEcr2Utils extends TreeNeighborhoodUtils {
 
             Tree newTree = createEcrTree(tree, top, m1, m2, s, template, isOriginalFork);
             if (newTree != null) {
-                // 1. Tworzymy obiekt ruchu i przypisujemy do zmiennej
                 treecmp.heuristics.moves.Ecr2Move move =
                         new treecmp.heuristics.moves.Ecr2Move(top, m1, m2, s, template);
 
-                // 2. Rejestrujemy koszt
                 registerTreeCost(newTree, move.getNniEquivalentCost());
-
-                // 3. NOWOŚĆ: Rejestrujemy ruch w mapie!
                 registerTreeMove(newTree, move);
 
                 if (unrooted) {
@@ -164,7 +158,6 @@ public class SubtreeEcr2Utils extends TreeNeighborhoodUtils {
             Node[] nS = new Node[4];
             for (int i = 0; i < 4; i++) nS[i] = findNodeByPath(root, pathS.get(i));
 
-            // System inteligentnych portów - zachowuje 3 gałąź korzenia!
             int portA, portB;
             if (isOriginalFork) {
                 portA = getChildIndex(nTop, nM1);
@@ -174,12 +167,10 @@ public class SubtreeEcr2Utils extends TreeNeighborhoodUtils {
                 portB = getChildIndex(nTop, nM1);
             }
 
-            // Fallback (zabezpieczenie na wypadek niespójności)
             if (portA == -1) portA = 0;
             if (portB == -1) portB = 1;
             if (portA == portB) { portA = 0; portB = 1; }
 
-            // Budowa z dynamicznymi portami
             if (template.isFork) {
                 nTop.setChild(portA, nM1); nM1.setParent(nTop);
                 nTop.setChild(portB, nM2); nM2.setParent(nTop);
@@ -218,11 +209,16 @@ public class SubtreeEcr2Utils extends TreeNeighborhoodUtils {
         TopologyTemplate2sECR template = move.template;
 
         boolean isOriginalFork = (nM2.getParent() == nTop);
-        int portA = -1, portB = -1;
-        for (int i = 0; i < nTop.getChildCount(); i++) {
-            if (nTop.getChild(i) == (isOriginalFork ? nM1 : nS[0])) portA = i;
-            if (nTop.getChild(i) == (isOriginalFork ? nM2 : nM1)) portB = i;
+
+        int portA, portB;
+        if (isOriginalFork) {
+            portA = getChildIndex(nTop, nM1);
+            portB = getChildIndex(nTop, nM2);
+        } else {
+            portA = getChildIndex(nTop, nS[0]);
+            portB = getChildIndex(nTop, nM1);
         }
+
         if (portA == -1) portA = 0;
         if (portB == -1) portB = 1;
         if (portA == portB) { portA = 0; portB = 1; }
