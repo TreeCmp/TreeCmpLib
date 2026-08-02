@@ -21,9 +21,39 @@ public abstract class IncrementalHeuristicBaseMetric extends BaseMetric {
     protected Tree lastMoveBaseTree;
     protected final List<TreeMove> tiedMoves = new ArrayList<>();
 
+    // =========================================================
+    // PODWÓJNA KSIĘGOWOŚĆ (VND vs Autonomiczna heurystyka)
+    // =========================================================
+    protected Tree lastOptimumTree;
+    protected double accumulatedNniCost = 0.0;
+    protected int accumulatedSteps = 0; // NOWOŚĆ: Natywny licznik kroków
+
+    public Tree getLastOptimumTree() {
+        return this.lastOptimumTree;
+    }
+
+    public double getAccumulatedNniCost() {
+        return this.accumulatedNniCost; // Dla VND: ekwiwalent NNI
+    }
+
+    public int getAccumulatedSteps() {
+        return this.accumulatedSteps; // Dla ECR/SPR: natywna liczba kroków
+    }
+
     public IncrementalHeuristicBaseMetric(boolean rooted, IncrementalMetric metric) {
         this.rooted = rooted;
         this.incMetric = metric;
+    }
+
+    @Override
+    public double getDistance(Tree tree1, Tree tree2, int... indexes) {
+        double finalMetricDist = performLocalDescent(tree1, tree2);
+
+        if (finalMetricDist == 0.0) {
+            // NOWOŚĆ: Autonomiczne wywołanie zwraca natywną liczbę kroków
+            return (double) this.accumulatedSteps;
+        }
+        return Double.POSITIVE_INFINITY;
     }
 
     protected void checkImprovementWithTies(double currentDist, TreeMove move) {
@@ -42,7 +72,7 @@ public abstract class IncrementalHeuristicBaseMetric extends BaseMetric {
         this.improved = false;
         this.bestDist = Double.POSITIVE_INFINITY;
         this.bestMove = null;
-        this.tiedMoves.clear(); // Czyścimy remisy przed startem
+        this.tiedMoves.clear();
 
         searchNeighborhood(tree1);
 
@@ -55,31 +85,19 @@ public abstract class IncrementalHeuristicBaseMetric extends BaseMetric {
 
     protected abstract double commitMoveToMetric(TreeMove move);
 
-    // =========================================================
-    // ROZSZERZENIE DLA VND (Variable Neighborhood Descent)
-    // =========================================================
-    protected Tree lastOptimumTree;
-
-    public Tree getLastOptimumTree() {
-        return this.lastOptimumTree;
-    }
-
-    protected double accumulatedNniCost = 0.0;
-
-    public double getAccumulatedNniCost() {
-        return this.accumulatedNniCost;
-    }
-    /**
-     * W odróżnieniu od klasycznego getDistance (które czasem zwraca liczbe krokow lub Infinity),
-     * ta metoda rygorystycznie zwraca najlepszy fizyczny dystans i zapisuje wynikowe drzewo.
-     */
     public double performLocalDescent(Tree startTree, Tree targetTree) {
         Tree currentTree = new pal.tree.SimpleTree(startTree);
         if (currentTree instanceof pal.tree.SimpleTree) {
             ((pal.tree.SimpleTree) currentTree).createNodeList();
         }
 
+        // NOWOŚĆ: Resetujemy obie waluty oraz wskaźniki trajektorii
         this.improved = true;
+        this.accumulatedNniCost = 0.0;
+        this.accumulatedSteps = 0;
+        this.lastOptimumMove = null;
+        this.lastMoveBaseTree = null;
+
         this.incMetric.initCalculationState(currentTree, targetTree);
         double currentDist = this.incMetric.getCurrentDistance();
 
@@ -93,6 +111,13 @@ public abstract class IncrementalHeuristicBaseMetric extends BaseMetric {
             if (this.improved && this.bestMove != null) {
                 currentDist = commitMoveToMetric(this.bestMove);
                 this.incMetric.commit();
+
+                // NOWOŚĆ: Podwójna księgowość + zapamiętanie ruchu dla trajektorii NNI
+                this.accumulatedSteps++;
+                this.accumulatedNniCost += getMoveNniCost(this.bestMove);
+                this.lastOptimumMove = this.bestMove;
+                this.lastMoveBaseTree = currentTree;
+
                 currentTree = applyPhysicalMove(currentTree, this.bestMove);
             }
         }
@@ -106,10 +131,6 @@ public abstract class IncrementalHeuristicBaseMetric extends BaseMetric {
         return this.incMetric.getCurrentDistance();
     }
 
-    /**
-     * Zwraca trajektorię drzew pośrednich NNI dla wygrywającego ruchu.
-     * Jeśli ruch nie został zarejestrowany, zwraca listę z samym drzewem docelowym.
-     */
     public List<Tree> getLastOptimumTrajectory(Tree startTree) {
         if (lastOptimumTree == null) {
             return Collections.emptyList();
@@ -122,9 +143,22 @@ public abstract class IncrementalHeuristicBaseMetric extends BaseMetric {
                     return traj;
                 }
             } catch (Exception e) {
+                // Bezpieczny fallback
             }
         }
 
         return Collections.singletonList(lastOptimumTree);
+    }
+
+    /**
+     * Metoda pomocnicza pobierająca ekwiwalentny koszt NNI z obiektu ruchu.
+     */
+    protected double getMoveNniCost(TreeMove move) {
+        if (move == null) return 1.0;
+        try {
+            return move.getNniEquivalentCost();
+        } catch (Exception e) {
+            return 1.0;
+        }
     }
 }

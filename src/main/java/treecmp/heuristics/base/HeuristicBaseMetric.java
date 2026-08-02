@@ -22,15 +22,20 @@ public abstract class HeuristicBaseMetric extends BaseMetric implements Metric {
     protected boolean reduceCommonBinarySubtreesTrees = false;
     protected Tree lastOptimumTree;
     protected double accumulatedNniCost = 0.0;
+    protected int accumulatedSteps = 0; // NOWOŚĆ: Natywny licznik kroków heurystyki
     protected TreeMove lastOptimumMove = null;
-    protected Tree lastMoveBaseTree = null; // NOWOŚĆ: Zapamiętujemy właściwe drzewo bazowe dla ruchu
+    protected Tree lastMoveBaseTree = null;
 
     public Tree getLastOptimumTree() {
         return this.lastOptimumTree;
     }
 
     public double getAccumulatedNniCost() {
-        return this.accumulatedNniCost;
+        return this.accumulatedNniCost; // Dla VND: ekwiwalent NNI
+    }
+
+    public int getAccumulatedSteps() {
+        return this.accumulatedSteps; // Dla ECR/SPR: natywna liczba kroków
     }
 
     protected HeuristicBaseMetric(boolean rooted) {
@@ -62,7 +67,8 @@ public abstract class HeuristicBaseMetric extends BaseMetric implements Metric {
         double finalMetricDist = performLocalDescent(tree1, tree2);
 
         if (finalMetricDist == 0.0) {
-            return this.accumulatedNniCost;
+            // NOWOŚĆ: Autonomiczne wywołanie zwraca natywną liczbę kroków
+            return (double) this.accumulatedSteps;
         }
         return Double.POSITIVE_INFINITY;
     }
@@ -72,7 +78,9 @@ public abstract class HeuristicBaseMetric extends BaseMetric implements Metric {
         Metric secondary = getMetric();
         TreeNeighborhoodUtils tnu = getTreeNeighborhoodUtils();
 
+        // NOWOŚĆ: Resetujemy obie waluty przed startem poszukiwań
         this.accumulatedNniCost = 0.0;
+        this.accumulatedSteps = 0;
         this.lastOptimumMove = null;
         this.lastMoveBaseTree = null;
         Tree currentStepTree = startTree;
@@ -120,15 +128,25 @@ public abstract class HeuristicBaseMetric extends BaseMetric implements Metric {
 
                 previousDist = currentBestDist;
 
-                if (bestDist >= previousDist) {
+                if (bestDist > previousDist) {
                     break;
+                } else if (bestDist == previousDist) {
+                    double currentSecondaryDist = secondary.getDistance(currentStepTree, targetStepTree);
+                    double nextSecondaryDist = secondary.getDistance(bestTree, targetStepTree);
+
+                    if (nextSecondaryDist >= currentSecondaryDist - 1e-9) {
+                        break;
+                    }
                 }
 
                 currentBestDist = bestDist;
 
+                // NOWOŚĆ: Podwójna księgowość (NNI dla VND, kroki dla natywnej heurystyki)
                 this.accumulatedNniCost += tnu.getTreeCost(bestTree);
+                this.accumulatedSteps++;
+
                 this.lastOptimumMove = tnu.getMoveForTree(bestTree);
-                this.lastMoveBaseTree = currentStepTree; // Zapamiętujemy drzewo bazowe z tego kroku
+                this.lastMoveBaseTree = currentStepTree;
 
                 String bestTreeString = bestTree.toString();
                 try (InputSource is = InputSource.openString(bestTreeString)) {
