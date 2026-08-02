@@ -30,7 +30,7 @@ public class NniSingleStepBenchmark {
     @Param({"RF", "RFC", "MS", "MC", "MP", "M3"})
     public String metricName;
 
-    @Param({"10", "20", "30", "50", "80", "120", "200", "300", "500"})
+    @Param({"10", "20", "30", "50", "80", "120", "200", "300", "500", "800"})
     public int treeSize;
 
     private Tree t1;

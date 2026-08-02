@@ -44,7 +44,7 @@ public class Ecr3QualityVsTimeMacroBenchmark {
         System.out.println("                              3-sECR QUALITY VS TIME MACRO-BENCHMARK (100 TREE PAIRS)");
         System.out.println("===============================================================================================================");
 
-        //runTestSuite(true);  // Phase 1: Rooted
+        runTestSuite(true);  // Phase 1: Rooted
         runTestSuite(false); // Phase 2: Unrooted
     }
 
@@ -53,8 +53,7 @@ public class Ecr3QualityVsTimeMacroBenchmark {
         System.out.println("\n\n>>> STARTING TESTS FOR " + treeType + " TREES <<<");
 
         // For 3-sECR we limit sizes because the neighborhood is huge
-        int[] sizes = {10, 20, 30};
-        // int[] sizes = {10, 20, 30, 50, 80};
+        int[] sizes = {10, 20/*, 30, 50, 80*/};
 
         List<MetricSetup> metricsToTest = rooted ? getRootedMetrics() : getUnrootedMetrics();
 

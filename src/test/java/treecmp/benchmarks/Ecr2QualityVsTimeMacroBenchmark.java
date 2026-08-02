@@ -44,7 +44,7 @@ public class Ecr2QualityVsTimeMacroBenchmark {
         System.out.println("                              2-sECR QUALITY VS TIME MACRO-BENCHMARK (100 TREE PAIRS)");
         System.out.println("===============================================================================================================");
 
-        //runTestSuite(true);  // Phase 1: Rooted
+        runTestSuite(true);  // Phase 1: Rooted
         runTestSuite(false); // Phase 2: Unrooted
     }
 
@@ -52,7 +52,7 @@ public class Ecr2QualityVsTimeMacroBenchmark {
         String treeType = rooted ? "ROOTED (rb)" : "UNROOTED (ub)";
         System.out.println("\n\n>>> STARTING TESTS FOR " + treeType + " TREES <<<");
 
-        int[] sizes = {10, 20, 30, 50, 80};
+        int[] sizes = {10, 20, 30/*, 50, 80*/};
 
         List<MetricSetup> metricsToTest = rooted ? getRootedMetrics() : getUnrootedMetrics();
 

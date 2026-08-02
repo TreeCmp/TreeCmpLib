@@ -44,7 +44,7 @@ public class NniQualityVsTimeMacroBenchmark {
         System.out.println("                               NNI QUALITY VS TIME MACRO-BENCHMARK (100 TREE PAIRS)");
         System.out.println("===============================================================================================================");
 
-        //runTestSuite(true);  // Phase 1: Rooted
+        runTestSuite(true);  // Phase 1: Rooted
         runTestSuite(false); // Phase 2: Unrooted
     }
 
@@ -52,7 +52,7 @@ public class NniQualityVsTimeMacroBenchmark {
         String treeType = rooted ? "ROOTED (rb)" : "UNROOTED (ub)";
         System.out.println("\n\n>>> STARTING TESTS FOR " + treeType + " TREES <<<");
 
-        int[] sizes = {10, 20, 30, 50, 80, 120, 200};
+        int[] sizes = {10, 20, 30, 50/*, 80, 120, 200*/};
 
         List<MetricSetup> metricsToTest = rooted ? getRootedMetrics() : getUnrootedMetrics();
 

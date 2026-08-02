@@ -34,7 +34,7 @@ import java.util.Arrays;
 import java.util.List;
 import java.util.Locale;
 
-public class VndQualityVsTimeMacroBenchmark {
+public class NniVndQualityVsTimeMacroBenchmark {
 
     static class MetricSetup {
         String name;
