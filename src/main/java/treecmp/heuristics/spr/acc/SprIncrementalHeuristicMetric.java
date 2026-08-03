@@ -91,6 +91,7 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
 
         this.improved = true;
         this.accumulatedNniCost = 0.0;
+        this.accumulatedSteps = 0;
         IncrementalMetric activeMetric = primaryMetric != null ? primaryMetric : this.incMetric;
 
         activeMetric.initCalculationState(currentTree, targetTree);
@@ -128,6 +129,7 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
                 if (bestMove != null) {
                     // 1. NAJPIERW ZLICZAMY KOSZT NNI (na oryginalnym drzewie)
                     this.accumulatedNniCost += bestMove.getNniEquivalentCost();
+                    this.accumulatedSteps++;
 
                     // 2. DOPIERO POTEM APLIKUJEMY RUCH I ZMIENIAMY DRZEWO
                     this.lastOptimumMove = bestMove;
@@ -157,7 +159,7 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
     @Override
     public double getDistance(Tree tree1, Tree tree2, int... indexes) {
         double dist = performLocalDescent(tree1, tree2);
-        return dist == 0.0 ? this.accumulatedNniCost : Double.POSITIVE_INFINITY;
+        return dist == 0.0 ? (double) this.accumulatedSteps : Double.POSITIVE_INFINITY;
     }
 
     @Override public boolean isRooted() { return this.incMetric.isRooted(); }

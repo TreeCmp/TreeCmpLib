@@ -5,11 +5,6 @@ import treecmp.heuristics.base.IncrementalHeuristicBaseMetric;
 import treecmp.heuristics.moves.TreeMove;
 import treecmp.metrics.IncrementalMetric;
 
-/**
- * Wspólna klasa bazowa dla heurystyk z rodziny ECR (2-sECR, 3-sECR).
- * Zarządza pełną pętlą zstępującą (Descent Loop), obsługą remisów (Tie-Breaking)
- * za pomocą metryki filtrującej oraz podwójnym commitem stanu.
- */
 public abstract class EcrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
 
     protected final String metricShortName;
@@ -21,40 +16,65 @@ public abstract class EcrIncrementalHeuristic extends IncrementalHeuristicBaseMe
         this.metricShortName = metricShortName;
     }
 
-    // Metody abstrakcyjne, które specyficznie delegują ocenę i commit do właściwego operatora
     protected abstract double evaluateMoveOnMetric(IncrementalMetric metric, TreeMove move);
     protected abstract double commitMoveOnMetric(IncrementalMetric metric, TreeMove move);
 
     @Override
+    protected double commitMoveToMetric(TreeMove move) {
+        return commitMoveOnMetric(this.incMetric, move);
+    }
+
+    @Override
     public double getDistance(Tree tree1, Tree tree2, int... indexes) {
-        Tree currentTree = tree1;
+        double finalMetricDist = performLocalDescent(tree1, tree2);
+        if (finalMetricDist == 0.0) {
+            return (double) this.accumulatedSteps;
+        }
+        return Double.POSITIVE_INFINITY;
+    }
+
+    @Override
+    public double performLocalDescent(Tree startTree, Tree targetTree) {
+        Tree currentTree = new pal.tree.SimpleTree(startTree);
+        if (currentTree instanceof pal.tree.SimpleTree) {
+            ((pal.tree.SimpleTree) currentTree).createNodeList();
+        }
+
         this.improved = true;
-        int totalSteps = 0;
-        int maxSteps = 1000; // Zabezpieczenie przed nieskończoną pętlą
+        this.accumulatedNniCost = 0.0;
+        this.accumulatedSteps = 0;
+        this.lastOptimumMove = null;
+        this.lastMoveBaseTree = null;
 
-        IncrementalMetric activeMetric = primaryMetric != null ? primaryMetric : this.incMetric;
+        int maxSteps = 1000;
+        IncrementalMetric activeMetric = (primaryMetric != null) ? primaryMetric : this.incMetric;
 
-        // Inicjalizacja stanów
-        activeMetric.initCalculationState(currentTree, tree2);
+        // Inicjalizacja stanów obu metryk
+        activeMetric.initCalculationState(currentTree, targetTree);
         if (primaryMetric != null) {
-            this.incMetric.initCalculationState(currentTree, tree2);
+            this.incMetric.initCalculationState(currentTree, targetTree);
         }
 
         double currentDist = activeMetric.getCurrentDistance();
 
-        while (this.improved && currentDist > 0 && totalSteps < maxSteps) {
+        while (this.improved && currentDist > 0 && this.accumulatedSteps < maxSteps) {
             this.improved = false;
+            this.bestDist = currentDist;
+            this.bestMove = null;
 
             searchNeighborhood(currentTree);
 
             if (!this.tiedMoves.isEmpty() && this.bestDist <= currentDist && this.bestDist < Double.POSITIVE_INFINITY) {
-                TreeMove bestMove = null;
+                TreeMove winningMove = null;
 
-                if (primaryMetric == null || tiedMoves.size() == 1) {
+                // PRZYPADEK 1: Brak filtru -> wymagamy ścisłej poprawy na jednej metryce
+                if (primaryMetric == null) {
                     if (this.bestDist < currentDist) {
-                        bestMove = tiedMoves.get(0);
+                        winningMove = tiedMoves.get(0);
                     }
-                } else {
+                }
+                // PRZYPADEK 2: Jest filtr (primaryMetric) -> oceniamy WSZYSTKIE remisy (nawet gdy jest tylko 1!)
+                else {
                     double bestHeavyDist = Double.POSITIVE_INFINITY;
                     double currentHeavyDist = this.incMetric.getCurrentDistance();
                     boolean rfStrictlyImproved = (this.bestDist < currentDist);
@@ -63,40 +83,42 @@ public abstract class EcrIncrementalHeuristic extends IncrementalHeuristicBaseMe
                         double heavyDist = evaluateMoveOnMetric(this.incMetric, tm);
 
                         if (rfStrictlyImproved) {
-                            // RF się poprawił -> wybieramy ruch o najmniejszym M3 (nawet jeśli M3 wzrosło!)
+                            // Filtr się poprawił -> wybieramy ruch o najniższym dystansie ciężkim
                             if (heavyDist < bestHeavyDist) {
                                 bestHeavyDist = heavyDist;
-                                bestMove = tm;
+                                winningMove = tm;
                             }
                         } else {
-                            // Płaskowyż RF -> wymagamy, aby M3 ściśle się poprawiło
-                            if (heavyDist < currentHeavyDist && heavyDist < bestHeavyDist) {
+                            // Płaskowyż filtru -> wymagamy, aby metryka ciężka ściśle się poprawiła!
+                            if (heavyDist < currentHeavyDist - 1e-9 && heavyDist < bestHeavyDist) {
                                 bestHeavyDist = heavyDist;
-                                bestMove = tm;
+                                winningMove = tm;
                             }
                         }
                     }
                 }
 
-                if (bestMove != null) {
-                    // Fizyczny commit na aktywnym filtrze
-                    currentDist = commitMoveOnMetric(activeMetric, bestMove);
+                if (winningMove != null) {
+                    currentDist = commitMoveOnMetric(activeMetric, winningMove);
                     activeMetric.commit();
 
-                    // Synchronizacja stanu w metryce ciężkiej
                     if (primaryMetric != null) {
-                        commitMoveOnMetric(this.incMetric, bestMove);
+                        commitMoveOnMetric(this.incMetric, winningMove);
                         this.incMetric.commit();
                     }
 
-                    currentTree = applyPhysicalMove(currentTree, bestMove);
-                    totalSteps++;
+                    this.accumulatedSteps++;
+                    this.accumulatedNniCost += getMoveNniCost(winningMove);
+                    this.lastOptimumMove = winningMove;
+                    this.lastMoveBaseTree = currentTree;
+
+                    currentTree = applyPhysicalMove(currentTree, winningMove);
                     this.improved = true;
                 }
             }
         }
 
-        // Zwracamy dystans końcowy (lub liczbę kroków zgodnie z konwencją benchmarków ECR)
-        return (currentDist == 0) ? (double) totalSteps : Double.POSITIVE_INFINITY;
+        this.lastOptimumTree = currentTree;
+        return currentDist;
     }
 }
