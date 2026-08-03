@@ -26,7 +26,8 @@ public abstract class IncrementalHeuristicBaseMetric extends BaseMetric {
     // =========================================================
     protected Tree lastOptimumTree;
     protected double accumulatedNniCost = 0.0;
-    protected int accumulatedSteps = 0; // NOWOŚĆ: Natywny licznik kroków
+    protected int accumulatedSteps = 0;
+    protected List<Tree> fullOptimumTrajectory = new ArrayList<>();
 
     public Tree getLastOptimumTree() {
         return this.lastOptimumTree;
@@ -91,10 +92,11 @@ public abstract class IncrementalHeuristicBaseMetric extends BaseMetric {
             ((pal.tree.SimpleTree) currentTree).createNodeList();
         }
 
-        // NOWOŚĆ: Resetujemy obie waluty oraz wskaźniki trajektorii
+        // NOWOŚĆ: Resetujemy waluty oraz czyścimy historię trajektorii
         this.improved = true;
         this.accumulatedNniCost = 0.0;
         this.accumulatedSteps = 0;
+        this.fullOptimumTrajectory.clear();
         this.lastOptimumMove = null;
         this.lastMoveBaseTree = null;
 
@@ -112,11 +114,20 @@ public abstract class IncrementalHeuristicBaseMetric extends BaseMetric {
                 currentDist = commitMoveToMetric(this.bestMove);
                 this.incMetric.commit();
 
-                // NOWOŚĆ: Podwójna księgowość + zapamiętanie ruchu dla trajektorii NNI
                 this.accumulatedSteps++;
                 this.accumulatedNniCost += getMoveNniCost(this.bestMove);
                 this.lastOptimumMove = this.bestMove;
                 this.lastMoveBaseTree = currentTree;
+
+                // NOWOŚĆ: Rejestrujemy podkroki NNI dla bieżącej mutacji i dodajemy do pełnej trajektorii
+                try {
+                    List<Tree> stepTraj = this.bestMove.getNniTrajectory(currentTree);
+                    if (stepTraj != null && !stepTraj.isEmpty()) {
+                        this.fullOptimumTrajectory.addAll(stepTraj);
+                    }
+                } catch (Exception e) {
+                    // Bezpieczny fallback w razie błędu algebry
+                }
 
                 currentTree = applyPhysicalMove(currentTree, this.bestMove);
             }
@@ -132,19 +143,12 @@ public abstract class IncrementalHeuristicBaseMetric extends BaseMetric {
     }
 
     public List<Tree> getLastOptimumTrajectory(Tree startTree) {
-        if (lastOptimumTree == null) {
-            return Collections.emptyList();
+        if (this.fullOptimumTrajectory != null && !this.fullOptimumTrajectory.isEmpty()) {
+            return new ArrayList<>(this.fullOptimumTrajectory);
         }
 
-        if (lastOptimumMove != null && lastMoveBaseTree != null) {
-            try {
-                List<Tree> traj = lastOptimumMove.getNniTrajectory(lastMoveBaseTree);
-                if (traj != null && !traj.isEmpty()) {
-                    return traj;
-                }
-            } catch (Exception e) {
-                // Bezpieczny fallback
-            }
+        if (lastOptimumTree == null) {
+            return Collections.emptyList();
         }
 
         return Collections.singletonList(lastOptimumTree);

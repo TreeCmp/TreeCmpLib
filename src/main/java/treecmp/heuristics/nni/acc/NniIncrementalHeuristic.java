@@ -173,6 +173,9 @@ public class NniIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
 
         this.improved = true;
         this.accumulatedNniCost = 0.0;
+        this.accumulatedSteps = 0; // POPRAWKA: Brakowało resetu licznika kroków!
+        this.fullOptimumTrajectory.clear(); // NOWOŚĆ: Czyszczenie trajektorii na starcie
+
         IncrementalMetric activeMetric = primaryMetric != null ? primaryMetric : this.incMetric;
 
         activeMetric.initCalculationState(currentTree, targetTree);
@@ -194,8 +197,19 @@ public class NniIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
                 treecmp.heuristics.moves.TreeMove bestMove = this.tiedMoves.get(0);
 
                 if (bestMove != null) {
+                    this.accumulatedSteps++; // POPRAWKA: Brakowało inkrementacji kroków!
                     this.accumulatedNniCost += bestMove.getNniEquivalentCost();
                     this.lastOptimumMove = bestMove;
+
+                    // NOWOŚĆ: Zapisujemy wykonany krok NNI do pełnej trajektorii przebiegu
+                    try {
+                        List<Tree> stepTraj = bestMove.getNniTrajectory(currentTree);
+                        if (stepTraj != null && !stepTraj.isEmpty()) {
+                            this.fullOptimumTrajectory.addAll(stepTraj);
+                        }
+                    } catch (Exception e) {
+                        // Fallback w razie błędu
+                    }
 
                     currentTree = applyPhysicalMove(currentTree, bestMove);
                     pal.tree.TreeUtils.computeParentPointers(currentTree.getRoot());

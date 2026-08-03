@@ -23,8 +23,7 @@ public abstract class HeuristicBaseMetric extends BaseMetric implements Metric {
     protected Tree lastOptimumTree;
     protected double accumulatedNniCost = 0.0;
     protected int accumulatedSteps = 0; // NOWOŚĆ: Natywny licznik kroków heurystyki
-    protected TreeMove lastOptimumMove = null;
-    protected Tree lastMoveBaseTree = null;
+    protected List<Tree> fullOptimumTrajectory = new ArrayList<>();
 
     public Tree getLastOptimumTree() {
         return this.lastOptimumTree;
@@ -78,11 +77,11 @@ public abstract class HeuristicBaseMetric extends BaseMetric implements Metric {
         Metric secondary = getMetric();
         TreeNeighborhoodUtils tnu = getTreeNeighborhoodUtils();
 
-        // NOWOŚĆ: Resetujemy obie waluty przed startem poszukiwań
+        // NOWOŚĆ: Resetujemy waluty i czyścimy historię trajektorii przed startem
         this.accumulatedNniCost = 0.0;
         this.accumulatedSteps = 0;
-        this.lastOptimumMove = null;
-        this.lastMoveBaseTree = null;
+        this.fullOptimumTrajectory.clear();
+
         Tree currentStepTree = startTree;
         Tree targetStepTree = targetTree;
 
@@ -94,7 +93,7 @@ public abstract class HeuristicBaseMetric extends BaseMetric implements Metric {
             }
 
             final Tree effectiveTargetTree = targetStepTree;
-            double currentBestDist = primary.getDistance(currentStepTree, targetStepTree);
+            double currentBestDist = primary.getDistance(currentStepTree, effectiveTargetTree);
 
             if (currentBestDist == 0) {
                 this.lastOptimumTree = currentStepTree;
@@ -104,11 +103,9 @@ public abstract class HeuristicBaseMetric extends BaseMetric implements Metric {
             double previousDist;
 
             do {
-                // Używamy tablicy 1-elementowej jako worka na zmienną bestDist wewnątrz lambdy
                 final double[] bestDistHolder = { Double.POSITIVE_INFINITY };
                 List<Tree> bestTreeList = new ArrayList<>();
 
-                // LENIWE STRUMIENIOWANIE OTOCZENIA:
                 tnu.forEachNeighbour(currentStepTree, tempTree -> {
                     double tempDist;
                     try {
@@ -127,7 +124,7 @@ public abstract class HeuristicBaseMetric extends BaseMetric implements Metric {
                 });
 
                 double bestDist = bestDistHolder[0];
-                Tree bestTree = findBestTree(bestTreeList, targetStepTree, secondary);
+                Tree bestTree = findBestTree(bestTreeList, effectiveTargetTree, secondary);
 
                 if (bestTree == null) {
                     break;
@@ -138,8 +135,8 @@ public abstract class HeuristicBaseMetric extends BaseMetric implements Metric {
                 if (bestDist > previousDist) {
                     break;
                 } else if (bestDist == previousDist) {
-                    double currentSecondaryDist = secondary.getDistance(currentStepTree, targetStepTree);
-                    double nextSecondaryDist = secondary.getDistance(bestTree, targetStepTree);
+                    double currentSecondaryDist = secondary.getDistance(currentStepTree, effectiveTargetTree);
+                    double nextSecondaryDist = secondary.getDistance(bestTree, effectiveTargetTree);
 
                     if (nextSecondaryDist >= currentSecondaryDist - 1e-9) {
                         break;
@@ -148,12 +145,26 @@ public abstract class HeuristicBaseMetric extends BaseMetric implements Metric {
 
                 currentBestDist = bestDist;
 
-                // NOWOŚĆ: Podwójna księgowość (NNI dla VND, kroki dla natywnej heurystyki)
+                // Podwójna księgowość (NNI dla VND, natywne kroki dla heurystyki)
                 this.accumulatedNniCost += tnu.getTreeCost(bestTree);
                 this.accumulatedSteps++;
 
-                this.lastOptimumMove = tnu.getMoveForTree(bestTree);
-                this.lastMoveBaseTree = currentStepTree;
+                // NOWOŚĆ: Generujemy mikrokroki NNI dla BIEŻĄCEJ mutacji i dołączamy do pełnej trajektorii
+                TreeMove move = tnu.getMoveForTree(bestTree);
+                if (move != null) {
+                    try {
+                        List<Tree> stepTraj = move.getNniTrajectory(currentStepTree);
+                        if (stepTraj != null && !stepTraj.isEmpty()) {
+                            this.fullOptimumTrajectory.addAll(stepTraj);
+                        } else {
+                            this.fullOptimumTrajectory.add(bestTree);
+                        }
+                    } catch (Exception e) {
+                        this.fullOptimumTrajectory.add(bestTree);
+                    }
+                } else {
+                    this.fullOptimumTrajectory.add(bestTree);
+                }
 
                 String bestTreeString = bestTree.toString();
                 try (InputSource is = InputSource.openString(bestTreeString)) {
@@ -206,19 +217,12 @@ public abstract class HeuristicBaseMetric extends BaseMetric implements Metric {
     }
 
     public List<Tree> getLastOptimumTrajectory(Tree startTree) {
-        if (lastOptimumTree == null) {
-            return Collections.emptyList();
+        if (this.fullOptimumTrajectory != null && !this.fullOptimumTrajectory.isEmpty()) {
+            return new ArrayList<>(this.fullOptimumTrajectory);
         }
 
-        if (lastOptimumMove != null && lastMoveBaseTree != null) {
-            try {
-                List<Tree> traj = lastOptimumMove.getNniTrajectory(lastMoveBaseTree);
-                if (traj != null && !traj.isEmpty()) {
-                    return traj;
-                }
-            } catch (Exception e) {
-                // Bezpieczny fallback
-            }
+        if (lastOptimumTree == null) {
+            return Collections.emptyList();
         }
 
         return Collections.singletonList(lastOptimumTree);
