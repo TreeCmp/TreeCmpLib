@@ -67,7 +67,7 @@ public class NniVndQualityVsTimeMacroBenchmark {
         treecmp.heuristics.vnd.acc.NniVndIncrementalHeuristic.ENABLE_LOGGING = false;
         treecmp.heuristics.vnd.NniVndHeuristic.ENABLE_LOGGING = false;
 
-        //runTestSuite(true);  // Phase 1: Rooted
+        runTestSuite(true);  // Phase 1: Rooted
         runTestSuite(false); // Phase 2: Unrooted
     }
 
@@ -266,7 +266,7 @@ public class NniVndQualityVsTimeMacroBenchmark {
     private static List<MetricSetup> getUnrootedMetrics() {
         List<MetricSetup> list = new ArrayList<>();
 
-        /*list.add(new MetricSetup("RF",
+        list.add(new MetricSetup("RF",
                 new NniClassicHeuristic(new RFMetric(), false, "RF"),
                 new NniIncrementalHeuristic(new RFIncrementalMetric(), "RF"),
                 buildClassicVndFull(new RFMetric(), false, "RF"),
@@ -282,7 +282,7 @@ public class NniVndQualityVsTimeMacroBenchmark {
                 buildClassicVndShort(new MatchingSplitMetric(), false, "MS"),
                 buildIncrementalVndFull(new MSIncrementalMetric(), false, "MS"),
                 buildIncrementalVndShort(new MSIncrementalMetric(), false, "MS")
-        ));*/
+        ));
 
         list.add(new MetricSetup("M3",
                 new NniClassicHeuristic(new MatchingTripletMetric(), false, "M3"),

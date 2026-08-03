@@ -310,9 +310,12 @@ public class SprUtils extends TreeNeighborhoodUtils {
         if (isValidSprMove(s, t)) {
             Tree resultTree = createAndFixSprTree(baseTree, s, t);
             if (resultTree != null) {
-                // Dodajemy do zbioru. Jeśli topologia już tam jest, metoda add() zwróci false
-                // i pominie duplikat - dokładnie tak samo jak w starym generatorze!
                 if (seen.add(new treecmp.heuristics.TreeRootedHolder(resultTree, idGroup))) {
+                    // NAPRAWA: Rejestrujemy koszt NNI i obiekt ruchu dla strumieniowanego drzewa
+                    SprMove move = new SprMove(s, t);
+                    registerTreeCost(resultTree, move.getNniEquivalentCost());
+                    registerTreeMove(resultTree, move);
+
                     action.accept(resultTree);
                 }
             }
@@ -323,7 +326,10 @@ public class SprUtils extends TreeNeighborhoodUtils {
         if (isValidSprMove(s, t)) {
             Tree resultTree = createAndFixSprTree(baseTree, s, t);
             if (resultTree != null) {
-                // Wyłączony HashSet, Klasyk musi sprawdzać wszystko
+                // NAPRAWA DLA DRUGIEGO PRZECIĄŻENIA:
+                SprMove move = new SprMove(s, t);
+                registerTreeCost(resultTree, move.getNniEquivalentCost());
+                registerTreeMove(resultTree, move);
                 action.accept(resultTree);
             }
         }
