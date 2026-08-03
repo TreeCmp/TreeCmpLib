@@ -79,6 +79,95 @@ public class SubtreeEcr2Utils extends TreeNeighborhoodUtils {
         return ecrTreeArray;
     }
 
+    @Override
+    public void forEachNeighbour(Tree tree, java.util.function.Consumer<Tree> action) {
+        // Delegujemy generowanie otoczenia do wersji strumieniowej (O(1) pamięci na drzewo)
+        forEachEcr2Tree(tree, action);
+    }
+
+    /**
+     * Pamięciowo oszczędny generator sąsiedztwa 2-sECR.
+     * Zamiast budować tablicę wszystkich klonów naraz, przekazuje każde nowe,
+     * unikalne drzewo bezpośrednio do konsumenta (np. pętli zstępującej w HeuristicBaseMetric).
+     */
+    public void forEachEcr2Tree(Tree tree, java.util.function.Consumer<Tree> action) {
+        IdGroup idGroup = TreeUtils.getLeafIdGroup(tree);
+        Set<treecmp.heuristics.TreeHolder> seenHolders = new HashSet<>();
+        int intNum = tree.getInternalNodeCount();
+
+        for (int i = 0; i < intNum; i++) {
+            Node node = tree.getInternalNode(i);
+
+            if (node != tree.getRoot()) {
+                Node c = node.getParent();
+                if (c != null && !c.isLeaf()) {
+                    Node p = c.getParent();
+                    if (p != null && !p.isLeaf()) {
+                        generateCombinationsStreaming(tree, p, c, node, false, seenHolders, idGroup, action);
+                    }
+                }
+            }
+
+            List<Node> internalChildren = new ArrayList<>();
+            for (int j = 0; j < node.getChildCount(); j++) {
+                Node child = node.getChild(j);
+                if (!child.isLeaf()) internalChildren.add(child);
+            }
+
+            if (internalChildren.size() >= 2) {
+                for (int a = 0; a < internalChildren.size(); a++) {
+                    for (int b = a + 1; b < internalChildren.size(); b++) {
+                        generateCombinationsStreaming(tree, node, internalChildren.get(a), internalChildren.get(b), true, seenHolders, idGroup, action);
+                    }
+                }
+            }
+        }
+    }
+
+    private void generateCombinationsStreaming(Tree tree, Node top, Node m1, Node m2, boolean isOriginalFork,
+                                               Set<treecmp.heuristics.TreeHolder> seenHolders, IdGroup idGroup,
+                                               java.util.function.Consumer<Tree> action) {
+        Node[] s = new Node[4];
+
+        if (!isOriginalFork) {
+            s[0] = getOtherChild(top, m1);
+            s[1] = getOtherChild(m1, m2);
+            s[2] = m2.getChild(0);
+            s[3] = m2.getChild(1);
+        } else {
+            s[0] = m1.getChild(0);
+            s[1] = m1.getChild(1);
+            s[2] = m2.getChild(0);
+            s[3] = m2.getChild(1);
+        }
+
+        for (TopologyTemplate2sECR template : TEMPLATES) {
+            if (template.isFork == isOriginalFork && Arrays.equals(template.indices, new int[]{0, 1, 2, 3})) {
+                continue;
+            }
+
+            Tree newTree = createEcrTree(tree, top, m1, m2, s, template, isOriginalFork);
+            if (newTree != null) {
+                treecmp.heuristics.moves.Ecr2Move move =
+                        new treecmp.heuristics.moves.Ecr2Move(top, m1, m2, s, template);
+
+                // Rejestrujemy koszt i ruch (dla klasycznego Tie-Breakera i NniVndHeuristic)
+                registerTreeCost(newTree, move.getNniEquivalentCost());
+                registerTreeMove(newTree, move);
+
+                // Deduplikacja topologii (z uwzględnieniem korzenia)
+                treecmp.heuristics.TreeHolder holder = unrooted ?
+                        new TreeUnrootedHolder(newTree, idGroup) :
+                        new TreeRootedHolder(newTree, idGroup);
+
+                // Jeśli topologia pojawia się po raz pierwszy, natychmiast przekazujemy ją do lambdy
+                if (seenHolders.add(holder)) {
+                    action.accept(newTree);
+                }
+            }
+        }
+    }
+
     private void generateCombinations(Tree tree, Node top, Node m1, Node m2, boolean isOriginalFork,
                                       Set<treecmp.heuristics.TreeHolder> set, IdGroup idGroup) {
         Node[] s = new Node[4];
