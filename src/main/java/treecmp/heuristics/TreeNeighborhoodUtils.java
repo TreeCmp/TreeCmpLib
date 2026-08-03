@@ -41,6 +41,23 @@ public abstract class TreeNeighborhoodUtils {
         return tree;
     }
 
+    /**
+     * Domyślna metoda strumieniowa dla generatorów otoczenia.
+     * Jeśli klasa pochodna (np. SprUtils, SubtreeEcr3Utils) nie zaimplementuje
+     * własnej zoptymalizowanej wersji oszczędzającej pamięć, metoda ta
+     * bezpiecznie wywoła klasyczne generateNeighbours(tree).
+     */
+    public void forEachNeighbour(Tree tree, java.util.function.Consumer<Tree> action) {
+        Tree[] neighbours = generateNeighbours(tree);
+        if (neighbours != null) {
+            for (Tree t : neighbours) {
+                if (t != null) {
+                    action.accept(t);
+                }
+            }
+        }
+    }
+
     // ==========================================
     // METODY WSPÓŁDZIELONE DLA TBR i uTBR
     // ==========================================

@@ -93,6 +93,7 @@ public abstract class HeuristicBaseMetric extends BaseMetric implements Metric {
                 targetStepTree = reducedTrees[1];
             }
 
+            final Tree effectiveTargetTree = targetStepTree;
             double currentBestDist = primary.getDistance(currentStepTree, targetStepTree);
 
             if (currentBestDist == 0) {
@@ -103,23 +104,29 @@ public abstract class HeuristicBaseMetric extends BaseMetric implements Metric {
             double previousDist;
 
             do {
-                tnu.clearCosts();
-
-                Tree[] treeList = tnu.generateNeighbours(currentStepTree);
-                double bestDist = Double.POSITIVE_INFINITY;
+                // Używamy tablicy 1-elementowej jako worka na zmienną bestDist wewnątrz lambdy
+                final double[] bestDistHolder = { Double.POSITIVE_INFINITY };
                 List<Tree> bestTreeList = new ArrayList<>();
 
-                for (Tree tempTree : treeList) {
-                    double tempDist = primary.getDistance(tempTree, targetStepTree);
-                    if (tempDist < bestDist) {
-                        bestDist = tempDist;
+                // LENIWE STRUMIENIOWANIE OTOCZENIA:
+                tnu.forEachNeighbour(currentStepTree, tempTree -> {
+                    double tempDist;
+                    try {
+                        tempDist = primary.getDistance(tempTree, effectiveTargetTree);
+                    } catch (TreeCmpException e) {
+                        throw new RuntimeException(e);
+                    }
+
+                    if (tempDist < bestDistHolder[0]) {
+                        bestDistHolder[0] = tempDist;
                         bestTreeList.clear();
                         bestTreeList.add(tempTree);
-                    } else if (tempDist == bestDist && bestDist != Double.POSITIVE_INFINITY) {
+                    } else if (tempDist == bestDistHolder[0] && bestDistHolder[0] != Double.POSITIVE_INFINITY) {
                         bestTreeList.add(tempTree);
                     }
-                }
+                });
 
+                double bestDist = bestDistHolder[0];
                 Tree bestTree = findBestTree(bestTreeList, targetStepTree, secondary);
 
                 if (bestTree == null) {

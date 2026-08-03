@@ -396,4 +396,10 @@ public class SprUtils extends TreeNeighborhoodUtils {
         }
         return res;
     }
+
+    @Override
+    public void forEachNeighbour(Tree tree, java.util.function.Consumer<Tree> action) {
+        // Zamiast generować tablicę Tree[], używamy oszczędnego strumieniowania!
+        forEachSprTree(tree, action);
+    }
 }
