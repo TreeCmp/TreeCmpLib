@@ -139,7 +139,6 @@ public class M3IncrementalMetric implements IncrementalMetric {
             int[] baseIdToRow = new int[maxNodesT1];
             Arrays.fill(baseIdToRow, -1);
 
-            // KLUCZOWA POPRAWKA: Rejestrujemy wiersze ZARÓWNO dla baseTree, jak i currentVirtualTree!
             for (int i = 0; i < intT1Num; i++) {
                 Node nBase = this.baseTree.getInternalNode(i);
                 Node nVirt = this.currentVirtualTree.getInternalNode(i);
@@ -155,7 +154,6 @@ public class M3IncrementalMetric implements IncrementalMetric {
                 currentSplits.put(n, (BitSet) split.clone());
             }
 
-            // KLUCZOWA POPRAWKA: Rejestrujemy maski bitowe dla każdego węzła w currentVirtualTree!
             Node[] allNodesVirtCopy = TreeCmpUtils.getAllNodes(this.currentVirtualTree);
             for (Node n : allNodesVirtCopy) {
                 BitSet split = getLeaves(n, baseIdGroup);
@@ -518,11 +516,12 @@ public class M3IncrementalMetric implements IncrementalMetric {
 
     private double calculateCleanSlateDistance(SimpleTree tNew, boolean isCommit, int maxCostBound) {
 
-        Map<String, Integer> sigToOldRow = new HashMap<>((intT1Num * 4) / 3 + 1);
+        // KLUCZOWA POPRAWKA: Użycie natywnego klucza Signature zamiast String hash
+        Map<Signature, Integer> sigToOldRow = new HashMap<>((intT1Num * 4) / 3 + 1);
         for (int i = 0; i < intT1Num; i++) {
             Node n = this.currentVirtualTree.getInternalNode(i);
             Signature sig = new Signature(n, N, baseIdGroup);
-            sigToOldRow.put(sig.hash, i);
+            sigToOldRow.put(sig, i);
         }
 
         Tree tPerfect = createCleanCopy(tNew);
@@ -535,7 +534,7 @@ public class M3IncrementalMetric implements IncrementalMetric {
         for (int r_new = 0; r_new < intT1Num; r_new++) {
             Node n = tPerfect.getInternalNode(r_new);
             Signature sig = new Signature(n, N, baseIdGroup);
-            Integer r_old = sigToOldRow.get(sig.hash);
+            Integer r_old = sigToOldRow.get(sig);
             if (r_old != null && oldToNew[r_old] == -1) {
                 newToOld[r_new] = r_old;
                 oldToNew[r_old] = r_new;
@@ -932,10 +931,30 @@ public class M3IncrementalMetric implements IncrementalMetric {
         return null;
     }
 
+    // NATYWNY, BEZALOKACYJNY KOMPARATOR BITSETÓW
+    private static final Comparator<BitSet> BITSET_COMPARATOR = (a, b) -> {
+        if (a == b) return 0;
+        int cA = a.cardinality();
+        int cB = b.cardinality();
+        if (cA != cB) return Integer.compare(cA, cB);
+
+        int i = a.nextSetBit(0);
+        int j = b.nextSetBit(0);
+        while (i >= 0 && j >= 0) {
+            if (i != j) return Integer.compare(i, j);
+            i = a.nextSetBit(i + 1);
+            j = b.nextSetBit(j + 1);
+        }
+        return 0;
+    };
+
+    // ZERO-ALLOCATION SIGNATURE (Bez BitSet.toString!)
     private static class Signature {
-        String hash;
+        private final BitSet[] canonicalParts;
+        private final int cachedHashCode;
+
         public Signature(Node n, int N, IdGroup idGroup) {
-            List<BitSet> parts = new ArrayList<>();
+            List<BitSet> parts = new ArrayList<>(n.getChildCount() + 1);
             for (int i = 0; i < n.getChildCount(); i++) {
                 parts.add(getLeaves(n.getChild(i), idGroup));
             }
@@ -949,22 +968,29 @@ public class M3IncrementalMetric implements IncrementalMetric {
                     parts.add(parentPart);
                 }
             }
-            String[] strParts = new String[parts.size()];
-            for (int i = 0; i < parts.size(); i++) {
-                strParts[i] = parts.get(i).toString();
-            }
-            Arrays.sort(strParts);
-            this.hash = Arrays.toString(strParts);
+            this.canonicalParts = parts.toArray(new BitSet[0]);
+            Arrays.sort(this.canonicalParts, BITSET_COMPARATOR);
+            this.cachedHashCode = Arrays.hashCode(this.canonicalParts);
         }
+
         @Override
-        public int hashCode() { return hash.hashCode(); }
+        public int hashCode() {
+            return cachedHashCode;
+        }
+
         @Override
         public boolean equals(Object obj) {
+            if (this == obj) return true;
             if (!(obj instanceof Signature)) return false;
-            return this.hash.equals(((Signature)obj).hash);
+            Signature other = (Signature) obj;
+            if (this.cachedHashCode != other.cachedHashCode) return false;
+            return Arrays.equals(this.canonicalParts, other.canonicalParts);
         }
+
         @Override
-        public String toString() { return hash; }
+        public String toString() {
+            return Arrays.toString(canonicalParts);
+        }
     }
 
     private int getSafeMaxNodeId(Tree tree) {
