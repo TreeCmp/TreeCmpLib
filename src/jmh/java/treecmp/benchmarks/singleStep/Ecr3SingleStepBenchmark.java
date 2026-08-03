@@ -30,8 +30,7 @@ public class Ecr3SingleStepBenchmark {
     @Param({"MC"})
     public String metricName;
 
-    //@Param({"10", "20", "30", "50", "80", "120", "200", "300", "500", "800", "1200", "2000" })
-    @Param({"10", "20", "50", "80", "120", "200"})
+    @Param({"10", "20", "30", "50", "80", "120"/*, "200", "300", "500", "800", "1200", "2000"*/ })
     public int treeSize;
 
     private Tree t1;
@@ -71,22 +70,22 @@ public class Ecr3SingleStepBenchmark {
                 incrementalMetric = new Ecr3IncrementalHeuristic(new RFClusterIncrementalMetric(), "RFC");
                 break;
             case "MS":
-                isRooted = false; classicProtectionLimit = 200;
+                isRooted = false; classicProtectionLimit = 500;
                 classicMetric = new MatchingSplitMetric();
                 incrementalMetric = new Ecr3IncrementalHeuristic(new MSIncrementalMetric(), "MS");
                 break;
             case "MC":
-                isRooted = true; classicProtectionLimit = 200;
+                isRooted = true; classicProtectionLimit = 500;
                 classicMetric = new MatchingClusterMetric();
                 incrementalMetric = new Ecr3IncrementalHeuristic(new MCIncrementalMetric(), "MC");
                 break;
             case "MP":
-                isRooted = true; classicProtectionLimit = 30;
+                isRooted = true; classicProtectionLimit = 500;
                 classicMetric = new MatchingPairMetric();
                 incrementalMetric = new Ecr3IncrementalHeuristic(new MPIncrementalMetric(), "MP");
                 break;
             case "M3":
-                isRooted = false; classicProtectionLimit = 30;
+                isRooted = false; classicProtectionLimit = 500;
                 classicMetric = new MatchingTripletMetric();
                 incrementalMetric = new Ecr3IncrementalHeuristic(new M3IncrementalMetric(), "M3");
                 break;

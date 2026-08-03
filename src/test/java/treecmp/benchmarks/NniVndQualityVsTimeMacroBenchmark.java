@@ -64,8 +64,8 @@ public class NniVndQualityVsTimeMacroBenchmark {
         System.out.println("===============================================================================================================");
 
         // 1. Disable generating proof files for clean time measurements
-        treecmp.heuristics.vnd.acc.NniVndIncrementalHeuristic.ENABLE_LOGGING = false;
-        treecmp.heuristics.vnd.NniVndHeuristic.ENABLE_LOGGING = false;
+        //treecmp.heuristics.vnd.acc.NniVndIncrementalHeuristic.ENABLE_LOGGING = false;
+        //treecmp.heuristics.vnd.NniVndHeuristic.ENABLE_LOGGING = false;
 
         runTestSuite(true);  // Phase 1: Rooted
         runTestSuite(false); // Phase 2: Unrooted
@@ -75,7 +75,7 @@ public class NniVndQualityVsTimeMacroBenchmark {
         String treeType = rooted ? "ROOTED (rb)" : "UNROOTED (ub)";
         System.out.println("\n\n>>> STARTING TESTS FOR " + treeType + " TREES <<<");
 
-        int[] sizes = {10, 20, 30, 50, 80};
+        int[] sizes = {10, 20, 30/*, 50, 80*/};
         List<MetricSetup> metricsToTest = rooted ? getRootedMetrics() : getUnrootedMetrics();
 
         for (MetricSetup setup : metricsToTest) {

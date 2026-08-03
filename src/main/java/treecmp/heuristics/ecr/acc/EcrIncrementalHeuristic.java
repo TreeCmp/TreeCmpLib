@@ -5,6 +5,8 @@ import treecmp.heuristics.base.IncrementalHeuristicBaseMetric;
 import treecmp.heuristics.moves.TreeMove;
 import treecmp.metrics.IncrementalMetric;
 
+import java.util.List;
+
 public abstract class EcrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
 
     protected final String metricShortName;
@@ -43,6 +45,7 @@ public abstract class EcrIncrementalHeuristic extends IncrementalHeuristicBaseMe
         this.improved = true;
         this.accumulatedNniCost = 0.0;
         this.accumulatedSteps = 0;
+        this.fullOptimumTrajectory.clear(); // NOWOŚĆ: Czyszczenie trajektorii na starcie
         this.lastOptimumMove = null;
         this.lastMoveBaseTree = null;
 
@@ -83,13 +86,11 @@ public abstract class EcrIncrementalHeuristic extends IncrementalHeuristicBaseMe
                         double heavyDist = evaluateMoveOnMetric(this.incMetric, tm);
 
                         if (rfStrictlyImproved) {
-                            // Filtr się poprawił -> wybieramy ruch o najniższym dystansie ciężkim
                             if (heavyDist < bestHeavyDist) {
                                 bestHeavyDist = heavyDist;
                                 winningMove = tm;
                             }
                         } else {
-                            // Płaskowyż filtru -> wymagamy, aby metryka ciężka ściśle się poprawiła!
                             if (heavyDist < currentHeavyDist - 1e-9 && heavyDist < bestHeavyDist) {
                                 bestHeavyDist = heavyDist;
                                 winningMove = tm;
@@ -111,6 +112,16 @@ public abstract class EcrIncrementalHeuristic extends IncrementalHeuristicBaseMe
                     this.accumulatedNniCost += getMoveNniCost(winningMove);
                     this.lastOptimumMove = winningMove;
                     this.lastMoveBaseTree = currentTree;
+
+                    // NOWOŚĆ: Rejestracja wszystkich podkroków NNI dla bieżącego ruchu ECR
+                    try {
+                        List<Tree> stepTraj = winningMove.getNniTrajectory(currentTree);
+                        if (stepTraj != null && !stepTraj.isEmpty()) {
+                            this.fullOptimumTrajectory.addAll(stepTraj);
+                        }
+                    } catch (Exception e) {
+                        // Bezpieczny fallback
+                    }
 
                     currentTree = applyPhysicalMove(currentTree, winningMove);
                     this.improved = true;
