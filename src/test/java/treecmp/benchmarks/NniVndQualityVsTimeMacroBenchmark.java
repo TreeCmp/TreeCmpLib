@@ -67,51 +67,61 @@ public class NniVndQualityVsTimeMacroBenchmark {
         //treecmp.heuristics.vnd.acc.NniVndIncrementalHeuristic.ENABLE_LOGGING = false;
         //treecmp.heuristics.vnd.NniVndHeuristic.ENABLE_LOGGING = false;
 
-        runTestSuite(true);  // Phase 1: Rooted
-        runTestSuite(false); // Phase 2: Unrooted
+        runAllSuites();
     }
 
-    private static void runTestSuite(boolean rooted) {
-        String treeType = rooted ? "ROOTED (rb)" : "UNROOTED (ub)";
-        System.out.println("\n\n>>> STARTING TESTS FOR " + treeType + " TREES <<<");
-
+    private static void runAllSuites() {
         int[] sizes = {10, 20, 30/*, 50, 80*/};
-        List<MetricSetup> metricsToTest = rooted ? getRootedMetrics() : getUnrootedMetrics();
+        List<MetricSetup> rootedMetrics = getRootedMetrics();
+        List<MetricSetup> unrootedMetrics = getUnrootedMetrics();
+
+        // ABSOLUTNIE ZEWNĘTRZNA PĘTLA: rozmiary drzew (N)
+        for (int size : sizes) {
+            System.out.println("\n\n################################################################################################################");
+            System.out.println("                                         ROZMIAR DRZEW: N=" + size);
+            System.out.println("################################################################================################################");
+
+            // 1. Najpierw wszystkie metryki ROOTED (rb) dla danego N
+            runForSizeAndType(size, true, rootedMetrics);
+
+            // 2. Następnie wszystkie metryki UNROOTED (ub) dla danego N
+            runForSizeAndType(size, false, unrootedMetrics);
+        }
+    }
+
+    private static void runForSizeAndType(int size, boolean rooted, List<MetricSetup> metricsToTest) {
+        String treeType = rooted ? "ROOTED (rb)" : "UNROOTED (ub)";
+        String suffix = rooted ? "rb" : "ub";
+        String fileName = "datasets/n" + size + "y200" + suffix + ".newick";
+        File file = new File(fileName);
+
+        System.out.println("\n>>> STARTING TESTS FOR SIZE N=" + size + " | " + treeType + " (" + fileName + ") <<<");
+
+        if (!file.exists()) {
+            System.out.println("Missing file: " + fileName + " (Skipping)");
+            return;
+        }
+
+        // Wczytujemy plik tylko RAZ dla danego N i typu (rb/ub)
+        List<Tree> trees = loadTrees(fileName);
+        if (trees == null || trees.size() < 200) {
+            System.out.println("File " + fileName + " does not contain enough trees.");
+            return;
+        }
 
         for (MetricSetup setup : metricsToTest) {
-            System.out.println("\n====================================================================================================");
-            System.out.println("TESTED METRIC: " + setup.name);
-            System.out.println("====================================================================================================");
+            System.out.println("\n--- RESULTS FOR METRIC: " + setup.name + " [" + treeType + "] ---");
+            System.out.printf("%-35s | %-12s | %-15s | %-15s | %-15s\n",
+                    "Heuristic Variant", "Successes", "Avg Distance", "Total Time", "Time/Pair");
+            System.out.println("-".repeat(100));
 
-            for (int size : sizes) {
-                String suffix = rooted ? "rb" : "ub";
-                String fileName = "datasets/n" + size + "y200" + suffix + ".newick";
-                File file = new File(fileName);
-
-                if (!file.exists()) {
-                    System.out.println("Missing file: " + fileName + " (Skipping size N=" + size + ")");
-                    continue;
-                }
-
-                List<Tree> trees = loadTrees(fileName);
-                if (trees == null || trees.size() < 200) {
-                    System.out.println("File " + fileName + " does not contain enough trees.");
-                    continue;
-                }
-
-                System.out.println("\n--- RESULTS FOR SIZE N=" + size + " (" + fileName + ") ---");
-                System.out.printf("%-35s | %-12s | %-15s | %-15s | %-15s\n",
-                        "Heuristic Variant", "Successes", "Avg Distance", "Total Time", "Time/Pair");
-                System.out.println("-".repeat(100));
-
-                evaluateAndReport("1. NNI (Classic)", setup.classicNni, trees);
-                evaluateAndReport("2. NNI (Incremental)", setup.incrementalNni, trees);
-                evaluateAndReport("3. VND NNI->ECR->SPR (Classic)", setup.classicVndFull, trees);
-                evaluateAndReport("4. VND NNI->SPR (Classic)", setup.classicVndShort, trees);
-                evaluateAndReport("5. VND NNI->ECR->SPR (Inc)", setup.incrementalVndFull, trees);
-                evaluateAndReport("6. VND NNI->SPR (Inc)", setup.incrementalVndShort, trees);
-                System.out.println("-".repeat(100));
-            }
+            evaluateAndReport("1. NNI (Classic)", setup.classicNni, trees);
+            evaluateAndReport("2. NNI (Incremental)", setup.incrementalNni, trees);
+            evaluateAndReport("3. VND NNI->ECR->SPR (Classic)", setup.classicVndFull, trees);
+            evaluateAndReport("4. VND NNI->SPR (Classic)", setup.classicVndShort, trees);
+            evaluateAndReport("5. VND NNI->ECR->SPR (Inc)", setup.incrementalVndFull, trees);
+            evaluateAndReport("6. VND NNI->SPR (Inc)", setup.incrementalVndShort, trees);
+            System.out.println("-".repeat(100));
         }
     }
 
