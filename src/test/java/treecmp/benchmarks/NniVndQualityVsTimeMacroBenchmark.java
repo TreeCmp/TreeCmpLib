@@ -64,14 +64,14 @@ public class NniVndQualityVsTimeMacroBenchmark {
         System.out.println("===============================================================================================================");
 
         // 1. Disable generating proof files for clean time measurements
-        treecmp.heuristics.vnd.acc.NniVndIncrementalHeuristic.ENABLE_LOGGING = false;
+        //treecmp.heuristics.vnd.acc.NniVndIncrementalHeuristic.ENABLE_LOGGING = false;
         //treecmp.heuristics.vnd.NniVndHeuristic.ENABLE_LOGGING = false;
 
         runAllSuites();
     }
 
     private static void runAllSuites() {
-        int[] sizes = {10, 20, 30/*, 50, 80*/};
+        int[] sizes = {10, 20, 30, 50, 80};
         List<MetricSetup> rootedMetrics = getRootedMetrics();
         List<MetricSetup> unrootedMetrics = getUnrootedMetrics();
 
@@ -79,7 +79,7 @@ public class NniVndQualityVsTimeMacroBenchmark {
         for (int size : sizes) {
             System.out.println("\n\n################################################################################################################");
             System.out.println("                                         ROZMIAR DRZEW: N=" + size);
-            System.out.println("################################################################================################################");
+            System.out.println("####################################################################################################################");
 
             // 1. Najpierw wszystkie metryki ROOTED (rb) dla danego N
             runForSizeAndType(size, true, rootedMetrics);
