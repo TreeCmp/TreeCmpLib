@@ -2,6 +2,7 @@ package treecmp.heuristics.spr;
 
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -9,8 +10,6 @@ import static org.junit.jupiter.api.Assertions.*;
 import pal.tree.Node;
 import pal.tree.Tree;
 import treecmp.common.TreeCmpException;
-import treecmp.heuristics.spr.SprUtils;
-import treecmp.heuristics.spr.UsprUtils;
 import treecmp.metrics.Metric;
 import treecmp.metrics.topological.RFMetric;
 import treecmp.util.TestTreeFactory;
@@ -731,5 +730,114 @@ class SprUtilsTest {
                         "BŁĄD NEWICKA w sąsiedzie nr " + idx + "! Liść [" + leafName + "] występuje " + count + " raz(y) w: " + cleanNewick);
             }
         }
+    }
+
+    @Test
+    @DisplayName("Każde wygenerowane drzewo z createUsprTree musi mieć unikalne liście i poprawną liczbę przecinków")
+    public void testCreateUsprTreeNeverReturnsDuplicatedLeavesOrBrokenNewick() throws Exception {
+        // 10-liściowe drzewo testowe o nietrywialnej strukturze
+        Tree baseTree = TreeCreator.getTreeFromString("((((1,2),3),(4,5)),((6,7),(8,9)),10);");
+        assertNotNull(baseTree, "Drzewo bazowe nie może być null");
+
+        UsprUtils usprUtils = new UsprUtils();
+        int expectedLeaves = baseTree.getExternalNodeCount();
+        int expectedCommas = expectedLeaves - 1; // W poprawnym Newicku zawsze L - 1 przecinków
+
+        int extCount = baseTree.getExternalNodeCount();
+        int intCount = baseTree.getInternalNodeCount();
+        int validMovesCount = 0;
+
+        // Sprawdzamy ABSOLUTNIE WSZYSTKIE kombinacje par węzłów (liście i węzły wewnętrzne)
+        for (int i = 0; i < extCount + intCount; i++) {
+            Node s = getNodeByIndex(baseTree, i, extCount);
+            if (s.isRoot()) continue;
+
+            for (int j = 0; j < extCount + intCount; j++) {
+                Node t = getNodeByIndex(baseTree, j, extCount);
+                if (t.isRoot() || s == t) continue;
+
+                Tree resultTree = usprUtils.createUsprTree(baseTree, s, t);
+
+                // Jeśli ruch był topologicznie nielegalny lub odrzucony przez bezpiecznik - pomijamy
+                if (resultTree == null) continue;
+                validMovesCount++;
+
+                String newick = resultTree.toString();
+
+                // 1. Weryfikacja liczby liści
+                assertEquals(expectedLeaves, resultTree.getExternalNodeCount(),
+                        "Błędna liczba liści po ruchu uSPR (" + s.getNumber() + " -> " + t.getNumber() + "): " + newick);
+
+                // 2. Weryfikacja unikalności etykiet liści (brak duplikacji poddrzew!)
+                Set<String> uniqueLeafNames = new HashSet<>();
+                for (int k = 0; k < resultTree.getExternalNodeCount(); k++) {
+                    String leafName = resultTree.getExternalNode(k).getIdentifier().getName();
+                    assertTrue(uniqueLeafNames.add(leafName),
+                            "WYKRYTO DUPLIKAT LIŚCIA '" + leafName + "' w Newicku: " + newick);
+                }
+
+                // 3. Weryfikacja matematyczna Newicka (Liczba przecinków == L - 1)
+                int commaCount = countChar(newick, ',');
+                assertEquals(expectedCommas, commaCount,
+                        "USZKODZONY NEWICK (zła liczba przecinków: " + commaCount + " zamiast " + expectedCommas + "): " + newick);
+
+                // 4. Weryfikacja braku wiszących wskaźników null w napisie
+                assertFalse(newick.contains("null"),
+                        "Newick zawiera niedozwolony wskaźnik 'null': " + newick);
+
+                // 5. Weryfikacja stopni węzłów wewnętrznych (żaden węzeł nie może mieć tylko 1 dziecka)
+                for (int k = 0; k < resultTree.getInternalNodeCount(); k++) {
+                    Node internalNode = resultTree.getInternalNode(k);
+                    if (!internalNode.isRoot()) {
+                        assertTrue(internalNode.getChildCount() >= 2,
+                                "Węzeł wewnętrzny ma stopień < 2 (zdegenerowane drzewo): " + newick);
+                    }
+                }
+            }
+        }
+
+        assertTrue(validMovesCount > 0, "Test powinien zweryfikować przynajmniej kilkadziesiąt poprawnych ruchów uSPR");
+    }
+
+    @Test
+    @DisplayName("generateNeighbours nie ma prawa zwrócić ani jednego zduplikowanego lub uszkodzonego sąsiada")
+    public void testGenerateNeighboursIntegrity() throws Exception {
+        Tree baseTree = TreeCreator.getTreeFromString("(((A,B),(C,D)),(E,(F,G)));");
+        UsprUtils usprUtils = new UsprUtils();
+
+        Tree[] neighbors = usprUtils.generateNeighbours(baseTree);
+        assertNotNull(neighbors);
+        assertTrue(neighbors.length > 0, "Lista sąsiadów uSPR nie może być pusta");
+
+        int expectedCommas = baseTree.getExternalNodeCount() - 1;
+
+        for (int i = 0; i < neighbors.length; i++) {
+            Tree neighbor = neighbors[i];
+            assertNotNull(neighbor, "Sąsiad na indeksie " + i + " jest null");
+
+            String newick = neighbor.toString();
+            assertEquals(expectedCommas, countChar(newick, ','),
+                    "Sąsiad uSPR #" + i + " ma nieprawidłową strukturę Newick: " + newick);
+        }
+    }
+
+    // =========================================================================
+    // METODY POMOCNICZE
+    // =========================================================================
+
+    private Node getNodeByIndex(Tree tree, int index, int extCount) {
+        if (index < extCount) {
+            return tree.getExternalNode(index);
+        } else {
+            return tree.getInternalNode(index - extCount);
+        }
+    }
+
+    private int countChar(String str, char ch) {
+        int count = 0;
+        for (int i = 0; i < str.length(); i++) {
+            if (str.charAt(i) == ch) count++;
+        }
+        return count;
     }
 }

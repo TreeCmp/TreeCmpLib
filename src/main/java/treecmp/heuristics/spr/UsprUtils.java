@@ -99,81 +99,90 @@ public class UsprUtils extends TreeNeighborhoodUtils {
         return usprTreeArray;
     }
 
-    public TreeValuePair findBestNeighbour(Tree tree, BestTreeChooser btc, double neighSizeFrac, double inputTreeValue) throws TreeCmpException{
+    // =========================================================================================
+    // NAPRAWIONY findBestNeighbour - używa teraz createUsprTree i calcUsprNeighbours!
+    // =========================================================================================
+    public TreeValuePair findBestNeighbour(Tree tree, BestTreeChooser btc, double neighSizeFrac, double inputTreeValue) throws TreeCmpException {
         int extNum = tree.getExternalNodeCount();
         int intNum = tree.getInternalNodeCount();
-        int neighSize = calcSprNeighbours(tree);
-        int estimatedMax = (extNum+intNum)*(extNum+intNum);
+        int neighSize = calcUsprNeighbours(tree); // NAPRAWIONO: calcUsprNeighbours
+        int estimatedMax = (extNum + intNum) * (extNum + intNum);
         int analyzedTreeNum = 0;
         double frac;
 
-        Node s,t;
-        Tree resultTree,  bestTree = null;
+        Node s, t;
+        Tree resultTree, bestTree = null;
         double bestValue = Double.MAX_VALUE;
         double resultValue;
 
-        for (int i=0; i<extNum; i++){
+        for (int i = 0; i < extNum; i++) {
             s = tree.getExternalNode(i);
-            for (int j=0; j<extNum; j++){
+            for (int j = 0; j < extNum; j++) {
                 t = tree.getExternalNode(j);
-                if (isValidSprMove(s,t)){
-                    resultTree = createSprTree(tree,s,t);
-                    analyzedTreeNum++;
-                    resultValue = btc.getValueForTree(resultTree);
-                    if (resultValue < bestValue){ bestTree = resultTree; bestValue = resultValue; }
-                    frac = (double)analyzedTreeNum/(double)estimatedMax;
-                    if (frac > neighSizeFrac && inputTreeValue > bestValue){
-                        TreeValuePair tvPair = new TreeValuePair(); tvPair.setTree(bestTree); tvPair.setValue(bestValue); return tvPair;
-                    }
-                }
-            }
-        }
-        for (int i=0; i<intNum; i++){
-            s = tree.getInternalNode(i);
-            if(s.isRoot()) continue;
-            for (int j=0; j<extNum; j++){
-                t = tree.getExternalNode(j);
-                if (isValidSprMove(s,t)){
-                    resultTree = createSprTree(tree,s,t);
-                    analyzedTreeNum++;
-                    resultValue = btc.getValueForTree(resultTree);
-                    if (resultValue < bestValue){ bestTree = resultTree; bestValue = resultValue; }
-                    frac = (double)analyzedTreeNum/(double)estimatedMax;
-                    if (frac > neighSizeFrac && inputTreeValue > bestValue){
-                        TreeValuePair tvPair = new TreeValuePair(); tvPair.setTree(bestTree); tvPair.setValue(bestValue); return tvPair;
-                    }
-                }
-            }
-        }
-        for (int i=0; i<extNum; i++){
-            s = tree.getExternalNode(i);
-            for (int j=0; j<intNum; j++){
-                t = tree.getInternalNode(j);
-                if (isValidSprMove(s,t)){
-                    resultTree = createSprTree(tree,s,t);
-                    analyzedTreeNum++;
-                    resultValue = btc.getValueForTree(resultTree);
-                    if (resultValue < bestValue){ bestTree = resultTree; bestValue = resultValue; }
-                    frac = (double)analyzedTreeNum/(double)estimatedMax;
-                    if (frac > neighSizeFrac && inputTreeValue > bestValue){
-                        TreeValuePair tvPair = new TreeValuePair(); tvPair.setTree(bestTree); tvPair.setValue(bestValue); return tvPair;
-                    }
-                }
-            }
-        }
-        for (int i=0; i<intNum; i++){
-            s = tree.getInternalNode(i);
-            if(s.isRoot()) continue;
-            for (int j=0; j<intNum; j++){
-                t = tree.getInternalNode(j);
-                if (isValidSprMove(s,t)){
-                    resultTree = createSprTree(tree,s,t);
-                    if (resultTree != null){
+                if (isValidUsprMove(s, t)) { // NAPRAWIONO: isValidUsprMove
+                    resultTree = createUsprTree(tree, s, t); // NAPRAWIONO: createUsprTree
+                    if (resultTree != null) {
                         analyzedTreeNum++;
                         resultValue = btc.getValueForTree(resultTree);
-                        if (resultValue < bestValue && inputTreeValue > bestValue){ bestTree = resultTree; bestValue = resultValue; }
-                        frac = (double)analyzedTreeNum/(double)estimatedMax;
-                        if (frac > neighSizeFrac){
+                        if (resultValue < bestValue) { bestTree = resultTree; bestValue = resultValue; }
+                        frac = (double) analyzedTreeNum / (double) estimatedMax;
+                        if (frac > neighSizeFrac && inputTreeValue > bestValue) {
+                            TreeValuePair tvPair = new TreeValuePair(); tvPair.setTree(bestTree); tvPair.setValue(bestValue); return tvPair;
+                        }
+                    }
+                }
+            }
+        }
+        for (int i = 0; i < intNum; i++) {
+            s = tree.getInternalNode(i);
+            if (s.isRoot()) continue;
+            for (int j = 0; j < extNum; j++) {
+                t = tree.getExternalNode(j);
+                if (isValidUsprMove(s, t)) { // NAPRAWIONO: isValidUsprMove
+                    resultTree = createUsprTree(tree, s, t); // NAPRAWIONO: createUsprTree
+                    if (resultTree != null) {
+                        analyzedTreeNum++;
+                        resultValue = btc.getValueForTree(resultTree);
+                        if (resultValue < bestValue) { bestTree = resultTree; bestValue = resultValue; }
+                        frac = (double) analyzedTreeNum / (double) estimatedMax;
+                        if (frac > neighSizeFrac && inputTreeValue > bestValue) {
+                            TreeValuePair tvPair = new TreeValuePair(); tvPair.setTree(bestTree); tvPair.setValue(bestValue); return tvPair;
+                        }
+                    }
+                }
+            }
+        }
+        for (int i = 0; i < extNum; i++) {
+            s = tree.getExternalNode(i);
+            for (int j = 0; j < intNum; j++) {
+                t = tree.getInternalNode(j);
+                if (isValidUsprMove(s, t)) { // NAPRAWIONO: isValidUsprMove
+                    resultTree = createUsprTree(tree, s, t); // NAPRAWIONO: createUsprTree
+                    if (resultTree != null) {
+                        analyzedTreeNum++;
+                        resultValue = btc.getValueForTree(resultTree);
+                        if (resultValue < bestValue) { bestTree = resultTree; bestValue = resultValue; }
+                        frac = (double) analyzedTreeNum / (double) estimatedMax;
+                        if (frac > neighSizeFrac && inputTreeValue > bestValue) {
+                            TreeValuePair tvPair = new TreeValuePair(); tvPair.setTree(bestTree); tvPair.setValue(bestValue); return tvPair;
+                        }
+                    }
+                }
+            }
+        }
+        for (int i = 0; i < intNum; i++) {
+            s = tree.getInternalNode(i);
+            if (s.isRoot()) continue;
+            for (int j = 0; j < intNum; j++) {
+                t = tree.getInternalNode(j);
+                if (isValidUsprMove(s, t)) { // NAPRAWIONO: isValidUsprMove
+                    resultTree = createUsprTree(tree, s, t); // NAPRAWIONO: createUsprTree
+                    if (resultTree != null) {
+                        analyzedTreeNum++;
+                        resultValue = btc.getValueForTree(resultTree);
+                        if (resultValue < bestValue && inputTreeValue > bestValue) { bestTree = resultTree; bestValue = resultValue; }
+                        frac = (double) analyzedTreeNum / (double) estimatedMax;
+                        if (frac > neighSizeFrac) {
                             TreeValuePair tvPair = new TreeValuePair(); tvPair.setTree(bestTree); tvPair.setValue(bestValue); return tvPair;
                         }
                     }
@@ -187,19 +196,19 @@ public class UsprUtils extends TreeNeighborhoodUtils {
         return tvPair;
     }
 
-    public boolean sameParent(Node n1, Node n2){
+    public boolean sameParent(Node n1, Node n2) {
         boolean n1Root = n1.isRoot();
         boolean n2Root = n2.isRoot();
         if (n1Root && n1Root) return true;
-        if (!n1Root && !n2Root){ return (n1.getParent() == n2.getParent()); }
+        if (!n1Root && !n2Root) { return (n1.getParent() == n2.getParent()); }
         return false;
     }
 
-    public boolean isChildParent(Node n1, Node n2){
+    public boolean isChildParent(Node n1, Node n2) {
         return (n2 == n1.getParent() || n1 == n2.getParent());
     }
 
-    public boolean isInnerMove(Node s, Node t){
+    public boolean isInnerMove(Node s, Node t) {
         return NodeUtils.getFirstCommonAncestor(s, t) == s;
     }
 
@@ -224,8 +233,8 @@ public class UsprUtils extends TreeNeighborhoodUtils {
         Node sParent = s.getParent();
         Node tParent = t.getParent();
         if (sParent.isRoot() || tParent.isRoot()) return false;
-        if(sParent != null) { for (int i = 0; i < sParent.getChildCount(); i++) { if (sParent.getChild(i) == tParent) return true; } }
-        if(tParent != null) { for (int i = 0; i < tParent.getChildCount(); i++) { if (tParent.getChild(i) == sParent) return true; } }
+        if (sParent != null) { for (int i = 0; i < sParent.getChildCount(); i++) { if (sParent.getChild(i) == tParent) return true; } }
+        if (tParent != null) { for (int i = 0; i < tParent.getChildCount(); i++) { if (tParent.getChild(i) == sParent) return true; } }
         return false;
     }
 
@@ -251,36 +260,36 @@ public class UsprUtils extends TreeNeighborhoodUtils {
     }
 
     private boolean isSmalestInNNI(Node s, Node t) {
-        if(isSmaler(t, s)) return false;
+        if (isSmaler(t, s)) return false;
         Node sBrother = findOtherChild(s.getParent(), s);
-        if(isSmaler(sBrother, s)) return false;
+        if (isSmaler(sBrother, s)) return false;
         Node tBrother = findOtherChild(t.getParent(), t);
-        if(isSmaler(tBrother, s)) return false;
+        if (isSmaler(tBrother, s)) return false;
         return true;
     }
 
-    public int getNodeDepth(Node node){
-        int depth=0;
+    public int getNodeDepth(Node node) {
+        int depth = 0;
         if (node.isRoot()) return 0;
-        while(!node.isRoot()){ depth++; node=node.getParent(); }
+        while (!node.isRoot()) { depth++; node = node.getParent(); }
         return depth;
     }
 
-    public int calcSprNeighbours(Tree baseTree){
-        int n= baseTree.getExternalNodeCount();
+    public int calcSprNeighbours(Tree baseTree) {
+        int n = baseTree.getExternalNodeCount();
         int intNum = baseTree.getInternalNodeCount();
         int gammaSum = 0;
-        for (int i = 0; i<intNum; i++){
+        for (int i = 0; i < intNum; i++) {
             Node node = baseTree.getInternalNode(i);
             if (node.isRoot()) continue;
-            gammaSum += getNodeDepth(node)-1;
+            gammaSum += getNodeDepth(node) - 1;
         }
-        return 2*(n-2)*(2*n - 5) - 2*gammaSum;
+        return 2 * (n - 2) * (2 * n - 5) - 2 * gammaSum;
     }
 
-    public int calcUsprNeighbours(Tree baseTree){
-        int n= baseTree.getExternalNodeCount();
-        return  2*(n - 3)*(2*n - 7);
+    public int calcUsprNeighbours(Tree baseTree) {
+        int n = baseTree.getExternalNodeCount();
+        return 2 * (n - 3) * (2 * n - 7);
     }
 
     protected Node findNodeEquivalent(Tree newTree, Node oldNode) {
@@ -288,7 +297,7 @@ public class UsprUtils extends TreeNeighborhoodUtils {
         return newTree.getInternalNode(oldNode.getNumber());
     }
 
-    public Tree createSprTree(Tree baseTree, Node s, Node t){
+    public Tree createSprTree(Tree baseTree, Node s, Node t) {
         Tree resultTree = baseTree.getCopy();
         Node source = findNodeEquivalent(resultTree, s);
         Node target = findNodeEquivalent(resultTree, t);
@@ -305,19 +314,19 @@ public class UsprUtils extends TreeNeighborhoodUtils {
         Node otherSourceChild = findOtherChild(source, sourceParent);
         Node sourceParent2 = null;
         int sourceParentPos = -1;
-        if (!isSourceParentRoot){
+        if (!isSourceParentRoot) {
             sourceParent2 = sourceParent.getParent();
             sourceParentPos = findChildPos(sourceParent, sourceParent2);
         }
 
         Node newNode = new SimpleNode();
-        if (!isTargetRoot){
+        if (!isTargetRoot) {
             int targetPos = findChildPos(target, targetParent);
             targetParent.setChild(targetPos, newNode);
             newNode.setParent(targetParent);
         }
 
-        if (!isSourceParentRoot){
+        if (!isSourceParentRoot) {
             sourceParent2.setChild(sourceParentPos, otherSourceChild);
             otherSourceChild.setParent(sourceParent2);
         }
@@ -330,13 +339,13 @@ public class UsprUtils extends TreeNeighborhoodUtils {
         newNode.addChild(source);
         source.setParent(newNode);
 
-        if (isTargetRoot){
+        if (isTargetRoot) {
             newNode.setParent(null);
             resultTree.setRoot(newNode);
-        } else if (isSourceParentRoot){
+        } else if (isSourceParentRoot) {
             otherSourceChild.setParent(null);
             resultTree.setRoot(otherSourceChild);
-        } else{
+        } else {
             resultTree.getRoot().setParent(null);
         }
 
@@ -361,28 +370,21 @@ public class UsprUtils extends TreeNeighborhoodUtils {
         }
     }
 
-    // =========================================================================================
-    // OSTATECZNIE NAPRAWIONY SILNIK uSPR - ODPORNY NA PĘTLE I UTRATĘ WSKAŹNIKÓW
-    // Zastępuje zbugowane funkcje biblioteki PAL czystą manualną matematyką rotacji
-    // =========================================================================================
-    public Tree createUsprTree(Tree baseTree, Node s, Node t){
+    public Tree createUsprTree(Tree baseTree, Node s, Node t) {
         Tree resultTree = baseTree.getCopy();
         Node source = findNodeEquivalent(resultTree, s);
         Node target = findNodeEquivalent(resultTree, t);
 
         if (source == null || target == null) return null;
 
-        // 1. SPECJALNA OBSŁUGA "INNER MOVE" - MATEMATYCZNIE CZYSTA ROTACJA BEZ PĘTLI
         if (isInnerMove(s, t)) {
             Node sParent = source.getParent();
             Node tParent = target.getParent();
 
-            // 1A. Odcinamy source od reszty drzewa
             int sPos = findChildPos(source, sParent);
             if (sPos != -1) sParent.removeChild(sPos);
             source.setParent(null);
 
-            // 1B. Zbieramy ścieżkę od tParent do source
             List<Node> path = new ArrayList<>();
             Node curr = tParent;
             while (curr != null && curr != source) {
@@ -391,21 +393,18 @@ public class UsprUtils extends TreeNeighborhoodUtils {
             }
             path.add(source);
 
-            // 1C. Odwracamy wskaźniki rodzicielstwa na ścieżce
             for (int i = 0; i < path.size() - 1; i++) {
                 Node child = path.get(i);
                 Node parent = path.get(i + 1);
 
-                // KRYTYCZNA POPRAWKA: Usunięcie ze starej relacji, zapobiega Mutual Child Cycle!
                 int pos = findChildPos(child, parent);
                 if (pos != -1) parent.removeChild(pos);
 
                 child.addChild(parent);
                 parent.setParent(child);
             }
-            tParent.setParent(null); // tParent staje się nowym, bezpiecznym korzeniem odciętego kawałka
+            tParent.setParent(null);
 
-            // 1D. Suppresja węzła source (który stał się węzłem wewnętrznym stopnia 2)
             Node bParent = source.getParent();
             if (bParent != null) {
                 int bPos = findChildPos(source, bParent);
@@ -418,7 +417,6 @@ public class UsprUtils extends TreeNeighborhoodUtils {
                 }
             }
 
-            // 1E. Wstawiamy newNode przed target
             int tPos = findChildPos(target, tParent);
             if (tPos != -1) tParent.removeChild(tPos);
 
@@ -432,7 +430,6 @@ public class UsprUtils extends TreeNeighborhoodUtils {
             newNode.addChild(tParent);
             tParent.setParent(newNode);
 
-            // 1F. Łączymy z głównym drzewem
             sParent.addChild(newNode);
             newNode.setParent(sParent);
 
@@ -445,10 +442,13 @@ public class UsprUtils extends TreeNeighborhoodUtils {
                 pal.tree.TreeUtils.computeParentPointers(resultTree.getRoot());
                 ((SimpleTree) resultTree).createNodeList();
             }
+            if (!isStrictlyValidUnrootedTree(resultTree, baseTree.getExternalNodeCount())) {
+                return null;
+            }
+
             return resultTree;
         }
 
-        // 2. STANDARDOWA OBSŁUGA "OUTER MOVE"
         Node sourceParent = source.getParent();
         Node targetParent = target.getParent();
         boolean isTargetRoot = target.isRoot();
@@ -460,26 +460,28 @@ public class UsprUtils extends TreeNeighborhoodUtils {
         Node sourceParent2 = null;
         int sourceParentPos = -1;
 
-        if (!isSourceParentRoot){
+        if (!isSourceParentRoot) {
             sourceParent2 = sourceParent.getParent();
             sourceParentPos = findChildPos(sourceParent, sourceParent2);
         }
 
         Node newNode = new SimpleNode();
 
-        if (!isTargetRoot){
+        if (!isTargetRoot) {
             int targetPos = findChildPos(target, targetParent);
             targetParent.setChild(targetPos, newNode);
             newNode.setParent(targetParent);
         }
 
+        safeDetach(target);
         newNode.addChild(target);
         target.setParent(newNode);
 
+        safeDetach(source);
         newNode.addChild(source);
         source.setParent(newNode);
 
-        if (!isSourceParentRoot){
+        if (!isSourceParentRoot) {
             if (otherSourceChildren.length > 0) {
                 Node otherChild = otherSourceChildren[0];
                 sourceParent2.setChild(sourceParentPos, otherChild);
@@ -489,10 +491,10 @@ public class UsprUtils extends TreeNeighborhoodUtils {
             }
         }
 
-        if (isTargetRoot){
+        if (isTargetRoot) {
             newNode.setParent(null);
             resultTree.setRoot(newNode);
-        } else if (isSourceParentRoot){
+        } else if (isSourceParentRoot) {
             if (otherSourceChildren.length == 2) {
                 Node c0 = otherSourceChildren[0];
                 Node c1 = otherSourceChildren[1];
@@ -529,22 +531,74 @@ public class UsprUtils extends TreeNeighborhoodUtils {
             ((SimpleTree) resultTree).createNodeList();
         }
 
+        if (!isStrictlyValidUnrootedTree(resultTree, baseTree.getExternalNodeCount())) {
+            return null;
+        }
+
         return resultTree;
     }
 
-    public int findChildPos(Node child, Node parent){
+    /**
+     * Ostateczna Tarcza Newicka: Sprawdza unikalność liści, stopnie węzłów,
+     * zbalansowanie nawiasów oraz zakazane podciągi ("null", ",,", "()").
+     */
+    private boolean isStrictlyValidUnrootedTree(Tree tree, int expectedLeafCount) {
+        if (tree == null || tree.getRoot() == null) return false;
+        if (tree.getExternalNodeCount() != expectedLeafCount) return false;
+        if (tree.getRoot().getChildCount() < 2) return false;
+
+        Set<String> uniqueLeafNames = new HashSet<>();
+        for (int i = 0; i < tree.getExternalNodeCount(); i++) {
+            String name = tree.getExternalNode(i).getIdentifier().getName();
+            if (name == null || name.trim().isEmpty() || !uniqueLeafNames.add(name)) {
+                return false; // Wykryto duplikat lub pustą etykietę liścia!
+            }
+        }
+
+        for (int i = 0; i < tree.getInternalNodeCount(); i++) {
+            Node node = tree.getInternalNode(i);
+            if (!node.isRoot() && node.getChildCount() < 2) {
+                return false; // Węzeł stopnia 1 (zdegenerowany)
+            }
+        }
+
+        String newick = tree.toString();
+
+        // 1. Zakazane podciągi, na których wykłada się parser DendroPy w Pythonie
+        if (newick.contains("null") || newick.contains(",,") || newick.contains("()")) {
+            return false;
+        }
+
+        // 2. Weryfikacja zbalansowania nawiasów '(' vs ')' oraz liczby przecinków
+        int openParens = 0;
+        int closeParens = 0;
+        int commaCount = 0;
+        for (int i = 0; i < newick.length(); i++) {
+            char ch = newick.charAt(i);
+            if (ch == '(') openParens++;
+            else if (ch == ')') closeParens++;
+            else if (ch == ',') commaCount++;
+        }
+
+        if (openParens != closeParens) return false;
+        if (commaCount != expectedLeafCount - 1) return false;
+
+        return true;
+    }
+
+    public int findChildPos(Node child, Node parent) {
         int childNum = parent.getChildCount();
-        for (int i=0;i<childNum; i++){
+        for (int i = 0; i < childNum; i++) {
             if (parent.getChild(i) == child) return i;
         }
         return -1;
     }
 
-    public Node[] findOtherChildren(Node child1, Node parent){
+    public Node[] findOtherChildren(Node child1, Node parent) {
         int childNum = parent.getChildCount();
         Node[] nodes = new Node[childNum - 1];
         int childInd = 0;
-        for (int i=0;i<childNum; i++){
+        for (int i = 0; i < childNum; i++) {
             Node ch = parent.getChild(i);
             if (ch != child1) {
                 nodes[childInd] = ch;
@@ -554,9 +608,9 @@ public class UsprUtils extends TreeNeighborhoodUtils {
         return nodes;
     }
 
-    public Node findOtherChild(Node child1, Node parent){
+    public Node findOtherChild(Node child1, Node parent) {
         int childNum = parent.getChildCount();
-        for (int i=0;i<childNum; i++){
+        for (int i = 0; i < childNum; i++) {
             Node ch = parent.getChild(i);
             if (ch != child1) return ch;
         }
