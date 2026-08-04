@@ -64,7 +64,7 @@ public class NniVndQualityVsTimeMacroBenchmark {
         System.out.println("===============================================================================================================");
 
         // 1. Disable generating proof files for clean time measurements
-        //treecmp.heuristics.vnd.acc.NniVndIncrementalHeuristic.ENABLE_LOGGING = false;
+        treecmp.heuristics.vnd.acc.NniVndIncrementalHeuristic.ENABLE_LOGGING = false;
         //treecmp.heuristics.vnd.NniVndHeuristic.ENABLE_LOGGING = false;
 
         runAllSuites();
