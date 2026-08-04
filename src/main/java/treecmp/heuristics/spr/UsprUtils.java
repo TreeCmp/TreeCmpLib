@@ -322,9 +322,11 @@ public class UsprUtils extends TreeNeighborhoodUtils {
             otherSourceChild.setParent(sourceParent2);
         }
 
+        safeDetach(target);
         newNode.addChild(target);
         target.setParent(newNode);
 
+        safeDetach(source);
         newNode.addChild(source);
         source.setParent(newNode);
 
@@ -344,6 +346,19 @@ public class UsprUtils extends TreeNeighborhoodUtils {
         }
 
         return resultTree;
+    }
+
+    private void safeDetach(Node child) {
+        if (child != null && child.getParent() != null) {
+            Node oldParent = child.getParent();
+            for (int i = 0; i < oldParent.getChildCount(); i++) {
+                if (oldParent.getChild(i) == child) {
+                    oldParent.removeChild(i);
+                    break;
+                }
+            }
+            child.setParent(null);
+        }
     }
 
     // =========================================================================================
@@ -409,9 +424,11 @@ public class UsprUtils extends TreeNeighborhoodUtils {
 
             Node newNode = new SimpleNode();
 
+            safeDetach(target);
             newNode.addChild(target);
             target.setParent(newNode);
 
+            safeDetach(source);
             newNode.addChild(tParent);
             tParent.setParent(newNode);
 

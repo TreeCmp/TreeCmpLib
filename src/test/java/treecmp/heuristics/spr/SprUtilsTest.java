@@ -16,6 +16,9 @@ import treecmp.metrics.topological.RFMetric;
 import treecmp.util.TestTreeFactory;
 import treecmp.util.TreeCreator;
 
+import java.util.HashSet;
+import java.util.Set;
+
 class SprUtilsTest {
 
     @BeforeEach
@@ -681,6 +684,52 @@ class SprUtilsTest {
                 }
             }
             assertTrue(foundWantedTree, "Tree " + wantedTree + " not found");
+        }
+    }
+
+    @Test
+    public void testAllUsprNeighborsShouldHaveUniqueLeavesWithoutDuplicates() throws TreeCmpException {
+        // Bierzemy wymagające drzewo nieukorzenione (12 liści)
+        Tree baseTree = TestTreeFactory.twelveLeavesUnrootedZeroLengths();
+        UsprUtils usprUtils = new UsprUtils();
+
+        Tree[] neighbors = usprUtils.generateNeighbours(baseTree);
+        int expectedLeafCount = baseTree.getExternalNodeCount();
+
+        assertNotNull(neighbors, "Lista sąsiadów nie może być null");
+        assertTrue(neighbors.length > 0, "Lista sąsiadów nie może być pusta");
+
+        for (int idx = 0; idx < neighbors.length; idx++) {
+            Tree t = neighbors[idx];
+
+            // 1. Sprawdzenie liczby liści w obiekcie Tree
+            assertEquals(expectedLeafCount, t.getExternalNodeCount(),
+                    "Sąsiad nr " + idx + " ma nieprawidłową liczbę liści w strukturze!");
+
+            // 2. Weryfikacja unikalności nazw liści w obiekcie Tree
+            Set<String> uniqueLeafNames = new HashSet<>();
+            for (int i = 0; i < t.getExternalNodeCount(); i++) {
+                String leafName = t.getExternalNode(i).getIdentifier().getName();
+                assertTrue(uniqueLeafNames.add(leafName),
+                        "Sąsiad nr " + idx + " ma zduplikowany liść w strukturze: " + leafName);
+            }
+
+            // 3. Najważniejsze: weryfikacja wygenerowanego Newicka (bez długości krawędzi!)
+            // Usuwamy długości krawędzi np. ":0.0000000", aby zera po przecinku nie fałszowały wyniku dla liścia "0"
+            String cleanNewick = t.toString().replaceAll(":[0-9.Ee+-]+", "");
+            String[] tokens = cleanNewick.split("[(),;\\s]+");
+
+            for (int i = 0; i < expectedLeafCount; i++) {
+                String leafName = baseTree.getExternalNode(i).getIdentifier().getName();
+                int count = 0;
+                for (String token : tokens) {
+                    if (token.equals(leafName)) {
+                        count++;
+                    }
+                }
+                assertEquals(1, count,
+                        "BŁĄD NEWICKA w sąsiedzie nr " + idx + "! Liść [" + leafName + "] występuje " + count + " raz(y) w: " + cleanNewick);
+            }
         }
     }
 }
