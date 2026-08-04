@@ -10,10 +10,6 @@ import treecmp.heuristics.spr.SprUtils;
 import treecmp.metrics.IncrementalMetric;
 import treecmp.metrics.topological.acc.MCIncrementalMetric;
 import treecmp.metrics.topological.acc.MPIncrementalMetric;
-import treecmp.metrics.topological.acc.MSIncrementalMetric;
-
-import java.util.ArrayList;
-import java.util.List;
 
 public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetric {
 
@@ -23,9 +19,10 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
     private final String metricShortName;
 
     protected IncrementalMetric primaryMetric;
+    private int sprStepsCount = 0; // Licznik legalnych kroków SPR
 
     public SprIncrementalHeuristicMetric(IncrementalMetric metric, IncrementalMetric primaryMetric, String metricShortName) {
-        super(metric.isRooted(), metric);
+        super(true, metric); // true dla drzew ukorzenionych (rb)
         this.primaryMetric = primaryMetric;
         this.metricShortName = metricShortName;
         this.standardWalker = new ClassicSprWalker();
@@ -43,14 +40,20 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
         this.tiedMoves.clear();
         this.bestDist = Double.POSITIVE_INFINITY;
 
-        if (activeMetric instanceof MSIncrementalMetric ||
-                activeMetric instanceof MPIncrementalMetric ||
-                activeMetric instanceof MCIncrementalMetric) {
+        // Sprawdzamy i jawnie rzutujemy na interfejs RootedMetric
+        if (activeMetric instanceof IncrementalSprWalker.RootedMetric) {
             rootedWalker.walk(currentTree, (IncrementalSprWalker.RootedMetric) activeMetric, (currentDist, movingNode, targetNode) -> {
+                // KRYTYCZNY FILTR: Odrzucamy nielegalne topologicznie ruchy SPR (s jest przodkiem t)
+                if (!sprUtils.isValidSprMove(movingNode, targetNode)) {
+                    return;
+                }
                 checkImprovementWithTies(currentDist, new SprMove(movingNode, targetNode));
             });
         } else {
             standardWalker.walk(currentTree, activeMetric, (currentDist, movingNode, targetNode) -> {
+                if (!sprUtils.isValidSprMove(movingNode, targetNode)) {
+                    return;
+                }
                 checkImprovementWithTies(currentDist, new SprMove(movingNode, targetNode));
             });
         }
@@ -60,18 +63,17 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
     protected Tree applyPhysicalMove(Tree tree, TreeMove move) {
         if (move instanceof SprMove) {
             SprMove sprMove = (SprMove) move;
-            Tree newTree = sprUtils.applyPhysicalSprMove(tree, sprMove);
+            // BEZPIECZNIK: Podwójna weryfikacja przed fizyczną przebudową
+            if (!sprUtils.isValidSprMove(sprMove.movingNode, sprMove.targetNode)) {
+                return null;
+            }
+            Tree newTree = sprUtils.createSprTree(tree, sprMove.movingNode, sprMove.targetNode);
             if (newTree != null) {
-                if (this.incMetric.isRooted()) {
-                    newTree.getRoot().setBranchLength(0.0);
-                } else {
-                    TreeCmpUtils.unrootTreeIfNeeded(newTree);
-                }
                 newTree.createNodeList();
                 return newTree;
             }
         }
-        return tree;
+        return null;
     }
 
     @Override
@@ -79,9 +81,6 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
         return this.incMetric.getCurrentDistance();
     }
 
-    // =========================================================
-    // KLUCZOWA ZMIANA: Implementacja kontraktu Orkiestratora
-    // =========================================================
     @Override
     public double performLocalDescent(Tree startTree, Tree targetTree) {
         Tree currentTree = new pal.tree.SimpleTree(startTree);
@@ -91,7 +90,7 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
 
         this.improved = true;
         this.accumulatedNniCost = 0.0;
-        this.accumulatedSteps = 0;
+        this.sprStepsCount = 0;
         IncrementalMetric activeMetric = primaryMetric != null ? primaryMetric : this.incMetric;
 
         activeMetric.initCalculationState(currentTree, targetTree);
@@ -106,15 +105,21 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
             this.improved = false;
             searchNeighborhood(currentTree);
 
-            if (!this.tiedMoves.isEmpty() && this.bestDist < currentDist) {
+            if (!this.tiedMoves.isEmpty() && this.bestDist <= currentDist) {
                 TreeMove bestMove = null;
 
                 if (primaryMetric == null || tiedMoves.size() == 1) {
-                    bestMove = tiedMoves.get(0);
+                    if (this.bestDist < currentDist) {
+                        bestMove = tiedMoves.get(0);
+                    }
                 } else {
                     double bestSecondaryDist = Double.POSITIVE_INFINITY;
                     for (TreeMove move : tiedMoves) {
                         Tree candidateTree = applyPhysicalMove(currentTree, move);
+                        // OCHRONA PRZED CYKLAMI: Pomijamy nielegalne lub uszkodzone drzewa!
+                        if (candidateTree == null || candidateTree == currentTree) {
+                            continue;
+                        }
                         pal.tree.TreeUtils.computeParentPointers(candidateTree.getRoot());
                         this.incMetric.initCalculationState(candidateTree, targetTree);
 
@@ -127,21 +132,24 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
                 }
 
                 if (bestMove != null) {
-                    // 1. NAJPIERW ZLICZAMY KOSZT NNI (na oryginalnym drzewie)
-                    this.accumulatedNniCost += bestMove.getNniEquivalentCost();
-                    this.accumulatedSteps++;
+                    // Sprawdzamy czy wybrany ruch da się legalnie zaaplikować
+                    Tree nextTree = applyPhysicalMove(currentTree, bestMove);
+                    if (nextTree == null || nextTree == currentTree) {
+                        break;
+                    }
 
-                    // 2. DOPIERO POTEM APLIKUJEMY RUCH I ZMIENIAMY DRZEWO
+                    this.accumulatedNniCost += bestMove.getNniEquivalentCost();
+                    this.sprStepsCount++;
+
                     this.lastOptimumMove = bestMove;
                     this.lastMoveBaseTree = currentTree;
-                    currentTree = applyPhysicalMove(currentTree, bestMove);
+                    currentTree = nextTree;
 
-                    pal.tree.TreeUtils.computeParentPointers(currentTree.getRoot());
+                    TreeUtils.computeParentPointers(currentTree.getRoot());
                     activeMetric.initCalculationState(currentTree, targetTree);
                     double newDist = activeMetric.getCurrentDistance();
 
-                    // Circuit Breaker: Przerywamy na płaskowyżu
-                    if (newDist >= currentDist) {
+                    if (primaryMetric == null && newDist >= currentDist) {
                         break;
                     }
 
@@ -155,14 +163,13 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
         return currentDist;
     }
 
-    // Zapewnienie kompatybilności wstecznej dla starszych testów
     @Override
     public double getDistance(Tree tree1, Tree tree2, int... indexes) {
         double dist = performLocalDescent(tree1, tree2);
-        return dist == 0.0 ? (double) this.accumulatedSteps : Double.POSITIVE_INFINITY;
+        return dist == 0.0 ? this.sprStepsCount : Double.POSITIVE_INFINITY;
     }
 
-    @Override public boolean isRooted() { return this.incMetric.isRooted(); }
-    @Override public String getName() { return "Heur. SPR " + this.metricShortName; }
+    @Override public boolean isRooted() { return true; }
+    @Override public String getName() { return "Heur. rSPR " + this.metricShortName; }
     @Override public String getCommandLineName() { return "hspr_" + this.incMetric.getCommandLineName(); }
 }

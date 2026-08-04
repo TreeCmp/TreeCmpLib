@@ -11,9 +11,6 @@ import treecmp.metrics.IncrementalMetric;
 import treecmp.metrics.topological.acc.M3IncrementalMetric;
 import treecmp.metrics.topological.acc.MSIncrementalMetric;
 
-import java.util.ArrayList;
-import java.util.List;
-
 public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetric {
 
     protected final ClassicUsprWalker standardWalker;
@@ -22,6 +19,7 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
     private final String metricShortName;
 
     protected IncrementalMetric primaryMetric;
+    private int sprStepsCount = 0; // NOWOŚĆ: Śledzi czystą liczbę wykonanych kroków SPR
 
     public UsprIncrementalHeuristicMetric(IncrementalMetric metric, IncrementalMetric primaryMetric, String metricShortName) {
         super(false, metric); // false dla drzew nieukorzenionych
@@ -59,7 +57,7 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
     protected Tree applyPhysicalMove(Tree tree, TreeMove move) {
         if (move instanceof SprMove) {
             SprMove sprMove = (SprMove) move;
-            Tree newTree = usprUtils.createUsprTree(tree, sprMove.movingNode, sprMove.targetNode); //
+            Tree newTree = usprUtils.createUsprTree(tree, sprMove.movingNode, sprMove.targetNode);
             if (newTree != null) {
                 TreeCmpUtils.unrootTreeIfNeeded(newTree);
                 newTree.createNodeList();
@@ -74,9 +72,6 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
         return this.incMetric.getCurrentDistance();
     }
 
-    // =========================================================
-    // KLUCZOWA ZMIANA: Implementacja kontraktu Orkiestratora
-    // =========================================================
     @Override
     public double performLocalDescent(Tree startTree, Tree targetTree) {
         Tree currentTree = new pal.tree.SimpleTree(startTree);
@@ -86,6 +81,7 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
 
         this.improved = true;
         this.accumulatedNniCost = 0.0;
+        this.sprStepsCount = 0; // Zerujemy licznik przed startem
         IncrementalMetric activeMetric = primaryMetric != null ? primaryMetric : this.incMetric;
 
         activeMetric.initCalculationState(currentTree, targetTree);
@@ -100,12 +96,15 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
             this.improved = false;
             searchNeighborhood(currentTree);
 
-            if (!this.tiedMoves.isEmpty() && this.bestDist < currentDist) {
+            if (!this.tiedMoves.isEmpty() && this.bestDist <= currentDist) {
                 TreeMove bestMove = null;
 
                 if (primaryMetric == null || tiedMoves.size() == 1) {
-                    bestMove = tiedMoves.get(0);
+                    if (this.bestDist < currentDist) {
+                        bestMove = tiedMoves.get(0);
+                    }
                 } else {
+                    // Logika wyboru remisu przy użyciu metryki drugorzędnej (np. RF)
                     double bestSecondaryDist = Double.POSITIVE_INFINITY;
                     for (TreeMove move : tiedMoves) {
                         Tree candidateTree = applyPhysicalMove(currentTree, move);
@@ -121,10 +120,9 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
                 }
 
                 if (bestMove != null) {
-                    // 1. NAJPIERW ZLICZAMY KOSZT NNI (na oryginalnym drzewie)
                     this.accumulatedNniCost += bestMove.getNniEquivalentCost();
+                    this.sprStepsCount++; // Zliczamy poprawny krok SPR
 
-                    // 2. DOPIERO POTEM APLIKUJEMY RUCH I ZMIENIAMY DRZEWO
                     this.lastOptimumMove = bestMove;
                     this.lastMoveBaseTree = currentTree;
                     currentTree = applyPhysicalMove(currentTree, bestMove);
@@ -133,8 +131,8 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
                     activeMetric.initCalculationState(currentTree, targetTree);
                     double newDist = activeMetric.getCurrentDistance();
 
-                    // Circuit Breaker: Przerywamy na płaskowyżu
-                    if (newDist >= currentDist) {
+                    // Bezpiecznik: Przerywamy na ślepym płaskowyżu bez wsparcia Tie-breakera
+                    if (primaryMetric == null && newDist >= currentDist) {
                         break;
                     }
 
@@ -148,11 +146,12 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
         return currentDist;
     }
 
-    // Zapewnienie kompatybilności wstecznej dla starszych testów
     @Override
     public double getDistance(Tree tree1, Tree tree2, int... indexes) {
         double dist = performLocalDescent(tree1, tree2);
-        return dist == 0.0 ? this.accumulatedNniCost : Double.POSITIVE_INFINITY;
+        // NOWOŚĆ: Zwracamy liczbę kroków SPR (sprStepsCount) zamiast ekwiwalentu NNI,
+        // co ujednolica wyniki w tabelach z wersją Classic!
+        return dist == 0.0 ? this.sprStepsCount : Double.POSITIVE_INFINITY;
     }
 
     @Override public boolean isRooted() { return false; }
