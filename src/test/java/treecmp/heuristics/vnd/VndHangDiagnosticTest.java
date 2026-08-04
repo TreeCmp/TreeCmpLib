@@ -31,6 +31,8 @@ public class VndHangDiagnosticTest {
 
     @BeforeEach
     public void setUp() throws Exception {
+        treecmp.heuristics.vnd.acc.NniVndIncrementalHeuristic.ENABLE_LOGGING = false;
+        treecmp.heuristics.vnd.NniVndHeuristic.ENABLE_LOGGING = false;
         // Wczytujemy parę drzew, która zawiesiła testy (N=10, ub)
         String file = "datasets/n10y200ub.newick";
         try (BufferedReader br = new BufferedReader(new FileReader(file))) {

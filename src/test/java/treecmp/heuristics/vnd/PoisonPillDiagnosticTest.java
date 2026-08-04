@@ -20,6 +20,8 @@ public class PoisonPillDiagnosticTest {
 
     @Test
     public void testPair13() throws Exception {
+        treecmp.heuristics.vnd.acc.NniVndIncrementalHeuristic.ENABLE_LOGGING = false;
+        treecmp.heuristics.vnd.NniVndHeuristic.ENABLE_LOGGING = false;
         System.out.println("--- TEST ZATRUTEJ PIGULKI (PARA 13) ---");
         String file = "datasets/n10y200ub.newick";
         List<Tree> trees = new ArrayList<>();
