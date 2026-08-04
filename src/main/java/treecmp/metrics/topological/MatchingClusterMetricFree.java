@@ -69,8 +69,8 @@ public class MatchingClusterMetricFree extends BaseMetric implements Metric {
         }
     }
 
+    @Override
     public double getDistance(Tree t1, Tree t2, int... indexes) {
-
         IdGroup idGroup1 = TreeUtils.getLeafIdGroup(t1);
         IdGroup idGroup2 = TreeUtils.getLeafIdGroup(t2);
         // OPTYMALIZACJA 3: Szybkie sprawdzenie tożsamości grup liści przed łączeniem
