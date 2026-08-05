@@ -185,4 +185,46 @@ public class UsprUtilsTest {
         }
         return count;
     }
+
+    @Test
+    @DisplayName("Test regresyjny: Problem zduplikowanych poddrzew dla drzew wejściowych z logów VND")
+    public void testPoisonPillTreesFromVndLogs() {
+        // Drzewo z KROKU 0 dla awarii RF
+        String poisonTreeRf = "(((((7:0.0000000,17:0.0000000):0.0000000,(11:0.0000000,2:0.0000000):0.0000000):0.0000000,(19:0.0000000,(1:0.0000000,(3:0.0000000,14:0.0000000):0.0000000):0.0000000):0.0000000):0.0000000,((5:0.0000000,(8:0.0000000,(18:0.0000000,20:0.0000000):0.0000000):0.0000000):0.0000000,(9:0.0000000,13:0.0000000):0.0000000):0.0000000):0.0000000,(6:0.0000000,((12:0.0000000,10:0.0000000):0.0000000,(16:0.0000000,15:0.0000000):0.0000000):0.0000000):0.0000000,4:0.0000000);";
+
+        // Drzewo z KROKU 22 dla awarii MS
+        String poisonTreeMs = "(((12:0.0000000,((5:0.0000000,8:0.0000000):0.0000000,((9:0.0000000,17:0.0000000):0.0000000,16:0.0000000):0.0000000):0.0000000):0.0000000,13:0.0000000):0.0000000,((20:0.0000000,1:0.0000000):0.0000000,(2:0.0000000,(19:0.0000000,14:0.0000000):0.0000000):0.0000000):0.0000000,(((11:0.0000000,((3:0.0000000,10:0.0000000):0.0000000,6:0.0000000):0.0000000):0.0000000,4:0.0000000):0.0000000,(18:0.0000000,(15:0.0000000,7:0.0000000):0.0000000):0.0000000):0.0000000);";
+
+        String[] poisonTrees = { poisonTreeRf, poisonTreeMs };
+        UsprUtils usprUtils = new UsprUtils();
+
+        for (String newickInput : poisonTrees) {
+            Tree baseTree = TreeCreator.getTreeFromString(newickInput);
+            assertNotNull(baseTree, "Drzewo wejściowe musi się poprawnie parsować");
+
+            Tree[] neighbours = usprUtils.generateNeighbours(baseTree);
+            assertTrue(neighbours.length > 0, "Powinno wygenerować legalnych sąsiadów uSPR");
+
+            for (Tree neighbour : neighbours) {
+                String newickOutput = neighbour.toString();
+
+                // Weryfikujemy, czy każdy z 20 liści pojawia się DOKŁADNIE RAZ w napisie Newick
+                for (int i = 0; i < neighbour.getExternalNodeCount(); i++) {
+                    String leafName = neighbour.getExternalNode(i).getIdentifier().getName();
+
+                    // Regex: znak '(' lub ',' bezpośrednio przed nazwą liścia i ':' zaraz po niej
+                    // Zapobiega dopasowaniu liścia "7" wewnątrz etykiety "17", "27" itd.
+                    java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("(?:\\(|,)" + java.util.regex.Pattern.quote(leafName) + ":");
+                    java.util.regex.Matcher matcher = pattern.matcher(newickOutput);
+
+                    int count = 0;
+                    while (matcher.find()) {
+                        count++;
+                    }
+
+                    assertEquals(1, count, "Liść '" + leafName + "' musi występować DOKŁADNIE RAZ w Newicku: " + newickOutput);
+                }
+            }
+        }
+    }
 }
