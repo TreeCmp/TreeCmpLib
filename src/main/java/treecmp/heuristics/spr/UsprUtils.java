@@ -220,6 +220,7 @@ public class UsprUtils extends TreeNeighborhoodUtils {
     }
 
     public boolean isValidUsprMove(Node s, Node t) {
+        if (s == null || t == null || s == t) return false;
         if (sameParent(s, t)) return false;
         if (isChildParent(s, t)) return false;
         if (s.isRoot() || t.isRoot()) return false;
@@ -538,54 +539,43 @@ public class UsprUtils extends TreeNeighborhoodUtils {
         return resultTree;
     }
 
-    /**
-     * Ostateczna Tarcza Newicka: Sprawdza unikalność liści, stopnie węzłów,
-     * zbalansowanie nawiasów oraz zakazane podciągi ("null", ",,", "()").
-     */
     private boolean isStrictlyValidUnrootedTree(Tree tree, int expectedLeafCount) {
         if (tree == null || tree.getRoot() == null) return false;
         if (tree.getExternalNodeCount() != expectedLeafCount) return false;
         if (tree.getRoot().getChildCount() < 2) return false;
 
-        Set<String> uniqueLeafNames = new HashSet<>();
-        for (int i = 0; i < tree.getExternalNodeCount(); i++) {
-            String name = tree.getExternalNode(i).getIdentifier().getName();
-            if (name == null || name.trim().isEmpty() || !uniqueLeafNames.add(name)) {
-                return false; // Wykryto duplikat lub pustą etykietę liścia!
-            }
-        }
-
+        // 1. Weryfikacja czy żaden węzeł wewnętrzny (poza korzeniem) nie jest zdegenerowany (stopień < 2)
         for (int i = 0; i < tree.getInternalNodeCount(); i++) {
             Node node = tree.getInternalNode(i);
             if (!node.isRoot() && node.getChildCount() < 2) {
-                return false; // Węzeł stopnia 1 (zdegenerowany)
+                return false;
             }
         }
 
         String newick = tree.toString();
+        if (newick == null || newick.isEmpty()) return false;
 
-        // 1. Zakazane podciągi, na których wykłada się parser DendroPy w Pythonie
-        if (newick.contains("null") || newick.contains(",,") || newick.contains("()")) {
+        // 2. Weryfikacja niedozwolonych anomalii składniowych w Newick
+        if (newick.contains("null") || newick.contains("()") ||
+                newick.contains("(,") || newick.contains(",)") || newick.contains(",,")) {
             return false;
         }
 
-        // 2. Weryfikacja zbalansowania nawiasów '(' vs ')' oraz liczby przecinków
-        int openParens = 0;
-        int closeParens = 0;
+        // 3. TEST DUPLIKACJI PODDRZEW (Liczba przecinków == L - 1):
+        // W każdym poprawnym drzewie o L liściach jest dokładnie L - 1 przecinków.
+        // Jeśli wskaźniki w createUsprTree zduplikują fragment drzewa, liczba przecinków wzrośnie!
         int commaCount = 0;
         for (int i = 0; i < newick.length(); i++) {
-            char ch = newick.charAt(i);
-            if (ch == '(') openParens++;
-            else if (ch == ')') closeParens++;
-            else if (ch == ',') commaCount++;
+            if (newick.charAt(i) == ',') {
+                commaCount++;
+            }
         }
-
-        if (openParens != closeParens) return false;
-        if (commaCount != expectedLeafCount - 1) return false;
+        if (commaCount != expectedLeafCount - 1) {
+            return false; // Natychmiast odrzuca zduplikowane drzewa z logów VND!
+        }
 
         return true;
     }
-
     public int findChildPos(Node child, Node parent) {
         int childNum = parent.getChildCount();
         for (int i = 0; i < childNum; i++) {
