@@ -2,9 +2,10 @@ package treecmp.benchmarks.singleStep;
 
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.runner.Runner;
-import org.openjdk.jmh.runner.RunnerException;
+import org.openjdk.jmh.runner.options.ChainedOptionsBuilder;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
+import org.openjdk.jmh.runner.options.TimeValue;
 
 import java.util.concurrent.TimeUnit;
 
@@ -22,9 +23,6 @@ import treecmp.util.TestTreeFactory;
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
 @State(Scope.Benchmark)
-@Warmup(iterations = 1, time = 1)
-@Measurement(iterations = 5, time = 1)
-@Fork(1)
 public class NniSingleStepBenchmark {
 
     @Param({"RF", "RFC", "MS", "MC", "MP", "M3"})
@@ -41,7 +39,7 @@ public class NniSingleStepBenchmark {
     private Metric classicMetric;
     private IncrementalHeuristicBaseMetric incrementalMetric;
 
-    private void assignNumbers(Tree tree) {
+    private static void assignNumbers(Tree tree) {
         if (tree instanceof SimpleTree) {
             ((SimpleTree) tree).createNodeList();
         }
@@ -49,13 +47,13 @@ public class NniSingleStepBenchmark {
 
     @Setup(Level.Trial)
     public void setup() {
+        initMetricsAndTrees(metricName, treeSize);
+    }
+
+    private void initMetricsAndTrees(String metric, int size) {
         boolean isRooted = false;
 
-        // =========================================================================
-        // STRATEGY PATTERN (Composition):
-        // Dynamic injection of an incremental engine into a universal NNI heuristic
-        // =========================================================================
-        switch (metricName) {
+        switch (metric) {
             case "RF":
                 isRooted = false;
                 classicMetric = new RFMetric();
@@ -87,52 +85,21 @@ public class NniSingleStepBenchmark {
                 incrementalMetric = new NniIncrementalHeuristic(new M3IncrementalMetric(), "M3");
                 break;
             default:
-                throw new IllegalArgumentException("Unknown metric: " + metricName);
+                throw new IllegalArgumentException("Unknown metric: " + metric);
         }
 
         if (isRooted) {
-            t1 = TestTreeFactory.randomRootedBinaryTree(treeSize, 12345L);
-            t2 = TestTreeFactory.randomRootedBinaryTree(treeSize, 67890L);
-            t1ForIncr = TestTreeFactory.randomRootedBinaryTree(treeSize, 12345L);
+            t1 = TestTreeFactory.randomRootedBinaryTree(size, 12345L);
+            t2 = TestTreeFactory.randomRootedBinaryTree(size, 67890L);
+            t1ForIncr = TestTreeFactory.randomRootedBinaryTree(size, 12345L);
         } else {
-            t1 = TestTreeFactory.randomUnrootedBinaryTree(treeSize, 12345L);
-            t2 = TestTreeFactory.randomUnrootedBinaryTree(treeSize, 67890L);
-            t1ForIncr = TestTreeFactory.randomUnrootedBinaryTree(treeSize, 12345L);
+            t1 = TestTreeFactory.randomUnrootedBinaryTree(size, 12345L);
+            t2 = TestTreeFactory.randomUnrootedBinaryTree(size, 67890L);
+            t1ForIncr = TestTreeFactory.randomUnrootedBinaryTree(size, 12345L);
         }
 
         assignNumbers(t1); assignNumbers(t2); assignNumbers(t1ForIncr);
-
-        // NniUtils accepts boolean "unrooted"
         classicUtils = new NniUtils(!isRooted);
-
-        System.out.println("\n" + "=".repeat(60));
-        System.out.printf(" VERIFICATION NNI (%s) FOR SIZE: %d%n", metricName, treeSize);
-        System.out.println("-".repeat(60));
-
-        long startIncr = System.nanoTime();
-        double distIncr = incrementalMetric.evaluateSingleStep(t1ForIncr, t2);
-        long timeIncr = System.nanoTime() - startIncr;
-        System.out.printf("Incremental 1-Step %-3s : %.2f (time: %,d ns)%n", metricName, distIncr, timeIncr);
-        try {
-            long startClassic = System.nanoTime();
-            Tree[] neighbors = classicUtils.generateNeighbours(t1);
-            double bestClassicDist = Double.POSITIVE_INFINITY;
-            for (Tree n : neighbors) {
-                double d = classicMetric.getDistance(n, t2);
-                if (d < bestClassicDist) bestClassicDist = d;
-            }
-            long timeClassic = System.nanoTime() - startClassic;
-            System.out.printf("Classic 1-Step %-3s     : %.2f (time: %,d ns)%n", metricName, bestClassicDist, timeClassic);
-
-            if (bestClassicDist == distIncr || Math.abs(bestClassicDist - distIncr) < 1e-9) {
-                System.out.println("** STATUS: MATCH CONFIRMED [OK] **");
-            } else {
-                System.out.println("!! STATUS: MISMATCH DETECTED [ERROR!] !!");
-            }
-        } catch (Throwable t) {
-            System.out.println("Classic 1-Step         : [CLASSIC IMPLEMENTATION ERROR]");
-        }
-        System.out.println("=".repeat(60) + "\n");
     }
 
     @Benchmark
@@ -155,12 +122,42 @@ public class NniSingleStepBenchmark {
         return incrementalMetric.evaluateSingleStep(t1ForIncr, t2);
     }
 
-    public static void main(String[] args) throws RunnerException {
-        Options opt = new OptionsBuilder()
-                .include(NniSingleStepBenchmark.class.getSimpleName())
-                .addProfiler("stack")
-                // .addProfiler("gc")
-                .build();
-        new Runner(opt).run();
+    public static void main(String[] args) throws Exception {
+        boolean quickEstimate = true;
+
+        String[] treeSizes = NniSingleStepBenchmark.class
+                .getField("treeSize")
+                .getAnnotation(Param.class)
+                .value();
+
+        for (String sizeStr : treeSizes) {
+            int size = Integer.parseInt(sizeStr);
+
+            ChainedOptionsBuilder builder = new OptionsBuilder()
+                    .include(NniSingleStepBenchmark.class.getSimpleName())
+                    .param("treeSize", sizeStr)
+                    .addProfiler("stack");
+
+            if (quickEstimate) {
+                builder.warmupIterations(1)
+                        .warmupTime(TimeValue.seconds(1))
+                        .measurementIterations(1)
+                        .measurementTime(TimeValue.seconds(1))
+                        .timeout(TimeValue.seconds(5))
+                        .forks(1)
+                        .warmupForks(0);
+            } else {
+                builder.warmupIterations(5)
+                        .warmupTime(TimeValue.seconds(2))
+                        .measurementIterations(5)
+                        .measurementTime(TimeValue.seconds(2))
+                        .timeout(TimeValue.seconds(30))
+                        .forks(2)
+                        .warmupForks(1);
+            }
+
+            Options opt = builder.build();
+            new Runner(opt).run();
+        }
     }
 }

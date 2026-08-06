@@ -2,9 +2,10 @@ package treecmp.benchmarks.singleStep;
 
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.runner.Runner;
-import org.openjdk.jmh.runner.RunnerException;
+import org.openjdk.jmh.runner.options.ChainedOptionsBuilder;
 import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
+import org.openjdk.jmh.runner.options.TimeValue;
 
 import java.util.concurrent.TimeUnit;
 
@@ -25,16 +26,11 @@ import treecmp.util.TestTreeFactory;
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
 @State(Scope.Benchmark)
-@Warmup(iterations = 1, time = 1)
-@Measurement(iterations = 5, time = 1)
-@Fork(1)
 public class SprSingleStepBenchmark {
 
-    //@Param({"RF", "RFC", "MS", "MC", "MP", "M3"})
-    @Param({"M3"})
+    @Param({"RF", "RFC", "MS", "MC", "MP", "M3"})
     public String metricName;
 
-    //@Param({"10", "20", "30", "50", "80", "120", "200", "300", "500", "800", "1200", "2000" })
     @Param({"10", "20", "30", "50", "80"})
     public int treeSize;
 
@@ -48,17 +44,34 @@ public class SprSingleStepBenchmark {
 
     private int classicProtectionLimit;
 
-    private void assignNumbers(Tree tree) {
+    private static void assignNumbers(Tree tree) {
         if (tree instanceof SimpleTree) {
             ((SimpleTree) tree).createNodeList();
         }
     }
 
     @Setup(Level.Trial)
-    public void setup() {
+    public void setup() throws Exception {
+        initMetricsAndTrees(metricName, treeSize);
+
+        // Cicha weryfikacja w tle dla procesów JMH
+        double distIncr = incrementalMetric.evaluateSingleStep(t1ForIncr, t2);
+        if (treeSize <= classicProtectionLimit) {
+            double bestClassicDist = evaluateClassicBestDist();
+            boolean isMatch = (bestClassicDist == distIncr || Math.abs(bestClassicDist - distIncr) < 1e-9);
+            if (!isMatch) {
+                throw new IllegalStateException(String.format(
+                        "Mismatch in SPR/uSPR (%s) for size %d! Classic=%.4f vs Incr=%.4f",
+                        metricName, treeSize, bestClassicDist, distIncr
+                ));
+            }
+        }
+    }
+
+    private void initMetricsAndTrees(String metric, int size) {
         boolean isRooted = false;
 
-        switch (metricName) {
+        switch (metric) {
             case "RF":
                 isRooted = false; classicProtectionLimit = 500;
                 classicMetric = new RFMetric();
@@ -91,114 +104,61 @@ public class SprSingleStepBenchmark {
                 incrementalMetric = new UsprIncrementalHeuristicMetric(new M3IncrementalMetric(), "M3");
                 break;
             default:
-                throw new IllegalArgumentException("Unknown metric: " + metricName);
+                throw new IllegalArgumentException("Unknown metric: " + metric);
         }
 
         if (isRooted) {
-            t1 = TestTreeFactory.randomRootedBinaryTree(treeSize, 12345L);
-            t2 = TestTreeFactory.randomRootedBinaryTree(treeSize, 67890L);
-            t1ForIncr = TestTreeFactory.randomRootedBinaryTree(treeSize, 12345L);
+            t1 = TestTreeFactory.randomRootedBinaryTree(size, 12345L);
+            t2 = TestTreeFactory.randomRootedBinaryTree(size, 67890L);
+            t1ForIncr = TestTreeFactory.randomRootedBinaryTree(size, 12345L);
         } else {
-            t1 = TestTreeFactory.randomUnrootedBinaryTree(treeSize, 12345L);
-            t2 = TestTreeFactory.randomUnrootedBinaryTree(treeSize, 67890L);
-            t1ForIncr = TestTreeFactory.randomUnrootedBinaryTree(treeSize, 12345L);
+            t1 = TestTreeFactory.randomUnrootedBinaryTree(size, 12345L);
+            t2 = TestTreeFactory.randomUnrootedBinaryTree(size, 67890L);
+            t1ForIncr = TestTreeFactory.randomUnrootedBinaryTree(size, 12345L);
         }
 
         assignNumbers(t1); assignNumbers(t2); assignNumbers(t1ForIncr);
         classicUtils = isRooted ? new SprUtils() : new UsprUtils();
+    }
 
-        System.out.println("\n" + "=".repeat(60));
-        System.out.printf(" VERIFICATION 1-STEP SPR/uSPR (%s) FOR SIZE: %d%n", metricName, treeSize);
-        System.out.println("-".repeat(60));
+    private double evaluateClassicBestDist() {
+        final double[] bestDist = {Double.POSITIVE_INFINITY};
 
-        long startIncr = System.nanoTime();
-        double distIncr = incrementalMetric.evaluateSingleStep(t1ForIncr, t2);
-        long timeIncr = System.nanoTime() - startIncr;
-        System.out.printf("Incremental 1-Step %-3s : %.2f (time: %,d ns)%n", metricName, distIncr, timeIncr);
-
-        if (treeSize <= classicProtectionLimit) {
-            try {
-                long startClassic = System.nanoTime();
-                final double[] bestClassicDist = {Double.POSITIVE_INFINITY};
-
-                if (classicUtils instanceof SprUtils) {
-                    ((SprUtils) classicUtils).forEachSprTree(t1, neighbor -> {
-                        double d = 0;
-                        try {
-                            if (neighbor instanceof pal.tree.SimpleTree) {
-                                ((pal.tree.SimpleTree) neighbor).createNodeList();
-                            }
-                            d = classicMetric.getDistance(neighbor, t2);
-                        } catch (TreeCmpException e) {
-                            throw new RuntimeException(e);
-                        }
-                        if (d < bestClassicDist[0]) bestClassicDist[0] = d;
-                    });
-                } else if (classicUtils instanceof UsprUtils) {
-                    ((UsprUtils) classicUtils).forEachUsprTree(t1, neighbor -> {
-                        double d = 0;
-                        try {
-                            if (neighbor instanceof pal.tree.SimpleTree) {
-                                ((pal.tree.SimpleTree) neighbor).createNodeList();
-                            }
-                            d = classicMetric.getDistance(neighbor, t2);
-                        } catch (TreeCmpException e) {
-                            throw new RuntimeException(e);
-                        }
-                        if (d < bestClassicDist[0]) bestClassicDist[0] = d;
-                    });
+        if (classicUtils instanceof SprUtils) {
+            ((SprUtils) classicUtils).forEachSprTree(t1, neighbor -> {
+                double d = 0;
+                try {
+                    if (neighbor instanceof SimpleTree) {
+                        ((SimpleTree) neighbor).createNodeList();
+                    }
+                    d = classicMetric.getDistance(neighbor, t2);
+                } catch (TreeCmpException e) {
+                    throw new RuntimeException(e);
                 }
-
-                long timeClassic = System.nanoTime() - startClassic;
-                System.out.printf("Classic 1-Step %-3s     : %.2f (time: %,d ns)%n", metricName, bestClassicDist[0], timeClassic);
-
-                if (bestClassicDist[0] == distIncr || Math.abs(bestClassicDist[0] - distIncr) < 1e-9) {
-                    System.out.println("** STATUS: MATCH CONFIRMED [OK] **");
-                } else {
-                    System.out.println("!! STATUS: MISMATCH DETECTED [ERROR!] !!");
+                if (d < bestDist[0]) bestDist[0] = d;
+            });
+        } else if (classicUtils instanceof UsprUtils) {
+            ((UsprUtils) classicUtils).forEachUsprTree(t1, neighbor -> {
+                double d = 0;
+                try {
+                    if (neighbor instanceof SimpleTree) {
+                        ((SimpleTree) neighbor).createNodeList();
+                    }
+                    d = classicMetric.getDistance(neighbor, t2);
+                } catch (TreeCmpException e) {
+                    throw new RuntimeException(e);
                 }
-            } catch (Throwable t) {
-                System.out.println("Classic 1-Step         : [CLASSIC IMPLEMENTATION ERROR]");
-                t.printStackTrace();
-            }
+                if (d < bestDist[0]) bestDist[0] = d;
+            });
         }
-        System.out.println("=".repeat(60) + "\n");
+        return bestDist[0];
     }
 
     @Benchmark
     public double benchmarkClassicSingleStep() {
         if (treeSize > classicProtectionLimit) return Double.NaN;
         try {
-            final double[] bestDist = {Double.POSITIVE_INFINITY};
-
-            if (classicUtils instanceof SprUtils) {
-                ((SprUtils) classicUtils).forEachSprTree(t1, neighbor -> {
-                    double d = 0;
-                    try {
-                        if (neighbor instanceof pal.tree.SimpleTree) {
-                            ((pal.tree.SimpleTree) neighbor).createNodeList();
-                        }
-                        d = classicMetric.getDistance(neighbor, t2);
-                    } catch (TreeCmpException e) {
-                        throw new RuntimeException(e);
-                    }
-                    if (d < bestDist[0]) bestDist[0] = d;
-                });
-            } else if (classicUtils instanceof UsprUtils) {
-                ((UsprUtils) classicUtils).forEachUsprTree(t1, neighbor -> {
-                    double d = 0;
-                    try {
-                        if (neighbor instanceof pal.tree.SimpleTree) {
-                            ((pal.tree.SimpleTree) neighbor).createNodeList();
-                        }
-                        d = classicMetric.getDistance(neighbor, t2);
-                    } catch (TreeCmpException e) {
-                        throw new RuntimeException(e);
-                    }
-                    if (d < bestDist[0]) bestDist[0] = d;
-                });
-            }
-            return bestDist[0];
+            return evaluateClassicBestDist();
         } catch (Throwable t) {
             return Double.NaN;
         }
@@ -209,12 +169,42 @@ public class SprSingleStepBenchmark {
         return incrementalMetric.evaluateSingleStep(t1ForIncr, t2);
     }
 
-    public static void main(String[] args) throws RunnerException {
-        Options opt = new OptionsBuilder()
-                .include(SprSingleStepBenchmark.class.getSimpleName())
-                .addProfiler("stack")
-                // .addProfiler("gc")
-                .build();
-        new Runner(opt).run();
+    public static void main(String[] args) throws Exception {
+        boolean quickEstimate = true;
+
+        String[] treeSizes = SprSingleStepBenchmark.class
+                .getField("treeSize")
+                .getAnnotation(Param.class)
+                .value();
+
+        for (String sizeStr : treeSizes) {
+            int size = Integer.parseInt(sizeStr);
+
+            ChainedOptionsBuilder builder = new OptionsBuilder()
+                    .include(SprSingleStepBenchmark.class.getSimpleName())
+                    .param("treeSize", sizeStr)
+                    .addProfiler("stack");
+
+            if (quickEstimate) {
+                builder.warmupIterations(1)
+                        .warmupTime(TimeValue.seconds(1))
+                        .measurementIterations(1)
+                        .measurementTime(TimeValue.seconds(1))
+                        .timeout(TimeValue.seconds(5))
+                        .forks(1)
+                        .warmupForks(0);
+            } else {
+                builder.warmupIterations(5)
+                        .warmupTime(TimeValue.seconds(2))
+                        .measurementIterations(5)
+                        .measurementTime(TimeValue.seconds(2))
+                        .timeout(TimeValue.seconds(30))
+                        .forks(2)
+                        .warmupForks(1);
+            }
+
+            Options opt = builder.build();
+            new Runner(opt).run();
+        }
     }
 }
