@@ -557,9 +557,6 @@ public abstract class TreeNeighborhoodUtils {
         return resultTree;
     }
 
-    // ==========================================
-    // POPRAWIONE createUsprTree - BEZ PĘTLI I CRASHY
-    // ==========================================
     public Tree createUsprTree(Tree baseTree, Node s, Node t){
         Boolean isInnerMove = false;
         if (isInnerMove(s, t)) {

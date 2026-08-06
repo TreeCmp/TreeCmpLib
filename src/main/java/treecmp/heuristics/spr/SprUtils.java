@@ -66,21 +66,28 @@ public class SprUtils extends TreeNeighborhoodUtils {
     }
 
     public Tree createAndFixSprTree(Tree baseTree, Node pruneNode, Node targetNode) {
+        Tree resultTree;
         try {
-            return buildPerfectRootedSprTree(baseTree, pruneNode, targetNode);
+            resultTree = buildPerfectRootedSprTree(baseTree, pruneNode, targetNode);
         } catch (Exception e) {
-            Tree resultTree = createSprTree(baseTree, pruneNode, targetNode);
+            resultTree = createSprTree(baseTree, pruneNode, targetNode);
             if (resultTree instanceof SimpleTree) {
                 ((SimpleTree) resultTree).createNodeList();
             }
             if (resultTree != null) {
                 pal.tree.TreeUtils.computeParentPointers(resultTree.getRoot());
-                // FIX KLASYKA: Bezwzględnie wstrzykujemy identyfikatory, by metryka nie gubiła par!
                 pal.misc.IdGroup idGroup = pal.tree.TreeUtils.getLeafIdGroup(baseTree);
                 pal.tree.TreeUtils.mapExternalIdentifiers(idGroup, resultTree);
             }
-            return resultTree;
         }
+
+        // OSTATECZNA TARCZA TOPOLOGICZNA:
+        // Wyklucza obcięte drzewa (np. błąd z 5 liściami w 163903.txt) przed zwrotem z heurystyki!
+        if (!SprTopologyGuard.isStrictlyValidUnrootedTree(resultTree, baseTree.getExternalNodeCount())) {
+            return null;
+        }
+
+        return resultTree;
     }
 
     private Tree buildPerfectRootedSprTree(Tree baseTree, Node pruneNode, Node targetNode) {
@@ -128,7 +135,6 @@ public class SprUtils extends TreeNeighborhoodUtils {
         finalTree.createNodeList();
         pal.tree.TreeUtils.computeParentPointers(finalTree.getRoot());
 
-        // FIX KLASYKA: Zmuszamy nową topologię do pełnej znajomości swoich liści
         pal.misc.IdGroup idGroup = pal.tree.TreeUtils.getLeafIdGroup(baseTree);
         pal.tree.TreeUtils.mapExternalIdentifiers(idGroup, finalTree);
 
@@ -173,15 +179,9 @@ public class SprUtils extends TreeNeighborhoodUtils {
                 if (isValidSprMove(s, t)) {
                     resultTree = createAndFixSprTree(tree, s, t);
                     if (resultTree != null) {
-                        // 1. Tworzymy obiekt ruchu i przypisujemy go do zmiennej move
                         SprMove move = new SprMove(s, t);
-
-                        // 2. Rejestrujemy koszt na podstawie utworzonego obiektu
                         registerTreeCost(resultTree, move.getNniEquivalentCost());
-
-                        // 3. Rejestrujemy ruch w nowej mapie
                         registerTreeMove(resultTree, move);
-
                         sprTreeSet.add(new treecmp.heuristics.TreeRootedHolder(resultTree, idGroup));
                     }
                 }
@@ -195,15 +195,9 @@ public class SprUtils extends TreeNeighborhoodUtils {
                 if (isValidSprMove(s, t)) {
                     resultTree = createAndFixSprTree(tree, s, t);
                     if (resultTree != null) {
-                        // 1. Tworzymy obiekt ruchu i przypisujemy go do zmiennej move
                         SprMove move = new SprMove(s, t);
-
-                        // 2. Rejestrujemy koszt na podstawie utworzonego obiektu
                         registerTreeCost(resultTree, move.getNniEquivalentCost());
-
-                        // 3. Rejestrujemy ruch w nowej mapie
                         registerTreeMove(resultTree, move);
-
                         sprTreeSet.add(new treecmp.heuristics.TreeRootedHolder(resultTree, idGroup));
                     }
                 }
@@ -216,15 +210,9 @@ public class SprUtils extends TreeNeighborhoodUtils {
                 if (isValidSprMove(s, t)) {
                     resultTree = createAndFixSprTree(tree, s, t);
                     if (resultTree != null) {
-                        // 1. Tworzymy obiekt ruchu i przypisujemy go do zmiennej move
                         SprMove move = new SprMove(s, t);
-
-                        // 2. Rejestrujemy koszt na podstawie utworzonego obiektu
                         registerTreeCost(resultTree, move.getNniEquivalentCost());
-
-                        // 3. Rejestrujemy ruch w nowej mapie
                         registerTreeMove(resultTree, move);
-
                         sprTreeSet.add(new treecmp.heuristics.TreeRootedHolder(resultTree, idGroup));
                     }
                 }
@@ -238,15 +226,9 @@ public class SprUtils extends TreeNeighborhoodUtils {
                 if (isValidSprMove(s, t)) {
                     resultTree = createAndFixSprTree(tree, s, t);
                     if (resultTree != null) {
-                        // 1. Tworzymy obiekt ruchu i przypisujemy go do zmiennej move
                         SprMove move = new SprMove(s, t);
-
-                        // 2. Rejestrujemy koszt na podstawie utworzonego obiektu
                         registerTreeCost(resultTree, move.getNniEquivalentCost());
-
-                        // 3. Rejestrujemy ruch w nowej mapie
                         registerTreeMove(resultTree, move);
-
                         sprTreeSet.add(new treecmp.heuristics.TreeRootedHolder(resultTree, idGroup));
                     }
                 }
@@ -267,8 +249,6 @@ public class SprUtils extends TreeNeighborhoodUtils {
         int extNum = tree.getExternalNodeCount();
         int intNum = tree.getInternalNodeCount();
 
-        // Używamy dokładnie tego samego mechanizmu co stare generateNeighbours,
-        // aby leniwy generator odrzucał dublujące się topologie!
         pal.misc.IdGroup idGroup = pal.tree.TreeUtils.getLeafIdGroup(tree);
         Set<treecmp.heuristics.TreeHolder> seenHolders = new HashSet<>();
 
@@ -311,7 +291,6 @@ public class SprUtils extends TreeNeighborhoodUtils {
             Tree resultTree = createAndFixSprTree(baseTree, s, t);
             if (resultTree != null) {
                 if (seen.add(new treecmp.heuristics.TreeRootedHolder(resultTree, idGroup))) {
-                    // NAPRAWA: Rejestrujemy koszt NNI i obiekt ruchu dla strumieniowanego drzewa
                     SprMove move = new SprMove(s, t);
                     registerTreeCost(resultTree, move.getNniEquivalentCost());
                     registerTreeMove(resultTree, move);
@@ -326,7 +305,6 @@ public class SprUtils extends TreeNeighborhoodUtils {
         if (isValidSprMove(s, t)) {
             Tree resultTree = createAndFixSprTree(baseTree, s, t);
             if (resultTree != null) {
-                // NAPRAWA DLA DRUGIEGO PRZECIĄŻENIA:
                 SprMove move = new SprMove(s, t);
                 registerTreeCost(resultTree, move.getNniEquivalentCost());
                 registerTreeMove(resultTree, move);
@@ -405,7 +383,6 @@ public class SprUtils extends TreeNeighborhoodUtils {
 
     @Override
     public void forEachNeighbour(Tree tree, java.util.function.Consumer<Tree> action) {
-        // Zamiast generować tablicę Tree[], używamy oszczędnego strumieniowania!
         forEachSprTree(tree, action);
     }
 }

@@ -99,13 +99,10 @@ public class UsprUtils extends TreeNeighborhoodUtils {
         return usprTreeArray;
     }
 
-    // =========================================================================================
-    // NAPRAWIONY findBestNeighbour - używa teraz createUsprTree i calcUsprNeighbours!
-    // =========================================================================================
     public TreeValuePair findBestNeighbour(Tree tree, BestTreeChooser btc, double neighSizeFrac, double inputTreeValue) throws TreeCmpException {
         int extNum = tree.getExternalNodeCount();
         int intNum = tree.getInternalNodeCount();
-        int neighSize = calcUsprNeighbours(tree); // NAPRAWIONO: calcUsprNeighbours
+        int neighSize = calcUsprNeighbours(tree);
         int estimatedMax = (extNum + intNum) * (extNum + intNum);
         int analyzedTreeNum = 0;
         double frac;
@@ -119,8 +116,8 @@ public class UsprUtils extends TreeNeighborhoodUtils {
             s = tree.getExternalNode(i);
             for (int j = 0; j < extNum; j++) {
                 t = tree.getExternalNode(j);
-                if (isValidUsprMove(s, t)) { // NAPRAWIONO: isValidUsprMove
-                    resultTree = createUsprTree(tree, s, t); // NAPRAWIONO: createUsprTree
+                if (isValidUsprMove(s, t)) {
+                    resultTree = createUsprTree(tree, s, t);
                     if (resultTree != null) {
                         analyzedTreeNum++;
                         resultValue = btc.getValueForTree(resultTree);
@@ -138,8 +135,8 @@ public class UsprUtils extends TreeNeighborhoodUtils {
             if (s.isRoot()) continue;
             for (int j = 0; j < extNum; j++) {
                 t = tree.getExternalNode(j);
-                if (isValidUsprMove(s, t)) { // NAPRAWIONO: isValidUsprMove
-                    resultTree = createUsprTree(tree, s, t); // NAPRAWIONO: createUsprTree
+                if (isValidUsprMove(s, t)) {
+                    resultTree = createUsprTree(tree, s, t);
                     if (resultTree != null) {
                         analyzedTreeNum++;
                         resultValue = btc.getValueForTree(resultTree);
@@ -156,8 +153,8 @@ public class UsprUtils extends TreeNeighborhoodUtils {
             s = tree.getExternalNode(i);
             for (int j = 0; j < intNum; j++) {
                 t = tree.getInternalNode(j);
-                if (isValidUsprMove(s, t)) { // NAPRAWIONO: isValidUsprMove
-                    resultTree = createUsprTree(tree, s, t); // NAPRAWIONO: createUsprTree
+                if (isValidUsprMove(s, t)) {
+                    resultTree = createUsprTree(tree, s, t);
                     if (resultTree != null) {
                         analyzedTreeNum++;
                         resultValue = btc.getValueForTree(resultTree);
@@ -175,8 +172,8 @@ public class UsprUtils extends TreeNeighborhoodUtils {
             if (s.isRoot()) continue;
             for (int j = 0; j < intNum; j++) {
                 t = tree.getInternalNode(j);
-                if (isValidUsprMove(s, t)) { // NAPRAWIONO: isValidUsprMove
-                    resultTree = createUsprTree(tree, s, t); // NAPRAWIONO: createUsprTree
+                if (isValidUsprMove(s, t)) {
+                    resultTree = createUsprTree(tree, s, t);
                     if (resultTree != null) {
                         analyzedTreeNum++;
                         resultValue = btc.getValueForTree(resultTree);
@@ -355,6 +352,11 @@ public class UsprUtils extends TreeNeighborhoodUtils {
             ((pal.tree.SimpleTree) resultTree).createNodeList();
         }
 
+        // TARCZA Z WSPÓLNEJ KLASY NARZĘDZIOWEJ:
+        if (!SprTopologyGuard.isStrictlyValidUnrootedTree(resultTree, baseTree.getExternalNodeCount())) {
+            return null;
+        }
+
         return resultTree;
     }
 
@@ -372,6 +374,19 @@ public class UsprUtils extends TreeNeighborhoodUtils {
     }
 
     public Tree createUsprTree(Tree baseTree, Node s, Node t) {
+        // 1. FIZYCZNA TARCZA ANTYCYKLICZNA:
+        // Odrzucamy wyłącznie ruchy niemożliwe strukturalnie (cykle rodzic-dziecko, self-loop, korzeń),
+        // ale NIE blokujemy testów jednostkowych regułami deduplikacji z isValidUsprMove!
+        if (baseTree == null || s == null || t == null || s == t) {
+            return null;
+        }
+        if (s.isRoot() || t.isRoot()) {
+            return null;
+        }
+        if (sameParent(s, t) || isChildParent(s, t)) {
+            return null;
+        }
+
         Tree resultTree = baseTree.getCopy();
         Node source = findNodeEquivalent(resultTree, s);
         Node target = findNodeEquivalent(resultTree, t);
@@ -394,6 +409,8 @@ public class UsprUtils extends TreeNeighborhoodUtils {
             }
             path.add(source);
 
+            Node pathChild = (path.size() >= 2) ? path.get(path.size() - 2) : null;
+
             for (int i = 0; i < path.size() - 1; i++) {
                 Node child = path.get(i);
                 Node parent = path.get(i + 1);
@@ -412,9 +429,18 @@ public class UsprUtils extends TreeNeighborhoodUtils {
                 if (bPos != -1) bParent.removeChild(bPos);
 
                 if (source.getChildCount() > 0) {
-                    Node f = source.getChild(0);
-                    bParent.addChild(f);
-                    f.setParent(bParent);
+                    Node f = null;
+                    for (int cIdx = 0; cIdx < source.getChildCount(); cIdx++) {
+                        Node candidate = source.getChild(cIdx);
+                        if (candidate != pathChild) {
+                            f = candidate;
+                            break;
+                        }
+                    }
+                    if (f != null) {
+                        bParent.addChild(f);
+                        f.setParent(bParent);
+                    }
                 }
             }
 
@@ -443,7 +469,8 @@ public class UsprUtils extends TreeNeighborhoodUtils {
                 pal.tree.TreeUtils.computeParentPointers(resultTree.getRoot());
                 ((SimpleTree) resultTree).createNodeList();
             }
-            if (!isStrictlyValidUnrootedTree(resultTree, baseTree.getExternalNodeCount())) {
+            // TARCZA Z WSPÓLNEJ KLASY NARZĘDZIOWEJ:
+            if (!SprTopologyGuard.isStrictlyValidUnrootedTree(resultTree, baseTree.getExternalNodeCount())) {
                 return null;
             }
 
@@ -532,50 +559,14 @@ public class UsprUtils extends TreeNeighborhoodUtils {
             ((SimpleTree) resultTree).createNodeList();
         }
 
-        if (!isStrictlyValidUnrootedTree(resultTree, baseTree.getExternalNodeCount())) {
+        // TARCZA Z WSPÓLNEJ KLASY NARZĘDZIOWEJ:
+        if (!SprTopologyGuard.isStrictlyValidUnrootedTree(resultTree, baseTree.getExternalNodeCount())) {
             return null;
         }
 
         return resultTree;
     }
 
-    private boolean isStrictlyValidUnrootedTree(Tree tree, int expectedLeafCount) {
-        if (tree == null || tree.getRoot() == null) return false;
-        if (tree.getExternalNodeCount() != expectedLeafCount) return false;
-        if (tree.getRoot().getChildCount() < 2) return false;
-
-        // 1. Weryfikacja czy żaden węzeł wewnętrzny (poza korzeniem) nie jest zdegenerowany (stopień < 2)
-        for (int i = 0; i < tree.getInternalNodeCount(); i++) {
-            Node node = tree.getInternalNode(i);
-            if (!node.isRoot() && node.getChildCount() < 2) {
-                return false;
-            }
-        }
-
-        String newick = tree.toString();
-        if (newick == null || newick.isEmpty()) return false;
-
-        // 2. Weryfikacja niedozwolonych anomalii składniowych w Newick
-        if (newick.contains("null") || newick.contains("()") ||
-                newick.contains("(,") || newick.contains(",)") || newick.contains(",,")) {
-            return false;
-        }
-
-        // 3. TEST DUPLIKACJI PODDRZEW (Liczba przecinków == L - 1):
-        // W każdym poprawnym drzewie o L liściach jest dokładnie L - 1 przecinków.
-        // Jeśli wskaźniki w createUsprTree zduplikują fragment drzewa, liczba przecinków wzrośnie!
-        int commaCount = 0;
-        for (int i = 0; i < newick.length(); i++) {
-            if (newick.charAt(i) == ',') {
-                commaCount++;
-            }
-        }
-        if (commaCount != expectedLeafCount - 1) {
-            return false; // Natychmiast odrzuca zduplikowane drzewa z logów VND!
-        }
-
-        return true;
-    }
     public int findChildPos(Node child, Node parent) {
         int childNum = parent.getChildCount();
         for (int i = 0; i < childNum; i++) {
