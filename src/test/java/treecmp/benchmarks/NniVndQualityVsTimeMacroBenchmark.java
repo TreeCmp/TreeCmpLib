@@ -136,8 +136,8 @@ public class NniVndQualityVsTimeMacroBenchmark {
         int successCount = 0;
         boolean timedOut = false;
 
-        // --- 5 HOUR TIMEOUT SAFETY ---
-        long TIMEOUT_MS = 5L * 60 * 60 * 1000;
+        //long TIMEOUT_MS = 5L * 60 * 60 * 1000; // (5 hours)
+        long TIMEOUT_MS = 10L * 60 * 1000; // (10 mins)
 
         long overallStartMs = System.currentTimeMillis();
 

@@ -98,8 +98,8 @@ public class Ecr2QualityVsTimeMacroBenchmark {
         int successCount = 0;
         boolean timedOut = false;
 
-        // Set time limit (5 hours in milliseconds)
-        long TIMEOUT_MS = 5L * 60 * 60 * 1000;
+        //long TIMEOUT_MS = 5L * 60 * 60 * 1000; // (5 hours)
+        long TIMEOUT_MS = 10L * 60 * 1000; // (10 mins)
         long overallStartMs = System.currentTimeMillis();
 
         for (int i = 0; i < trees.size(); i += 2) {

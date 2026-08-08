@@ -3,10 +3,14 @@ package treecmp.benchmarks.singleStep;
 import org.openjdk.jmh.annotations.*;
 import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.options.ChainedOptionsBuilder;
-import org.openjdk.jmh.runner.options.Options;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.TimeValue;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.concurrent.TimeUnit;
 
 import pal.tree.SimpleTree;
@@ -19,6 +23,7 @@ import treecmp.metrics.Metric;
 import treecmp.metrics.topological.*;
 import treecmp.metrics.topological.acc.*;
 import treecmp.util.TestTreeFactory;
+import treecmp.util.TreeCreator;
 
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
@@ -28,7 +33,7 @@ public class NniSingleStepBenchmark {
     @Param({"RF", "RFC", "MS", "MC", "MP", "M3"})
     public String metricName;
 
-    @Param({"10", "20", "30", "50", "80", "120", "200", "300", "500", "800"})
+    @Param({"10", "20", "30", "50", "80", "120", "200", "300", "500", "800", "1200", "2000", "3000", "5000", "8000", "12000", "20000", "30000", "50000", "80000", "120000"})
     public int treeSize;
 
     private Tree t1;
@@ -88,37 +93,111 @@ public class NniSingleStepBenchmark {
                 throw new IllegalArgumentException("Unknown metric: " + metric);
         }
 
-        if (isRooted) {
-            t1 = TestTreeFactory.randomRootedBinaryTree(size, 12345L);
-            t2 = TestTreeFactory.randomRootedBinaryTree(size, 67890L);
-            t1ForIncr = TestTreeFactory.randomRootedBinaryTree(size, 12345L);
-        } else {
-            t1 = TestTreeFactory.randomUnrootedBinaryTree(size, 12345L);
-            t2 = TestTreeFactory.randomUnrootedBinaryTree(size, 67890L);
-            t1ForIncr = TestTreeFactory.randomUnrootedBinaryTree(size, 12345L);
+        // 1. Elastyczne wyszukiwanie pliku w katalogu datasets/ (np. n5000y10rb.newick lub n5000y200rb.newick)
+        File datasetFile = findDatasetFile(size, isRooted);
+        boolean loadedFromFile = false;
+
+        if (datasetFile != null && datasetFile.exists()) {
+            // Potrzebujemy dokładnie 2 drzew do przeprowadzenia pojedynczego kroku
+            List<Tree> loadedTrees = loadTrees(datasetFile.getPath(), 2);
+            if (loadedTrees != null && loadedTrees.size() >= 2) {
+                t1 = new SimpleTree(loadedTrees.get(0));
+                t2 = new SimpleTree(loadedTrees.get(1));
+                t1ForIncr = new SimpleTree(loadedTrees.get(0));
+                loadedFromFile = true;
+            }
         }
 
-        assignNumbers(t1); assignNumbers(t2); assignNumbers(t1ForIncr);
+        // 2. Fallback: Jeśli nie znaleziono pliku lub miał za mało drzew – generujemy losowo
+        if (!loadedFromFile) {
+            System.out.println("OSTRZEŻENIE: Brak odpowiedniego pliku w datasets/ dla N=" + size + " (" + (isRooted ? "rb" : "ub") + "). Używam TestTreeFactory.");
+            if (isRooted) {
+                t1 = TestTreeFactory.randomRootedBinaryTree(size, 12345L);
+                t2 = TestTreeFactory.randomRootedBinaryTree(size, 67890L);
+                t1ForIncr = TestTreeFactory.randomRootedBinaryTree(size, 12345L);
+            } else {
+                t1 = TestTreeFactory.randomUnrootedBinaryTree(size, 12345L);
+                t2 = TestTreeFactory.randomUnrootedBinaryTree(size, 67890L);
+                t1ForIncr = TestTreeFactory.randomUnrootedBinaryTree(size, 12345L);
+            }
+        }
+
+        assignNumbers(t1);
+        assignNumbers(t2);
+        assignNumbers(t1ForIncr);
+
         classicUtils = new NniUtils(!isRooted);
+    }
+
+    /**
+     * Szuka w katalogu datasets/ pliku pasującego do wzorca n{size}y*{rb/ub}.newick
+     */
+    private File findDatasetFile(int size, boolean isRooted) {
+        File dir = new File("datasets");
+        if (!dir.exists() || !dir.isDirectory()) {
+            return null;
+        }
+
+        String prefix = "n" + size + "y";
+        String suffix = (isRooted ? "rb" : "ub") + ".newick";
+
+        File[] matchingFiles = dir.listFiles((d, name) -> name.startsWith(prefix) && name.endsWith(suffix));
+        if (matchingFiles != null && matchingFiles.length > 0) {
+            return matchingFiles[0]; // Zwraca pierwszy pasujący plik (np. n8000y10rb.newick)
+        }
+        return null;
+    }
+
+    private static List<Tree> loadTrees(String filename, int limit) {
+        List<Tree> trees = new ArrayList<>();
+        try (BufferedReader br = new BufferedReader(new FileReader(filename))) {
+            String line;
+            while ((line = br.readLine()) != null && trees.size() < limit) {
+                line = line.trim();
+                if (!line.isEmpty() && !line.startsWith("#")) {
+                    Tree t = TreeCreator.getTreeFromString(line);
+                    if (t != null) {
+                        trees.add(t);
+                    }
+                }
+            }
+        } catch (Exception e) {
+            System.err.println("Błąd podczas wczytywania z pliku " + filename + ": " + e.getMessage());
+        }
+        return trees;
     }
 
     @Benchmark
     public double benchmarkClassicSingleStep() {
         try {
-            Tree[] neighbors = classicUtils.generateNeighbours(t1);
-            double bestDist = Double.POSITIVE_INFINITY;
-            for (Tree n : neighbors) {
-                double d = classicMetric.getDistance(n, t2);
-                if (d < bestDist) bestDist = d;
-            }
-            return bestDist;
+            // Używamy jednokomórkowej tablicy, by móc modyfikować ją z wnętrza lambdy
+            final double[] bestDist = {Double.POSITIVE_INFINITY};
+
+            classicUtils.forEachNeighbour(t1, neighbor -> {
+                double d = 0;
+                try {
+                    // Odświeżenie indeksów węzłów, tak samo jak w SprSingleStepBenchmark
+                    if (neighbor instanceof SimpleTree) {
+                        ((SimpleTree) neighbor).createNodeList();
+                    }
+                    d = classicMetric.getDistance(neighbor, t2);
+                } catch (Exception e) {
+                    throw new RuntimeException(e);
+                }
+
+                if (d < bestDist[0]) {
+                    bestDist[0] = d;
+                }
+            });
+
+            return bestDist[0];
         } catch (Throwable t) {
             return Double.NaN;
         }
     }
 
     @Benchmark
-    public double benchmarkIncrementalSingleStep() {
+        public double benchmarkIncrementalSingleStep() {
         return incrementalMetric.evaluateSingleStep(t1ForIncr, t2);
     }
 
@@ -133,31 +212,95 @@ public class NniSingleStepBenchmark {
         for (String sizeStr : treeSizes) {
             int size = Integer.parseInt(sizeStr);
 
-            ChainedOptionsBuilder builder = new OptionsBuilder()
-                    .include(NniSingleStepBenchmark.class.getSimpleName())
-                    .param("treeSize", sizeStr)
-                    .addProfiler("stack");
-
-            if (quickEstimate) {
-                builder.warmupIterations(1)
-                        .warmupTime(TimeValue.seconds(1))
-                        .measurementIterations(1)
-                        .measurementTime(TimeValue.seconds(1))
-                        .timeout(TimeValue.seconds(5))
-                        .forks(1)
-                        .warmupForks(0);
-            } else {
-                builder.warmupIterations(5)
-                        .warmupTime(TimeValue.seconds(2))
-                        .measurementIterations(5)
-                        .measurementTime(TimeValue.seconds(2))
-                        .timeout(TimeValue.seconds(30))
-                        .forks(2)
-                        .warmupForks(1);
+            // 1. N <= 300: Wszystkie metryki (włącznie z M3 Classic i Incremental)
+            if (size <= 300) {
+                runJmh(sizeStr,
+                        new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"},
+                        NniSingleStepBenchmark.class.getSimpleName(),
+                        quickEstimate);
             }
-
-            Options opt = builder.build();
-            new Runner(opt).run();
+            // 2. N <= 500: Odcinamy M3, reszta Classic + Incremental
+            else if (size <= 500) {
+                runJmh(sizeStr,
+                        new String[]{"RF", "RFC", "MS", "MC", "MP"},
+                        NniSingleStepBenchmark.class.getSimpleName(),
+                        quickEstimate);
+            }
+            // 3. N <= 800: RF, RFC i MP jako Classic + Incremental; MS i MC tylko Incremental
+            else if (size <= 800) {
+                runJmh(sizeStr,
+                        new String[]{"RF", "RFC", "MP"},
+                        NniSingleStepBenchmark.class.getSimpleName(),
+                        quickEstimate);
+                runJmh(sizeStr,
+                        new String[]{"MS", "MC"},
+                        NniSingleStepBenchmark.class.getSimpleName() + ".benchmarkIncrementalSingleStep",
+                        quickEstimate);
+            }
+            // 4. N <= 1200: RF i RFC jako Classic + Incremental; MS, MC i MP tylko Incremental
+            else if (size <= 1200) {
+                runJmh(sizeStr,
+                        new String[]{"RF", "RFC"},
+                        NniSingleStepBenchmark.class.getSimpleName(),
+                        quickEstimate);
+                runJmh(sizeStr,
+                        new String[]{"MS", "MC", "MP"},
+                        NniSingleStepBenchmark.class.getSimpleName() + ".benchmarkIncrementalSingleStep",
+                        quickEstimate);
+            }
+            // 5. N <= 3000: Odcinamy MP całkowicie; RF i RFC Classic + Incr; MS i MC tylko Incr
+            else if (size <= 3000) {
+                runJmh(sizeStr,
+                        new String[]{"RF", "RFC"},
+                        NniSingleStepBenchmark.class.getSimpleName(),
+                        quickEstimate);
+                runJmh(sizeStr,
+                        new String[]{"MS", "MC"},
+                        NniSingleStepBenchmark.class.getSimpleName() + ".benchmarkIncrementalSingleStep",
+                        quickEstimate);
+            }
+            // 6. N <= 5000: Tylko warianty Incremental dla RF, RFC, MS i MC
+            else if (size <= 5000) {
+                runJmh(sizeStr,
+                        new String[]{"RF", "RFC", "MS", "MC"},
+                        NniSingleStepBenchmark.class.getSimpleName() + ".benchmarkIncrementalSingleStep",
+                        quickEstimate);
+            }
+            // 7. N > 5000: Tylko warianty Incremental dla RF i RFC (bardzo szybkie)
+            else {
+                runJmh(sizeStr,
+                        new String[]{"RF", "RFC"},
+                        NniSingleStepBenchmark.class.getSimpleName() + ".benchmarkIncrementalSingleStep",
+                        quickEstimate);
+            }
         }
+    }
+
+    private static void runJmh(String sizeStr, String[] metrics, String includeRegex, boolean quickEstimate) throws Exception {
+        ChainedOptionsBuilder builder = new OptionsBuilder()
+                .include(includeRegex)
+                .param("treeSize", sizeStr)
+                .param("metricName", metrics)
+                .jvmArgs("-Xms4g", "-Xmx16g")
+                //.addProfiler("stack")
+                ;
+
+        if (quickEstimate) {
+            builder.warmupIterations(1)
+                    .warmupTime(TimeValue.seconds(1))
+                    .measurementIterations(1)
+                    .measurementTime(TimeValue.seconds(1))
+                    .forks(1)
+                    .warmupForks(0);
+        } else {
+            builder.warmupIterations(5)
+                    .warmupTime(TimeValue.seconds(2))
+                    .measurementIterations(5)
+                    .measurementTime(TimeValue.seconds(2))
+                    .forks(2)
+                    .warmupForks(1);
+        }
+
+        new Runner(builder.build()).run();
     }
 }
