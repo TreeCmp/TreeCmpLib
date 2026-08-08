@@ -7,7 +7,9 @@ import pal.tree.ReadTree;
 import pal.tree.Tree;
 import treecmp.util.TreeCreator;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -70,13 +72,16 @@ public class UsprUtilsTest {
     }
 
     @Test
-    @DisplayName("findBestNeighbour musi generować inną liczbę sąsiadów dla uSPR niż dla SPR (nieukorzenione vs ukorzenione)")
+    @DisplayName("calcUsprNeighbours musi być różne od calcSprNeighbours")
     public void testCalcUsprNeighboursIsDistinctFromSpr() throws Exception {
         Tree baseTree = TreeCreator.getTreeFromString("(((1,2),(3,4)),(5,(6,7)));");
         UsprUtils usprUtils = new UsprUtils();
 
         int usprCount = usprUtils.calcUsprNeighbours(baseTree);
-        int sprCount = usprUtils.calcSprNeighbours(baseTree);
+
+        // Zastępujemy stare sprUtils nowym wywołaniem by porównać liczność sąsiedztw.
+        SprUtils sprUtils = new SprUtils();
+        int sprCount = sprUtils.calcSprNeighbours(baseTree);
 
         // Dla N=7 wzór na uSPR: 2*(n-3)*(2*n-7) = 2 * 4 * 7 = 56
         assertEquals(56, usprCount, "Nieprawidłowo wyliczona liczba sąsiadów uSPR dla N=7");
@@ -84,7 +89,7 @@ public class UsprUtilsTest {
     }
 
     // =========================================================================
-    // WCZEŚNIEJSZE TESTY INTEGRALNOŚCI (createUsprTree & generateNeighbours)
+    // WCZEŚNIEJSZE TESTY INTEGRALNOŚCI (createUsprTree & forEachUsprTree)
     // =========================================================================
 
     @Test
@@ -146,19 +151,21 @@ public class UsprUtilsTest {
     }
 
     @Test
-    @DisplayName("generateNeighbours nie ma prawa zwrócić ani jednego zduplikowanego lub uszkodzonego sąsiada")
+    @DisplayName("forEachUsprTree nie ma prawa zwrócić ani jednego zduplikowanego lub uszkodzonego sąsiada")
     public void testGenerateNeighboursIntegrity() throws Exception {
         Tree baseTree = TreeCreator.getTreeFromString("(((A,B),(C,D)),(E,(F,G)));");
         UsprUtils usprUtils = new UsprUtils();
 
-        Tree[] neighbors = usprUtils.generateNeighbours(baseTree);
+        List<Tree> neighbors = new ArrayList<>();
+        usprUtils.forEachUsprTree(baseTree, neighbors::add);
+
         assertNotNull(neighbors);
-        assertTrue(neighbors.length > 0, "Lista sąsiadów uSPR nie może być pusta");
+        assertTrue(neighbors.size() > 0, "Lista sąsiadów uSPR nie może być pusta");
 
         int expectedCommas = baseTree.getExternalNodeCount() - 1;
 
-        for (int i = 0; i < neighbors.length; i++) {
-            Tree neighbor = neighbors[i];
+        for (int i = 0; i < neighbors.size(); i++) {
+            Tree neighbor = neighbors.get(i);
             assertNotNull(neighbor, "Sąsiad na indeksie " + i + " jest null");
 
             String newick = neighbor.toString();
@@ -203,8 +210,9 @@ public class UsprUtilsTest {
             Tree baseTree = TreeCreator.getTreeFromString(newickInput);
             assertNotNull(baseTree, "Drzewo wejściowe musi się poprawnie parsować");
 
-            Tree[] neighbours = usprUtils.generateNeighbours(baseTree);
-            assertTrue(neighbours.length > 0, "Powinno wygenerować legalnych sąsiadów uSPR");
+            List<Tree> neighbours = new ArrayList<>();
+            usprUtils.forEachUsprTree(baseTree, neighbours::add);
+            assertTrue(neighbours.size() > 0, "Powinno wygenerować legalnych sąsiadów uSPR");
 
             for (Tree neighbour : neighbours) {
                 String newickOutput = neighbour.toString();
@@ -213,8 +221,6 @@ public class UsprUtilsTest {
                 for (int i = 0; i < neighbour.getExternalNodeCount(); i++) {
                     String leafName = neighbour.getExternalNode(i).getIdentifier().getName();
 
-                    // Regex: znak '(' lub ',' bezpośrednio przed nazwą liścia i ':' zaraz po niej
-                    // Zapobiega dopasowaniu liścia "7" wewnątrz etykiety "17", "27" itd.
                     java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("(?:\\(|,)" + java.util.regex.Pattern.quote(leafName) + ":");
                     java.util.regex.Matcher matcher = pattern.matcher(newickOutput);
 
@@ -247,11 +253,12 @@ public class UsprUtilsTest {
             Tree baseTree = TreeCreator.getTreeFromString(newickInput);
             assertNotNull(baseTree, "Drzewo startowe musi się poprawnie parsować w PAL");
 
-            Tree[] neighbours = usprUtils.generateNeighbours(baseTree);
-            assertTrue(neighbours.length > 0, "Powinno wygenerować listę legalnych sąsiadów uSPR");
+            List<Tree> neighbours = new ArrayList<>();
+            usprUtils.forEachUsprTree(baseTree, neighbours::add);
+            assertTrue(neighbours.size() > 0, "Powinno wygenerować listę legalnych sąsiadów uSPR");
 
-            for (int i = 0; i < neighbours.length; i++) {
-                Tree neighbour = neighbours[i];
+            for (int i = 0; i < neighbours.size(); i++) {
+                Tree neighbour = neighbours.get(i);
                 String newickOutput = neighbour.toString();
 
                 // ASERCJA 1: Wykluczenie klonowania poddrzew (30 przecinków) i zapaści liści
@@ -272,6 +279,7 @@ public class UsprUtilsTest {
         }
     }
 
+    @Test
     public void testFinalTwoBrokenCases_MS_and_RF() throws Exception {
         // 1. Poprawne drzewo z KROKU 22 logu MS (bezpośrednio przed awarią w Kroku 23)
         String validTreeBeforeCrashMS = "(((12:0.0000000,((5:0.0000000,8:0.0000000):0.0000000,((9:0.0000000,17:0.0000000):0.0000000,16:0.0000000):0.0000000):0.0000000):0.0000000,13:0.0000000):0.0000000,((20:0.0000000,1:0.0000000):0.0000000,(2:0.0000000,(19:0.0000000,14:0.0000000):0.0000000):0.0000000):0.0000000,(((11:0.0000000,((3:0.0000000,10:0.0000000):0.0000000,6:0.0000000):0.0000000):0.0000000,4:0.0000000):0.0000000,(18:0.0000000,(15:0.0000000,7:0.0000000):0.0000000):0.0000000):0.0000000);";
@@ -288,24 +296,25 @@ public class UsprUtilsTest {
             Tree baseTree = TreeCreator.getTreeFromString(testTrees[tIndex]);
             assertNotNull(baseTree, "Drzewo startowe musi się poprawnie parsować w PAL");
 
-            Tree[] neighbours = usprUtils.generateNeighbours(baseTree);
-            assertTrue(neighbours.length > 0, "Lista sąsiadów uSPR nie może być pusta");
+            List<Tree> neighbours = new ArrayList<>();
+            usprUtils.forEachUsprTree(baseTree, neighbours::add);
+            assertTrue(neighbours.size() > 0, "Lista sąsiadów uSPR nie może być pusta");
 
-            for (int i = 0; i < neighbours.length; i++) {
-                Tree neighbour = neighbours[i];
+            for (int i = 0; i < neighbours.size(); i++) {
+                Tree neighbour = neighbours.get(i);
                 assertNotNull(neighbour, "Sąsiad uSPR nie może być null");
                 String newickOutput = neighbour.toString();
 
-                // ASERCJA 1: Natywny parser PAL musi być w stanie wczytać wygenerowanego sąsiada
-                assertDoesNotThrow(() -> new ReadTree(newickOutput),
+                // POPRAWIONA ASERCJA 1: Natywny parser PAL (używamy strumienia z pamięci)
+                assertDoesNotThrow(() -> new ReadTree(new java.io.PushbackReader(new java.io.StringReader(newickOutput))),
                         "Parser PAL odrzucił wygenerowanego sąsiada #" + i + ": " + newickOutput);
 
-                // ASERCJA 2: Dokładnie 19 przecinków (brak klonowania poddrzew, które dawało 30 przecinków)
+                // ASERCJA 2: Dokładnie 19 przecinków (brak klonowania poddrzew)
                 int commaCount = countChar(newickOutput, ',');
                 assertEquals(expectedCommas, commaCount,
                         "Wykryto zduplikowane poddrzewo (zła liczba przecinków: " + commaCount + ") w Newicku: " + newickOutput);
 
-                // ASERCJA 3: Pełny zbiór 20 unikalnych liści (brak utraty liści 1, 2, 3 lub 20)
+                // ASERCJA 3: Pełny zbiór 20 unikalnych liści
                 Set<String> seenLeaves = new HashSet<>();
                 for (int leafIdx = 0; leafIdx < neighbour.getExternalNodeCount(); leafIdx++) {
                     String leafName = neighbour.getExternalNode(leafIdx).getIdentifier().getName();

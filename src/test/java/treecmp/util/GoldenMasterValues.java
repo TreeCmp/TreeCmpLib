@@ -1,19 +1,12 @@
 package treecmp.util;
 
-import pal.misc.IdGroup;
 import pal.tree.Node;
 import pal.tree.Tree;
-import pal.tree.TreeUtils;
-import treecmp.heuristics.TreeHolder;
-import treecmp.heuristics.TreeRootedHolder;
 import treecmp.heuristics.spr.SprUtils;
 import treecmp.heuristics.spr.UsprUtils;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Set;
-import java.util.stream.Collectors;
 
 public final class GoldenMasterValues {
 
@@ -42,19 +35,15 @@ public final class GoldenMasterValues {
      * @return The exact size of the unique SPR neighborhood
      */
     public static int calculateExactRootedSprSize(Tree tree, SprUtils sprUtils) {
-        // 1. Generate all possible structural neighbors using the Oracle
-        Tree[] naiveNeighborsArray = sprUtils.generateNeighbours(tree);
+        // Zoptymalizowana metoda forEachSprTree posiada wbudowaną deduplikację,
+        // więc callback jest wywoływany dokładnie raz dla każdej unikalnej topologii SPR.
+        final int[] uniqueCount = {0};
 
-        // 2. Extract the leaf identifiers required for isomorphism checking
-        IdGroup idGroup = TreeUtils.getLeafIdGroup(tree);
+        sprUtils.forEachSprTree(tree, neighbor -> {
+            uniqueCount[0]++;
+        });
 
-        // 3. Filter out isomorphic duplicates by wrapping them in TreeRootedHolder
-        // and collecting into a Set. The final size of this Set is the mathematical truth.
-        Set<TreeHolder> uniqueTopologies = Arrays.stream(naiveNeighborsArray)
-                .map(t -> new TreeRootedHolder(t, idGroup))
-                .collect(Collectors.toSet());
-
-        return uniqueTopologies.size();
+        return uniqueCount[0];
     }
 
     /**

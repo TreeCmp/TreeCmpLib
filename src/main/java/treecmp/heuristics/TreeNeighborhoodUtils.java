@@ -14,6 +14,7 @@ import java.util.ArrayList;
 import java.util.IdentityHashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.function.Consumer;
 
 public abstract class TreeNeighborhoodUtils {
 
@@ -39,23 +40,6 @@ public abstract class TreeNeighborhoodUtils {
             e.printStackTrace();
         }
         return tree;
-    }
-
-    /**
-     * Domyślna metoda strumieniowa dla generatorów otoczenia.
-     * Jeśli klasa pochodna (np. SprUtils, SubtreeEcr3Utils) nie zaimplementuje
-     * własnej zoptymalizowanej wersji oszczędzającej pamięć, metoda ta
-     * bezpiecznie wywoła klasyczne generateNeighbours(tree).
-     */
-    public void forEachNeighbour(Tree tree, java.util.function.Consumer<Tree> action) {
-        Tree[] neighbours = generateNeighbours(tree);
-        if (neighbours != null) {
-            for (Tree t : neighbours) {
-                if (t != null) {
-                    action.accept(t);
-                }
-            }
-        }
     }
 
     // ==========================================
@@ -754,8 +738,6 @@ public abstract class TreeNeighborhoodUtils {
         return tree;
     }
 
-    abstract public Tree[] generateNeighbours(Tree tree);
-
     protected java.util.IdentityHashMap<pal.tree.Tree, Double> treeCosts = new java.util.IdentityHashMap<>();
 
     public double getTreeCost(pal.tree.Tree t) {
@@ -767,6 +749,8 @@ public abstract class TreeNeighborhoodUtils {
             treeCosts.put(t, cost);
         }
     }
+
+    public abstract void forEachNeighbour(Tree tree, Consumer<Tree> action);
 
     public void clearCosts() {
         treeCosts.clear();

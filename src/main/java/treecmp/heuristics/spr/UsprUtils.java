@@ -17,7 +17,7 @@ import java.util.Set;
 
 public class UsprUtils extends TreeNeighborhoodUtils {
 
-    public Tree[] generateNeighbours(Tree tree) {
+    public Tree[] generateNeighboursOBSOLETE(Tree tree) {
         int extNum = tree.getExternalNodeCount();
         int intNum = tree.getInternalNodeCount();
         IdGroup idGroup = TreeUtils.getLeafIdGroup(tree);
@@ -596,6 +596,11 @@ public class UsprUtils extends TreeNeighborhoodUtils {
             if (ch != child1) return ch;
         }
         return null;
+    }
+
+    @Override
+    public void forEachNeighbour(Tree tree, Consumer<Tree> action) {
+        forEachUsprTree(tree, action);
     }
 
     public void forEachUsprTree(Tree tree, Consumer<Tree> action) {

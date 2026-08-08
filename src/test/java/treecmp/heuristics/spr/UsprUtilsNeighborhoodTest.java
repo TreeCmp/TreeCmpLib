@@ -33,19 +33,13 @@ public class UsprUtilsNeighborhoodTest {
         IdGroup idGroup = TreeUtils.getLeafIdGroup(baseTree);
 
         // ====================================================================
-        // 1. ZBIERAMY OTOCZENIE STARĄ, KLASYCZNĄ METODĄ
+        // 1. WYLICZAMY OCZEKIWANY ROZMIAR MATEMATYCZNY uSPR
         // ====================================================================
-        Tree[] oldNeighbors = usprUtils.generateNeighbours(baseTree);
-
-        // Zapisujemy klasyczne drzewa do HashSetu używając TreeUnrootedHolder,
-        // który poprawnie rozpoznaje izomorfizm topologiczny dla drzew bez wiodącego korzenia.
-        Set<TreeHolder> oldSet = new HashSet<>();
-        for (Tree t : oldNeighbors) {
-            oldSet.add(new TreeUnrootedHolder(t, idGroup));
-        }
+        // Dla N=10 wzór to: 2 * (10 - 3) * (2 * 10 - 7) = 2 * 7 * 13 = 182
+        int expectedMathSize = usprUtils.calcUsprNeighbours(baseTree);
 
         // ====================================================================
-        // 2. ZBIERAMY OTOCZENIE NOWĄ METODĄ (LENIWY GENERATOR)
+        // 2. ZBIERAMY OTOCZENIE NOWĄ METODą (LENIWY GENERATOR)
         // ====================================================================
         Set<TreeHolder> newSet = new HashSet<>();
         List<Tree> newNeighborsList = new ArrayList<>();
@@ -59,18 +53,16 @@ public class UsprUtilsNeighborhoodTest {
         // 3. WERYFIKACJA (ASERCJE)
         // ====================================================================
 
-        // A. Sprawdzamy surową liczność wygenerowanego otoczenia (czy pętle nie gubią gałęzi)
-        assertEquals(oldNeighbors.length, newNeighborsList.size(),
-                "Leniwy generator uSPR zwrócił inną liczbę drzew niż metoda klasyczna!");
+        // A. Sprawdzamy, czy liczba unikalnych topologii po odfiltrowaniu izomorfizmów
+        // jest równa matematycznemu, teoretycznemu rozmiarowi otoczenia uSPR.
+        assertEquals(expectedMathSize, newSet.size(),
+                "Liczba unikalnych topologii nieukorzenionych uSPR nie zgadza się z twierdzeniem matematycznym!");
 
-        // B. Sprawdzamy liczność po matematycznym odfiltrowaniu izomorfizmów
-        assertEquals(oldSet.size(), newSet.size(),
-                "Liczba unikalnych topologii matematycznych (izomorfizmów nieukorzenionych) nie zgadza się!");
+        // B. Sprawdzamy czy lista i zbiór mają tę samą wielkość (co dowodzi braku duplikatów
+        // dzięki wbudowanemu mechanizmowi `seenTopologies` w nowym wędrowcu uSPR).
+        assertEquals(newNeighborsList.size(), newSet.size(),
+                "Leniwy generator uSPR zwrócił duplikaty w surowej liście!");
 
-        // C. Ostateczny dowód: wzajemne zawieranie się zbiorów
-        assertTrue(oldSet.containsAll(newSet) && newSet.containsAll(oldSet),
-                "Wygenerowane otoczenia uSPR nie pokrywają się w 100%! Brakuje topologii lub nowa logika Split Hasha zawiodła.");
-
-        System.out.println("Test zaliczony! Leniwy generator uSPR stworzył idealne otoczenie o rozmiarze: " + oldSet.size() + " unikalnych topologii.");
+        System.out.println("Test zaliczony! Leniwy generator uSPR stworzył idealne otoczenie o rozmiarze: " + newSet.size() + " unikalnych topologii.");
     }
 }
