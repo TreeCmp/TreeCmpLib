@@ -90,13 +90,23 @@ public class NniUtils extends TreeNeighborhoodUtils {
         }
     }
 
-    @Override
-    public Tree[] generateNeighbours(Tree tree) {
+    public void forEachNniTree(Tree tree, java.util.function.Consumer<Tree> action) {
         NniMove[] moves = generateNniMoves(tree);
-        Tree[] neighbours = new Tree[moves.length];
-        for (int i = 0; i < moves.length; i++) {
-            neighbours[i] = createNniTree(tree, moves[i]);
+        for (NniMove move : moves) {
+            Tree resultTree = createNniTree(tree, move);
+            if (resultTree != null) {
+                // Rejestrujemy koszt i ruch (metody z klasy bazowej)
+                registerTreeCost(resultTree, move.getNniEquivalentCost());
+                registerTreeMove(resultTree, move);
+
+                // Przekazujemy wygenerowane drzewo prosto do callbacku
+                action.accept(resultTree);
+            }
         }
-        return neighbours;
+    }
+
+    @Override
+    public void forEachNeighbour(Tree tree, java.util.function.Consumer<Tree> action) {
+        forEachNniTree(tree, action);
     }
 }

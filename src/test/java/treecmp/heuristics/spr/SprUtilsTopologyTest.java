@@ -19,33 +19,34 @@ class SprUtilsTopologyTest {
         Tree baseTree = TreeCreator.getTreeFromString(treeNewick);
         SprUtils sprUtils = new SprUtils();
 
-        Tree[] sprNeighbors = sprUtils.generateNeighbours(baseTree);
-
         // Wyliczamy dokładną liczbę unikalnych topologii rSPR ze wzoru Allena i Steela (2001)
         int exactMathSize = sprUtils.calcSprNeighbours(baseTree);
 
         IdGroup idGroup = TreeUtils.getLeafIdGroup(baseTree);
         Set<TreeRootedHolder> uniqueSprTrees = new HashSet<>();
+        final int[] generatedCount = {0};
 
-        for (Tree t : sprNeighbors) {
-            uniqueSprTrees.add(new TreeRootedHolder(t, idGroup));
-        }
+        // Zamiast tablicy, używamy wywołania zwrotnego i na bieżąco zbieramy topologie do weryfikacji
+        sprUtils.forEachSprTree(baseTree, neighbor -> {
+            generatedCount[0]++;
+            uniqueSprTrees.add(new TreeRootedHolder(neighbor, idGroup));
+        });
 
         TreeRootedHolder baseTreeHolder = new TreeRootedHolder(baseTree, idGroup);
 
-        // REGUŁA 1: Brak duplikatów
-        assertEquals(sprNeighbors.length, uniqueSprTrees.size(),
-                testName + " -> Wykryto duplikaty! Oczekiwano " + sprNeighbors.length + " unikalnych.");
+        // REGUŁA 1: Brak duplikatów (liczba wywołań lambdy musi być równa liczbie unikalnych obiektów w Set)
+        assertEquals(generatedCount[0], uniqueSprTrees.size(),
+                testName + " -> Wykryto duplikaty! Generator zwrócił " + generatedCount[0] + " drzew, ale tylko " + uniqueSprTrees.size() + " jest unikalnych.");
 
         // REGUŁA 2: Brak drzewa bazowego
         assertFalse(uniqueSprTrees.contains(baseTreeHolder),
                 testName + " -> Generator rSPR zwrócił drzewo bazowe (odległość 0)!");
 
         // REGUŁA 3: Perfekcyjna zgodność ze wzorem matematycznym
-        assertEquals(exactMathSize, sprNeighbors.length,
+        assertEquals(exactMathSize, uniqueSprTrees.size(),
                 testName + " -> Rozmiar otoczenia rSPR jest niezgodny z twierdzeniem matematycznym!");
 
-        System.out.println(testName + " | Unikalne wygenerowane topologie: " + sprNeighbors.length + " | Wyliczone ze wzoru: " + exactMathSize);
+        System.out.println(testName + " | Unikalne wygenerowane topologie: " + uniqueSprTrees.size() + " | Wyliczone ze wzoru: " + exactMathSize);
     }
 
     @Test void test_N5_Balanced() { verifyRSprNeighborhood("(((1,2),(3,4)),5);", "5 liści (Zrównoważone)"); }

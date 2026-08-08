@@ -30,22 +30,25 @@ public class SubtreeEcrRegressionTest {
     }
 
     @Test
-    @DisplayName("REGRESJA #1 (3sECR unrooted): generateNeighbours musi wykrywać klastry poniżej korzenia (size=4)")
+    @DisplayName("REGRESJA #1 (3sECR unrooted): forEachNeighbour musi wykrywać klastry poniżej korzenia (size=4)")
     void testUnrooted3sEcr_GeneratesNeighboursFromNonRootClusters() {
         // Arrange: Prawidłowe drzewo o 9 liściach. Gałąź (E,...) ma teraz dokładnie
         // 4 węzły wewnętrzne w łańcuchu, tworząc klaster o 5 poddrzewach brzegowych.
         Tree tree = parseNewick("(((A:1,B:1):1,(C:1,D:1):1):1,(E:1,(F:1,(G:1,(H:1,I:1):1):1):1):1);");
         SubtreeEcr3Utils utils = new SubtreeEcr3Utils(true);
 
-        // Act
-        Tree[] neighbours = utils.generateNeighbours(tree);
+        // Licznik wygenerowanych sąsiadów
+        final int[] generatedCount = {0};
 
-        // Assert
-        assertTrue(neighbours.length > 0,
-                "Nieukorzenione 3-sECR musi generować sąsiedztwa z węzłów wewnętrznych poniżej korzenia!");
-        for (Tree n : neighbours) {
+        // Act & Assert (w locie)
+        utils.forEachNeighbour(tree, n -> {
+            generatedCount[0]++;
             assertEquals(9, n.getExternalNodeCount(), "Sąsiad musi zachować 9 liści");
-        }
+        });
+
+        // Assert (końcowy)
+        assertTrue(generatedCount[0] > 0,
+                "Nieukorzenione 3-sECR musi generować sąsiedztwa z węzłów wewnętrznych poniżej korzenia!");
     }
 
     @Test

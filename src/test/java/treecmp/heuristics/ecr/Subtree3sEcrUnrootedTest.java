@@ -79,15 +79,18 @@ public class Subtree3sEcrUnrootedTest {
     }
 
     @Test
-    @DisplayName("generateNeighbours (unrooted): Brak pętli wskaźników rodzic-dziecko po transformacji")
+    @DisplayName("forEachNeighbour (unrooted): Brak pętli wskaźników rodzic-dziecko po transformacji")
     void testGenerateNeighbours_NoParentPointersCyclesUnrooted() {
         Tree tree = parseNewick("(((((1:0.1,2:0.1):0.1,3:0.1):0.1,4:0.1):0.1,5:0.1):0.1,6:0.1);");
-        Tree[] neighbours = utils.generateNeighbours(tree);
 
-        assertTrue(neighbours.length > 0, "Powinno wygenerować sąsiadów 3sECR dla drzewa nieukorzenionego");
+        // Licznik wygenerowanych sąsiadów, który możemy modyfikować wewnątrz lambdy
+        final int[] generatedCount = {0};
 
-        for (Tree n : neighbours) {
+        // Używamy zoptymalizowanej metody zamiast starego generateNeighbours
+        utils.forEachNeighbour(tree, n -> {
+            generatedCount[0]++;
             assertNotNull(n, "Sąsiad nie może być null");
+
             for (int i = 0; i < n.getExternalNodeCount(); i++) {
                 Node curr = n.getExternalNode(i);
                 int steps = 0;
@@ -97,7 +100,10 @@ public class Subtree3sEcrUnrootedTest {
                 }
                 assertTrue(steps < 100, "Wskaźniki rodzic-dziecko w drzewie nieukorzenionym zawierają nieskończoną pętlę!");
             }
-        }
+        });
+
+        // Sprawdzamy, czy w ogóle wygenerowano jakiekolwiek drzewa
+        assertTrue(generatedCount[0] > 0, "Powinno wygenerować sąsiadów 3sECR dla drzewa nieukorzenionego");
     }
 
     @Test

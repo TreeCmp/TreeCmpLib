@@ -119,28 +119,34 @@ public class Ecr2IncrementalCorrectnessTest {
         // 1. Obliczenie wyniku inkrementalnego
         double distIncr = incrementalMetric.evaluateSingleStep(t1ForIncr, t2);
 
-        // 2. Obliczenie wyniku klasycznego (przegląd całego wygenerowanego otoczenia)
-        Tree[] neighbors = classicUtils.generateNeighbours(t1);
-        assertNotNull(neighbors, "Tablica sąsiadów 2-sECR nie powinna być null");
-        assertTrue(neighbors.length > 0, "Otoczenie 2-sECR nie powinno być puste");
+        // 2. Obliczenie wyniku klasycznego (przegląd całego wygenerowanego otoczenia w locie)
+        final double[] bestClassicDist = { Double.POSITIVE_INFINITY };
+        final int[] neighborCount = { 0 };
 
-        double bestClassicDist = Double.POSITIVE_INFINITY;
-        for (Tree n : neighbors) {
+        classicUtils.forEachNeighbour(t1, n -> {
+            neighborCount[0]++;
             assignNumbers(n);
-            double d = classicMetric.getDistance(n, t2);
-            if (d < bestClassicDist) {
-                bestClassicDist = d;
+            try {
+                double d = classicMetric.getDistance(n, t2);
+                if (d < bestClassicDist[0]) {
+                    bestClassicDist[0] = d;
+                }
+            } catch (Exception e) {
+                throw new RuntimeException("Błąd podczas ewaluacji odległości w teście 2-sECR", e);
             }
-        }
+        });
+
+        // Zamiast assertTrue(neighbors.length > 0) sprawdzamy nasz wewnętrzny licznik
+        assertTrue(neighborCount[0] > 0, "Otoczenie 2-sECR nie powinno być puste");
 
         // 3. Weryfikacja zgodności najlepszego kroku
         assertEquals(
-                bestClassicDist,
+                bestClassicDist[0],
                 distIncr,
                 EPSILON,
                 String.format(
                         "Niezgodność w 2-sECR (%s) dla n=%d (seeds=%d/%d)! Classic=%.6f vs Incr=%.6f",
-                        metricName, treeSize, seed1, seed2, bestClassicDist, distIncr
+                        metricName, treeSize, seed1, seed2, bestClassicDist[0], distIncr
                 )
         );
     }

@@ -14,7 +14,9 @@ import treecmp.util.CoverageMockMetric;
 import treecmp.util.GoldenMasterValues;
 import treecmp.util.TestTreeFactory;
 
+import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -85,12 +87,17 @@ public class SprNeighborhoodWalkerTopologyTest {
         IdGroup idGroup = TreeUtils.getLeafIdGroup(baseTree);
 
         int expectedSprSize = GoldenMasterValues.calculateExactRootedSprSize(baseTree, naiveSprUtils);
-        Tree[] naiveNeighborsArray = naiveSprUtils.generateNeighbours(baseTree);
 
-        assertEquals(expectedSprSize, naiveNeighborsArray.length,
+        // ZBIERANIE SĄSIADÓW Z NOWEGO, STRUMIENIOWEGO API
+        List<Tree> naiveNeighborsList = new ArrayList<>();
+        naiveSprUtils.forEachNeighbour(baseTree, naiveNeighborsList::add);
+
+        // Zamiast tablica.length, sprawdzamy rozmiar listy
+        assertEquals(expectedSprSize, naiveNeighborsList.size(),
                 "The Oracle (SprUtils) produced an incorrect number of Rooted SPR neighbors!");
 
-        Set<TreeHolder> expectedTopologies = Arrays.stream(naiveNeighborsArray)
+        // Zamiast Arrays.stream(...), wywołujemy .stream() bezpośrednio na liście
+        Set<TreeHolder> expectedTopologies = naiveNeighborsList.stream()
                 .map(tree -> new TreeRootedHolder(tree, idGroup))
                 .collect(Collectors.toSet());
 

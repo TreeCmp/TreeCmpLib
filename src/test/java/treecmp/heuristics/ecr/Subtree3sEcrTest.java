@@ -140,24 +140,31 @@ public class Subtree3sEcrTest {
     }
 
     @Test
-    @DisplayName("generateNeighbours: Żaden z wygenerowanych sąsiadów 3sECR nie może mieć pętli rodzic-dziecko")
+    @DisplayName("forEachNeighbour: Żaden z wygenerowanych sąsiadów 3sECR nie może mieć pętli rodzic-dziecko")
     void testGenerateNeighbours_NoParentPointersCycles() {
         Tree tree = parseNewick("(((((1:0.1,2:0.1):0.1,3:0.1):0.1,4:0.1):0.1,5:0.1):0.1,6:0.1);");
-        Tree[] neighbours = utils.generateNeighbours(tree);
 
-        assertTrue(neighbours.length > 0, "Powinno wygenerować sąsiadów 3sECR");
+        // Licznik wygenerowanych drzew, modyfikowalny z wnętrza lambdy
+        final int[] generatedCount = {0};
 
-        for (Tree n : neighbours) {
+        // Ewaluacja w locie za pomocą zoptymalizowanego iteratora
+        utils.forEachNeighbour(tree, n -> {
+            generatedCount[0]++;
             assertNotNull(n, "Sąsiad nie może być null");
+
             for (int i = 0; i < n.getExternalNodeCount(); i++) {
                 Node curr = n.getExternalNode(i);
                 int steps = 0;
+                // Zabezpieczenie przed nieskończoną pętlą
                 while (curr != null && steps < 100) {
                     curr = curr.getParent();
                     steps++;
                 }
                 assertTrue(steps < 100, "Wskaźniki rodzic-dziecko zawierają nieskończoną pętlę!");
             }
-        }
+        });
+
+        // Upewniamy się, że heurystyka faktycznie wygenerowała sąsiadów
+        assertTrue(generatedCount[0] > 0, "Powinno wygenerować sąsiadów 3sECR");
     }
 }

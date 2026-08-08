@@ -23,58 +23,6 @@ public class SubtreeEcr3Utils extends TreeNeighborhoodUtils {
     }
 
     @Override
-    public Tree[] generateNeighbours(Tree tree) {
-        IdGroup idGroup = TreeUtils.getLeafIdGroup(tree);
-        Set<treecmp.heuristics.TreeHolder> ecrTreeSet = new HashSet<>();
-
-        for (int i = 0; i < tree.getInternalNodeCount(); i++) {
-            Node rootOfCluster = tree.getInternalNode(i);
-
-            // W PAL każdy węzeł wewnętrzny w drzewie binarnym ma 2 dzieci w dół.
-            // Aby uzyskać 5 poddrzew brzegowych, klaster musi mieć zawsze 4 węzły wewnętrzne (size = 4).
-            int targetClusterSize = 4;
-            List<List<Node>> clusters = getClusters(rootOfCluster, targetClusterSize);
-
-            for (List<Node> cluster : clusters) {
-                List<Node> subtreesList = getBoundarySubtrees(cluster);
-                if (subtreesList.size() != 5) continue;
-
-                Node[] s = subtreesList.toArray(new Node[0]);
-                TopologyTemplate3sECR originalSignature = extractSignature(rootOfCluster, cluster, subtreesList);
-
-                for (TopologyTemplate3sECR template : TEMPLATES_105) {
-                    if (template.isIsomorphic(originalSignature)) {
-                        continue;
-                    }
-
-                    Tree newTree = createEcr3Tree(tree, cluster, s, template);
-                    if (newTree != null) {
-                        treecmp.heuristics.moves.Ecr3Move move =
-                                new treecmp.heuristics.moves.Ecr3Move(cluster, s, template);
-
-                        registerTreeCost(newTree, move.getNniEquivalentCost());
-                        registerTreeMove(newTree, move);
-
-                        if (unrooted) {
-                            ecrTreeSet.add(new TreeUnrootedHolder(newTree, idGroup));
-                        } else {
-                            ecrTreeSet.add(new TreeRootedHolder(newTree, idGroup));
-                        }
-                    }
-                }
-            }
-        }
-
-        int n = ecrTreeSet.size();
-        Tree[] ecrTreeArray = new Tree[n];
-        int idx = 0;
-        for (treecmp.heuristics.TreeHolder th : ecrTreeSet) {
-            ecrTreeArray[idx++] = th.tree;
-        }
-        return ecrTreeArray;
-    }
-
-    @Override
     public void forEachNeighbour(Tree tree, java.util.function.Consumer<Tree> action) {
         forEachEcr3Tree(tree, action);
     }

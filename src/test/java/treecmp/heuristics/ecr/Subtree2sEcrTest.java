@@ -11,6 +11,7 @@ import treecmp.heuristics.ecr.SubtreeEcr2Utils.TopologyTemplate2sECR;
 import treecmp.heuristics.moves.Ecr2Move;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -138,12 +139,15 @@ public class Subtree2sEcrTest {
     }
 
     @Test
-    @DisplayName("generateNeighbours: Wygenerowane sąsiedztwa 2sECR muszą zachowywać integralność struktury")
-    void testGenerateNeighbours_StructuralIntegrity() {
+    @DisplayName("forEachNeighbour: Wygenerowane sąsiedztwa 2sECR muszą zachowywać integralność struktury")
+    void testForEachNeighbour_StructuralIntegrity() {
         Tree tree = parseNewick("(((A:1,B:1):1,(C:1,D:1):1):1,E:1);");
-        Tree[] neighbours = utils.generateNeighbours(tree);
 
-        assertTrue(neighbours.length > 0, "Powinno wygenerować co najmniej jedno sąsiedztwo 2sECR");
+        // Zbieramy sąsiadów wyemitowanych przez nasz nowy strumieniowy generator
+        List<Tree> neighbours = new ArrayList<>();
+        utils.forEachNeighbour(tree, neighbours::add);
+
+        assertTrue(neighbours.size() > 0, "Powinno wygenerować co najmniej jedno sąsiedztwo 2sECR");
 
         for (Tree n : neighbours) {
             assertNotNull(n, "Żadne z sąsiednich drzew nie może być null");

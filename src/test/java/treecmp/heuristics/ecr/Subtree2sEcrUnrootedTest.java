@@ -12,6 +12,7 @@ import treecmp.heuristics.ecr.SubtreeEcr2Utils.TopologyTemplate2sECR;
 import treecmp.heuristics.moves.Ecr2Move;
 
 import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -99,12 +100,15 @@ public class Subtree2sEcrUnrootedTest {
     }
 
     @Test
-    @DisplayName("generateNeighbours (unrooted): Sąsiedztwa nieukorzenione muszą mieć poprawną strukturę")
-    void testGenerateNeighbours_UnrootedIntegrity() {
+    @DisplayName("forEachNeighbour (unrooted): Sąsiedztwa nieukorzenione muszą mieć poprawną strukturę")
+    void testForEachNeighbour_UnrootedIntegrity() {
         Tree tree = parseNewick("(((A:1,B:1):1,(C:1,D:1):1):1,E:1);");
-        Tree[] neighbours = utils.generateNeighbours(tree);
 
-        assertTrue(neighbours.length > 0, "Powinno wygenerować sąsiedztwa 2sECR dla drzewa nieukorzenionego");
+        // Zbieramy wygenerowane sąsiedztwa za pomocą nowego interfejsu
+        List<Tree> neighbours = new ArrayList<>();
+        utils.forEachNeighbour(tree, neighbours::add);
+
+        assertTrue(neighbours.size() > 0, "Powinno wygenerować sąsiedztwa 2sECR dla drzewa nieukorzenionego");
 
         for (Tree n : neighbours) {
             assertNotNull(n, "Żaden z wygenerowanych sąsiadów nie może być null");

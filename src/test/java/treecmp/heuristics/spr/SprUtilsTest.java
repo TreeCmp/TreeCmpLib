@@ -15,7 +15,9 @@ import treecmp.metrics.topological.RFMetric;
 import treecmp.util.TestTreeFactory;
 import treecmp.util.TreeCreator;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 class SprUtilsTest {
@@ -33,50 +35,42 @@ class SprUtilsTest {
      */
     @Test
     public void testGenerateRSprNeighboursShouldReturnExactly_12_Neighbours_testing_one_4_labels_tree() {
-        SprUtils instance = new SprUtils();
         Tree baseTree = TestTreeFactory.fourLeavesBalancedTree1();
-        Tree[] treeList;
-        //int neighSizeExpResult = instance.calcSprNeighbours(baseTree);
+        List<Tree> treeList = new ArrayList<>();
         int neighSizeExpResult = 12;
         SprUtils sprUtils = new SprUtils();
-        treeList = sprUtils.generateNeighbours(baseTree);
-        assertEquals(neighSizeExpResult, treeList.length);
+        sprUtils.forEachSprTree(baseTree, treeList::add);
+        assertEquals(neighSizeExpResult, treeList.size());
     }
 
     @Test
     public void testGenerateRSprNeighboursShouldReturnExactly_26_Neighbours_testing_one_5_labels_tree() {
-        SprUtils instance = new SprUtils();
         Tree baseTree = TestTreeFactory.fiveLeavesRootedBalancedTree();
-        Tree[] treeList;
-        //int neighSizeExpResult = instance.calcSprNeighbours(baseTree);
+        List<Tree> treeList = new ArrayList<>();
         int neighSizeExpResult = 26;
         SprUtils sprUtils = new SprUtils();
-        treeList = sprUtils.generateNeighbours(baseTree);
-        assertEquals(neighSizeExpResult, treeList.length);
+        sprUtils.forEachSprTree(baseTree, treeList::add);
+        assertEquals(neighSizeExpResult, treeList.size());
     }
 
     @Test
     public void testGenerateRSprNeighboursShouldReturnExactly_24_Neighbours_testing_one_5_labels_tree() {
-        SprUtils instance = new SprUtils();
         Tree baseTree = TestTreeFactory.fiveLeavesRootedCaterpillarTree();
-        Tree[] treeList;
-        //int neighSizeExpResult = instance.calcSprNeighbours(baseTree);
+        List<Tree> treeList = new ArrayList<>();
         int neighSizeExpResult = 24;
-                SprUtils sprUtils = new SprUtils();
-        treeList = sprUtils.generateNeighbours(baseTree);
-        assertEquals(neighSizeExpResult, treeList.length);
+        SprUtils sprUtils = new SprUtils();
+        sprUtils.forEachSprTree(baseTree, treeList::add);
+        assertEquals(neighSizeExpResult, treeList.size());
     }
 
     @Test
     public void testGenerateRSprNeighboursShouldReturnExactly_34812_Neighbours_testing_one_100_labels_tree() {
-        SprUtils instance = new SprUtils();
         Tree baseTree = TreeCreator.getrootrdTreeWith_100_Labels();
-        Tree[] treeList;
-        //int neighSizeExpResult = instance.calcSprNeighbours(baseTree);
+        List<Tree> treeList = new ArrayList<>();
         int neighSizeExpResult = 34812;
         SprUtils sprUtils = new SprUtils();
-        treeList = sprUtils.generateNeighbours(baseTree);
-        assertEquals(neighSizeExpResult, treeList.length);
+        sprUtils.forEachSprTree(baseTree, treeList::add);
+        assertEquals(neighSizeExpResult, treeList.size());
     }
 
     /**
@@ -85,117 +79,97 @@ class SprUtilsTest {
 
     @Test
     public void testGenerateUSprNeighboursShouldReturnExactly_12_Neighbours_testing_all_5_labels_trees() throws TreeCmpException {
-        SprUtils instance = new SprUtils();
         Tree baseTree = TestTreeFactory.fiveLeavesUnrooted0Based();
-        Tree[] treeList;
-        //int neighSizeExpResult = instance.calcUsprNeighbours(baseTree);
-
+        List<Tree> treeList = new ArrayList<>();
         int neighSizeExpResult = 12;
         UsprUtils usprUtils = new UsprUtils();
-        treeList = usprUtils.generateNeighbours(baseTree);
-        assertEquals(neighSizeExpResult, treeList.length);
+        usprUtils.forEachUsprTree(baseTree, treeList::add);
+        assertEquals(neighSizeExpResult, treeList.size());
     }
 
     @Test
     public void testGenerateUSprNeighboursShouldReturnExactly_12_Neighbours_testing_one_5_labels_tree() throws TreeCmpException {
-        SprUtils instance = new SprUtils();
         Tree baseTrees[] = TreeCreator.getAllUnrootedTreesWith_5_Labels();
-        Tree[] treeList;
-        //int neighSizeExpResult = instance.calcUsprNeighbours(baseTrees[0]);
         int neighSizeExpResult = 12;
         for(Tree bt: baseTrees) {
-                    UsprUtils usprUtils = new UsprUtils();
-        treeList = usprUtils.generateNeighbours(bt);
-            assertEquals(neighSizeExpResult, treeList.length);
+            List<Tree> treeList = new ArrayList<>();
+            UsprUtils usprUtils = new UsprUtils();
+            usprUtils.forEachUsprTree(bt, treeList::add);
+            assertEquals(neighSizeExpResult, treeList.size());
         }
     }
 
     @Test
     public void testGenerateUSprNeighboursShouldReturnExactly_30_Neighbours_testing_one_6_labels_tree() throws TreeCmpException {
-        SprUtils instance = new SprUtils();
         Tree baseTrees[] = TreeCreator.getAllUnrootedTreesWith_6_Labels();
-        Tree[] treeList;
-        //int neighSizeExpResult = instance.calcUsprNeighbours(baseTrees[0]);
         int neighSizeExpResult = 30;
         for(Tree bt: baseTrees) {
-                    UsprUtils usprUtils = new UsprUtils();
-        treeList = usprUtils.generateNeighbours(bt);
-            assertEquals(neighSizeExpResult, treeList.length);
+            List<Tree> treeList = new ArrayList<>();
+            UsprUtils usprUtils = new UsprUtils();
+            usprUtils.forEachUsprTree(bt, treeList::add);
+            assertEquals(neighSizeExpResult, treeList.size());
         }
     }
 
     @Test
     public void testGenerateUSprNeighboursShouldReturnExactly_30_Neighbours_testing_all_6_labels_trees() throws TreeCmpException {
-        SprUtils instance = new SprUtils();
-        //Tree baseTree = TreeCreator.getTreeFromString("(((1,4),(2,5)),3,6);");
         Tree baseTree = TestTreeFactory.sixLeavesUnrooted0BasedBaseTree();
-        Tree[] treeList;
-        //int neighSizeExpResult = instance.calcUsprNeighbours(baseTree);
+        List<Tree> treeList = new ArrayList<>();
         int neighSizeExpResult = 30;
-                UsprUtils usprUtils = new UsprUtils();
-        treeList = usprUtils.generateNeighbours(baseTree);
-        assertEquals(neighSizeExpResult, treeList.length);
+        UsprUtils usprUtils = new UsprUtils();
+        usprUtils.forEachUsprTree(baseTree, treeList::add);
+        assertEquals(neighSizeExpResult, treeList.size());
     }
 
     @Test
     public void testGenerateUSprNeighboursShouldReturnExactly_56_Neighbours_testing_one_7_labels_tree() throws TreeCmpException {
-        SprUtils instance = new SprUtils();
         Tree baseTree = TestTreeFactory.sevenLeavesUnrooted0Based();
-        Tree[] treeList;
-        //int neighSizeExpResult = instance.calcUsprNeighbours(baseTree);
+        List<Tree> treeList = new ArrayList<>();
         int neighSizeExpResult = 56;
-                UsprUtils usprUtils = new UsprUtils();
-        treeList = usprUtils.generateNeighbours(baseTree);
-        assertEquals(neighSizeExpResult, treeList.length);
+        UsprUtils usprUtils = new UsprUtils();
+        usprUtils.forEachUsprTree(baseTree, treeList::add);
+        assertEquals(neighSizeExpResult, treeList.size());
     }
 
     @Test
     public void testGenerateUSprNeighboursShouldReturnExactly_56_Neighbours_testing_some_7_labels_trees() throws TreeCmpException {
-        SprUtils instance = new SprUtils();
         Tree baseTrees[] = TreeCreator.getSomeUnrootedTreesWith_7_Labels();
-        Tree[] treeList;
-        //int neighSizeExpResult = instance.calcUsprNeighbours(baseTrees[0]);
         int neighSizeExpResult = 56;
         for(Tree bt: baseTrees) {
-                    UsprUtils usprUtils = new UsprUtils();
-        treeList = usprUtils.generateNeighbours(bt);
-            assertEquals(neighSizeExpResult, treeList.length);
+            List<Tree> treeList = new ArrayList<>();
+            UsprUtils usprUtils = new UsprUtils();
+            usprUtils.forEachUsprTree(bt, treeList::add);
+            assertEquals(neighSizeExpResult, treeList.size());
         }
     }
 
     @Test
     public void testGenerateUSprNeighboursShouldReturnExactly_90_Neighbours_testing_one_8_labels_tree() throws TreeCmpException {
-        SprUtils instance = new SprUtils();
         Tree baseTree = TreeCreator.getTreeFromString("(1,2,(3,(4,(5,(6,(7,8))))));");
-        //Tree baseTree = TestTreeFactory.eightLeavesUnrootedComplex1();
-        Tree[] treeList;
-        //int neighSizeExpResult = instance.calcUsprNeighbours(baseTree);
+        List<Tree> treeList = new ArrayList<>();
         int neighSizeExpResult = 90;
-                UsprUtils usprUtils = new UsprUtils();
-        treeList = usprUtils.generateNeighbours(baseTree);
-        assertEquals(neighSizeExpResult, treeList.length);
+        UsprUtils usprUtils = new UsprUtils();
+        usprUtils.forEachUsprTree(baseTree, treeList::add);
+        assertEquals(neighSizeExpResult, treeList.size());
     }
 
     @Test
     public void testGenerateUSprNeighboursShouldReturnExactly_37442_Neighbours_testing_one_100_labels_tree() throws TreeCmpException {
-        SprUtils instance = new SprUtils();
         Tree baseTree = TreeCreator.getUnrootrdTreeWith_100_Labels();
-        Tree[] treeList;
-        //int neighSizeExpResult = instance.calcUsprNeighbours(baseTree);
+        List<Tree> treeList = new ArrayList<>();
         int neighSizeExpResult = 37442;
-                UsprUtils usprUtils = new UsprUtils();
-        treeList = usprUtils.generateNeighbours(baseTree);
-        assertEquals(neighSizeExpResult, treeList.length);
+        UsprUtils usprUtils = new UsprUtils();
+        usprUtils.forEachUsprTree(baseTree, treeList::add);
+        assertEquals(neighSizeExpResult, treeList.size());
     }
 
     @Test
     public void testGenerateUSprNeighboursShouldReturnTreesWithRoot3Degree_testing_some_7_labels_trees() throws TreeCmpException {
-        SprUtils instance = new SprUtils();
         Tree baseTrees[] = TreeCreator.getSomeUnrootedTreesWith_7_Labels();
-        Tree[] treeList;
         for(Tree bt: baseTrees) {
-                    UsprUtils usprUtils = new UsprUtils();
-        treeList = usprUtils.generateNeighbours(bt);
+            List<Tree> treeList = new ArrayList<>();
+            UsprUtils usprUtils = new UsprUtils();
+            usprUtils.forEachUsprTree(bt, treeList::add);
             for (Tree t : treeList) {
                 assertEquals(3, t.getRoot().getChildCount());
             }
@@ -204,12 +178,10 @@ class SprUtilsTest {
 
     @Test
     public void testGenerateUSprNeighboursShouldReturnTreesWithRoot3Degree_testing_100_labels_tree() throws TreeCmpException {
-        SprUtils instance = new SprUtils();
         Tree baseTree = TreeCreator.getUnrootedTreeWith_50_Labels();
-        //Tree baseTree = TreeCreator.getUnrootrdTreeWith_100_Labels();
-        Tree[] treeList;
-                UsprUtils usprUtils = new UsprUtils();
-        treeList = usprUtils.generateNeighbours(baseTree);
+        List<Tree> treeList = new ArrayList<>();
+        UsprUtils usprUtils = new UsprUtils();
+        usprUtils.forEachUsprTree(baseTree, treeList::add);
         for (Tree t : treeList) {
             assertEquals(3, t.getRoot().getChildCount());
         }
@@ -217,18 +189,17 @@ class SprUtilsTest {
 
     @Test
     public void testGenerateUSprNeighboursShoudReturnUniqueTrees() throws TreeCmpException {
-        SprUtils instance = new SprUtils();
         Metric rf = new RFMetric();
         Tree baseTree = TestTreeFactory.sixLeavesUnrootedBalancedTree();
-        Tree[] treeList;
-                UsprUtils usprUtils = new UsprUtils();
-        treeList = usprUtils.generateNeighbours(baseTree);
-        for (int i = 0; i < treeList.length; i++) {
-            for (int j = 0; j < treeList.length; j++) {
+        List<Tree> treeList = new ArrayList<>();
+        UsprUtils usprUtils = new UsprUtils();
+        usprUtils.forEachUsprTree(baseTree, treeList::add);
+        for (int i = 0; i < treeList.size(); i++) {
+            for (int j = 0; j < treeList.size(); j++) {
                 if (i != j) {
                     try {
-                        double dist = rf.getDistance(treeList[i], treeList[j]);
-                        assertNotEquals(0.0, dist, "trees " + i + " " + treeList[i].toString() + "\nand " + j + " " + treeList[j].toString() + " are the same");
+                        double dist = rf.getDistance(treeList.get(i), treeList.get(j));
+                        assertNotEquals(0.0, dist, "trees " + i + " " + treeList.get(i).toString() + "\nand " + j + " " + treeList.get(j).toString() + " are the same");
                     } catch (TreeCmpException e) {
                         e.printStackTrace();
                     }
@@ -239,13 +210,12 @@ class SprUtilsTest {
 
     @Test
     public void testGenerateUSprNeighboursFookingFor_1_Neightbour() throws TreeCmpException {
-        SprUtils instance = new SprUtils();
         Metric rf = new RFMetric();
         Tree baseTree = TestTreeFactory.sixLeavesUnrooted1BasedBaseTree();
         Tree neightbourTree = TreeCreator.getTreeFromString("(((1,2),5),6,(3,4));");
-        Tree[] treeList;
-                UsprUtils usprUtils = new UsprUtils();
-        treeList = usprUtils.generateNeighbours(baseTree);
+        List<Tree> treeList = new ArrayList<>();
+        UsprUtils usprUtils = new UsprUtils();
+        usprUtils.forEachUsprTree(baseTree, treeList::add);
         boolean foundWantedTree = false;
         for (Tree tree : treeList) {
             try {
@@ -261,13 +231,12 @@ class SprUtilsTest {
 
     @Test
     public void testGenerateUSprNeighboursFookingFor_30_Neightbours() throws TreeCmpException {
-        SprUtils instance = new SprUtils();
         Metric rf = new RFMetric();
         Tree baseTree = TestTreeFactory.sixLeavesUnrooted1BasedBaseTree();
         Tree neightbours[] = TreeCreator.getAll_30_NeightboursOfSome_6_Labels_Tree();
-        Tree[] treeList;
-                UsprUtils usprUtils = new UsprUtils();
-        treeList = usprUtils.generateNeighbours(baseTree);
+        List<Tree> treeList = new ArrayList<>();
+        UsprUtils usprUtils = new UsprUtils();
+        usprUtils.forEachUsprTree(baseTree, treeList::add);
         for (Tree neightbourTree : neightbours) {
             boolean foundWantedTree = false;
             for (Tree tree : treeList) {
@@ -349,7 +318,6 @@ class SprUtilsTest {
             e.printStackTrace();
         }
     }
-
 
     @Test
     public void testCreateUsprTree_CreateByNonRootNonLeaf_0_toLeaf_0_exchange_on_6_labels_tree() {
@@ -643,9 +611,9 @@ class SprUtilsTest {
     public void testCreateUsprTree_LookingForSomeUnwantedTrees() throws TreeCmpException {
         Tree baseTree = TestTreeFactory.sixLeavesUnrooted0BasedBaseTree();
         Tree unwantedTree = TestTreeFactory.sixLeavesUnrooted0BasedBaseTree();
-        Tree[] treeList;
-                UsprUtils usprUtils = new UsprUtils();
-        treeList = usprUtils.generateNeighbours(baseTree);
+        List<Tree> treeList = new ArrayList<>();
+        UsprUtils usprUtils = new UsprUtils();
+        usprUtils.forEachUsprTree(baseTree, treeList::add);
 
         boolean foundWantedTree = false;
         Metric rf = new RFMetric();
@@ -665,12 +633,11 @@ class SprUtilsTest {
     public void testCreateUsprTree_LookingForSomeWantedTrees() throws TreeCmpException {
         Tree baseTree = TestTreeFactory.sixLeavesUnrooted1BasedBaseTree();
         Tree wantedTrees[] = TreeCreator.getAll_30_NeightboursOfSome_6_Labels_Tree();
-        Tree[] treeList;
+        List<Tree> treeList = new ArrayList<>();
         UsprUtils usprUtils = new UsprUtils();
-        treeList = usprUtils.generateNeighbours(baseTree);
+        usprUtils.forEachUsprTree(baseTree, treeList::add);
 
         for(Tree wantedTree : wantedTrees) {
-
             boolean foundWantedTree = false;
             Metric rf = new RFMetric();
             for (Tree tree : treeList) {
@@ -688,18 +655,18 @@ class SprUtilsTest {
 
     @Test
     public void testAllUsprNeighborsShouldHaveUniqueLeavesWithoutDuplicates() throws TreeCmpException {
-        // Bierzemy wymagające drzewo nieukorzenione (12 liści)
         Tree baseTree = TestTreeFactory.twelveLeavesUnrootedZeroLengths();
         UsprUtils usprUtils = new UsprUtils();
 
-        Tree[] neighbors = usprUtils.generateNeighbours(baseTree);
+        List<Tree> neighbors = new ArrayList<>();
+        usprUtils.forEachUsprTree(baseTree, neighbors::add);
         int expectedLeafCount = baseTree.getExternalNodeCount();
 
         assertNotNull(neighbors, "Lista sąsiadów nie może być null");
-        assertTrue(neighbors.length > 0, "Lista sąsiadów nie może być pusta");
+        assertFalse(neighbors.isEmpty(), "Lista sąsiadów nie może być pusta");
 
-        for (int idx = 0; idx < neighbors.length; idx++) {
-            Tree t = neighbors[idx];
+        for (int idx = 0; idx < neighbors.size(); idx++) {
+            Tree t = neighbors.get(idx);
 
             // 1. Sprawdzenie liczby liści w obiekcie Tree
             assertEquals(expectedLeafCount, t.getExternalNodeCount(),
@@ -714,7 +681,6 @@ class SprUtilsTest {
             }
 
             // 3. Najważniejsze: weryfikacja wygenerowanego Newicka (bez długości krawędzi!)
-            // Usuwamy długości krawędzi np. ":0.0000000", aby zera po przecinku nie fałszowały wyniku dla liścia "0"
             String cleanNewick = t.toString().replaceAll(":[0-9.Ee+-]+", "");
             String[] tokens = cleanNewick.split("[(),;\\s]+");
 
@@ -735,19 +701,17 @@ class SprUtilsTest {
     @Test
     @DisplayName("Każde wygenerowane drzewo z createUsprTree musi mieć unikalne liście i poprawną liczbę przecinków")
     public void testCreateUsprTreeNeverReturnsDuplicatedLeavesOrBrokenNewick() throws Exception {
-        // 10-liściowe drzewo testowe o nietrywialnej strukturze
         Tree baseTree = TreeCreator.getTreeFromString("((((1,2),3),(4,5)),((6,7),(8,9)),10);");
         assertNotNull(baseTree, "Drzewo bazowe nie może być null");
 
         UsprUtils usprUtils = new UsprUtils();
         int expectedLeaves = baseTree.getExternalNodeCount();
-        int expectedCommas = expectedLeaves - 1; // W poprawnym Newicku zawsze L - 1 przecinków
+        int expectedCommas = expectedLeaves - 1;
 
         int extCount = baseTree.getExternalNodeCount();
         int intCount = baseTree.getInternalNodeCount();
         int validMovesCount = 0;
 
-        // Sprawdzamy ABSOLUTNIE WSZYSTKIE kombinacje par węzłów (liście i węzły wewnętrzne)
         for (int i = 0; i < extCount + intCount; i++) {
             Node s = getNodeByIndex(baseTree, i, extCount);
             if (s.isRoot()) continue;
@@ -758,17 +722,14 @@ class SprUtilsTest {
 
                 Tree resultTree = usprUtils.createUsprTree(baseTree, s, t);
 
-                // Jeśli ruch był topologicznie nielegalny lub odrzucony przez bezpiecznik - pomijamy
                 if (resultTree == null) continue;
                 validMovesCount++;
 
                 String newick = resultTree.toString();
 
-                // 1. Weryfikacja liczby liści
                 assertEquals(expectedLeaves, resultTree.getExternalNodeCount(),
                         "Błędna liczba liści po ruchu uSPR (" + s.getNumber() + " -> " + t.getNumber() + "): " + newick);
 
-                // 2. Weryfikacja unikalności etykiet liści (brak duplikacji poddrzew!)
                 Set<String> uniqueLeafNames = new HashSet<>();
                 for (int k = 0; k < resultTree.getExternalNodeCount(); k++) {
                     String leafName = resultTree.getExternalNode(k).getIdentifier().getName();
@@ -776,16 +737,13 @@ class SprUtilsTest {
                             "WYKRYTO DUPLIKAT LIŚCIA '" + leafName + "' w Newicku: " + newick);
                 }
 
-                // 3. Weryfikacja matematyczna Newicka (Liczba przecinków == L - 1)
                 int commaCount = countChar(newick, ',');
                 assertEquals(expectedCommas, commaCount,
                         "USZKODZONY NEWICK (zła liczba przecinków: " + commaCount + " zamiast " + expectedCommas + "): " + newick);
 
-                // 4. Weryfikacja braku wiszących wskaźników null w napisie
                 assertFalse(newick.contains("null"),
                         "Newick zawiera niedozwolony wskaźnik 'null': " + newick);
 
-                // 5. Weryfikacja stopni węzłów wewnętrznych (żaden węzeł nie może mieć tylko 1 dziecka)
                 for (int k = 0; k < resultTree.getInternalNodeCount(); k++) {
                     Node internalNode = resultTree.getInternalNode(k);
                     if (!internalNode.isRoot()) {
@@ -800,19 +758,21 @@ class SprUtilsTest {
     }
 
     @Test
-    @DisplayName("generateNeighbours nie ma prawa zwrócić ani jednego zduplikowanego lub uszkodzonego sąsiada")
+    @DisplayName("forEachUsprTree nie ma prawa zwrócić ani jednego zduplikowanego lub uszkodzonego sąsiada")
     public void testGenerateNeighboursIntegrity() throws Exception {
         Tree baseTree = TreeCreator.getTreeFromString("(((A,B),(C,D)),(E,(F,G)));");
         UsprUtils usprUtils = new UsprUtils();
 
-        Tree[] neighbors = usprUtils.generateNeighbours(baseTree);
+        List<Tree> neighbors = new ArrayList<>();
+        usprUtils.forEachUsprTree(baseTree, neighbors::add);
+
         assertNotNull(neighbors);
-        assertTrue(neighbors.length > 0, "Lista sąsiadów uSPR nie może być pusta");
+        assertFalse(neighbors.isEmpty(), "Lista sąsiadów uSPR nie może być pusta");
 
         int expectedCommas = baseTree.getExternalNodeCount() - 1;
 
-        for (int i = 0; i < neighbors.length; i++) {
-            Tree neighbor = neighbors[i];
+        for (int i = 0; i < neighbors.size(); i++) {
+            Tree neighbor = neighbors.get(i);
             assertNotNull(neighbor, "Sąsiad na indeksie " + i + " jest null");
 
             String newick = neighbor.toString();

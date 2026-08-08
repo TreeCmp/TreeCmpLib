@@ -2,23 +2,19 @@ package treecmp.metrics.topological.acc;
 
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
-import pal.misc.IdGroup;
 import pal.tree.Node;
 import pal.tree.Tree;
-import pal.tree.TreeUtils;
-import treecmp.common.TreeCmpUtils;
 import treecmp.heuristics.ecr.SubtreeEcr2Utils;
 import treecmp.heuristics.ecr.SubtreeEcr3Utils;
 import treecmp.heuristics.moves.Ecr2Move;
 import treecmp.heuristics.moves.Ecr3Move;
 import treecmp.heuristics.moves.NniMove;
-import treecmp.heuristics.spr.SprUtils;
+import treecmp.heuristics.spr.UsprUtils;
 import treecmp.metrics.topological.MatchingSplitMetric;
 import treecmp.util.TestTreeFactory;
 
 import java.util.ArrayList;
 import java.util.Arrays;
-import java.util.BitSet;
 import java.util.List;
 import java.util.Random;
 
@@ -28,7 +24,7 @@ public class MSIncrementalFuzzTest {
 
     private MSIncrementalMetric incrementalMetric;
     private MatchingSplitMetric classicMetric;
-    private SprUtils sprUtils;
+    private UsprUtils usprUtils;
 
     private static final double DELTA = 0.000001;
     private static final int ECR_FUZZ_ITERATIONS = 50;
@@ -37,7 +33,7 @@ public class MSIncrementalFuzzTest {
     void setUp() {
         incrementalMetric = new MSIncrementalMetric();
         classicMetric = new MatchingSplitMetric();
-        sprUtils = new SprUtils();
+        usprUtils = new UsprUtils();
     }
 
     @Test
@@ -48,24 +44,32 @@ public class MSIncrementalFuzzTest {
 
         for (int i = 0; i < numberOfRandomTrees; i++) {
             int numLeaves = 10 + sizeRng.nextInt(41);
-            Tree baseTree = TestTreeFactory.randomRootedBinaryTree(numLeaves, sizeRng.nextLong());
-            Tree targetTree = TestTreeFactory.randomRootedBinaryTree(numLeaves, sizeRng.nextLong());
+
+            // MS wymaga drzew nieukorzenionych (Unrooted)
+            Tree baseTree = TestTreeFactory.randomUnrootedBinaryTree(numLeaves, sizeRng.nextLong());
+            Tree targetTree = TestTreeFactory.randomUnrootedBinaryTree(numLeaves, sizeRng.nextLong());
 
             incrementalMetric.initCalculationState(baseTree, targetTree);
             double initialClassicDist = classicMetric.getDistance(baseTree, targetTree);
 
             assertEquals(initialClassicDist, incrementalMetric.getCurrentDistance(), DELTA, "Base initialization mismatch");
 
+            // Generujemy ruchy dokładnie tak, jak oczekuje tego MSIncrementalMetric
             List<NniMove> validMoves = getAllValidNniMoves(baseTree);
+
             for (NniMove move : validMoves) {
+                // KLUCZOWY DETAL: Aby zasymulować NNI Swap między 'A' a 'S' ruchem uSPR,
+                // musimy przenieść BRATA węzła 'A' nad węzeł 'S'.
                 Node siblingOfMoving = getSibling(move.movingSubtree);
-                Tree physicalNeighbor = sprUtils.createSprTree(baseTree, siblingOfMoving, move.swapPartner);
+
+                Tree physicalNeighbor = usprUtils.createUsprTree(baseTree, siblingOfMoving, move.swapPartner);
                 if (physicalNeighbor == null) continue;
 
                 double expectedDist = classicMetric.getDistance(physicalNeighbor, targetTree);
                 double actualDist = incrementalMetric.applyNni(move);
 
                 assertEquals(expectedDist, actualDist, DELTA, "NNI mismatch!");
+
                 incrementalMetric.undoNni(move);
                 assertEquals(initialClassicDist, incrementalMetric.getCurrentDistance(), DELTA);
                 totalNniEvaluations++;
@@ -76,8 +80,8 @@ public class MSIncrementalFuzzTest {
 
     @Test
     void testFuzz2sEcrTrajectories() {
-        Tree currentTestTree = TestTreeFactory.tenLeavesRootedTree1();
-        Tree targetTree = TestTreeFactory.tenLeavesRootedTree2();
+        Tree currentTestTree = TestTreeFactory.randomUnrootedBinaryTree(12, 111L);
+        Tree targetTree = TestTreeFactory.randomUnrootedBinaryTree(12, 222L);
 
         incrementalMetric.initCalculationState(currentTestTree, targetTree);
         Random random = new Random(123);
@@ -129,8 +133,8 @@ public class MSIncrementalFuzzTest {
 
     @Test
     void testFuzz3sEcrTrajectories() {
-        Tree currentTestTree = TestTreeFactory.tenLeavesRootedTree1();
-        Tree targetTree = TestTreeFactory.tenLeavesRootedTree2();
+        Tree currentTestTree = TestTreeFactory.randomUnrootedBinaryTree(12, 333L);
+        Tree targetTree = TestTreeFactory.randomUnrootedBinaryTree(12, 444L);
 
         incrementalMetric.initCalculationState(currentTestTree, targetTree);
         Random random = new Random(777);
@@ -141,9 +145,6 @@ public class MSIncrementalFuzzTest {
             for (int i = 0; i < currentTestTree.getInternalNodeCount(); i++) {
                 Node rootOfCluster = currentTestTree.getInternalNode(i);
 
-                // =========================================================
-                // PRAWIDŁOWE ZABEZPIECZENIE DLA MS: Omijamy korzeń, który ma 3 dzieci!
-                // =========================================================
                 if (rootOfCluster == currentTestTree.getRoot()) continue;
 
                 for (List<Node> cluster : ecr3Utils.getClusters(rootOfCluster, 4)) {

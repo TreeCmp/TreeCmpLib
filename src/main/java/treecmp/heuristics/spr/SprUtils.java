@@ -161,96 +161,12 @@ public class SprUtils extends TreeNeighborhoodUtils {
         return false;
     }
 
-    @Override
-    public Tree[] generateNeighbours(Tree tree) {
-        int extNum = tree.getExternalNodeCount();
-        int intNum = tree.getInternalNodeCount();
-        IdGroup idGroup = TreeUtils.getLeafIdGroup(tree);
-        int neighSize = calcSprNeighbours(tree);
-        Set<treecmp.heuristics.TreeHolder> sprTreeSet = new HashSet<>((4 * neighSize) / 3);
-
-        Node s, t;
-        Tree resultTree;
-
-        for (int i = 0; i < extNum; i++) {
-            s = tree.getExternalNode(i);
-            for (int j = 0; j < extNum; j++) {
-                t = tree.getExternalNode(j);
-                if (isValidSprMove(s, t)) {
-                    resultTree = createAndFixSprTree(tree, s, t);
-                    if (resultTree != null) {
-                        SprMove move = new SprMove(s, t);
-                        registerTreeCost(resultTree, move.getNniEquivalentCost());
-                        registerTreeMove(resultTree, move);
-                        sprTreeSet.add(new treecmp.heuristics.TreeRootedHolder(resultTree, idGroup));
-                    }
-                }
-            }
-        }
-        for (int i = 0; i < intNum; i++) {
-            s = tree.getInternalNode(i);
-            if (s.isRoot()) continue;
-            for (int j = 0; j < extNum; j++) {
-                t = tree.getExternalNode(j);
-                if (isValidSprMove(s, t)) {
-                    resultTree = createAndFixSprTree(tree, s, t);
-                    if (resultTree != null) {
-                        SprMove move = new SprMove(s, t);
-                        registerTreeCost(resultTree, move.getNniEquivalentCost());
-                        registerTreeMove(resultTree, move);
-                        sprTreeSet.add(new treecmp.heuristics.TreeRootedHolder(resultTree, idGroup));
-                    }
-                }
-            }
-        }
-        for (int i = 0; i < extNum; i++) {
-            s = tree.getExternalNode(i);
-            for (int j = 0; j < intNum; j++) {
-                t = tree.getInternalNode(j);
-                if (isValidSprMove(s, t)) {
-                    resultTree = createAndFixSprTree(tree, s, t);
-                    if (resultTree != null) {
-                        SprMove move = new SprMove(s, t);
-                        registerTreeCost(resultTree, move.getNniEquivalentCost());
-                        registerTreeMove(resultTree, move);
-                        sprTreeSet.add(new treecmp.heuristics.TreeRootedHolder(resultTree, idGroup));
-                    }
-                }
-            }
-        }
-        for (int i = 0; i < intNum; i++) {
-            s = tree.getInternalNode(i);
-            if (s.isRoot()) continue;
-            for (int j = 0; j < intNum; j++) {
-                t = tree.getInternalNode(j);
-                if (isValidSprMove(s, t)) {
-                    resultTree = createAndFixSprTree(tree, s, t);
-                    if (resultTree != null) {
-                        SprMove move = new SprMove(s, t);
-                        registerTreeCost(resultTree, move.getNniEquivalentCost());
-                        registerTreeMove(resultTree, move);
-                        sprTreeSet.add(new treecmp.heuristics.TreeRootedHolder(resultTree, idGroup));
-                    }
-                }
-            }
-        }
-
-        int n = sprTreeSet.size();
-        Tree[] sprTreeArray = new Tree[n];
-        int i = 0;
-        for (treecmp.heuristics.TreeHolder th : sprTreeSet) {
-            sprTreeArray[i] = th.tree;
-            i++;
-        }
-        return sprTreeArray;
-    }
-
     public void forEachSprTree(Tree tree, Consumer<Tree> action) {
         int extNum = tree.getExternalNodeCount();
         int intNum = tree.getInternalNodeCount();
 
-        pal.misc.IdGroup idGroup = pal.tree.TreeUtils.getLeafIdGroup(tree);
-        Set<treecmp.heuristics.TreeHolder> seenHolders = new HashSet<>();
+        // Zamieniamy Set<TreeHolder> na Set<String>, aby odciążyć Garbage Collector
+        Set<String> seenTopologies = new HashSet<>();
 
         Node s, t;
 
@@ -258,7 +174,7 @@ public class SprUtils extends TreeNeighborhoodUtils {
             s = tree.getExternalNode(i);
             for (int j = 0; j < extNum; j++) {
                 t = tree.getExternalNode(j);
-                processAndYield(tree, s, t, idGroup, seenHolders, action);
+                processAndYield(tree, s, t, seenTopologies, action);
             }
         }
         for (int i = 0; i < intNum; i++) {
@@ -266,14 +182,14 @@ public class SprUtils extends TreeNeighborhoodUtils {
             if (s.isRoot()) continue;
             for (int j = 0; j < extNum; j++) {
                 t = tree.getExternalNode(j);
-                processAndYield(tree, s, t, idGroup, seenHolders, action);
+                processAndYield(tree, s, t, seenTopologies, action);
             }
         }
         for (int i = 0; i < extNum; i++) {
             s = tree.getExternalNode(i);
             for (int j = 0; j < intNum; j++) {
                 t = tree.getInternalNode(j);
-                processAndYield(tree, s, t, idGroup, seenHolders, action);
+                processAndYield(tree, s, t, seenTopologies, action);
             }
         }
         for (int i = 0; i < intNum; i++) {
@@ -281,22 +197,7 @@ public class SprUtils extends TreeNeighborhoodUtils {
             if (s.isRoot()) continue;
             for (int j = 0; j < intNum; j++) {
                 t = tree.getInternalNode(j);
-                processAndYield(tree, s, t, idGroup, seenHolders, action);
-            }
-        }
-    }
-
-    private void processAndYield(Tree baseTree, Node s, Node t, pal.misc.IdGroup idGroup, Set<treecmp.heuristics.TreeHolder> seen, Consumer<Tree> action) {
-        if (isValidSprMove(s, t)) {
-            Tree resultTree = createAndFixSprTree(baseTree, s, t);
-            if (resultTree != null) {
-                if (seen.add(new treecmp.heuristics.TreeRootedHolder(resultTree, idGroup))) {
-                    SprMove move = new SprMove(s, t);
-                    registerTreeCost(resultTree, move.getNniEquivalentCost());
-                    registerTreeMove(resultTree, move);
-
-                    action.accept(resultTree);
-                }
+                processAndYield(tree, s, t, seenTopologies, action);
             }
         }
     }
@@ -305,10 +206,17 @@ public class SprUtils extends TreeNeighborhoodUtils {
         if (isValidSprMove(s, t)) {
             Tree resultTree = createAndFixSprTree(baseTree, s, t);
             if (resultTree != null) {
-                SprMove move = new SprMove(s, t);
-                registerTreeCost(resultTree, move.getNniEquivalentCost());
-                registerTreeMove(resultTree, move);
-                action.accept(resultTree);
+                // Generujemy lekki łańcuch znaków zamiast trzymać cały obiekt
+                String topologyHash = getCanonicalTopology(resultTree.getRoot());
+
+                // Dodajemy hash do zbioru - jeśli go tam nie było, akceptujemy drzewo
+                if (seen.add(topologyHash)) {
+                    SprMove move = new SprMove(s, t);
+                    registerTreeCost(resultTree, move.getNniEquivalentCost());
+                    registerTreeMove(resultTree, move);
+
+                    action.accept(resultTree);
+                }
             }
         }
     }
