@@ -207,91 +207,38 @@ public class Ecr3SingleStepBenchmark {
     public static void main(String[] args) throws Exception {
         boolean quickEstimate = true;
 
-        String[] treeSizes = Ecr3SingleStepBenchmark.class
+        String[] treeSizes = Ecr2SingleStepBenchmark.class
                 .getField("treeSize")
                 .getAnnotation(Param.class)
                 .value();
 
+        List<org.openjdk.jmh.results.RunResult> allResults = new ArrayList<>();
+        String className = Ecr2SingleStepBenchmark.class.getSimpleName();
+
         for (String sizeStr : treeSizes) {
             int size = Integer.parseInt(sizeStr);
 
-            // 1. N <= 80: Pełne pokrycie (RF, RFC, MS, MC, MP, M3) jako Classic + Incremental
-            if (size <= 80) {
-                runJmh(sizeStr,
-                        new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"},
-                        Ecr3SingleStepBenchmark.class.getSimpleName(),
-                        quickEstimate);
-            }
-            // 2. N <= 120: Odcinamy RFC, MC, MP i M3 w wersji Classic!
-            // Zostawiamy TYLKO RF i MS Classic (~5 s i ~25 s), a reszta idzie jako Incremental
-            else if (size <= 120) {
-                runJmh(sizeStr,
-                        new String[]{"RF", "MS"},
-                        Ecr3SingleStepBenchmark.class.getSimpleName(),
-                        quickEstimate);
-                runJmh(sizeStr,
-                        new String[]{"RFC", "MC", "MP", "M3"},
-                        Ecr3SingleStepBenchmark.class.getSimpleName() + ".benchmarkIncrementalSingleStep",
-                        quickEstimate);
-            }
-            // 3. N <= 200: CAŁKOWITY KONIEC z wersjami Classic; odcinamy też M3 Incremental
-            // RF, RFC, MS, MC, MP idą wyłącznie jako Incremental
-            else if (size <= 200) {
-                runJmh(sizeStr,
-                        new String[]{"RF", "RFC", "MS", "MC", "MP"},
-                        Ecr3SingleStepBenchmark.class.getSimpleName() + ".benchmarkIncrementalSingleStep",
-                        quickEstimate);
-            }
-            // 4. N <= 300: Odcinamy MP Incremental (~38 s przy N=120);
-            // zostają RF, RFC, MS, MC jako Incremental
-            else if (size <= 300) {
-                runJmh(sizeStr,
-                        new String[]{"RF", "RFC", "MS", "MC"},
-                        Ecr3SingleStepBenchmark.class.getSimpleName() + ".benchmarkIncrementalSingleStep",
-                        quickEstimate);
-            }
-            // 5. N <= 2000: RF, RFC, MS, MC w wersji Incremental
-            else if (size <= 2000) {
-                runJmh(sizeStr,
-                        new String[]{"RF", "RFC", "MS", "MC"},
-                        Ecr3SingleStepBenchmark.class.getSimpleName() + ".benchmarkIncrementalSingleStep",
-                        quickEstimate);
-            }
-            // 6. N > 2000: Tylko najszybsze RF i RFC w wersji Incremental
-            else {
-                runJmh(sizeStr,
-                        new String[]{"RF", "RFC"},
-                        Ecr3SingleStepBenchmark.class.getSimpleName() + ".benchmarkIncrementalSingleStep",
-                        quickEstimate);
+            if (size <= 120) {
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"}, className, quickEstimate));
+            } else if (size <= 200) {
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP"}, className, quickEstimate));
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"M3"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+            } else if (size <= 300) {
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC"}, className, quickEstimate));
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"MS", "MC", "MP"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+            } else if (size <= 500) {
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF"}, className, quickEstimate));
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RFC", "MS", "MC", "MP"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+            } else if (size <= 3000) {
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+            } else {
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
             }
         }
+
+        // Zrzut jednym wywołaniem na sam koniec!
+        AbstractSingleStepBenchmark.exportToCsv("benchmark_single_step_ECR2.csv", allResults, "ECR2");
     }
 
-    private static void runJmh(String sizeStr, String[] metrics, String includeRegex, boolean quickEstimate) throws Exception {
-        ChainedOptionsBuilder builder = new OptionsBuilder()
-                .include(includeRegex)
-                .param("treeSize", sizeStr)
-                .param("metricName", metrics)
-                .jvmArgs("-Xms4g", "-Xmx16g")
-                // .addProfiler("stack")
-                ;
-
-        if (quickEstimate) {
-            builder.warmupIterations(1)
-                    .warmupTime(TimeValue.seconds(1))
-                    .measurementIterations(1)
-                    .measurementTime(TimeValue.seconds(1))
-                    .forks(1)
-                    .warmupForks(0);
-        } else {
-            builder.warmupIterations(5)
-                    .warmupTime(TimeValue.seconds(2))
-                    .measurementIterations(5)
-                    .measurementTime(TimeValue.seconds(2))
-                    .forks(2)
-                    .warmupForks(1);
-        }
-
-        new Runner(builder.build()).run();
-    }
+    // Usunięta funkcja runJmh! Wszystko jest dziedziczone statycznie z AbstractSingleStepBenchmark!
 }

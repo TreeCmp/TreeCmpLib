@@ -5,10 +5,16 @@ import org.openjdk.jmh.runner.Runner;
 import org.openjdk.jmh.runner.options.ChainedOptionsBuilder;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.TimeValue;
+import org.openjdk.jmh.results.RunResult;
+import org.openjdk.jmh.results.Result;
 
+import java.io.PrintWriter;
+import java.io.FileWriter;
 import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
+import java.util.Locale;
+import java.util.Collection;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.concurrent.TimeUnit;
@@ -204,103 +210,73 @@ public class NniSingleStepBenchmark {
     public static void main(String[] args) throws Exception {
         boolean quickEstimate = true;
 
-        String[] treeSizes = NniSingleStepBenchmark.class
+        String[] treeSizes = Ecr2SingleStepBenchmark.class
                 .getField("treeSize")
                 .getAnnotation(Param.class)
                 .value();
 
+        List<org.openjdk.jmh.results.RunResult> allResults = new ArrayList<>();
+        String className = Ecr2SingleStepBenchmark.class.getSimpleName();
+
         for (String sizeStr : treeSizes) {
             int size = Integer.parseInt(sizeStr);
 
-            // 1. N <= 300: Wszystkie metryki (włącznie z M3 Classic i Incremental)
-            if (size <= 300) {
-                runJmh(sizeStr,
-                        new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"},
-                        NniSingleStepBenchmark.class.getSimpleName(),
-                        quickEstimate);
-            }
-            // 2. N <= 500: Odcinamy M3, reszta Classic + Incremental
-            else if (size <= 500) {
-                runJmh(sizeStr,
-                        new String[]{"RF", "RFC", "MS", "MC", "MP"},
-                        NniSingleStepBenchmark.class.getSimpleName(),
-                        quickEstimate);
-            }
-            // 3. N <= 800: RF, RFC i MP jako Classic + Incremental; MS i MC tylko Incremental
-            else if (size <= 800) {
-                runJmh(sizeStr,
-                        new String[]{"RF", "RFC", "MP"},
-                        NniSingleStepBenchmark.class.getSimpleName(),
-                        quickEstimate);
-                runJmh(sizeStr,
-                        new String[]{"MS", "MC"},
-                        NniSingleStepBenchmark.class.getSimpleName() + ".benchmarkIncrementalSingleStep",
-                        quickEstimate);
-            }
-            // 4. N <= 1200: RF i RFC jako Classic + Incremental; MS, MC i MP tylko Incremental
-            else if (size <= 1200) {
-                runJmh(sizeStr,
-                        new String[]{"RF", "RFC"},
-                        NniSingleStepBenchmark.class.getSimpleName(),
-                        quickEstimate);
-                runJmh(sizeStr,
-                        new String[]{"MS", "MC", "MP"},
-                        NniSingleStepBenchmark.class.getSimpleName() + ".benchmarkIncrementalSingleStep",
-                        quickEstimate);
-            }
-            // 5. N <= 3000: Odcinamy MP całkowicie; RF i RFC Classic + Incr; MS i MC tylko Incr
-            else if (size <= 3000) {
-                runJmh(sizeStr,
-                        new String[]{"RF", "RFC"},
-                        NniSingleStepBenchmark.class.getSimpleName(),
-                        quickEstimate);
-                runJmh(sizeStr,
-                        new String[]{"MS", "MC"},
-                        NniSingleStepBenchmark.class.getSimpleName() + ".benchmarkIncrementalSingleStep",
-                        quickEstimate);
-            }
-            // 6. N <= 5000: Tylko warianty Incremental dla RF, RFC, MS i MC
-            else if (size <= 5000) {
-                runJmh(sizeStr,
-                        new String[]{"RF", "RFC", "MS", "MC"},
-                        NniSingleStepBenchmark.class.getSimpleName() + ".benchmarkIncrementalSingleStep",
-                        quickEstimate);
-            }
-            // 7. N > 5000: Tylko warianty Incremental dla RF i RFC (bardzo szybkie)
-            else {
-                runJmh(sizeStr,
-                        new String[]{"RF", "RFC"},
-                        NniSingleStepBenchmark.class.getSimpleName() + ".benchmarkIncrementalSingleStep",
-                        quickEstimate);
+            if (size <= 120) {
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"}, className, quickEstimate));
+            } else if (size <= 200) {
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP"}, className, quickEstimate));
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"M3"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+            } else if (size <= 300) {
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC"}, className, quickEstimate));
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"MS", "MC", "MP"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+            } else if (size <= 500) {
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF"}, className, quickEstimate));
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RFC", "MS", "MC", "MP"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+            } else if (size <= 3000) {
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+            } else {
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
             }
         }
+
+        // Zrzut jednym wywołaniem na sam koniec!
+        AbstractSingleStepBenchmark.exportToCsv("benchmark_single_step_ECR2.csv", allResults, "ECR2");
     }
 
-    private static void runJmh(String sizeStr, String[] metrics, String includeRegex, boolean quickEstimate) throws Exception {
-        ChainedOptionsBuilder builder = new OptionsBuilder()
-                .include(includeRegex)
-                .param("treeSize", sizeStr)
-                .param("metricName", metrics)
-                .jvmArgs("-Xms4g", "-Xmx16g")
-                //.addProfiler("stack")
-                ;
+    // Usunięta funkcja runJmh! Wszystko jest dziedziczone statycznie z AbstractSingleStepBenchmark!
 
-        if (quickEstimate) {
-            builder.warmupIterations(1)
-                    .warmupTime(TimeValue.seconds(1))
-                    .measurementIterations(1)
-                    .measurementTime(TimeValue.seconds(1))
-                    .forks(1)
-                    .warmupForks(0);
-        } else {
-            builder.warmupIterations(5)
-                    .warmupTime(TimeValue.seconds(2))
-                    .measurementIterations(5)
-                    .measurementTime(TimeValue.seconds(2))
-                    .forks(2)
-                    .warmupForks(1);
+    // Nasz nowy, dedykowany eksporter wyników do formatu VND
+    private static void exportToCsv(String filename, List<RunResult> results, String neighborhood) throws Exception {
+        try (PrintWriter pw = new PrintWriter(new FileWriter(filename))) {
+            // Generujemy piękny nagłówek
+            pw.println("Neighborhood,Size,IsRooted,Metric,Variant,TimeUs,AllocBytesPerOp");
+
+            for (RunResult r : results) {
+                String metric = r.getParams().getParam("metricName");
+                String size = r.getParams().getParam("treeSize");
+                String benchmark = r.getParams().getBenchmark();
+
+                // Dedukcja typu drzewa i wariantu algorytmu
+                String variant = benchmark.contains("Incremental") ? "2. Incremental" : "1. Classic";
+                boolean isRooted = metric.equals("RFC") || metric.equals("MC") || metric.equals("MP");
+
+                // Główny wynik: Średni czas operacji (w Mikrosekundach)
+                double timeUs = r.getPrimaryResult().getScore();
+
+                // Wynik dodatkowy: Alokacja pamięci pobrana bezpośrednio z GC Profilera
+                double allocBytes = Double.NaN;
+                for (Result sec : r.getSecondaryResults().values()) {
+                    if (sec.getLabel().equals("gc.alloc.rate.norm")) {
+                        allocBytes = sec.getScore(); // Zwraca zużycie w Bajtach per Operacja
+                        break;
+                    }
+                }
+
+                // Zapisujemy wiersz do pliku, zabezpieczając kropki ułamków Locale.US
+                pw.printf(Locale.US, "%s,%s,%b,%s,%s,%.4f,%.2f%n",
+                        neighborhood, size, isRooted, metric, variant, timeUs, allocBytes);
+            }
+            System.out.println("Zapisano wyniki Single-Step do pliku: " + filename);
         }
-
-        new Runner(builder.build()).run();
     }
 }

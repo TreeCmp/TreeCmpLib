@@ -206,102 +206,33 @@ public class Ecr2SingleStepBenchmark {
                 .getAnnotation(Param.class)
                 .value();
 
+        List<org.openjdk.jmh.results.RunResult> allResults = new ArrayList<>();
+        String className = Ecr2SingleStepBenchmark.class.getSimpleName();
+
         for (String sizeStr : treeSizes) {
             int size = Integer.parseInt(sizeStr);
 
-            // 1. N <= 120: Wszystkie metryki w wersjach Classic + Incremental
             if (size <= 120) {
-                runJmh(sizeStr,
-                        new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"},
-                        Ecr2SingleStepBenchmark.class.getSimpleName(),
-                        quickEstimate);
-            }
-            // 2. N <= 200: Odcinamy M3 Classic; reszta Classic + Incr; M3 tylko Incr (~57 s cały test)
-            else if (size <= 200) {
-                runJmh(sizeStr,
-                        new String[]{"RF", "RFC", "MS", "MC", "MP"},
-                        Ecr2SingleStepBenchmark.class.getSimpleName(),
-                        quickEstimate);
-                runJmh(sizeStr,
-                        new String[]{"M3"},
-                        Ecr2SingleStepBenchmark.class.getSimpleName() + ".benchmarkIncrementalSingleStep",
-                        quickEstimate);
-            }
-            // 3. N <= 300: Odcinamy całkowicie M3 (>4 min); RFC ostatni raz jako Classic (~56 s/op);
-            // MS, MC, MP tylko jako Incremental
-            else if (size <= 300) {
-                runJmh(sizeStr,
-                        new String[]{"RF", "RFC"},
-                        Ecr2SingleStepBenchmark.class.getSimpleName(),
-                        quickEstimate);
-                runJmh(sizeStr,
-                        new String[]{"MS", "MC", "MP"},
-                        Ecr2SingleStepBenchmark.class.getSimpleName() + ".benchmarkIncrementalSingleStep",
-                        quickEstimate);
-            }
-            // 4. N <= 500: Odcinamy RFC Classic; RF ostatni raz jako Classic (~11,9 s/op);
-            // RFC, MS, MC oraz MP (ostatni raz, ~40 s/op) jako Incremental
-            else if (size <= 500) {
-                runJmh(sizeStr,
-                        new String[]{"RF"},
-                        Ecr2SingleStepBenchmark.class.getSimpleName(),
-                        quickEstimate);
-                runJmh(sizeStr,
-                        new String[]{"RFC", "MS", "MC", "MP"},
-                        Ecr2SingleStepBenchmark.class.getSimpleName() + ".benchmarkIncrementalSingleStep",
-                        quickEstimate);
-            }
-            // 5. N <= 1200: Odcinamy MP Incr oraz RF Classic;
-            // zostają tylko RF, RFC, MS, MC w wersji Incremental
-            else if (size <= 1200) {
-                runJmh(sizeStr,
-                        new String[]{"RF", "RFC", "MS", "MC"},
-                        Ecr2SingleStepBenchmark.class.getSimpleName() + ".benchmarkIncrementalSingleStep",
-                        quickEstimate);
-            }
-            // 6. N <= 3000: RF, RFC, MS, MC w wersji Incremental
-            else if (size <= 3000) {
-                runJmh(sizeStr,
-                        new String[]{"RF", "RFC", "MS", "MC"},
-                        Ecr2SingleStepBenchmark.class.getSimpleName() + ".benchmarkIncrementalSingleStep",
-                        quickEstimate);
-            }
-            // 7. N > 3000 (5000, 8000, 12000, 20000, 30000, 50000):
-            // Tylko RF i RFC Incremental (najszybsze, skalujące się do wielkich drzew)
-            else {
-                runJmh(sizeStr,
-                        new String[]{"RF", "RFC"},
-                        Ecr2SingleStepBenchmark.class.getSimpleName() + ".benchmarkIncrementalSingleStep",
-                        quickEstimate);
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"}, className, quickEstimate));
+            } else if (size <= 200) {
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP"}, className, quickEstimate));
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"M3"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+            } else if (size <= 300) {
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC"}, className, quickEstimate));
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"MS", "MC", "MP"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+            } else if (size <= 500) {
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF"}, className, quickEstimate));
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RFC", "MS", "MC", "MP"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+            } else if (size <= 3000) {
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+            } else {
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
             }
         }
+
+        // Zrzut jednym wywołaniem na sam koniec!
+        AbstractSingleStepBenchmark.exportToCsv("benchmark_single_step_ECR2.csv", allResults, "ECR2");
     }
 
-    private static void runJmh(String sizeStr, String[] metrics, String includeRegex, boolean quickEstimate) throws Exception {
-        ChainedOptionsBuilder builder = new OptionsBuilder()
-                .include(includeRegex)
-                .param("treeSize", sizeStr)
-                .param("metricName", metrics)
-                .jvmArgs("-Xms4g", "-Xmx16g")
-                // .addProfiler("stack")
-                ;
-
-        if (quickEstimate) {
-            builder.warmupIterations(1)
-                    .warmupTime(TimeValue.seconds(1))
-                    .measurementIterations(1)
-                    .measurementTime(TimeValue.seconds(1))
-                    .forks(1)
-                    .warmupForks(0);
-        } else {
-            builder.warmupIterations(5)
-                    .warmupTime(TimeValue.seconds(2))
-                    .measurementIterations(5)
-                    .measurementTime(TimeValue.seconds(2))
-                    .forks(2)
-                    .warmupForks(1);
-        }
-
-        new Runner(builder.build()).run();
-    }
+    // Usunięta funkcja runJmh! Wszystko jest dziedziczone statycznie z AbstractSingleStepBenchmark!
 }
