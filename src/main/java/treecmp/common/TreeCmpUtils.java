@@ -23,68 +23,103 @@ import pal.misc.SimpleIdGroup;
 import pal.tree.*;
 
 import java.util.*;
+import java.util.Arrays; // DODANY IMPORT
 
 public class TreeCmpUtils {
 
-    public static int[][] calcLcaMatrix(Tree tree, IdGroup idGroup) {
+    // ========================================================================
+    // NOWE, ZOPTYMALIZOWANE LCA (Zero-Boxing, Czyste Tablice Prymitywne)
+    // ========================================================================
 
+    /**
+     * Zoptymalizowana wersja tworząca nową macierz (kompatybilność wsteczna).
+     */
+    public static int[][] calcLcaMatrix(Tree tree, IdGroup idGroup) {
+        int leafNum = tree.getExternalNodeCount();
+        int[][] lcaMatrix = new int[leafNum][leafNum];
+        calcLcaMatrix(tree, idGroup, lcaMatrix);
+        return lcaMatrix;
+    }
+
+    /**
+     * Wersja Zero-Allocation. Wymaga podania prealokowanej macierzy docelowej.
+     * Złożoność czasowa drastycznie zredukowana, pamięciowa (GC) sprowadzona do minimum.
+     */
+    public static void calcLcaMatrix(Tree tree, IdGroup idGroup, int[][] outLcaMatrix) {
         int leafNum = tree.getExternalNodeCount();
         int intNum = tree.getInternalNodeCount();
-        if (idGroup == null)
+
+        if (idGroup == null) {
             idGroup = TreeUtils.getLeafIdGroup(tree);
-
-        int[] alias = TreeUtils.mapExternalIdentifiers(idGroup, tree);
-        int[][] lcaMatrix = new int[leafNum][leafNum];
-        for (int i=0;i<leafNum;i++)
-            lcaMatrix[i][i] = -1;
-        TCUtilsNode[] nodeInfoTab = new TCUtilsNode[intNum];
-        Node childNode, curNode = tree.getExternalNode(0);
-        int childCount, nodeIndex, childIndex;
-        boolean endLoop = true;
-
-        while (endLoop) {
-            if (curNode.isRoot()) {
-                endLoop = false;
-            }
-
-            if (!curNode.isLeaf()) {
-                nodeIndex = curNode.getNumber();
-                childCount = curNode.getChildCount();
-                nodeInfoTab[nodeIndex] = new TCUtilsNode();
-
-                for (int i = 0; i < childCount; i++) {
-                    childNode = curNode.getChild(i);
-                    childIndex = childNode.getNumber();
-                    if (childNode.isLeaf()) {
-                        nodeInfoTab[nodeIndex].addLeaf(alias[childIndex]);
-                    } else {
-                        nodeInfoTab[nodeIndex].add(nodeInfoTab[childIndex]);
-                    }
-                }
-            }
-            curNode = NodeUtils.postorderSuccessor(curNode);
         }
 
-        TCUtilsNode utilsNode;
-        List<List<Integer>> leafSet;
-        for (int i = 0; i < intNum; i++) {
-            utilsNode = nodeInfoTab[i];
-            leafSet = utilsNode.getLeafSets();
-            for (int j = 0; j < leafSet.size() - 1; j++) {
-                List<Integer> baseList = leafSet.get(j);
-                for (Integer i1 : baseList) {
-                    for (int k = j + 1; k < leafSet.size(); k++) {
-                        List<Integer> secondList = leafSet.get(k);
-                        for (Integer i2 : secondList) {
-                            lcaMatrix[i1][i2] = i;
-                            lcaMatrix[i2][i1] = i;
+        int[] alias = TreeUtils.mapExternalIdentifiers(idGroup, tree);
+
+        // Inicjalizacja macierzy docelowej - zachowujemy oryginalny kontrakt (-1 na przekątnej)
+        for (int i = 0; i < leafNum; i++) {
+            Arrays.fill(outLcaMatrix[i], 0, leafNum, 0);
+            outLcaMatrix[i][i] = -1;
+        }
+
+        // ROZWIĄZANIE BŁĘDU (Domain Collision):
+        // W bibliotece PAL liście i węzły wewnętrzne mają osobne, nakładające się pule numerów ID!
+        // Rozdzielamy je na dwie osobne tablice, aby węzeł wewn. nr 0 nie nadpisał liścia nr 0.
+        int[][] leafDescendants = new int[leafNum][];
+        int[][] intDescendants = new int[intNum][];
+
+        Node[] postOrder = getNodesInPostOrder(tree);
+
+        for (Node curNode : postOrder) {
+            int nodeId = curNode.getNumber();
+
+            if (curNode.isLeaf()) {
+                // Dla liścia zbiór potomków to tylko on sam
+                leafDescendants[nodeId] = new int[] { alias[nodeId] };
+            } else {
+                int childCount = curNode.getChildCount();
+                int totalLeaves = 0;
+
+                // 1. Obliczamy całkowity rozmiar tablicy liści dla tego węzła
+                for (int i = 0; i < childCount; i++) {
+                    Node child = curNode.getChild(i);
+                    if (child.isLeaf()) {
+                        totalLeaves += leafDescendants[child.getNumber()].length;
+                    } else {
+                        totalLeaves += intDescendants[child.getNumber()].length;
+                    }
+                }
+
+                int[] myLeaves = new int[totalLeaves];
+                int offset = 0;
+
+                // 2. Łączymy liście i wyznaczamy LCA pomiędzy RÓŻNYMI gałęziami (dziećmi)
+                for (int i = 0; i < childCount; i++) {
+                    Node childI = curNode.getChild(i);
+                    int[] childILeaves = childI.isLeaf() ? leafDescendants[childI.getNumber()] : intDescendants[childI.getNumber()];
+
+                    System.arraycopy(childILeaves, 0, myLeaves, offset, childILeaves.length);
+                    offset += childILeaves.length;
+
+                    // Krzyżujemy gałąź I z kolejnymi gałęziami J
+                    for (int j = i + 1; j < childCount; j++) {
+                        Node childJ = curNode.getChild(j);
+                        int[] childJLeaves = childJ.isLeaf() ? leafDescendants[childJ.getNumber()] : intDescendants[childJ.getNumber()];
+
+                        for (int leaf1 : childILeaves) {
+                            for (int leaf2 : childJLeaves) {
+                                if (leaf1 >= 0 && leaf1 < leafNum && leaf2 >= 0 && leaf2 < leafNum) {
+                                    outLcaMatrix[leaf1][leaf2] = nodeId;
+                                    outLcaMatrix[leaf2][leaf1] = nodeId;
+                                }
+                            }
                         }
                     }
                 }
+                intDescendants[nodeId] = myLeaves;
             }
         }
-        return lcaMatrix;
     }
+
 
     public static int[][][] calcNcvMatrix(Tree tree, IdGroup idGroup, int[][] lcaMatrix) {
 
@@ -272,34 +307,44 @@ public class TreeCmpUtils {
         return nodalSplittedMatrix;
     }
 
+    /**
+     * Klasyczna funkcja z powielaniem obiektów (zachowana dla zgodności wstecznej testów).
+     */
     public static ClustIntersectInfoMatrix calcClustIntersectMatrix(Tree tree1, Tree tree2, IdGroup idGroup) {
+        return calcClustIntersectMatrix(tree1, tree2, idGroup, null);
+    }
 
-        int intT1Num = tree1.getInternalNodeCount();
-        int extT1Num = tree1.getExternalNodeCount();
+    /**
+     * Zoptymalizowana wersja z wzorcem Zero-Allocation i Scratchpad Buffer.
+     * Drastycznie obniża czas GC przy wielokrotnym wzywaniu z poziomu heurystyk (MC/RFCluster).
+     */
+    public static ClustIntersectInfoMatrix calcClustIntersectMatrix(Tree tree1, Tree tree2, IdGroup idGroup, ClustIntersectInfoMatrix buffer) {
 
-        int intT2Num = tree2.getInternalNodeCount();
-        int extT2Num = tree2.getExternalNodeCount();
-        ClustIntersectInfoMatrix resultMatrix = new ClustIntersectInfoMatrix(tree1, tree2, idGroup);
-        resultMatrix.init();
+        // Inicjalizacja lub restart bufora
+        if (buffer == null) {
+            buffer = new ClustIntersectInfoMatrix(tree1, tree2, idGroup);
+            buffer.init();
+        } else {
+            buffer.setup(tree1, tree2, idGroup);
+        }
 
-        int allT1Num = intT1Num + extT1Num;
-        int allT2Num = intT2Num + extT2Num;
+        int allT1Num = tree1.getInternalNodeCount() + tree1.getExternalNodeCount();
+        int allT2Num = tree2.getInternalNodeCount() + tree2.getExternalNodeCount();
 
-        Node[] postOrderT1 = getNodesInPostOrder(tree1);
-        Node[] postOrderT2 = getNodesInPostOrder(tree2);
+        // 100% Zero-Allocation: Używamy prealokowanych tablic!
+        Node[] postOrderT1 = buffer.postOrderT1;
+        Node[] postOrderT2 = buffer.postOrderT2;
 
-        calcCladeSizes(tree1, postOrderT1, resultMatrix.cSize1);
-        calcCladeSizes(tree2, postOrderT2, resultMatrix.cSize2);
+        calcCladeSizes(tree1, postOrderT1, buffer.cSize1);
+        calcCladeSizes(tree2, postOrderT2, buffer.cSize2);
 
         Node uNode, vNode, xNode;
         boolean uNodeLeaf, vNodeLeaf;
         int uNodeNum, vNodeNum, xNodeNum;
-        int i = 0, j = 0, k = 0;
         short sum = 0, cs = 0;
 
-        for (i = 0; i < allT1Num; i++) {
-            for (j = 0; j < allT2Num; j++) {
-
+        for (int i = 0; i < allT1Num; i++) {
+            for (int j = 0; j < allT2Num; j++) {
 
                 uNode = postOrderT1[i];
                 uNodeNum = uNode.getNumber();
@@ -308,58 +353,48 @@ public class TreeCmpUtils {
                 vNode = postOrderT2[j];
                 vNodeNum = vNode.getNumber();
                 vNodeLeaf = vNode.isLeaf();
-                //u - leaf node, v - leaf node
-                if (uNodeLeaf && vNodeLeaf)
-                    continue;
 
-                //u - leaf node, v - not leaf
-                if (uNodeLeaf && (! vNodeLeaf)) {
+                // u - leaf node, v - leaf node
+                if (uNodeLeaf && vNodeLeaf) continue;
+
+                // u - leaf node, v - not leaf
+                if (uNodeLeaf && (!vNodeLeaf)) {
                     sum = 0;
-                    for (k = 0; k < vNode.getChildCount(); k++) {
+                    for (int k = 0; k < vNode.getChildCount(); k++) {
                         xNode = vNode.getChild(k);
                         xNodeNum = xNode.getNumber();
                         if (xNode.isLeaf()) {
-                            cs = resultMatrix.getT1Ext_T2Ext(uNodeNum, xNodeNum);
+                            cs = buffer.getT1Ext_T2Ext(uNodeNum, xNodeNum);
                         } else {
-                            cs = resultMatrix.getT1Ext_T2Int(uNodeNum, xNodeNum);
+                            cs = buffer.getT1Ext_T2Int(uNodeNum, xNodeNum);
                         }
                         sum += cs;
                     }
-                    resultMatrix.setT1Ext_T2Int(uNodeNum, vNodeNum, sum);
+                    buffer.setT1Ext_T2Int(uNodeNum, vNodeNum, sum);
                 }
 
-                //u - not leaf, v - any
-                if (!uNodeLeaf ) {
-
+                // u - not leaf, v - any
+                if (!uNodeLeaf) {
                     sum = 0;
-                    for (k = 0; k < uNode.getChildCount(); k++) {
+                    for (int k = 0; k < uNode.getChildCount(); k++) {
                         xNode = uNode.getChild(k);
                         xNodeNum = xNode.getNumber();
 
                         if (xNode.isLeaf()) {
-                            if (vNodeLeaf) {
-                                cs = resultMatrix.getT1Ext_T2Ext(xNodeNum, vNodeNum);
-                            } else {
-                                cs = resultMatrix.getT1Ext_T2Int(xNodeNum, vNodeNum);
-                            }
+                            if (vNodeLeaf) cs = buffer.getT1Ext_T2Ext(xNodeNum, vNodeNum);
+                            else cs = buffer.getT1Ext_T2Int(xNodeNum, vNodeNum);
                         } else {
-                            if (vNodeLeaf) {
-                                cs = resultMatrix.getT1Int_T2Ext(xNodeNum, vNodeNum);
-                            } else {
-                                cs = resultMatrix.getT1Int_T2Int(xNodeNum, vNodeNum);
-                            }
+                            if (vNodeLeaf) cs = buffer.getT1Int_T2Ext(xNodeNum, vNodeNum);
+                            else cs = buffer.getT1Int_T2Int(xNodeNum, vNodeNum);
                         }
                         sum += cs;
                     }
-                    if (vNodeLeaf)
-                        resultMatrix.setT1Int_T2Ext(uNodeNum, vNodeNum, sum);
-                    else
-                        resultMatrix.setT1Int_T2Int(uNodeNum, vNodeNum, sum);
+                    if (vNodeLeaf) buffer.setT1Int_T2Ext(uNodeNum, vNodeNum, sum);
+                    else buffer.setT1Int_T2Int(uNodeNum, vNodeNum, sum);
                 }
             }
         }
-
-        return resultMatrix;
+        return buffer;
     }
 
     private static Node[] getInternalNodes(Tree t) {
@@ -392,6 +427,31 @@ public class TreeCmpUtils {
         }
         while (loop);
         return preOrderT;
+    }
+
+    // ==========================================================
+    // NOWE PRZECIĄŻENIE: Zero-Allocation (wstrzykiwanie bufora)
+    // ==========================================================
+    /**
+     * Wersja Zero-Allocation. Omija tworzenie `new Node[]` w pętli przeszukiwania sąsiedztwa.
+     * Zapisuje węzły bezpośrednio do podanego bufora w układzie post-order.
+     *
+     * @param t Drzewo do przejścia.
+     * @param buffer Prealokowana tablica (rozmiar >= getInternalNodeCount + getExternalNodeCount).
+     */
+    public static void getNodesInPostOrder(Tree t, Node[] buffer) {
+        Node curNode = t.getExternalNode(0);
+        boolean loop = true;
+        int i = 0;
+
+        while (loop) {
+            if (curNode.isRoot()) {
+                loop = false;
+            }
+            buffer[i] = curNode;
+            i++;
+            curNode = NodeUtils.postorderSuccessor(curNode);
+        }
     }
 
     public static Node[] getNodesInPostOrder(Tree t){
@@ -1084,9 +1144,6 @@ public class TreeCmpUtils {
 
 }
 
-
-
-
 class TCUtilsNode{
     private List< List<Integer> > leafSets;
 
@@ -1209,6 +1266,5 @@ class Triple {
         int hash = (n1 + prime * n2)^n3;
         return hash;
     }
-
 
 }

@@ -1336,4 +1336,31 @@ public class TreeUtils
             }
         }
     }
+
+    // ========================================================================
+    // NOWE PRZECIĄŻENIA: Zero-Allocation (wstrzykiwanie buforów dla VND)
+    // ========================================================================
+
+    /**
+     * Wersja Zero-Allocation mapowania identyfikatorów.
+     * Nie tworzy nowej tablicy za każdym wywołaniem, lecz wypełnia dostarczony bufor.
+     * Używana krytycznie w pętlach heurystyki VND do eliminacji narzutu Garbage Collectora.
+     *
+     * @param idGroup Grupa identyfikatorów odniesienia.
+     * @param tree Drzewo docelowe.
+     * @param buffer Prealokowana tablica int[] do wypełnienia (rozmiar >= tree.getExternalNodeCount()).
+     */
+    public static final void mapExternalIdentifiers(IdGroup idGroup, Tree tree, int[] buffer) {
+        int extNodeCount = tree.getExternalNodeCount();
+        for (int i = 0; i < extNodeCount; i++) {
+            pal.misc.Identifier id = tree.getExternalNode(i).getIdentifier();
+            buffer[i] = idGroup.whichIdNumber(id.getName());
+
+            // Zachowujemy oryginalny kontrakt błędu
+            if (buffer[i] == -1) {
+                throw new IllegalArgumentException("Tree label "
+                        + id.getName() + " not present in given set of labels");
+            }
+        }
+    }
 }
