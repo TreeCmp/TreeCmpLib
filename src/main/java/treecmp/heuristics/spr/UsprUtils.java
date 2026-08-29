@@ -650,6 +650,11 @@ public class UsprUtils extends TreeNeighborhoodUtils {
             if (resultTree != null) {
                 String topologyHash = getUnrootedCanonicalTopology(resultTree, idGroup, numLeaves);
                 if (seen.add(topologyHash)) {
+                    // NOWOŚĆ: Przywrócone księgowanie kosztu i ruchu dla algorytmu Classic
+                    SprMove move = new SprMove(s, t);
+                    registerTreeCost(resultTree, move.getNniEquivalentCost());
+                    registerTreeMove(resultTree, move);
+
                     action.accept(resultTree);
                 }
             }

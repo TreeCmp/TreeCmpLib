@@ -1,8 +1,8 @@
 package treecmp.benchmarks;
 
 import org.openjdk.jmh.annotations.*;
+import org.openjdk.jmh.results.RunResult;
 import org.openjdk.jmh.runner.Runner;
-import org.openjdk.jmh.runner.RunnerException;
 import org.openjdk.jmh.runner.options.ChainedOptionsBuilder;
 import org.openjdk.jmh.runner.options.OptionsBuilder;
 import org.openjdk.jmh.runner.options.TimeValue;
@@ -11,7 +11,9 @@ import java.io.BufferedReader;
 import java.io.File;
 import java.io.FileReader;
 import java.util.ArrayList;
+import java.util.Collection;
 import java.util.List;
+import java.util.Locale;
 import java.util.concurrent.TimeUnit;
 
 import pal.tree.SimpleTree;
@@ -46,6 +48,9 @@ public class SprDistanceBenchmark {
     private HeuristicBaseMetric classicMetric;
     private IncrementalHeuristicBaseMetric incrementalMetric;
 
+    private boolean classicOomReported = false;
+    private boolean incrOomReported = false;
+
     private void assignNumbers(Tree tree) {
         if (tree instanceof SimpleTree) {
             ((SimpleTree) tree).createNodeList();
@@ -55,6 +60,9 @@ public class SprDistanceBenchmark {
     @Setup(Level.Trial)
     public void setup() {
         boolean isRooted = false;
+
+        classicOomReported = false;
+        incrOomReported = false;
 
         switch (metricName) {
             case "RF":
@@ -91,7 +99,6 @@ public class SprDistanceBenchmark {
                 throw new IllegalArgumentException("Nieznana metryka: " + metricName);
         }
 
-        // 1. Wczytujemy drzewa z plików (zgodnie z metodologią innych benchmarków)
         File datasetFile = findDatasetFile(treeSize, isRooted);
         boolean loadedFromFile = false;
 
@@ -105,7 +112,6 @@ public class SprDistanceBenchmark {
             }
         }
 
-        // 2. Fallback do generatora losowego, jeśli brak pliku
         if (!loadedFromFile) {
             if (isRooted) {
                 t1 = TestTreeFactory.randomRootedBinaryTree(treeSize, 12345L);
@@ -119,26 +125,6 @@ public class SprDistanceBenchmark {
         }
 
         assignNumbers(t1); assignNumbers(t2); assignNumbers(t1ForIncr);
-
-        // Lekka weryfikacja (tylko dla bardzo małych drzew, by nie wieszać Setupu na godziny!)
-        if (treeSize <= 30) {
-            System.out.println("\n" + "=".repeat(60));
-            System.out.printf(" WERYFIKACJA PEŁNEGO PRZEBIEGU SPR/uSPR (%s) N=%d%n", metricName, treeSize);
-            System.out.println("-".repeat(60));
-
-            double distIncr = incrementalMetric.getDistance(new SimpleTree(t1ForIncr), t2);
-            double distClassic = classicMetric.getDistance(new SimpleTree(t1), t2);
-
-            System.out.printf("Classic     : %.2f%n", distClassic);
-            System.out.printf("Incremental : %.2f%n", distIncr);
-
-            if (Math.abs(distClassic - distIncr) < 1e-6) {
-                System.out.println("** STATUS: ZGODNOŚĆ POTWIERDZONA [OK] **");
-            } else {
-                System.out.println("!! STATUS: ROZBIEŻNOŚĆ WYNIKÓW (Możliwe inne lokalne minimum) !!");
-            }
-            System.out.println("=".repeat(60) + "\n");
-        }
     }
 
     private File findDatasetFile(int size, boolean isRooted) {
@@ -169,14 +155,30 @@ public class SprDistanceBenchmark {
 
     @Benchmark
     public double benchmarkClassicFullRun() {
-        // ZABEZPIECZENIE: Pełny krok trwale mutuje topologię.
-        // Koniecznie wysyłamy sklonowane drzewo (new SimpleTree), by każda iteracja JMH szła od początku!
-        return classicMetric.getDistance(new SimpleTree(t1), t2);
+        try {
+            return classicMetric.getDistance(new SimpleTree(t1), t2);
+        } catch (OutOfMemoryError e) {
+            if (!classicOomReported) {
+                System.err.printf("%n[!] OOM ZŁAPANY W CLASSIC | Metryka: %s | Drzewa: N=%d [!]%n", metricName, treeSize);
+                classicOomReported = true;
+            }
+            System.gc();
+            return Double.NaN;
+        }
     }
 
     @Benchmark
     public double benchmarkIncrementalFullRun() {
-        return incrementalMetric.getDistance(new SimpleTree(t1ForIncr), t2);
+        try {
+            return incrementalMetric.getDistance(new SimpleTree(t1ForIncr), t2);
+        } catch (OutOfMemoryError e) {
+            if (!incrOomReported) {
+                System.err.printf("%n[!] OOM ZŁAPANY W INCREMENTAL | Metryka: %s | Drzewa: N=%d [!]%n", metricName, treeSize);
+                incrOomReported = true;
+            }
+            System.gc();
+            return Double.NaN;
+        }
     }
 
     public static void main(String[] args) throws Exception {
@@ -187,68 +189,72 @@ public class SprDistanceBenchmark {
                 .getAnnotation(Param.class)
                 .value();
 
+        // Lista do gromadzenia wszystkich wyników JMH
+        List<RunResult> allResults = new ArrayList<>();
+
         for (String sizeStr : treeSizes) {
             int size = Integer.parseInt(sizeStr);
 
-            // 1. N <= 20: Bardzo małe drzewa - puszczamy pełny pakiet Classic
-            if (size <= 20) {
-                runJmh(sizeStr,
-                        new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"},
-                        SprDistanceBenchmark.class.getSimpleName(),
-                        quickEstimate);
-            }
-            // 2. N <= 30: Dla SPR wariant Classic na MP i M3 staje się bardzo powolny
-            else if (size <= 30) {
-                runJmh(sizeStr,
-                        new String[]{"RF", "RFC", "MS", "MC"},
-                        SprDistanceBenchmark.class.getSimpleName() + ".benchmarkClassicFullRun",
-                        quickEstimate);
-                runJmh(sizeStr,
-                        new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"},
-                        SprDistanceBenchmark.class.getSimpleName() + ".benchmarkIncrementalFullRun",
-                        quickEstimate);
-            }
-            // 3. N <= 50: Classic SPR dla MS i MC to już ryzyko timeoutów. Tylko RF i RFC.
-            else if (size <= 50) {
-                runJmh(sizeStr,
-                        new String[]{"RF", "RFC"},
-                        SprDistanceBenchmark.class.getSimpleName() + ".benchmarkClassicFullRun",
-                        quickEstimate);
-                runJmh(sizeStr,
-                        new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"},
-                        SprDistanceBenchmark.class.getSimpleName() + ".benchmarkIncrementalFullRun",
-                        quickEstimate);
-            }
-            // 4. N <= 120: Inkremental SPR radzi sobie z każdą metryką. Classic już nigdzie nie zdąży.
-            else if (size <= 120) {
-                runJmh(sizeStr,
-                        new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"},
-                        SprDistanceBenchmark.class.getSimpleName() + ".benchmarkIncrementalFullRun",
-                        quickEstimate);
-            }
-            // 5. N <= 300: Zostawiamy szybsze metryki inkrementalne. M3 SPR Incr może być bardzo wolne.
-            else if (size <= 300) {
-                runJmh(sizeStr,
-                        new String[]{"RF", "RFC", "MS", "MC", "MP"},
-                        SprDistanceBenchmark.class.getSimpleName() + ".benchmarkIncrementalFullRun",
-                        quickEstimate);
-            }
-            // 6. N > 300: Testujemy skalowanie tylko szybkich RF i RFC Incremental
-            else {
-                runJmh(sizeStr,
-                        new String[]{"RF", "RFC"},
-                        SprDistanceBenchmark.class.getSimpleName() + ".benchmarkIncrementalFullRun",
-                        quickEstimate);
+            if (size <= 30) {
+                allResults.addAll(runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC"}, SprDistanceBenchmark.class.getSimpleName() + ".benchmarkClassicFullRun", quickEstimate));
+                allResults.addAll(runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC"}, SprDistanceBenchmark.class.getSimpleName() + ".benchmarkIncrementalFullRun", quickEstimate));
+            } else if (size <= 50) {
+                allResults.addAll(runJmh(sizeStr, new String[]{"RF", "RFC"}, SprDistanceBenchmark.class.getSimpleName() + ".benchmarkClassicFullRun", quickEstimate));
+                allResults.addAll(runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC"}, SprDistanceBenchmark.class.getSimpleName() + ".benchmarkIncrementalFullRun", quickEstimate));
+            } else if (size <= 300) {
+                allResults.addAll(runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC"}, SprDistanceBenchmark.class.getSimpleName() + ".benchmarkIncrementalFullRun", quickEstimate));
             }
         }
+
+        // Generowanie eleganckiej tabeli podsumowującej!
+        System.out.println("\n\n==========================================================================================");
+        System.out.println("                 PODSUMOWANIE JMH: CZAS I ALOKACJA PAMIĘCI (NA 1 PARĘ DRZEW)");
+        System.out.println("==========================================================================================");
+        System.out.printf("%-10s | %-15s | %-10s | %-15s | %-20s%n", "Rozmiar N", "Wariant", "Metryka", "Czas (ms/para)", "Alokacja RAM (per para)");
+        System.out.println("-".repeat(90));
+
+        for (RunResult r : allResults) {
+            String benchmarkName = r.getParams().getBenchmark();
+            String variant = benchmarkName.contains("Classic") ? "Classic" : "Incremental";
+            String metric = r.getParams().getParam("metricName");
+            String size = r.getParams().getParam("treeSize");
+
+            double timeMs = r.getPrimaryResult().getScore();
+
+            // Pobieranie zużycia pamięci z profilera GC
+            double bytesPerOp = 0.0;
+            if (r.getSecondaryResults().containsKey("gc.alloc.rate.norm")) {
+                bytesPerOp = r.getSecondaryResults().get("gc.alloc.rate.norm").getScore();
+            }
+
+            String timeStr = Double.isNaN(timeMs) ? "OOM" : String.format(Locale.US, "%.2f", timeMs);
+
+            String memoryStr;
+            if (Double.isNaN(timeMs)) {
+                memoryStr = "Brak (OOM)";
+            } else if (bytesPerOp > 1024 * 1024 * 1024) {
+                memoryStr = String.format(Locale.US, "%.2f GB", bytesPerOp / (1024.0 * 1024.0 * 1024.0));
+            } else if (bytesPerOp > 1024 * 1024) {
+                memoryStr = String.format(Locale.US, "%.2f MB", bytesPerOp / (1024.0 * 1024.0));
+            } else if (bytesPerOp > 0) {
+                memoryStr = String.format(Locale.US, "%.2f KB", bytesPerOp / 1024.0);
+            } else {
+                memoryStr = "Brak danych";
+            }
+
+            System.out.printf("%-10s | %-15s | %-10s | %-15s | %-20s%n", size, variant, metric, timeStr, memoryStr);
+        }
+        System.out.println("==========================================================================================\n");
     }
 
-    private static void runJmh(String sizeStr, String[] metrics, String includeRegex, boolean quickEstimate) throws Exception {
+    private static Collection<RunResult> runJmh(String sizeStr, String[] metrics, String includeRegex, boolean quickEstimate) throws Exception {
         ChainedOptionsBuilder builder = new OptionsBuilder()
                 .include(includeRegex)
                 .param("treeSize", sizeStr)
                 .param("metricName", metrics)
-                .jvmArgs("-Xms4g", "-Xmx16g");
+                .jvmArgs("-Xms4g", "-Xmx16g")
+                // MUSI być odkomentowane, by zebrać dane do nowej kolumny!
+                .addProfiler("gc");
 
         if (quickEstimate) {
             builder.warmupIterations(1)
@@ -266,6 +272,7 @@ public class SprDistanceBenchmark {
                     .warmupForks(1);
         }
 
-        new Runner(builder.build()).run();
+        // Zwracamy wyniki zamiast tylko uruchamiać
+        return new Runner(builder.build()).run();
     }
 }

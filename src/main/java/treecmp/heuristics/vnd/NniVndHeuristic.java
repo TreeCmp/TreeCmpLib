@@ -53,7 +53,20 @@ public class NniVndHeuristic implements Metric {
             HeuristicBaseMetric currentHeuristic = classicNeighborhoods.get(k);
             Tree treeBeforeSearch = currentBestTree;
 
+            String neighborhoodName = currentHeuristic.getName();
+            String baseName = "Unknown";
+            if (neighborhoodName.toLowerCase().contains("nni")) baseName = "NNI";
+            else if (neighborhoodName.toLowerCase().contains("ecr2")) baseName = "ECR2";
+            else if (neighborhoodName.toLowerCase().contains("ecr3")) baseName = "ECR3";
+            else if (neighborhoodName.toLowerCase().contains("spr")) baseName = "SPR";
+
+            long stepStartTimeNs = System.nanoTime(); // START
             double distAfterSearch = currentHeuristic.performLocalDescent(currentBestTree, tree2);
+            long timeSpentNs = System.nanoTime() - stepStartTimeNs; // STOP
+
+            boolean success = (distAfterSearch < currentBestValue);
+            VndTimeProfiler.INSTANCE.get().recordTime(baseName, success, timeSpentNs); // RAPORTOWANIE CLASSIC
+
             Tree treeAfterSearch = currentHeuristic.getLastOptimumTree();
             totalNniCost += currentHeuristic.getAccumulatedNniCost();
 

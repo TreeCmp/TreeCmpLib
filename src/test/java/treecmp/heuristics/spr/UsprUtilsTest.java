@@ -5,6 +5,8 @@ import org.junit.jupiter.api.Test;
 import pal.tree.Node;
 import pal.tree.ReadTree;
 import pal.tree.Tree;
+import treecmp.heuristics.moves.SprMove;
+import treecmp.heuristics.moves.TreeMove;
 import treecmp.util.TreeCreator;
 
 import java.util.ArrayList;
@@ -18,7 +20,48 @@ import static org.junit.jupiter.api.Assertions.*;
 public class UsprUtilsTest {
 
     // ===========================================================================
-    // NOWE TESTY REGRESYJNE DLA findBestNeighbour (Ochrona przed błędem SPR/uSPR)
+    // NOWE TESTY METADANYCH (Księgowanie ruchów i kosztów)
+    // ===========================================================================
+
+    @Test
+    @DisplayName("Test regresyjny: forEachUsprTree musi poprawnie rejestrować obiekt ruchu (TreeMove) i jego koszt NNI")
+    public void testForEachUsprTreeRegistersMovesAndCosts() throws Exception {
+        // Drzewo N=7
+        Tree baseTree = TreeCreator.getTreeFromString("(((1,2),(3,4)),(5,(6,7)));");
+        assertNotNull(baseTree);
+
+        UsprUtils usprUtils = new UsprUtils();
+        List<Tree> neighbors = new ArrayList<>();
+
+        // Zbieramy wszystkich legalnych sąsiadów uSPR
+        usprUtils.forEachUsprTree(baseTree, neighbors::add);
+        assertTrue(neighbors.size() > 0, "Lista sąsiadów uSPR nie może być pusta");
+
+        int registeredMovesCount = 0;
+
+        for (Tree neighbor : neighbors) {
+            // 1. Sprawdzamy czy dla wygenerowanego drzewa zarejestrowano odpowiedni obiekt ruchu
+            TreeMove move = usprUtils.getMoveForTree(neighbor);
+            assertNotNull(move, "BŁĄD: Nie zarejestrowano obiektu TreeMove dla wygenerowanego sąsiada!");
+            assertTrue(move instanceof SprMove, "Ruch uSPR powinien być instancją SprMove");
+
+            // 2. Pobieramy zarejestrowany w mapie koszt (jako double)
+            double registeredCost = usprUtils.getTreeCost(neighbor);
+
+            // 3. Asercje poprawnego księgowania
+            assertTrue(registeredCost > 0.0, "Koszt rotacji NNI musi być większy od zera!");
+            assertEquals((double) move.getNniEquivalentCost(), registeredCost, 0.0001,
+                    "Zarejestrowany koszt w mapie różni się od kosztu fizycznego wewnątrz obiektu SprMove!");
+
+            registeredMovesCount++;
+        }
+
+        assertEquals(neighbors.size(), registeredMovesCount,
+                "Liczba zarejestrowanych ruchów musi odpowiadać dokładnie liczbie wygenerowanych unikalnych sąsiadów");
+    }
+
+    // ===========================================================================
+    // TESTY REGRESYJNE DLA findBestNeighbour (Ochrona przed błędem SPR/uSPR)
     // ===========================================================================
 
     @Test
@@ -33,11 +76,9 @@ public class UsprUtilsTest {
         int expectedCommas = expectedLeaves - 1;
 
         // Tworzymy sztuczny BestTreeChooser symulujący płaskowyż metryki RF
-        // (wszystkie drzewa dostają zbliżoną ocenę, co zmusza algorytm do przejścia przez całe otoczenie)
         BestTreeChooser mockPlateauChooser = new BestTreeChooser() {
             @Override
             public double getValueForTree(Tree tree) {
-                // Dodajemy drobną wariację opartej o długość Newicka, aby algorytm wybierał różnych kandydatów
                 return 10.0 + (tree.toString().length() % 3);
             }
         };
@@ -51,19 +92,14 @@ public class UsprUtilsTest {
 
         String newick = bestTree.toString();
 
-        // 1. Ochrona przed błędem DendroPy: zakazane podciągi
         assertFalse(newick.contains("null"), "Newick zawiera 'null': " + newick);
         assertFalse(newick.contains(",,"), "Newick zawiera podwójny przecinek ',,': " + newick);
         assertFalse(newick.contains("()"), "Newick zawiera puste nawiasy '()': " + newick);
 
-        // 2. Weryfikacja liczby liści i przecinków
         assertEquals(expectedLeaves, bestTree.getExternalNodeCount(), "Błędna liczba liści w najlepszym sąsiedzie!");
         assertEquals(expectedCommas, countChar(newick, ','), "Nieprawidłowa liczba przecinków w Newicku: " + newick);
-
-        // 3. Weryfikacja zbalansowania nawiasów
         assertEquals(countChar(newick, '('), countChar(newick, ')'), "Niezbalansowane nawiasy w Newicku: " + newick);
 
-        // 4. Weryfikacja unikalności etykiet liści
         Set<String> leafNames = new HashSet<>();
         for (int i = 0; i < bestTree.getExternalNodeCount(); i++) {
             String name = bestTree.getExternalNode(i).getIdentifier().getName();
@@ -79,11 +115,9 @@ public class UsprUtilsTest {
 
         int usprCount = usprUtils.calcUsprNeighbours(baseTree);
 
-        // Zastępujemy stare sprUtils nowym wywołaniem by porównać liczność sąsiedztw.
         SprUtils sprUtils = new SprUtils();
         int sprCount = sprUtils.calcSprNeighbours(baseTree);
 
-        // Dla N=7 wzór na uSPR: 2*(n-3)*(2*n-7) = 2 * 4 * 7 = 56
         assertEquals(56, usprCount, "Nieprawidłowo wyliczona liczba sąsiadów uSPR dla N=7");
         assertNotEquals(sprCount, usprCount, "Liczba sąsiadów uSPR nie może być identyczna z ukorzenionym SPR!");
     }
@@ -175,7 +209,7 @@ public class UsprUtilsTest {
     }
 
     // =========================================================================
-    // METODY POMOCNICZE
+    // METODY POMOCNICZE I TESTY SZCZEGÓŁOWE (Z logów błędów)
     // =========================================================================
 
     private Node getNodeByIndex(Tree tree, int index, int extCount) {
@@ -197,10 +231,7 @@ public class UsprUtilsTest {
     @Test
     @DisplayName("Test regresyjny: Problem zduplikowanych poddrzew dla drzew wejściowych z logów VND")
     public void testPoisonPillTreesFromVndLogs() {
-        // Drzewo z KROKU 0 dla awarii RF
         String poisonTreeRf = "(((((7:0.0000000,17:0.0000000):0.0000000,(11:0.0000000,2:0.0000000):0.0000000):0.0000000,(19:0.0000000,(1:0.0000000,(3:0.0000000,14:0.0000000):0.0000000):0.0000000):0.0000000):0.0000000,((5:0.0000000,(8:0.0000000,(18:0.0000000,20:0.0000000):0.0000000):0.0000000):0.0000000,(9:0.0000000,13:0.0000000):0.0000000):0.0000000):0.0000000,(6:0.0000000,((12:0.0000000,10:0.0000000):0.0000000,(16:0.0000000,15:0.0000000):0.0000000):0.0000000):0.0000000,4:0.0000000);";
-
-        // Drzewo z KROKU 22 dla awarii MS
         String poisonTreeMs = "(((12:0.0000000,((5:0.0000000,8:0.0000000):0.0000000,((9:0.0000000,17:0.0000000):0.0000000,16:0.0000000):0.0000000):0.0000000):0.0000000,13:0.0000000):0.0000000,((20:0.0000000,1:0.0000000):0.0000000,(2:0.0000000,(19:0.0000000,14:0.0000000):0.0000000):0.0000000):0.0000000,(((11:0.0000000,((3:0.0000000,10:0.0000000):0.0000000,6:0.0000000):0.0000000):0.0000000,4:0.0000000):0.0000000,(18:0.0000000,(15:0.0000000,7:0.0000000):0.0000000):0.0000000):0.0000000);";
 
         String[] poisonTrees = { poisonTreeRf, poisonTreeMs };
@@ -216,11 +247,8 @@ public class UsprUtilsTest {
 
             for (Tree neighbour : neighbours) {
                 String newickOutput = neighbour.toString();
-
-                // Weryfikujemy, czy każdy z 20 liści pojawia się DOKŁADNIE RAZ w napisie Newick
                 for (int i = 0; i < neighbour.getExternalNodeCount(); i++) {
                     String leafName = neighbour.getExternalNode(i).getIdentifier().getName();
-
                     java.util.regex.Pattern pattern = java.util.regex.Pattern.compile("(?:\\(|,)" + java.util.regex.Pattern.quote(leafName) + ":");
                     java.util.regex.Matcher matcher = pattern.matcher(newickOutput);
 
@@ -228,7 +256,6 @@ public class UsprUtilsTest {
                     while (matcher.find()) {
                         count++;
                     }
-
                     assertEquals(1, count, "Liść '" + leafName + "' musi występować DOKŁADNIE RAZ w Newicku: " + newickOutput);
                 }
             }
@@ -238,16 +265,13 @@ public class UsprUtilsTest {
     @Test
     @DisplayName("Test regresyjny z logów VND: Ochrona przed klonowaniem poddrzew i utratą liści (Logi RF i MS)")
     public void testPoisonPillTreesFromVndLogs_FourBrokenCases() throws Exception {
-        // 1. Poprawne składniowo drzewo startowe z KROKU 0 logu 120800.txt (N=20)
         String poisonTreeRf_120800 = "(((((7:0.0000000,17:0.0000000):0.0000000,(11:0.0000000,2:0.0000000):0.0000000):0.0000000,(19:0.0000000,(1:0.0000000,(3:0.0000000,14:0.0000000):0.0000000):0.0000000):0.0000000):0.0000000,((5:0.0000000,(8:0.0000000,(18:0.0000000,20:0.0000000):0.0000000):0.0000000):0.0000000,(9:0.0000000,13:0.0000000):0.0000000):0.0000000):0.0000000,(6:0.0000000,((12:0.0000000,10:0.0000000):0.0000000,(16:0.0000000,15:0.0000000):0.0000000):0.0000000):0.0000000,4:0.0000000);";
-
-        // 2. Poprawne składniowo drzewo z KROKU 22 logu 121109.txt (przed awarią uSPR_ClassicHeuristic_MS)
         String poisonTreeMs_121109 = "(((12:0.0000000,((5:0.0000000,8:0.0000000):0.0000000,((9:0.0000000,17:0.0000000):0.0000000,16:0.0000000):0.0000000):0.0000000):0.0000000,13:0.0000000):0.0000000,((20:0.0000000,1:0.0000000):0.0000000,(2:0.0000000,(19:0.0000000,14:0.0000000):0.0000000):0.0000000):0.0000000,(((11:0.0000000,((3:0.0000000,10:0.0000000):0.0000000,6:0.0000000):0.0000000):0.0000000,4:0.0000000):0.0000000,(18:0.0000000,(15:0.0000000,7:0.0000000):0.0000000):0.0000000):0.0000000);";
 
         String[] poisonTrees = { poisonTreeRf_120800, poisonTreeMs_121109 };
         UsprUtils usprUtils = new UsprUtils();
         int expectedLeaves = 20;
-        int expectedCommas = expectedLeaves - 1; // Dokładnie 19 przecinków dla N=20
+        int expectedCommas = expectedLeaves - 1;
 
         for (String newickInput : poisonTrees) {
             Tree baseTree = TreeCreator.getTreeFromString(newickInput);
@@ -261,12 +285,10 @@ public class UsprUtilsTest {
                 Tree neighbour = neighbours.get(i);
                 String newickOutput = neighbour.toString();
 
-                // ASERCJA 1: Wykluczenie klonowania poddrzew (30 przecinków) i zapaści liści
                 int commaCount = countChar(newickOutput, ',');
                 assertEquals(expectedCommas, commaCount,
                         "Błąd! Wykryto niedozwoloną liczbę przecinków (" + commaCount + ") w sąsiedzie #" + i + ": " + newickOutput);
 
-                // ASERCJA 2: Weryfikacja unikalności etykiet (żaden liść od 1 do 20 nie może być zduplikowany ani zniknąć)
                 Set<String> seenLeaves = new HashSet<>();
                 for (int leafIdx = 0; leafIdx < neighbour.getExternalNodeCount(); leafIdx++) {
                     String leafName = neighbour.getExternalNode(leafIdx).getIdentifier().getName();
@@ -281,16 +303,13 @@ public class UsprUtilsTest {
 
     @Test
     public void testFinalTwoBrokenCases_MS_and_RF() throws Exception {
-        // 1. Poprawne drzewo z KROKU 22 logu MS (bezpośrednio przed awarią w Kroku 23)
         String validTreeBeforeCrashMS = "(((12:0.0000000,((5:0.0000000,8:0.0000000):0.0000000,((9:0.0000000,17:0.0000000):0.0000000,16:0.0000000):0.0000000):0.0000000):0.0000000,13:0.0000000):0.0000000,((20:0.0000000,1:0.0000000):0.0000000,(2:0.0000000,(19:0.0000000,14:0.0000000):0.0000000):0.0000000):0.0000000,(((11:0.0000000,((3:0.0000000,10:0.0000000):0.0000000,6:0.0000000):0.0000000):0.0000000,4:0.0000000):0.0000000,(18:0.0000000,(15:0.0000000,7:0.0000000):0.0000000):0.0000000):0.0000000);";
-
-        // 2. Poprawne drzewo z KROKU 0 logu RF (bezpośrednio przed awarią w Kroku 1)
         String validTreeBeforeCrashRF = "(((((7:0.0000000,17:0.0000000):0.0000000,(11:0.0000000,2:0.0000000):0.0000000):0.0000000,(19:0.0000000,(1:0.0000000,(3:0.0000000,14:0.0000000):0.0000000):0.0000000):0.0000000):0.0000000,((5:0.0000000,(8:0.0000000,(18:0.0000000,20:0.0000000):0.0000000):0.0000000):0.0000000,(9:0.0000000,13:0.0000000):0.0000000):0.0000000):0.0000000,(6:0.0000000,((12:0.0000000,10:0.0000000):0.0000000,(16:0.0000000,15:0.0000000):0.0000000):0.0000000):0.0000000,4:0.0000000);";
 
         String[] testTrees = { validTreeBeforeCrashMS, validTreeBeforeCrashRF };
         UsprUtils usprUtils = new UsprUtils();
         int expectedLeaves = 20;
-        int expectedCommas = expectedLeaves - 1; // Dokładnie 19 przecinków dla N=20
+        int expectedCommas = expectedLeaves - 1;
 
         for (int tIndex = 0; tIndex < testTrees.length; tIndex++) {
             Tree baseTree = TreeCreator.getTreeFromString(testTrees[tIndex]);
@@ -305,16 +324,13 @@ public class UsprUtilsTest {
                 assertNotNull(neighbour, "Sąsiad uSPR nie może być null");
                 String newickOutput = neighbour.toString();
 
-                // POPRAWIONA ASERCJA 1: Natywny parser PAL (używamy strumienia z pamięci)
                 assertDoesNotThrow(() -> new ReadTree(new java.io.PushbackReader(new java.io.StringReader(newickOutput))),
                         "Parser PAL odrzucił wygenerowanego sąsiada #" + i + ": " + newickOutput);
 
-                // ASERCJA 2: Dokładnie 19 przecinków (brak klonowania poddrzew)
                 int commaCount = countChar(newickOutput, ',');
                 assertEquals(expectedCommas, commaCount,
                         "Wykryto zduplikowane poddrzewo (zła liczba przecinków: " + commaCount + ") w Newicku: " + newickOutput);
 
-                // ASERCJA 3: Pełny zbiór 20 unikalnych liści
                 Set<String> seenLeaves = new HashSet<>();
                 for (int leafIdx = 0; leafIdx < neighbour.getExternalNodeCount(); leafIdx++) {
                     String leafName = neighbour.getExternalNode(leafIdx).getIdentifier().getName();
@@ -342,7 +358,6 @@ public class UsprUtilsTest {
             Tree baseTree = TreeCreator.getTreeFromString(newickInput);
             assertNotNull(baseTree);
 
-            // Iterujemy po wszystkich możliwych parach węzłów (s, t)
             for (int sIdx = 0; sIdx < baseTree.getInternalNodeCount(); sIdx++) {
                 pal.tree.Node s = baseTree.getInternalNode(sIdx);
                 if (s == baseTree.getRoot()) continue;
@@ -358,7 +373,6 @@ public class UsprUtilsTest {
     }
 
     private void verifyCreatedTreeSafe(Tree neighbour, int expectedLeaves, int expectedCommas) throws Exception {
-        // Dla nielegalnych par (s, t) createUsprTree MUSI bezpiecznie zwrócić null zamiast rzucać StackOverflowError
         if (neighbour == null) return;
 
         String newickOutput = neighbour.toString();

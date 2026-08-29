@@ -11,6 +11,7 @@ import treecmp.heuristics.spr.SprUtils;
 import treecmp.heuristics.vnd.DetailedTrajectoryVndLogger;
 import treecmp.heuristics.vnd.NoOpVndLogger;
 import treecmp.heuristics.vnd.VndStepListener;
+import treecmp.heuristics.vnd.VndTimeProfiler;
 import treecmp.metrics.Metric;
 
 import java.time.LocalDateTime;
@@ -69,16 +70,28 @@ public class NniVndIncrementalHeuristic implements Metric {
             String neighborhoodName = "";
 
             List<Tree> trajectory = null;
+            long stepStartTimeNs = System.nanoTime(); // START STOPER
 
             if (k < incrementalNeighborhoods.size()) {
                 IncrementalHeuristicBaseMetric currentHeuristic = incrementalNeighborhoods.get(k);
-                neighborhoodName = currentHeuristic.getName();
+                neighborhoodName = currentHeuristic.getName(); // np. "NNI_Incr", "SPR_Incr"
+
+                // Oczyszczamy nazwę z szumu na potrzeby czytelnego logowania statystyk
+                String baseName = "Unknown";
+                if (neighborhoodName.toLowerCase().contains("nni")) baseName = "NNI";
+                else if (neighborhoodName.toLowerCase().contains("ecr2")) baseName = "ECR2";
+                else if (neighborhoodName.toLowerCase().contains("ecr3")) baseName = "ECR3";
+                else if (neighborhoodName.toLowerCase().contains("spr")) baseName = "SPR";
 
                 distAfterSearch = currentHeuristic.performLocalDescent(currentBestTree, tree2);
                 treeAfterSearch = currentHeuristic.getLastOptimumTree();
 
-                totalNniCost += currentHeuristic.getAccumulatedNniCost();
+                long timeSpentNs = System.nanoTime() - stepStartTimeNs; // STOP STOPER
 
+                boolean success = (distAfterSearch < currentBestValue);
+                VndTimeProfiler.INSTANCE.get().recordTime(baseName, success, timeSpentNs); // RAPORTOWANIE Z PĘTLI INC
+
+                totalNniCost += currentHeuristic.getAccumulatedNniCost();
                 trajectory = currentHeuristic.getLastOptimumTrajectory(treeBeforeSearch);
             } else {
                 neighborhoodName = "Classic_TBR_Fallback";

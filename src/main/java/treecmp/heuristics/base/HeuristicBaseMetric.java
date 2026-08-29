@@ -65,13 +65,13 @@ public abstract class HeuristicBaseMetric extends BaseMetric implements Metric {
     public double getDistance(Tree tree1, Tree tree2, int... indexes) {
         double finalMetricDist = performLocalDescent(tree1, tree2);
 
+
         if (finalMetricDist == 0.0) {
             // NOWOŚĆ: Autonomiczne wywołanie zwraca natywną liczbę kroków
             return (double) this.accumulatedSteps;
         }
         return Double.POSITIVE_INFINITY;
     }
-
     public double performLocalDescent(Tree startTree, Tree targetTree) {
         Metric primary = getPrimaryMetric();
         Metric secondary = getMetric();
@@ -124,7 +124,36 @@ public abstract class HeuristicBaseMetric extends BaseMetric implements Metric {
                 });
 
                 double bestDist = bestDistHolder[0];
-                Tree bestTree = findBestTree(bestTreeList, effectiveTargetTree, secondary);
+                Tree bestTree = null;
+
+                // NOWOŚĆ: Ręczne rozstrzyganie remisów z kryterium kosztu NNI
+                if (!bestTreeList.isEmpty()) {
+                    double bestSecDist = Double.POSITIVE_INFINITY;
+                    double bestNniCost = Double.POSITIVE_INFINITY;
+
+                    for (Tree candidate : bestTreeList) {
+                        double secDist;
+                        try {
+                            secDist = secondary.getDistance(candidate, effectiveTargetTree);
+                        } catch (TreeCmpException e) {
+                            throw new RuntimeException(e);
+                        }
+
+                        double nniCost = tnu.getTreeCost(candidate);
+
+                        // 1. Zwycięża lepszy wynik metryki drugorzędnej (z tolerancją błędów zmiennoprzecinkowych)
+                        if (secDist < bestSecDist - 1e-9) {
+                            bestSecDist = secDist;
+                            bestNniCost = nniCost;
+                            bestTree = candidate;
+                        }
+                        // 2. KRYTERIUM NNI: Remis w metryce drugorzędnej -> wygrywa ruch wymagający mniejszej liczby podstawowych rotacji
+                        else if (Math.abs(secDist - bestSecDist) <= 1e-9 && nniCost < bestNniCost) {
+                            bestNniCost = nniCost;
+                            bestTree = candidate;
+                        }
+                    }
+                }
 
                 if (bestTree == null) {
                     break;

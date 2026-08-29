@@ -109,11 +109,24 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
                 TreeMove bestMove = null;
 
                 if (primaryMetric == null || tiedMoves.size() == 1) {
-                    if (this.bestDist < currentDist) {
+                    // SCENARIUSZ 1: Brak drugorzędnej metryki. Remisy rozstrzygamy wyłącznie KOSZTEM NNI.
+                    if (tiedMoves.size() > 1 && this.bestDist < currentDist) {
+                        double lowestNniCost = Double.POSITIVE_INFINITY;
+                        for (TreeMove move : tiedMoves) {
+                            double currentMoveCost = move.getNniEquivalentCost();
+                            if (currentMoveCost < lowestNniCost) {
+                                lowestNniCost = currentMoveCost;
+                                bestMove = move;
+                            }
+                        }
+                    } else if (this.bestDist < currentDist) {
                         bestMove = tiedMoves.get(0);
                     }
                 } else {
+                    // SCENARIUSZ 2: Ewaluacja metryką drugorzędną (Secondary Metric)
                     double bestSecondaryDist = Double.POSITIVE_INFINITY;
+                    double bestNniCostForTie = Double.POSITIVE_INFINITY; // NOWOŚĆ: Śledzenie kosztu przy remisach
+
                     for (TreeMove move : tiedMoves) {
                         Tree candidateTree = applyPhysicalMove(currentTree, move);
                         // OCHRONA PRZED CYKLAMI: Pomijamy nielegalne lub uszkodzone drzewa!
@@ -124,9 +137,18 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
                         this.incMetric.initCalculationState(candidateTree, targetTree);
 
                         double secDist = this.incMetric.getCurrentDistance();
-                        if (secDist < bestSecondaryDist) {
+                        double moveNniCost = move.getNniEquivalentCost();
+
+                        // 1. Wyraźna poprawa w metryce drugorzędnej
+                        if (secDist < bestSecondaryDist - 1e-9) {
                             bestSecondaryDist = secDist;
                             bestMove = move;
+                            bestNniCostForTie = moveNniCost;
+                        }
+                        // 2. KRYTERIUM NNI: Remis w metryce drugorzędnej -> wybieramy tańszą trajektorię
+                        else if (Math.abs(secDist - bestSecondaryDist) <= 1e-9 && moveNniCost < bestNniCostForTie) {
+                            bestMove = move;
+                            bestNniCostForTie = moveNniCost;
                         }
                     }
                 }
