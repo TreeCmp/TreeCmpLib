@@ -231,38 +231,43 @@ public class SprSingleStepBenchmark {
     public static void main(String[] args) throws Exception {
         boolean quickEstimate = true;
 
-        String[] treeSizes = Ecr2SingleStepBenchmark.class
+        // Prawidłowe odwołanie do klasy SPR
+        String[] treeSizes = SprSingleStepBenchmark.class
                 .getField("treeSize")
                 .getAnnotation(Param.class)
                 .value();
 
         List<org.openjdk.jmh.results.RunResult> allResults = new ArrayList<>();
-        String className = Ecr2SingleStepBenchmark.class.getSimpleName();
+        String className = SprSingleStepBenchmark.class.getSimpleName();
 
         for (String sizeStr : treeSizes) {
             int size = Integer.parseInt(sizeStr);
 
-            if (size <= 120) {
+            // ZREKONSTRUOWANE LIMITY SPECYFICZNE DLA SPR (sąsiedztwo O(N^2)):
+            if (size <= 50) {
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"}, className, quickEstimate));
-            } else if (size <= 200) {
+            } else if (size <= 80) {
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP"}, className, quickEstimate));
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"M3"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
-            } else if (size <= 300) {
+            } else if (size <= 120) {
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC"}, className, quickEstimate));
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"MS", "MC", "MP"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
-            } else if (size <= 500) {
+            } else if (size <= 200) {
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF"}, className, quickEstimate));
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RFC", "MS", "MC", "MP"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
-            } else if (size <= 3000) {
+            } else if (size <= 300) {
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+            } else if (size <= 500) {
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
-            } else {
+            } else if (size <= 1200) {
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+            } else if (size <= 12000) {
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RFC"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+            } else {
+                System.out.println("Pomijam rozmiar " + size + " dla SPR (OOM limit / zbyt długi czas iteracji).");
             }
         }
 
-        // Zrzut jednym wywołaniem na sam koniec!
-        AbstractSingleStepBenchmark.exportToCsv("benchmark_single_step_ECR2.csv", allResults, "ECR2");
+        AbstractSingleStepBenchmark.exportToCsv("benchmark_single_step_SPR.csv", allResults, "SPR");
     }
-
-    // Usunięta funkcja runJmh! Wszystko jest dziedziczone statycznie z AbstractSingleStepBenchmark!
 }
