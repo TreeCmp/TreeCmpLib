@@ -207,38 +207,37 @@ public class Ecr3SingleStepBenchmark {
     public static void main(String[] args) throws Exception {
         boolean quickEstimate = true;
 
-        String[] treeSizes = Ecr2SingleStepBenchmark.class
+        String[] treeSizes = Ecr3SingleStepBenchmark.class
                 .getField("treeSize")
                 .getAnnotation(Param.class)
                 .value();
 
         List<org.openjdk.jmh.results.RunResult> allResults = new ArrayList<>();
-        String className = Ecr2SingleStepBenchmark.class.getSimpleName();
+
+        // Zabezpieczenie: Pobiera nazwę TEJ klasy (czyli Ecr3SingleStepBenchmark)
+        String className = Ecr3SingleStepBenchmark.class.getSimpleName();
 
         for (String sizeStr : treeSizes) {
             int size = Integer.parseInt(sizeStr);
 
-            if (size <= 120) {
+            // ZREKONSTRUOWANE LIMITY SPECYFICZNE DLA ECR-3 (bardzo ciężkie sąsiedztwo):
+            if (size <= 80) {
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"}, className, quickEstimate));
+            } else if (size <= 120) {
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "MS"}, className, quickEstimate));
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RFC", "MC", "MP", "M3"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
             } else if (size <= 200) {
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP"}, className, quickEstimate));
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"M3"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
             } else if (size <= 300) {
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC"}, className, quickEstimate));
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"MS", "MC", "MP"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
-            } else if (size <= 500) {
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF"}, className, quickEstimate));
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RFC", "MS", "MC", "MP"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
-            } else if (size <= 3000) {
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+            } else if (size <= 2000) {
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
             } else {
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
             }
         }
 
-        // Zrzut jednym wywołaniem na sam koniec!
-        AbstractSingleStepBenchmark.exportToCsv("benchmark_single_step_ECR2.csv", allResults, "ECR2");
+        // Zapis do dedykowanego pliku CSV dla ECR3
+        AbstractSingleStepBenchmark.exportToCsv("benchmark_single_step_ECR3.csv", allResults, "ECR3");
     }
-
-    // Usunięta funkcja runJmh! Wszystko jest dziedziczone statycznie z AbstractSingleStepBenchmark!
 }

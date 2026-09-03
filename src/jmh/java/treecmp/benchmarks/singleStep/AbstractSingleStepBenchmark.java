@@ -29,8 +29,9 @@ public abstract class AbstractSingleStepBenchmark {
                 .param("treeSize", sizeStr)
                 .param("metricName", metrics)
                 .jvmArgs("-Xms4g", "-Xmx16g")
-                // AKTYWACJA PROFILERA PAMIĘCI GC:
-                .addProfiler("gc");
+                .addProfiler("gc")
+                //.addProfiler("jfr")
+                ;
 
         if (quickEstimate) {
             builder.warmupIterations(1)
