@@ -1,3 +1,4 @@
+/*
 package treecmp.heuristics.tbr.acc;
 
 import pal.tree.Node;
@@ -10,10 +11,12 @@ import java.util.BitSet;
 import java.util.List;
 import java.lang.reflect.Method;
 
+*/
 /**
  * Zoptymalizowany, strukturalny Walker dla otoczenia uTBR (Unrooted TBR).
  * Przystosowany do nawigacji po drzewach nieukorzenionych z zachowaniem trifurkacji.
- */
+ *//*
+
 public class UtbrNeighborhoodWalker {
 
     public interface UtbrVisitor {
@@ -108,4 +111,4 @@ public class UtbrNeighborhoodWalker {
         collectSubtreeNodes(tree.getRoot(), list);
         return list;
     }
-}
+}*/

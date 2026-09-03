@@ -1,13 +1,16 @@
+/*
 package treecmp.heuristics.tbr;
 
 import treecmp.heuristics.TreeNeighborhoodUtils;
 import treecmp.heuristics.base.HeuristicBaseMetric;
 import treecmp.metrics.Metric;
 
+*/
 /**
  * Zunifikowana klasyczna heurystyka dla ruchów TBR (Rooted) oraz uTBR (Unrooted).
  * Eliminuje potrzebę tworzenia dedykowanych klas dla każdej metryki.
- */
+ *//*
+
 public class TbrClassicHeuristic extends HeuristicBaseMetric {
 
     private final Metric metric;
@@ -54,4 +57,4 @@ public class TbrClassicHeuristic extends HeuristicBaseMetric {
         String prefix = isRooted ? "TBR" : "uTBR";
         return prefix + "_ClassicHeuristic_" + metricShortName;
     }
-}
+}*/

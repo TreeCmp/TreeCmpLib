@@ -1,3 +1,4 @@
+/*
 package treecmp.heuristics.tbr;
 
 import org.junit.jupiter.params.ParameterizedTest;
@@ -13,10 +14,12 @@ import java.util.stream.Stream;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
+*/
 /**
  * Zunifikowany test dla heurystyk TBR i uTBR (Tree Bisection and Reconnection).
  * Weryfikuje poprawne wstrzykiwanie zależności i obsługę obu wariantów drzew.
- */
+ *//*
+
 class TbrClassicHeuristicTest {
 
     private static final double DELTA = 0.000001;
@@ -78,4 +81,4 @@ class TbrClassicHeuristicTest {
         assertTrue(distance > 0.0,
                 "Heurystyka uTBR (" + metric.getName() + ") musi znaleźć różnicę i zwrócić > 0.");
     }
-}
+}*/

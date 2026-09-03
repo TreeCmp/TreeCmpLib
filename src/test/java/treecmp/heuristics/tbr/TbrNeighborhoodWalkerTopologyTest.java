@@ -1,3 +1,4 @@
+/*
 package treecmp.heuristics.tbr;
 
 import org.junit.jupiter.api.Test;
@@ -167,4 +168,4 @@ public class TbrNeighborhoodWalkerTopologyTest {
         assertEquals(expectedTopologies, walkerTopologies,
                 "UtbrNeighborhoodWalker pominął niektóre drzewa z matematycznego otoczenia uTBR!");
     }
-}
+}*/

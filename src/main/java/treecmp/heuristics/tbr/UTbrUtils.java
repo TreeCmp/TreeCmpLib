@@ -1,3 +1,4 @@
+/*
 package treecmp.heuristics.tbr;
 
 import pal.misc.IdGroup;
@@ -27,8 +28,8 @@ public class UTbrUtils extends TreeNeighborhoodUtils {
         return isValidUTbrMove(pruneNode, rerootNode, targetNode);
     }
 
-    @Override
-    public Tree[] generateNeighbours(Tree tree) {
+    //@Override
+    public Tree[] generateNeighboursOBSOLETE(Tree tree) {
         IdGroup idGroup = TreeUtils.getLeafIdGroup(tree);
         int intNum = tree.getInternalNodeCount();
 
@@ -83,4 +84,5 @@ public class UTbrUtils extends TreeNeighborhoodUtils {
         }
         return utbrTreeArray;
     }
-}
+
+}*/

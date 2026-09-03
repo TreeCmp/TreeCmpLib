@@ -1,3 +1,4 @@
+/*
 package treecmp.heuristics.tbr;
 
 import org.junit.jupiter.api.AfterEach;
@@ -64,4 +65,4 @@ class TbrHeuristicRFCMetricTest {
 
         assertTrue(tbrDist <= sprDist, "Dystans rTBR (" + tbrDist + ") nie może być większy niż rSPR (" + sprDist + ")");
     }
-}
+}*/

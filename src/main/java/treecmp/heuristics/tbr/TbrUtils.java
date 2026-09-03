@@ -1,3 +1,4 @@
+/*
 package treecmp.heuristics.tbr;
 
 import pal.misc.IdGroup;
@@ -13,7 +14,7 @@ import java.util.Set;
 public class TbrUtils extends TreeNeighborhoodUtils {
 
     @Override
-    public Tree[] generateNeighbours(Tree tree) {
+    public Tree[] generateNeighboursOBSOLETE(Tree tree) {
         IdGroup idGroup = TreeUtils.getLeafIdGroup(tree);
         int intNum = tree.getInternalNodeCount();
 
@@ -61,4 +62,4 @@ public class TbrUtils extends TreeNeighborhoodUtils {
         }
         return tbrTreeArray;
     }
-}
+}*/

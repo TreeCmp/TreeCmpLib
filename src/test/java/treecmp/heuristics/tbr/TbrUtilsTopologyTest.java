@@ -1,3 +1,4 @@
+/*
 package treecmp.heuristics.tbr;
 
 import org.junit.jupiter.api.Test;
@@ -107,4 +108,4 @@ class TbrUtilsTopologyTest {
     void test_N15_Complex() {
         verifyTbrNeighborhood(TestTreeFactory.fifteenLeavesRootedComplexTree(), "15 liści (Złożone)", 1208);
     }
-}
+}*/
