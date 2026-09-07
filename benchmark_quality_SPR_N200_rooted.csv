@@ -1,0 +1,2 @@
+Size,IsRooted,Metric,Variant,PairIndex,Success,Distance,TotalTimeMs,AllocBytes,PeakRamBytes
+200,true,RFCluster,"Increm. (Pure)",1,true,189.0000,8139.8657,8653047848,4678880624
