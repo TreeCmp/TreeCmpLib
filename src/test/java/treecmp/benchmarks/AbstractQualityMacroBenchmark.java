@@ -58,18 +58,30 @@ public abstract class AbstractQualityMacroBenchmark {
         System.out.println("========================================================================================================================================================================");
 
         int[] sizes;
-        if (args.length > 0) {
-            try {
-                int explicitSize = Integer.parseInt(args[0]);
-                sizes = new int[]{explicitSize};
-                System.out.println("Single size mode. Running only for N = " + explicitSize);
-            } catch (NumberFormatException e) {
-                System.err.println("Error: Provided parameter '" + args[0] + "' is not a valid integer.");
-                return;
+        List<Integer> parsedSizes = new ArrayList<>();
+
+        if (args != null && args.length > 0) {
+            for (String arg : args) {
+                // Obsługa wartości rozdzielonych przecinkami lub spacjami (np. "30" lub "20,30,50")
+                String[] tokens = arg.split("[,\\s]+");
+                for (String token : tokens) {
+                    if (!token.trim().isEmpty()) {
+                        try {
+                            parsedSizes.add(Integer.parseInt(token.trim()));
+                        } catch (NumberFormatException e) {
+                            System.err.println("[CLI WARN] Parameter '" + token + "' is not a valid integer. Ignoring.");
+                        }
+                    }
+                }
             }
+        }
+
+        if (!parsedSizes.isEmpty()) {
+            sizes = parsedSizes.stream().mapToInt(Integer::intValue).toArray();
+            System.out.println("[CONFIG] CLI arguments detected. Running ONLY for sizes N = " + Arrays.toString(sizes));
         } else {
             sizes = defaultSizes;
-            System.out.println("No arguments provided. Running default sequence: " + Arrays.toString(sizes));
+            System.out.println("[CONFIG] No CLI size arguments provided. Running default sequence N = " + Arrays.toString(sizes));
         }
 
         Set<String> blacklist = new HashSet<>();

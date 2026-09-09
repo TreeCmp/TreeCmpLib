@@ -25,6 +25,9 @@ import java.util.*;
 
 public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBenchmark {
 
+    private final int maxAllowedClassicVndSize;
+    private long globalNniT, globalEcr2T, globalEcr3T, globalSprT;
+
     static class TimeProfiler {
         private static final ThreadLocal<Map<String, Long>> times = ThreadLocal.withInitial(HashMap::new);
         public static void add(String phase, long timeNs) { times.get().put(phase, times.get().getOrDefault(phase, 0L) + timeNs); }
@@ -45,10 +48,40 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
         }
     }
 
-    private long globalNniT, globalEcr2T, globalEcr3T, globalSprT;
-
     public NniVndQualityVsTimeMacroBenchmark() {
-        this.MAX_ALLOC_PER_PAIR_BYTES = 100L * 1024 * 1024 * 1024; // 100 GB for VND
+        // Zabezpieczenie piku alokacji globalnej (z AbstractQualityMacroBenchmark)
+        this.MAX_ALLOC_PER_PAIR_BYTES = 100L * 1024 * 1024 * 1024; // 100 GB
+
+        // Odczyt maksymalnej pamięci dostępnej dla JVM
+        long maxHeapBytes = Runtime.getRuntime().maxMemory();
+        double maxHeapGb = maxHeapBytes / (1024.0 * 1024.0 * 1024.0);
+
+        // Ustalenie progu N dla wariantów Classic VND
+        this.maxAllowedClassicVndSize = determineMaxClassicVndSize(maxHeapGb);
+
+        System.out.println("======================================================================");
+        System.out.printf("[MEMORY CONFIG] Detected JVM Max Heap: %.2f GB%n", maxHeapGb);
+        System.out.printf("[MEMORY CONFIG] Max allowed tree size (N) for Classic VND: %d%n", maxAllowedClassicVndSize);
+        System.out.println("======================================================================");
+    }
+
+    /**
+     * Centralne miejsce do definiowania progów pamięciowych.
+     * Łatwo tutaj dodać nowe 'if' dla kolejnych wartości RAM-u i N.
+     */
+    private int determineMaxClassicVndSize(double maxHeapGb) {
+        // Pamiętaj: -Xmx96g zwykle daje fizycznie ok. 85-90GB, -Xmx32g daje ok. 28-30GB.
+        if (maxHeapGb >= 110.0) {
+            return 120; // Próg dla maszyn np. 128GB+
+        } else if (maxHeapGb >= 85.0) {
+            return 80;  // Próg dla -Xmx96g (np. 90GB)
+        } else if (maxHeapGb >= 28.0) {
+            return 50;  // Próg dla -Xmx32g
+        } else if (maxHeapGb >= 14.0) {
+            return 30;  // Próg dla -Xmx16g
+        } else {
+            return 20;  // Bezpieczny domyślny próg dla małej ilości RAM
+        }
     }
 
     public static void main(String[] args) {
@@ -60,6 +93,24 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
                 "benchmark_results_VND",
                 new int[]{10, 20, 30, 50, 80, 120}
         );
+    }
+
+    @Override
+    protected void evaluateVariant(int size, boolean isRooted, String metricName, String variantName, Metric heuristic,
+                                   List<Tree> trees, Set<String> blacklist, Map<String, List<HistoryRecord>> history, String csvFileName) {
+
+        // Dynamiczna blokada oparta na rozmiarze (N) i wyliczonym progu RAM
+        if (isClassicVndVariant(variantName) && size > maxAllowedClassicVndSize) {
+            printSkipped(metricName, variantName, "Skip(RAM Limit)", "Max N=" + maxAllowedClassicVndSize);
+            return;
+        }
+
+        super.evaluateVariant(size, isRooted, metricName, variantName, heuristic, trees, blacklist, history, csvFileName);
+    }
+
+    private boolean isClassicVndVariant(String variantName) {
+        // Dotyczy wariantów zawierających "VND" i "Classic"
+        return variantName.contains("VND") && variantName.contains("Classic");
     }
 
     @Override
