@@ -225,14 +225,12 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
 
     // --- Builders WITH TIE-BREAKER ---
 
-// --- Builders WITH TIE-BREAKER ---
-
     private static Metric buildClassicVndFullTie(Metric classicMetric, Metric tieMetric, boolean isRooted, String shortName) {
         HeuristicBaseMetric sprStep = isRooted ? new SprHeuristicMetric(classicMetric, tieMetric, isRooted, shortName) { @Override public double performLocalDescent(Tree t1, Tree t2) { long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2); TimeProfiler.add("SPR", System.nanoTime() - s); return r; } } : new UsprHeuristicMetric(classicMetric, tieMetric, shortName) { @Override public double performLocalDescent(Tree t1, Tree t2) { long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2); TimeProfiler.add("SPR", System.nanoTime() - s); return r; } };
         return new NniVndHeuristic(Arrays.asList(
-                new NniClassicHeuristic(classicMetric, tieMetric, isRooted, shortName) { @Override public double performLocalDescent(Tree t1, Tree t2) { long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2); TimeProfiler.add("NNI", System.nanoTime() - s); return r; } },
-                new Ecr2ClassicHeuristic(classicMetric, tieMetric, isRooted, shortName) { @Override public double performLocalDescent(Tree t1, Tree t2) { long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2); TimeProfiler.add("ECR2", System.nanoTime() - s); return r; } },
-                new Ecr3ClassicHeuristic(classicMetric, tieMetric, isRooted, shortName) { @Override public double performLocalDescent(Tree t1, Tree t2) { long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2); TimeProfiler.add("ECR3", System.nanoTime() - s); return r; } },
+                new NniClassicHeuristic(classicMetric, isRooted, shortName) { @Override public double performLocalDescent(Tree t1, Tree t2) { long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2); TimeProfiler.add("NNI", System.nanoTime() - s); return r; } },
+                new Ecr2ClassicHeuristic(classicMetric, isRooted, shortName) { @Override public double performLocalDescent(Tree t1, Tree t2) { long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2); TimeProfiler.add("ECR2", System.nanoTime() - s); return r; } },
+                new Ecr3ClassicHeuristic(classicMetric, isRooted, shortName) { @Override public double performLocalDescent(Tree t1, Tree t2) { long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2); TimeProfiler.add("ECR3", System.nanoTime() - s); return r; } },
                 sprStep
         ), shortName);
     }
@@ -240,7 +238,7 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
     private static Metric buildClassicVndShortTie(Metric classicMetric, Metric tieMetric, boolean isRooted, String shortName) {
         HeuristicBaseMetric sprStep = isRooted ? new SprHeuristicMetric(classicMetric, tieMetric, isRooted, shortName) { @Override public double performLocalDescent(Tree t1, Tree t2) { long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2); TimeProfiler.add("SPR", System.nanoTime() - s); return r; } } : new UsprHeuristicMetric(classicMetric, tieMetric, shortName) { @Override public double performLocalDescent(Tree t1, Tree t2) { long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2); TimeProfiler.add("SPR", System.nanoTime() - s); return r; } };
         return new NniVndHeuristic(Arrays.asList(
-                new NniClassicHeuristic(classicMetric, tieMetric, isRooted, shortName) { @Override public double performLocalDescent(Tree t1, Tree t2) { long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2); TimeProfiler.add("NNI", System.nanoTime() - s); return r; } },
+                new NniClassicHeuristic(classicMetric, isRooted, shortName) { @Override public double performLocalDescent(Tree t1, Tree t2) { long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2); TimeProfiler.add("NNI", System.nanoTime() - s); return r; } },
                 sprStep
         ), shortName);
     }
@@ -248,19 +246,20 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
     private static Metric buildIncrementalVndFullTie(IncrementalMetric incMetric, IncrementalMetric tieIncMetric, boolean isRooted, String shortName) {
         IncrementalHeuristicBaseMetric sprStep = isRooted ? new SprIncrementalHeuristicMetric(incMetric, tieIncMetric, shortName) { @Override public double performLocalDescent(Tree t1, Tree t2) { long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2); TimeProfiler.add("SPR", System.nanoTime() - s); return r; } } : new UsprIncrementalHeuristicMetric(incMetric, tieIncMetric, shortName) { @Override public double performLocalDescent(Tree t1, Tree t2) { long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2); TimeProfiler.add("SPR", System.nanoTime() - s); return r; } };
         return new NniVndIncrementalHeuristic(Arrays.asList(
-                new NniIncrementalHeuristic(incMetric, tieIncMetric, shortName) { @Override public double performLocalDescent(Tree t1, Tree t2) { long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2); TimeProfiler.add("NNI", System.nanoTime() - s); return r; } },
-                new Ecr2IncrementalHeuristic(incMetric, tieIncMetric, shortName) { @Override public double performLocalDescent(Tree t1, Tree t2) { long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2); TimeProfiler.add("ECR2", System.nanoTime() - s); return r; } },
-                new Ecr3IncrementalHeuristic(incMetric, tieIncMetric, shortName) { @Override public double performLocalDescent(Tree t1, Tree t2) { long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2); TimeProfiler.add("ECR3", System.nanoTime() - s); return r; } },
+                // NNI i ECR wywoływane w wersji PURE (1-parametrowej) bez filtra!
+                new NniIncrementalHeuristic(incMetric, shortName) { @Override public double performLocalDescent(Tree t1, Tree t2) { long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2); TimeProfiler.add("NNI", System.nanoTime() - s); return r; } },
+                new Ecr2IncrementalHeuristic(incMetric, shortName) { @Override public double performLocalDescent(Tree t1, Tree t2) { long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2); TimeProfiler.add("ECR2", System.nanoTime() - s); return r; } },
+                new Ecr3IncrementalHeuristic(incMetric, shortName) { @Override public double performLocalDescent(Tree t1, Tree t2) { long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2); TimeProfiler.add("ECR3", System.nanoTime() - s); return r; } },
                 sprStep
-        ), tieIncMetric, shortName);
+        ), null, shortName);
     }
 
     private static Metric buildIncrementalVndShortTie(IncrementalMetric incMetric, IncrementalMetric tieIncMetric, boolean isRooted, String shortName) {
         IncrementalHeuristicBaseMetric sprStep = isRooted ? new SprIncrementalHeuristicMetric(incMetric, tieIncMetric, shortName) { @Override public double performLocalDescent(Tree t1, Tree t2) { long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2); TimeProfiler.add("SPR", System.nanoTime() - s); return r; } } : new UsprIncrementalHeuristicMetric(incMetric, tieIncMetric, shortName) { @Override public double performLocalDescent(Tree t1, Tree t2) { long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2); TimeProfiler.add("SPR", System.nanoTime() - s); return r; } };
         return new NniVndIncrementalHeuristic(Arrays.asList(
-                new NniIncrementalHeuristic(incMetric, tieIncMetric, shortName) { @Override public double performLocalDescent(Tree t1, Tree t2) { long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2); TimeProfiler.add("NNI", System.nanoTime() - s); return r; } },
+                new NniIncrementalHeuristic(incMetric, shortName) { @Override public double performLocalDescent(Tree t1, Tree t2) { long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2); TimeProfiler.add("NNI", System.nanoTime() - s); return r; } },
                 sprStep
-        ), tieIncMetric, shortName);
+        ), null, shortName);
     }
 
     private List<MetricSetupVnd> getRootedMetrics() {
