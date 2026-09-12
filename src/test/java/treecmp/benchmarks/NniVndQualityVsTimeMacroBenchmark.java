@@ -40,23 +40,29 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
         Metric classicNni, incrementalNni;
         Metric classicVndFull, classicVndShort;
         Metric incrementalVndFull, incrementalVndShort;
+        // Warianty z Tie-breakerem
+        Metric classicVndFullTie, classicVndShortTie;
+        Metric incrementalVndFullTie, incrementalVndShortTie;
 
-        public MetricSetupVnd(String name, Metric classicNni, Metric incrementalNni, Metric classicVndFull, Metric classicVndShort, Metric incrementalVndFull, Metric incrementalVndShort) {
+        public MetricSetupVnd(String name, Metric classicNni, Metric incrementalNni,
+                              Metric classicVndFull, Metric classicVndShort,
+                              Metric incrementalVndFull, Metric incrementalVndShort,
+                              Metric classicVndFullTie, Metric classicVndShortTie,
+                              Metric incrementalVndFullTie, Metric incrementalVndShortTie) {
             this.name = name; this.classicNni = classicNni; this.incrementalNni = incrementalNni;
             this.classicVndFull = classicVndFull; this.classicVndShort = classicVndShort;
             this.incrementalVndFull = incrementalVndFull; this.incrementalVndShort = incrementalVndShort;
+            this.classicVndFullTie = classicVndFullTie; this.classicVndShortTie = classicVndShortTie;
+            this.incrementalVndFullTie = incrementalVndFullTie; this.incrementalVndShortTie = incrementalVndShortTie;
         }
     }
 
     public NniVndQualityVsTimeMacroBenchmark() {
-        // Zabezpieczenie piku alokacji globalnej (z AbstractQualityMacroBenchmark)
         this.MAX_ALLOC_PER_PAIR_BYTES = 100L * 1024 * 1024 * 1024; // 100 GB
 
-        // Odczyt maksymalnej pamięci dostępnej dla JVM
         long maxHeapBytes = Runtime.getRuntime().maxMemory();
         double maxHeapGb = maxHeapBytes / (1024.0 * 1024.0 * 1024.0);
 
-        // Ustalenie progu N dla wariantów Classic VND
         this.maxAllowedClassicVndSize = determineMaxClassicVndSize(maxHeapGb);
 
         System.out.println("======================================================================");
@@ -65,23 +71,12 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
         System.out.println("======================================================================");
     }
 
-    /**
-     * Centralne miejsce do definiowania progów pamięciowych.
-     * Łatwo tutaj dodać nowe 'if' dla kolejnych wartości RAM-u i N.
-     */
     private int determineMaxClassicVndSize(double maxHeapGb) {
-        // Pamiętaj: -Xmx96g zwykle daje fizycznie ok. 85-90GB, -Xmx32g daje ok. 28-30GB.
-        if (maxHeapGb >= 110.0) {
-            return 120; // Próg dla maszyn np. 128GB+
-        } else if (maxHeapGb >= 85.0) {
-            return 80;  // Próg dla -Xmx96g (np. 90GB)
-        } else if (maxHeapGb >= 28.0) {
-            return 50;  // Próg dla -Xmx32g
-        } else if (maxHeapGb >= 14.0) {
-            return 30;  // Próg dla -Xmx16g
-        } else {
-            return 20;  // Bezpieczny domyślny próg dla małej ilości RAM
-        }
+        if (maxHeapGb >= 110.0) { return 120; }
+        else if (maxHeapGb >= 85.0) { return 80; }
+        else if (maxHeapGb >= 28.0) { return 50; }
+        else if (maxHeapGb >= 14.0) { return 30; }
+        else { return 20; }
     }
 
     public static void main(String[] args) {
@@ -99,7 +94,8 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
     protected void evaluateVariant(int size, boolean isRooted, String metricName, String variantName, Metric heuristic,
                                    List<Tree> trees, Set<String> blacklist, Map<String, List<HistoryRecord>> history, String csvFileName) {
 
-        // Dynamiczna blokada oparta na rozmiarze (N) i wyliczonym progu RAM
+        if (heuristic == null) return; // Jeśli dany wariant (np. Tie dla RF) nie ma sensu i został przekazany jako null
+
         if (isClassicVndVariant(variantName) && size > maxAllowedClassicVndSize) {
             printSkipped(metricName, variantName, "Skip(RAM Limit)", "Max N=" + maxAllowedClassicVndSize);
             return;
@@ -109,7 +105,6 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
     }
 
     private boolean isClassicVndVariant(String variantName) {
-        // Dotyczy wariantów zawierających "VND" i "Classic"
         return variantName.contains("VND") && variantName.contains("Classic");
     }
 
@@ -119,10 +114,20 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
         for (MetricSetupVnd setup : metricsToTest) {
             forceCleanMemory(); evaluateVariant(size, rooted, setup.name, "1. NNI (Classic)", setup.classicNni, trees, blacklist, history, csvFileName);
             forceCleanMemory(); evaluateVariant(size, rooted, setup.name, "2. NNI (Incremental)", setup.incrementalNni, trees, blacklist, history, csvFileName);
+
             forceCleanMemory(); evaluateVariant(size, rooted, setup.name, "3. VND NNI->ECR->SPR (Classic)", setup.classicVndFull, trees, blacklist, history, csvFileName);
             forceCleanMemory(); evaluateVariant(size, rooted, setup.name, "4. VND NNI->SPR (Classic)", setup.classicVndShort, trees, blacklist, history, csvFileName);
+
             forceCleanMemory(); evaluateVariant(size, rooted, setup.name, "5. VND NNI->ECR->SPR (Inc)", setup.incrementalVndFull, trees, blacklist, history, csvFileName);
             forceCleanMemory(); evaluateVariant(size, rooted, setup.name, "6. VND NNI->SPR (Inc)", setup.incrementalVndShort, trees, blacklist, history, csvFileName);
+
+            // Warianty z Tie-breakerem
+            forceCleanMemory(); evaluateVariant(size, rooted, setup.name, "7. VND NNI->ECR->SPR (Classic + Tie)", setup.classicVndFullTie, trees, blacklist, history, csvFileName);
+            forceCleanMemory(); evaluateVariant(size, rooted, setup.name, "8. VND NNI->SPR (Classic + Tie)", setup.classicVndShortTie, trees, blacklist, history, csvFileName);
+
+            forceCleanMemory(); evaluateVariant(size, rooted, setup.name, "9. VND NNI->ECR->SPR (Inc + Tie)", setup.incrementalVndFullTie, trees, blacklist, history, csvFileName);
+            forceCleanMemory(); evaluateVariant(size, rooted, setup.name, "10. VND NNI->SPR (Inc + Tie)", setup.incrementalVndShortTie, trees, blacklist, history, csvFileName);
+
             System.out.println("-".repeat(160));
         }
     }
@@ -180,7 +185,7 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
         return "N/A";
     }
 
-    // --- Builders ---
+    // --- Builders PURE ---
 
     private static Metric buildClassicVndFull(Metric classicMetric, boolean isRooted, String shortName) {
         HeuristicBaseMetric sprStep = isRooted ? new SprHeuristicMetric(classicMetric, isRooted, shortName) { @Override public double performLocalDescent(Tree t1, Tree t2) { long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2); TimeProfiler.add("SPR", System.nanoTime() - s); return r; } } : new UsprHeuristicMetric(classicMetric, shortName) { @Override public double performLocalDescent(Tree t1, Tree t2) { long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2); TimeProfiler.add("SPR", System.nanoTime() - s); return r; } };
@@ -218,19 +223,101 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
         ), null, shortName);
     }
 
+    // --- Builders WITH TIE-BREAKER ---
+
+// --- Builders WITH TIE-BREAKER ---
+
+    private static Metric buildClassicVndFullTie(Metric classicMetric, Metric tieMetric, boolean isRooted, String shortName) {
+        HeuristicBaseMetric sprStep = isRooted ? new SprHeuristicMetric(classicMetric, tieMetric, isRooted, shortName) { @Override public double performLocalDescent(Tree t1, Tree t2) { long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2); TimeProfiler.add("SPR", System.nanoTime() - s); return r; } } : new UsprHeuristicMetric(classicMetric, tieMetric, shortName) { @Override public double performLocalDescent(Tree t1, Tree t2) { long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2); TimeProfiler.add("SPR", System.nanoTime() - s); return r; } };
+        return new NniVndHeuristic(Arrays.asList(
+                new NniClassicHeuristic(classicMetric, tieMetric, isRooted, shortName) { @Override public double performLocalDescent(Tree t1, Tree t2) { long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2); TimeProfiler.add("NNI", System.nanoTime() - s); return r; } },
+                new Ecr2ClassicHeuristic(classicMetric, tieMetric, isRooted, shortName) { @Override public double performLocalDescent(Tree t1, Tree t2) { long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2); TimeProfiler.add("ECR2", System.nanoTime() - s); return r; } },
+                new Ecr3ClassicHeuristic(classicMetric, tieMetric, isRooted, shortName) { @Override public double performLocalDescent(Tree t1, Tree t2) { long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2); TimeProfiler.add("ECR3", System.nanoTime() - s); return r; } },
+                sprStep
+        ), shortName);
+    }
+
+    private static Metric buildClassicVndShortTie(Metric classicMetric, Metric tieMetric, boolean isRooted, String shortName) {
+        HeuristicBaseMetric sprStep = isRooted ? new SprHeuristicMetric(classicMetric, tieMetric, isRooted, shortName) { @Override public double performLocalDescent(Tree t1, Tree t2) { long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2); TimeProfiler.add("SPR", System.nanoTime() - s); return r; } } : new UsprHeuristicMetric(classicMetric, tieMetric, shortName) { @Override public double performLocalDescent(Tree t1, Tree t2) { long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2); TimeProfiler.add("SPR", System.nanoTime() - s); return r; } };
+        return new NniVndHeuristic(Arrays.asList(
+                new NniClassicHeuristic(classicMetric, tieMetric, isRooted, shortName) { @Override public double performLocalDescent(Tree t1, Tree t2) { long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2); TimeProfiler.add("NNI", System.nanoTime() - s); return r; } },
+                sprStep
+        ), shortName);
+    }
+
+    private static Metric buildIncrementalVndFullTie(IncrementalMetric incMetric, IncrementalMetric tieIncMetric, boolean isRooted, String shortName) {
+        IncrementalHeuristicBaseMetric sprStep = isRooted ? new SprIncrementalHeuristicMetric(incMetric, tieIncMetric, shortName) { @Override public double performLocalDescent(Tree t1, Tree t2) { long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2); TimeProfiler.add("SPR", System.nanoTime() - s); return r; } } : new UsprIncrementalHeuristicMetric(incMetric, tieIncMetric, shortName) { @Override public double performLocalDescent(Tree t1, Tree t2) { long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2); TimeProfiler.add("SPR", System.nanoTime() - s); return r; } };
+        return new NniVndIncrementalHeuristic(Arrays.asList(
+                new NniIncrementalHeuristic(incMetric, tieIncMetric, shortName) { @Override public double performLocalDescent(Tree t1, Tree t2) { long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2); TimeProfiler.add("NNI", System.nanoTime() - s); return r; } },
+                new Ecr2IncrementalHeuristic(incMetric, tieIncMetric, shortName) { @Override public double performLocalDescent(Tree t1, Tree t2) { long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2); TimeProfiler.add("ECR2", System.nanoTime() - s); return r; } },
+                new Ecr3IncrementalHeuristic(incMetric, tieIncMetric, shortName) { @Override public double performLocalDescent(Tree t1, Tree t2) { long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2); TimeProfiler.add("ECR3", System.nanoTime() - s); return r; } },
+                sprStep
+        ), tieIncMetric, shortName);
+    }
+
+    private static Metric buildIncrementalVndShortTie(IncrementalMetric incMetric, IncrementalMetric tieIncMetric, boolean isRooted, String shortName) {
+        IncrementalHeuristicBaseMetric sprStep = isRooted ? new SprIncrementalHeuristicMetric(incMetric, tieIncMetric, shortName) { @Override public double performLocalDescent(Tree t1, Tree t2) { long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2); TimeProfiler.add("SPR", System.nanoTime() - s); return r; } } : new UsprIncrementalHeuristicMetric(incMetric, tieIncMetric, shortName) { @Override public double performLocalDescent(Tree t1, Tree t2) { long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2); TimeProfiler.add("SPR", System.nanoTime() - s); return r; } };
+        return new NniVndIncrementalHeuristic(Arrays.asList(
+                new NniIncrementalHeuristic(incMetric, tieIncMetric, shortName) { @Override public double performLocalDescent(Tree t1, Tree t2) { long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2); TimeProfiler.add("NNI", System.nanoTime() - s); return r; } },
+                sprStep
+        ), tieIncMetric, shortName);
+    }
+
     private List<MetricSetupVnd> getRootedMetrics() {
         List<MetricSetupVnd> list = new ArrayList<>();
-        list.add(new MetricSetupVnd("RFCluster", new NniClassicHeuristic(new RFClusterMetric(), true, "RFC"), new NniIncrementalHeuristic(new RFClusterIncrementalMetric(), "RFC"), buildClassicVndFull(new RFClusterMetric(), true, "RFC"), buildClassicVndShort(new RFClusterMetric(), true, "RFC"), buildIncrementalVndFull(new RFClusterIncrementalMetric(), true, "RFC"), buildIncrementalVndShort(new RFClusterIncrementalMetric(), true, "RFC")));
-        list.add(new MetricSetupVnd("MC", new NniClassicHeuristic(new MatchingClusterMetric(), true, "MC"), new NniIncrementalHeuristic(new MCIncrementalMetric(), "MC"), buildClassicVndFull(new MatchingClusterMetric(), true, "MC"), buildClassicVndShort(new MatchingClusterMetric(), true, "MC"), buildIncrementalVndFull(new MCIncrementalMetric(), true, "MC"), buildIncrementalVndShort(new MCIncrementalMetric(), true, "MC")));
-        list.add(new MetricSetupVnd("MP", new NniClassicHeuristic(new MatchingPairMetric(), true, "MP"), new NniIncrementalHeuristic(new MPIncrementalMetric(), "MP"), buildClassicVndFull(new MatchingPairMetric(), true, "MP"), buildClassicVndShort(new MatchingPairMetric(), true, "MP"), buildIncrementalVndFull(new MPIncrementalMetric(), true, "MP"), buildIncrementalVndShort(new MPIncrementalMetric(), true, "MP")));
+
+        // RFCluster (nie potrzebuje tie-breakera)
+        list.add(new MetricSetupVnd("RFCluster",
+                new NniClassicHeuristic(new RFClusterMetric(), true, "RFC"), new NniIncrementalHeuristic(new RFClusterIncrementalMetric(), "RFC"),
+                buildClassicVndFull(new RFClusterMetric(), true, "RFC"), buildClassicVndShort(new RFClusterMetric(), true, "RFC"),
+                buildIncrementalVndFull(new RFClusterIncrementalMetric(), true, "RFC"), buildIncrementalVndShort(new RFClusterIncrementalMetric(), true, "RFC"),
+                null, null, null, null)); // Tie-breaker = null
+
+        // MC
+        list.add(new MetricSetupVnd("MC",
+                new NniClassicHeuristic(new MatchingClusterMetric(), true, "MC"), new NniIncrementalHeuristic(new MCIncrementalMetric(), "MC"),
+                buildClassicVndFull(new MatchingClusterMetric(), true, "MC"), buildClassicVndShort(new MatchingClusterMetric(), true, "MC"),
+                buildIncrementalVndFull(new MCIncrementalMetric(), true, "MC"), buildIncrementalVndShort(new MCIncrementalMetric(), true, "MC"),
+                buildClassicVndFullTie(new MatchingClusterMetric(), new RFClusterMetric(), true, "MC_RF"), buildClassicVndShortTie(new MatchingClusterMetric(), new RFClusterMetric(), true, "MC_RF"),
+                buildIncrementalVndFullTie(new MCIncrementalMetric(), new RFClusterIncrementalMetric(), true, "MC_RF"), buildIncrementalVndShortTie(new MCIncrementalMetric(), new RFClusterIncrementalMetric(), true, "MC_RF")));
+
+        // MP
+        list.add(new MetricSetupVnd("MP",
+                new NniClassicHeuristic(new MatchingPairMetric(), true, "MP"), new NniIncrementalHeuristic(new MPIncrementalMetric(), "MP"),
+                buildClassicVndFull(new MatchingPairMetric(), true, "MP"), buildClassicVndShort(new MatchingPairMetric(), true, "MP"),
+                buildIncrementalVndFull(new MPIncrementalMetric(), true, "MP"), buildIncrementalVndShort(new MPIncrementalMetric(), true, "MP"),
+                buildClassicVndFullTie(new MatchingPairMetric(), new RFClusterMetric(), true, "MP_RF"), buildClassicVndShortTie(new MatchingPairMetric(), new RFClusterMetric(), true, "MP_RF"),
+                buildIncrementalVndFullTie(new MPIncrementalMetric(), new RFClusterIncrementalMetric(), true, "MP_RF"), buildIncrementalVndShortTie(new MPIncrementalMetric(), new RFClusterIncrementalMetric(), true, "MP_RF")));
+
         return list;
     }
 
     private List<MetricSetupVnd> getUnrootedMetrics() {
         List<MetricSetupVnd> list = new ArrayList<>();
-        list.add(new MetricSetupVnd("RF", new NniClassicHeuristic(new RFMetric(), false, "RF"), new NniIncrementalHeuristic(new RFIncrementalMetric(), "RF"), buildClassicVndFull(new RFMetric(), false, "RF"), buildClassicVndShort(new RFMetric(), false, "RF"), buildIncrementalVndFull(new RFIncrementalMetric(), false, "RF"), buildIncrementalVndShort(new RFIncrementalMetric(), false, "RF")));
-        list.add(new MetricSetupVnd("MS", new NniClassicHeuristic(new MatchingSplitMetric(), false, "MS"), new NniIncrementalHeuristic(new MSIncrementalMetric(), "MS"), buildClassicVndFull(new MatchingSplitMetric(), false, "MS"), buildClassicVndShort(new MatchingSplitMetric(), false, "MS"), buildIncrementalVndFull(new MSIncrementalMetric(), false, "MS"), buildIncrementalVndShort(new MSIncrementalMetric(), false, "MS")));
-        list.add(new MetricSetupVnd("M3", new NniClassicHeuristic(new MatchingTripletMetric(), false, "M3"), new NniIncrementalHeuristic(new M3IncrementalMetric(), "M3"), buildClassicVndFull(new MatchingTripletMetric(), false, "M3"), buildClassicVndShort(new MatchingTripletMetric(), false, "M3"), buildIncrementalVndFull(new M3IncrementalMetric(), false, "M3"), buildIncrementalVndShort(new M3IncrementalMetric(), false, "M3")));
+
+        // RF (nie potrzebuje tie-breakera)
+        list.add(new MetricSetupVnd("RF",
+                new NniClassicHeuristic(new RFMetric(), false, "RF"), new NniIncrementalHeuristic(new RFIncrementalMetric(), "RF"),
+                buildClassicVndFull(new RFMetric(), false, "RF"), buildClassicVndShort(new RFMetric(), false, "RF"),
+                buildIncrementalVndFull(new RFIncrementalMetric(), false, "RF"), buildIncrementalVndShort(new RFIncrementalMetric(), false, "RF"),
+                null, null, null, null)); // Tie-breaker = null
+
+        // MS
+        list.add(new MetricSetupVnd("MS",
+                new NniClassicHeuristic(new MatchingSplitMetric(), false, "MS"), new NniIncrementalHeuristic(new MSIncrementalMetric(), "MS"),
+                buildClassicVndFull(new MatchingSplitMetric(), false, "MS"), buildClassicVndShort(new MatchingSplitMetric(), false, "MS"),
+                buildIncrementalVndFull(new MSIncrementalMetric(), false, "MS"), buildIncrementalVndShort(new MSIncrementalMetric(), false, "MS"),
+                buildClassicVndFullTie(new MatchingSplitMetric(), new RFMetric(), false, "MS_RF"), buildClassicVndShortTie(new MatchingSplitMetric(), new RFMetric(), false, "MS_RF"),
+                buildIncrementalVndFullTie(new MSIncrementalMetric(), new RFIncrementalMetric(), false, "MS_RF"), buildIncrementalVndShortTie(new MSIncrementalMetric(), new RFIncrementalMetric(), false, "MS_RF")));
+
+        // M3
+        list.add(new MetricSetupVnd("M3",
+                new NniClassicHeuristic(new MatchingTripletMetric(), false, "M3"), new NniIncrementalHeuristic(new M3IncrementalMetric(), "M3"),
+                buildClassicVndFull(new MatchingTripletMetric(), false, "M3"), buildClassicVndShort(new MatchingTripletMetric(), false, "M3"),
+                buildIncrementalVndFull(new M3IncrementalMetric(), false, "M3"), buildIncrementalVndShort(new M3IncrementalMetric(), false, "M3"),
+                buildClassicVndFullTie(new MatchingTripletMetric(), new RFMetric(), false, "M3_RF"), buildClassicVndShortTie(new MatchingTripletMetric(), new RFMetric(), false, "M3_RF"),
+                buildIncrementalVndFullTie(new M3IncrementalMetric(), new RFIncrementalMetric(), false, "M3_RF"), buildIncrementalVndShortTie(new M3IncrementalMetric(), new RFIncrementalMetric(), false, "M3_RF")));
+
         return list;
     }
 }
