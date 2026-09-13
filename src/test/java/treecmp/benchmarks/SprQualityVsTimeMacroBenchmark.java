@@ -5,41 +5,130 @@ import treecmp.heuristics.spr.SprHeuristicMetric;
 import treecmp.heuristics.spr.UsprHeuristicMetric;
 import treecmp.heuristics.spr.acc.SprIncrementalHeuristicMetric;
 import treecmp.heuristics.spr.acc.UsprIncrementalHeuristicMetric;
+import treecmp.metrics.Metric;
 import treecmp.metrics.topological.*;
 import treecmp.metrics.topological.acc.*;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
+import java.util.*;
 
 public class SprQualityVsTimeMacroBenchmark extends AbstractQualityMacroBenchmark {
 
+    private final int maxAllowedClassicSprSize;
+
+    public SprQualityVsTimeMacroBenchmark() {
+        this.MAX_ALLOC_PER_PAIR_BYTES = 100L * 1024 * 1024 * 1024; // 100 GB
+
+        long maxHeapBytes = Runtime.getRuntime().maxMemory();
+        double maxHeapGb = maxHeapBytes / (1024.0 * 1024.0 * 1024.0);
+
+        this.maxAllowedClassicSprSize = determineMaxClassicSprSize(maxHeapGb);
+
+        System.out.println("======================================================================");
+        System.out.printf("[MEMORY CONFIG] Detected JVM Max Heap: %.2f GB (-Xmx)%n", maxHeapGb);
+        System.out.printf("[MEMORY CONFIG] Max allowed tree size (N) for Classic SPR: %d%n", maxAllowedClassicSprSize);
+        System.out.println("======================================================================");
+    }
+
+    /**
+     * Ustala maksymalne dopuszczalne N dla wariantów klasycznych na podstawie dostępnej sterty.
+     * Dla środowiska -Xmx96g (oraz wyższych) klasyczne SPR jest sztywno blokowane dla N > 80.
+     */
+    private int determineMaxClassicSprSize(double maxHeapGb) {
+        if (maxHeapGb >= 85.0) {
+            return 80; // Sztywno zablokowane dla N > 80 (np. -Xmx96g)
+        } else if (maxHeapGb >= 28.0) {
+            return 50;
+        } else if (maxHeapGb >= 14.0) {
+            return 30;
+        } else {
+            return 20;
+        }
+    }
+
     public static void main(String[] args) {
         treecmp.heuristics.vnd.acc.NniVndIncrementalHeuristic.ENABLE_LOGGING = false;
+
+        int[] defaultSizes = new int[]{10, 20, 30, 50, 80, 120, 200};
+        int[] chosenSizes = parseSizes(args, defaultSizes);
+
+        if (args.length > 0) {
+            System.out.println("[CONFIG] Custom tree sizes requested: " + Arrays.toString(chosenSizes));
+        }
+
         new SprQualityVsTimeMacroBenchmark().runBenchmark(
-                args,
+                new String[0], // Przekazujemy pustą tablicę, aby klasa bazowa użyła naszej listy chosenSizes
                 "SPR QUALITY VS TIME MACRO-BENCHMARK (100 TREE PAIRS)",
                 "benchmark_results_SPR",
-                new int[]{10, 20, 30, 50, 80, 120, 200}
+                chosenSizes
         );
+    }
+
+    /**
+     * Parsuje parametry wejściowe do tablicy intów N.
+     * Obsługuje formaty: "20,50,80", "20, 50, 80", "20 50 80" oraz pojedynczy "50".
+     */
+    private static int[] parseSizes(String[] args, int[] defaultSizes) {
+        if (args == null || args.length == 0) {
+            return defaultSizes;
+        }
+
+        List<Integer> list = new ArrayList<>();
+        for (String arg : args) {
+            String[] tokens = arg.split("[,;\\s]+");
+            for (String token : tokens) {
+                token = token.trim();
+                if (!token.isEmpty()) {
+                    try {
+                        list.add(Integer.parseInt(token));
+                    } catch (NumberFormatException e) {
+                        System.err.println("Warning: Invalid size parameter '" + token + "' (ignored).");
+                    }
+                }
+            }
+        }
+
+        if (list.isEmpty()) {
+            return defaultSizes;
+        }
+
+        int[] result = new int[list.size()];
+        for (int i = 0; i < list.size(); i++) {
+            result[i] = list.get(i);
+        }
+        return result;
+    }
+
+    @Override
+    protected void evaluateVariant(int size, boolean isRooted, String metricName, String variantName, Metric heuristic,
+                                   List<Tree> trees, Set<String> blacklist, Map<String, List<HistoryRecord>> history, String csvFileName) {
+        if (heuristic == null) return;
+
+        // Sztywna blokada pamięciowa: metryki klasyczne SPR dla N > maxAllowedClassicSprSize
+        if (isClassicVariant(variantName) && size > maxAllowedClassicSprSize) {
+            printSkipped(metricName, variantName, "Skip(RAM Limit)", "Max N=" + maxAllowedClassicSprSize);
+            return;
+        }
+
+        super.evaluateVariant(size, isRooted, metricName, variantName, heuristic, trees, blacklist, history, csvFileName);
+    }
+
+    private boolean isClassicVariant(String variantName) {
+        return variantName.contains("Classic");
     }
 
     @Override
     protected void runEvaluationsForSize(int size, boolean rooted, List<Tree> trees, Set<String> blacklist, Map<String, List<HistoryRecord>> history, String csvFileName) {
         List<MetricSetup> metricsToTest = rooted ? getRootedMetrics() : getUnrootedMetrics();
         for (MetricSetup setup : metricsToTest) {
-            if (size < 200) {
-                forceCleanMemory();
-                evaluateVariant(size, rooted, setup.name, "Classic (Pure)", setup.classicPure, trees, blacklist, history, csvFileName);
-            }
+            forceCleanMemory();
+            evaluateVariant(size, rooted, setup.name, "Classic (Pure)", setup.classicPure, trees, blacklist, history, csvFileName);
+
             forceCleanMemory();
             evaluateVariant(size, rooted, setup.name, "Increm. (Pure)", setup.incrementalPure, trees, blacklist, history, csvFileName);
 
-            if (size < 200) {
-                forceCleanMemory();
-                evaluateVariant(size, rooted, setup.name, "Classic + RF (Tie)", setup.classicFiltered, trees, blacklist, history, csvFileName);
-            }
+            forceCleanMemory();
+            evaluateVariant(size, rooted, setup.name, "Classic + RF (Tie)", setup.classicFiltered, trees, blacklist, history, csvFileName);
+
             forceCleanMemory();
             evaluateVariant(size, rooted, setup.name, "Increm. + RF (Tie)", setup.incrementalFiltered, trees, blacklist, history, csvFileName);
 
