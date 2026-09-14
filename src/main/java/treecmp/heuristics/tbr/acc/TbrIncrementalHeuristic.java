@@ -1,4 +1,3 @@
-/*
 package treecmp.heuristics.tbr.acc;
 
 import pal.tree.Tree;
@@ -9,11 +8,10 @@ import treecmp.heuristics.moves.TbrMove;
 import treecmp.heuristics.tbr.TbrUtils;
 import treecmp.metrics.IncrementalMetric;
 
-*/
 /**
  * Uniwersalna, akcelerowana heurystyka (Steepest Descent) dla otoczenia TBR.
  * Używa szybkiego przeliczania metryk inkrementalnych.
- *//*
+ */
 
 public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
 
@@ -94,4 +92,4 @@ public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
     public String getName() {
         return "TBR_IncrementalHeuristic_" + metricShortName;
     }
-}*/
+}

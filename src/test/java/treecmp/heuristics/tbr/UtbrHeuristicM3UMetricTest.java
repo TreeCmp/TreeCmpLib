@@ -1,4 +1,3 @@
-/*
 package treecmp.heuristics.tbr;
 
 import org.junit.jupiter.api.AfterEach;
@@ -7,7 +6,7 @@ import org.junit.jupiter.api.Test;
 import pal.tree.Tree;
 import treecmp.common.TreeCmpException;
 import treecmp.heuristics.spr.UsprUtils;
-import treecmp.heuristics.tbr.TbrClassicHeuristic;
+import treecmp.heuristics.tbr.TbrHeuristicMetric;
 import treecmp.heuristics.tbr.UTbrUtils;
 import treecmp.metrics.Metric;
 import treecmp.metrics.topological.MatchingTripletMetric;
@@ -32,7 +31,7 @@ class UtbrHeuristicMatchingTripletMetricTest {
         Tree baseTree[] = TreeCreator.getTwoMarsupialsSPR_1_distance_trees();
 
         // Zunifikowana klasa kompozytowa uTBR + Matching Triplet
-        Metric mtUtbr = new TbrClassicHeuristic(new MatchingTripletMetric(), false, "MT");
+        Metric mtUtbr = new TbrHeuristicMetric(new MatchingTripletMetric(), false, "MT");
         Double distance = mtUtbr.getDistance(baseTree[0], baseTree[1]);
 
         // Jeśli uSPR = 1, to uTBR musi to rozwiązać w dokładnie 1 kroku
@@ -42,7 +41,7 @@ class UtbrHeuristicMatchingTripletMetricTest {
     @Test
     void testGetMetricTwoMarsupialsTreesWithSPR_2_distance() throws TreeCmpException {
         Tree baseTree[] = TreeCreator.getTwoMarsupialsSPR_2_distance_trees();
-        Metric mtUtbr = new TbrClassicHeuristic(new MatchingTripletMetric(), false, "MT");
+        Metric mtUtbr = new TbrHeuristicMetric(new MatchingTripletMetric(), false, "MT");
         Double distance = mtUtbr.getDistance(baseTree[0], baseTree[1]);
 
         // Odległość uTBR nigdy nie może przekroczyć odległości uSPR
@@ -52,7 +51,7 @@ class UtbrHeuristicMatchingTripletMetricTest {
     @Test
     void testGetMetricTwoMarsupialsTreesWithSPR_3_distance() throws TreeCmpException {
         Tree baseTree[] = TreeCreator.getTwoMarsupialsSPR_3_distance_trees();
-        Metric mtUtbr = new TbrClassicHeuristic(new MatchingTripletMetric(), false, "MT");
+        Metric mtUtbr = new TbrHeuristicMetric(new MatchingTripletMetric(), false, "MT");
         Double distance = mtUtbr.getDistance(baseTree[0], baseTree[1]);
 
         assertTrue(distance >= 1.0 && distance <= 3.0, "Dystans uTBR musi być <= 3");
@@ -61,7 +60,7 @@ class UtbrHeuristicMatchingTripletMetricTest {
     @Test
     void testGetMetricTwoMarsupialsTreesWithSPR_4_distance() throws TreeCmpException {
         Tree baseTree[] = TreeCreator.getTwoMarsupialsSPR_4_distance_trees();
-        Metric mtUtbr = new TbrClassicHeuristic(new MatchingTripletMetric(), false, "MT");
+        Metric mtUtbr = new TbrHeuristicMetric(new MatchingTripletMetric(), false, "MT");
         Double distance = mtUtbr.getDistance(baseTree[0], baseTree[1]);
 
         assertTrue(distance >= 1.0 && distance <= 4.0, "Dystans uTBR musi być <= 4");
@@ -70,7 +69,7 @@ class UtbrHeuristicMatchingTripletMetricTest {
     @Test
     void testGetMetricTwoMarsupialsTreesWithSPR_4_distance_withoutLabels() throws TreeCmpException {
         Tree baseTree[] = TreeCreator.getTwoMarsupialsSPR_4_distance_trees_withoutLabels();
-        Metric mtUtbr = new TbrClassicHeuristic(new MatchingTripletMetric(), false, "MT");
+        Metric mtUtbr = new TbrHeuristicMetric(new MatchingTripletMetric(), false, "MT");
         Double distance = mtUtbr.getDistance(baseTree[0], baseTree[1]);
 
         assertTrue(distance >= 1.0 && distance <= 4.0);
@@ -86,8 +85,8 @@ class UtbrHeuristicMatchingTripletMetricTest {
         UsprUtils usprUtils = new UsprUtils();
         UTbrUtils utbrUtils = new UTbrUtils();
 
-        Tree[] sprNeighbors = usprUtils.generateNeighbours(t1);
-        Tree[] tbrNeighbors = utbrUtils.generateNeighbours(t1);
+        Tree[] sprNeighbors = usprUtils.generateNeighboursOBSOLETE(t1);
+        Tree[] tbrNeighbors = utbrUtils.generateNeighboursOBSOLETE(t1);
 
         Metric mt = new MatchingTripletMetric();
 
@@ -104,4 +103,4 @@ class UtbrHeuristicMatchingTripletMetricTest {
         assertTrue(bestTbrDist <= bestSprDist,
                 "Najlepszy 1-krokowy skrót uTBR (" + bestTbrDist + ") nie może być gorszy niż skrót uSPR (" + bestSprDist + ")!");
     }
-}*/
+}

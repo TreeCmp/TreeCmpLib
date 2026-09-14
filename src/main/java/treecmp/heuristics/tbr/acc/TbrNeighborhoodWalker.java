@@ -1,4 +1,3 @@
-/*
 package treecmp.heuristics.tbr.acc;
 
 import pal.tree.Node;
@@ -11,11 +10,10 @@ import java.util.BitSet;
 import java.util.List;
 import java.lang.reflect.Method;
 
-*/
 /**
  * Zoptymalizowany, strukturalny Walker dla otoczenia TBR.
  * Gwarantuje 100% pokrycia matematycznego otoczenia dla drzew ukorzenionych.
- *//*
+ */
 
 public class TbrNeighborhoodWalker {
 
@@ -109,4 +107,4 @@ public class TbrNeighborhoodWalker {
         collectSubtreeNodes(tree.getRoot(), list);
         return list;
     }
-}*/
+}

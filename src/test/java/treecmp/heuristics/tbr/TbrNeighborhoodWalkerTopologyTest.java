@@ -1,4 +1,3 @@
-/*
 package treecmp.heuristics.tbr;
 
 import org.junit.jupiter.api.Test;
@@ -88,7 +87,7 @@ public class TbrNeighborhoodWalkerTopologyTest {
         TreeRootedHolder baseHolder = new TreeRootedHolder(baseTree, idGroup);
 
         // 1. Zbieramy referencyjne otoczenie (Prawda Absolutna) z generatora Naiwnego
-        Tree[] oracleNeighbors = oracle.generateNeighbours(baseTree);
+        Tree[] oracleNeighbors = oracle.generateNeighboursOBSOLETE(baseTree);
         Set<TreeHolder> expectedTopologies = Arrays.stream(oracleNeighbors)
                 .map(tree -> new TreeRootedHolder(tree, idGroup))
                 .collect(Collectors.toSet());
@@ -133,7 +132,7 @@ public class TbrNeighborhoodWalkerTopologyTest {
         TreeUnrootedHolder baseHolder = new TreeUnrootedHolder(baseTree, idGroup);
 
         // 1. Zbieramy referencyjne otoczenie uTBR (Prawda Absolutna)
-        Tree[] oracleNeighbors = oracle.generateNeighbours(baseTree);
+        Tree[] oracleNeighbors = oracle.generateNeighboursOBSOLETE(baseTree);
         Set<TreeHolder> expectedTopologies = Arrays.stream(oracleNeighbors)
                 .map(tree -> new TreeUnrootedHolder(tree, idGroup))
                 .collect(Collectors.toSet());
@@ -168,4 +167,4 @@ public class TbrNeighborhoodWalkerTopologyTest {
         assertEquals(expectedTopologies, walkerTopologies,
                 "UtbrNeighborhoodWalker pominął niektóre drzewa z matematycznego otoczenia uTBR!");
     }
-}*/
+}

@@ -1,4 +1,3 @@
-/*
 package treecmp.heuristics.tbr;
 
 import org.junit.jupiter.api.AfterEach;
@@ -6,7 +5,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import pal.tree.Tree;
 import treecmp.heuristics.spr.SprHeuristicMetric;
-import treecmp.heuristics.tbr.TbrClassicHeuristic;
+import treecmp.heuristics.tbr.TbrHeuristicMetric;
 import treecmp.metrics.topological.RFClusterMetric;
 import treecmp.util.TestTreeFactory;
 
@@ -27,7 +26,7 @@ class TbrHeuristicRFCMetricTest {
         Tree tree = TestTreeFactory.fiveLeavesRootedTree1();
 
         // Używamy zunifikowanej klasy TBR (RFCluster, ukorzenione)
-        TbrClassicHeuristic tbrMetric = new TbrClassicHeuristic(new RFClusterMetric(), true, "RFC");
+        TbrHeuristicMetric tbrMetric = new TbrHeuristicMetric(new RFClusterMetric(), true, "RFC");
 
         assertEquals(0.0, tbrMetric.getDistance(tree, tree), DELTA, "Dystans TBR dla identycznych drzew musi wynosić 0");
     }
@@ -42,7 +41,7 @@ class TbrHeuristicRFCMetricTest {
 
         // FIX: Dodana flaga 'true' dla drzew ukorzenionych (Rooted)
         SprHeuristicMetric sprMetric = new SprHeuristicMetric(new RFClusterMetric(), true, "RFC");
-        TbrClassicHeuristic tbrMetric = new TbrClassicHeuristic(new RFClusterMetric(), true, "RFC");
+        TbrHeuristicMetric tbrMetric = new TbrHeuristicMetric(new RFClusterMetric(), true, "RFC");
 
         double sprDist = sprMetric.getDistance(t1, t2);
         double tbrDist = tbrMetric.getDistance(t1, t2);
@@ -58,11 +57,11 @@ class TbrHeuristicRFCMetricTest {
 
         // FIX: Dodana flaga 'true' dla drzew ukorzenionych (Rooted)
         SprHeuristicMetric sprMetric = new SprHeuristicMetric(new RFClusterMetric(), true, "RFC");
-        TbrClassicHeuristic tbrMetric = new TbrClassicHeuristic(new RFClusterMetric(), true, "RFC");
+        TbrHeuristicMetric tbrMetric = new TbrHeuristicMetric(new RFClusterMetric(), true, "RFC");
 
         double sprDist = sprMetric.getDistance(t1, t2);
         double tbrDist = tbrMetric.getDistance(t1, t2);
 
         assertTrue(tbrDist <= sprDist, "Dystans rTBR (" + tbrDist + ") nie może być większy niż rSPR (" + sprDist + ")");
     }
-}*/
+}
