@@ -1,9 +1,12 @@
 package treecmp.metrics.topological.acc;
 
 import pal.tree.Node;
+import pal.tree.SimpleTree;
 import pal.tree.Tree;
 import treecmp.heuristics.spr.UsprUtils;
+import treecmp.heuristics.tbr.UTbrUtils;
 import treecmp.metrics.topological.RFMetric;
+
 import java.util.BitSet;
 
 /**
@@ -14,8 +17,7 @@ public class RFIncrementalMetric extends BaseRFIncrementalMetric {
 
     private final RFMetric classicRf = new RFMetric();
     private final UsprUtils usprUtils = new UsprUtils();
-    private Tree baseTreeRef;
-    private Tree targetTreeRef;
+    private final UTbrUtils utbrUtils = new UTbrUtils();
 
     @Override
     public void initCalculationState(Tree baseTree, Tree targetTree) {
@@ -34,9 +36,59 @@ public class RFIncrementalMetric extends BaseRFIncrementalMetric {
         return rawSplit;
     }
 
+    // =========================================================================
+    // KONTRAKT DLA DRZEW NIEUKORZENIONYCH (Splits zamiast Clusters)
+    // =========================================================================
+
+    /**
+     * Zwraca podział (split) skojarzony z węzłem w drzewie nieukorzenionym.
+     * Wymagany przez UtbrNeighborhoodWalker.
+     */
+    public BitSet getSplit(Node node) {
+        return getCluster(node);
+    }
+
+    // =========================================================================
+    // AKCELERATOR uTBR DLA DRZEW NIEUKORZENIONYCH
+    // =========================================================================
+
+    /**
+     * Sygnatura dopasowana do UtbrNeighborhoodWalker ("evaluateExactUTbrDistance").
+     */
+    public double evaluateExactUTbrDistance(Node pruneNode, Node rerootNode, Node targetNode, BitSet movingBits) {
+        if (this.baseTreeRef == null || this.targetTreeRef == null) {
+            return getCurrentDistance();
+        }
+
+        Tree physicalTree = utbrUtils.createUtbrTree(this.baseTreeRef, pruneNode, rerootNode, targetNode);
+        if (physicalTree != null) {
+            if (physicalTree instanceof SimpleTree) {
+                ((SimpleTree) physicalTree).createNodeList();
+            }
+            try {
+                return classicRf.getDistance(physicalTree, this.targetTreeRef);
+            } catch (Exception e) {
+                return Double.POSITIVE_INFINITY;
+            }
+        }
+        return Double.POSITIVE_INFINITY;
+    }
+
+    public double evaluateExactUtbrDistance(Node pruneNode, Node rerootNode, Node targetNode, BitSet movingBits) {
+        return evaluateExactUTbrDistance(pruneNode, rerootNode, targetNode, movingBits);
+    }
+
+    @Override
+    public double evaluateExactTbrDistance(Node pruneNode, Node rerootNode, Node targetNode, BitSet movingBits) {
+        return evaluateExactUTbrDistance(pruneNode, rerootNode, targetNode, movingBits);
+    }
+
+    // =========================================================================
+    // OBSŁUGA uSPR
+    // =========================================================================
+
     @Override
     public void applySprRegraftStep(Node pruneNode, Node currentNode) {
-        // Zabezpieczenie Inner Moves przed modyfikacją bitów we własnym poddrzewie
         if (isDescendant(currentNode, pruneNode)) {
             sharedSplitsHistory.push(sharedSplitsCount);
             movingNodeHistory.push(currentNode);
@@ -50,17 +102,14 @@ public class RFIncrementalMetric extends BaseRFIncrementalMetric {
     public double evaluateSprRegraft(Node pruneNode, Node targetNode) {
         boolean isInnerMove = isDescendant(targetNode, pruneNode);
 
-        // Zabezpieczenie przed "Widmowym Korzeniem" (Trifurcation suppression) w uSPR
         boolean pruneInvolvesRoot = (pruneNode.getParent() != null && pruneNode.getParent().isRoot());
         boolean targetInvolvesRoot = (targetNode.getParent() != null && targetNode.getParent().isRoot()) || targetNode.isRoot();
 
-        // Jeśli jakikolwiek ruch dotyka korzenia lub wnętrza odciętego fragmentu, wymuszamy wyrocznię
         if (isInnerMove || pruneInvolvesRoot || targetInvolvesRoot) {
             Tree tempTree = usprUtils.createUsprTree(this.baseTreeRef, pruneNode, targetNode);
             if (tempTree != null) {
-                // KLUCZOWY FIX: Zabezpieczenie przed StackOverflow w wewnętrznych strukturach PAL
-                if (tempTree instanceof pal.tree.SimpleTree) {
-                    ((pal.tree.SimpleTree) tempTree).createNodeList();
+                if (tempTree instanceof SimpleTree) {
+                    ((SimpleTree) tempTree).createNodeList();
                 }
                 try {
                     return classicRf.getDistance(tempTree, this.targetTreeRef);
@@ -68,18 +117,12 @@ public class RFIncrementalMetric extends BaseRFIncrementalMetric {
                     return Double.POSITIVE_INFINITY;
                 }
             }
-            // Zwracamy Infinity zgodnie ze starym kodem, tak jak oczekuje tego Fuzzer!
             return Double.POSITIVE_INFINITY;
         }
 
-        // Zewnętrzne ruchy SPR z dala od korzenia -> Błyskawiczna formuła O(1)
         return super.evaluateSprRegraft(pruneNode, targetNode);
     }
 
-    /**
-     * Wędruje w górę drzewa sprawdzając, czy węzeł 'descendant' znajduje się
-     * wewnątrz poddrzewa zaczynającego się od węzła 'ancestor'.
-     */
     private boolean isDescendant(Node descendant, Node ancestor) {
         Node curr = descendant;
         while (curr != null) {

@@ -60,13 +60,11 @@ public class TbrNeighborhoodWalker {
     }
 
     private double evaluate(IncrementalMetric metric, Node prune, Node reroot, Node target) {
-        // Leniwa inicjalizacja refleksji (wykona się tylko raz)
         if (!reflectionInitialized) {
             try {
                 getClusterMethod = metric.getClass().getMethod("getCluster", Node.class);
                 evalMethod = metric.getClass().getMethod("evaluateExactTbrDistance", Node.class, Node.class, Node.class, BitSet.class);
-            } catch (Exception e) {
-                // Metryka nie wspiera wbudowanego wzoru O(1) dla TBR
+            } catch (Exception ignored) {
             }
             reflectionInitialized = true;
         }
