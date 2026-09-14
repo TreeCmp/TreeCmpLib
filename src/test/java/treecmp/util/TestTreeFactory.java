@@ -101,8 +101,7 @@ public class TestTreeFactory {
     public static Tree sixLeavesUnrootedTargetTree() { return parseNewick("(((1,(3,4)),2),5,6);", true); }
     public static Tree eightLeavesUnrootedBalancedTree() { return parseNewick("((1,2),(3,4),((5,6),(7,8)));", true); }
     public static Tree eightLeavesUnrootedCaterpillarTree() { return parseNewick("((((((1,2),3),4),5),6),7,8);", true); }
-    public static Tree tenLeavesUnrootedBalancedTree() { return parseNewick("(((1,2),(3,4)),(5,6),((7,8),9,10));", true); }
-    public static Tree tenLeavesUnrootedCaterpillarTree() { return parseNewick("((((((((1,2),3),4),5),6),7),8),9,10);", true); }
+    public static Tree tenLeavesUnrootedBalancedTree() { return parseNewick("(((1,2),(3,4)),(5,6),((7,8),(9,10)));", true); }public static Tree tenLeavesUnrootedCaterpillarTree() { return parseNewick("((((((((1,2),3),4),5),6),7),8),9,10);", true); }
     public static Tree tenLeavesUnrootedTree1() {
         String newick = "(((1,2),3),((4,5),6),(7,(8,(9,10))));";
         return parseNewick(newick, true);
