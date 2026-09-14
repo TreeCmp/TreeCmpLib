@@ -60,6 +60,10 @@ public class TbrNeighborhoodWalker {
     }
 
     private double evaluate(IncrementalMetric metric, Node prune, Node reroot, Node target) {
+        if (metric == null) {
+            return 0.0;
+        }
+
         if (!reflectionInitialized) {
             try {
                 getClusterMethod = metric.getClass().getMethod("getCluster", Node.class);
