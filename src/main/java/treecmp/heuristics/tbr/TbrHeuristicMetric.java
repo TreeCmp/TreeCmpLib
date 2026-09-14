@@ -1,17 +1,15 @@
-/*
 package treecmp.heuristics.tbr;
 
 import treecmp.heuristics.TreeNeighborhoodUtils;
 import treecmp.heuristics.base.HeuristicBaseMetric;
 import treecmp.metrics.Metric;
 
-*/
 /**
  * Zunifikowana klasyczna heurystyka dla ruchów TBR (Rooted) oraz uTBR (Unrooted).
  * Eliminuje potrzebę tworzenia dedykowanych klas dla każdej metryki.
- *//*
+ */
 
-public class TbrClassicHeuristic extends HeuristicBaseMetric {
+public class TbrHeuristicMetric extends HeuristicBaseMetric {
 
     private final Metric metric;
     private final Metric primaryMetric; // Opcjonalny szybki filtr
@@ -19,12 +17,12 @@ public class TbrClassicHeuristic extends HeuristicBaseMetric {
     private final String metricShortName;
 
     // 1. Podstawowy konstruktor (dla pojedynczych metryk, np. RF, RFC)
-    public TbrClassicHeuristic(Metric metric, boolean isRooted, String metricShortName) {
+    public TbrHeuristicMetric(Metric metric, boolean isRooted, String metricShortName) {
         this(metric, null, isRooted, metricShortName);
     }
 
     // 2. Rozszerzony konstruktor (z możliwością dodania szybkiego filtra)
-    public TbrClassicHeuristic(Metric metric, Metric primaryMetric, boolean isRooted, String metricShortName) {
+    public TbrHeuristicMetric(Metric metric, Metric primaryMetric, boolean isRooted, String metricShortName) {
         super(isRooted);
         this.metric = metric;
         this.primaryMetric = primaryMetric;
@@ -57,4 +55,4 @@ public class TbrClassicHeuristic extends HeuristicBaseMetric {
         String prefix = isRooted ? "TBR" : "uTBR";
         return prefix + "_ClassicHeuristic_" + metricShortName;
     }
-}*/
+}
