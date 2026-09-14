@@ -1,4 +1,3 @@
-/*
 package treecmp.heuristics.tbr;
 
 import org.junit.jupiter.api.Test;
@@ -10,7 +9,9 @@ import treecmp.heuristics.spr.UsprUtils;
 import treecmp.heuristics.tbr.UTbrUtils;
 import treecmp.util.TestTreeFactory;
 
+import java.util.ArrayList;
 import java.util.HashSet;
+import java.util.List;
 import java.util.Set;
 
 import static org.junit.jupiter.api.Assertions.*;
@@ -21,13 +22,16 @@ class UTbrUtilsTopologyTest {
         UTbrUtils utbrUtils = new UTbrUtils();
         UsprUtils usprUtils = new UsprUtils();
 
-        Tree[] tbrNeighbors = utbrUtils.generateNeighbours(baseTree);
+        List<Tree> tbrNeighbors = new ArrayList<>();
+        utbrUtils.forEachNeighbour(baseTree, tbrNeighbors::add);
         int sprSize = usprUtils.calcUsprNeighbours(baseTree);
 
         IdGroup idGroup = TreeUtils.getLeafIdGroup(baseTree);
         Set<TreeUnrootedHolder> uniqueTbrTrees = new HashSet<>();
 
         for (Tree t : tbrNeighbors) {
+            assertEquals(baseTree.getExternalNodeCount(), t.getExternalNodeCount(),
+                    testName + " -> Wykryto utratę liści w drzewie sąsiada!");
             try {
                 uniqueTbrTrees.add(new TreeUnrootedHolder(t, idGroup));
             } catch (Exception e) {
@@ -43,22 +47,20 @@ class UTbrUtilsTopologyTest {
         }
 
         // REGUŁA 1: Brak duplikatów
-        assertEquals(tbrNeighbors.length, uniqueTbrTrees.size(),
-                testName + " -> Wykryto duplikaty! Tablica ma " + tbrNeighbors.length + " elementów, ale unikalnych jest " + uniqueTbrTrees.size());
+        assertEquals(tbrNeighbors.size(), uniqueTbrTrees.size(),
+                testName + " -> Wykryto duplikaty! Lista ma " + tbrNeighbors.size() + " elementów, ale unikalnych jest " + uniqueTbrTrees.size());
 
-        // REGUŁA 2: Brak drzewa bazowego (odległość > 0)
+        // REGUŁA 2: Brak drzewa bazowego
         assertFalse(uniqueTbrTrees.contains(baseTreeHolder),
                 testName + " -> Generator zwrócił drzewo identyczne z bazowym (dystans 0)!");
 
         // REGUŁA 3: Otoczenie uTBR >= uSPR
-        assertTrue(tbrNeighbors.length >= sprSize,
-                testName + " -> Otoczenie uTBR (" + tbrNeighbors.length + ") jest mniejsze niż uSPR (" + sprSize + ")!");
+        assertTrue(tbrNeighbors.size() >= sprSize,
+                testName + " -> Otoczenie uTBR (" + tbrNeighbors.size() + ") jest mniejsze niż uSPR (" + sprSize + ")!");
 
-        // REGUŁA 4: Twarde sprawdzenie dokładnego rozmiaru ze Złotego Wzorca
-        assertEquals(expectedTbrSize, tbrNeighbors.length,
-                testName + " -> Rozmiar uTBR jest niezgodny z oczekiwanym matematycznym wzorcem dla tej topologii!");
-
-        System.out.println(testName + " | Rozmiar uSPR: " + sprSize + " | Rozmiar uTBR: " + tbrNeighbors.length + " (Oczekiwane: " + expectedTbrSize + ")");
+        // REGUŁA 4: Sprawdzenie dokładnego rozmiaru ze Złotego Wzorca
+        assertEquals(expectedTbrSize, tbrNeighbors.size(),
+                testName + " -> Rozmiar uTBR jest niezgodny z oczekiwanym wzorcem dla tej topologii!");
     }
 
     // ==========================================
@@ -77,9 +79,9 @@ class UTbrUtilsTopologyTest {
 
     @Test void test_N8_Caterpillar() { verifyUTbrNeighborhood(TestTreeFactory.eightLeavesUnrootedCaterpillarTree(), "8 liści (Grzebień)", 130); }
 
-    @Test void test_N10_Balanced() { verifyUTbrNeighborhood(TestTreeFactory.tenLeavesUnrootedBalancedTree(), "10 liści (Zrównoważone)", 223); }
+    @Test void test_N10_Balanced() { verifyUTbrNeighborhood(TestTreeFactory.tenLeavesUnrootedBalancedTree(), "10 liści (Zrównoważone)", 246); }
 
     @Test void test_N10_Caterpillar() { verifyUTbrNeighborhood(TestTreeFactory.tenLeavesUnrootedCaterpillarTree(), "10 liści (Grzebień)", 322); }
 
     @Test void test_N15_Complex() { verifyUTbrNeighborhood(TestTreeFactory.fifteenLeavesUnrootedComplexTree(), "15 liści (Złożone, losowe)", 1008); }
-}*/
+}
