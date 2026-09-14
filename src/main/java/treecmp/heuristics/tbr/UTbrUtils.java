@@ -1,4 +1,3 @@
-/*
 package treecmp.heuristics.tbr;
 
 import pal.misc.IdGroup;
@@ -11,10 +10,10 @@ import treecmp.heuristics.TreeUnrootedHolder;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Consumer;
 
 public class UTbrUtils extends TreeNeighborhoodUtils {
 
-    // 1. NOWA METODA: Wymagana przez UtbrIncrementalHeuristic do fizycznej aplikacji ruchu
     public Tree createUtbrTree(Tree tree, Node pruneNode, Node rerootNode, Node targetNode) {
         if (pruneNode == rerootNode) {
             return createUsprTree(tree, pruneNode, targetNode);
@@ -23,9 +22,50 @@ public class UTbrUtils extends TreeNeighborhoodUtils {
         }
     }
 
-    // 2. NOWA METODA: Ujednolicenie nazewnictwa dla UtbrNeighborhoodWalker (alias dla isValidUTbrMove)
     public boolean isValidUtbrMove(Node pruneNode, Node rerootNode, Node targetNode) {
         return isValidUTbrMove(pruneNode, rerootNode, targetNode);
+    }
+
+    @Override
+    public void forEachNeighbour(Tree tree, Consumer<Tree> action) {
+        IdGroup idGroup = TreeUtils.getLeafIdGroup(tree);
+        int intNum = tree.getInternalNodeCount();
+
+        int neighSize = calcUsprNeighbours(tree) * intNum;
+        Set<TreeUnrootedHolder> seenTrees = new HashSet<>((4 * neighSize) / 3);
+
+        TreeUnrootedHolder baseTreeHolder = null;
+        try {
+            baseTreeHolder = new TreeUnrootedHolder(tree, idGroup);
+        } catch (Exception ignored) {}
+
+        List<Node> allNodes = getAllNodes(tree);
+
+        for (Node pruneNode : allNodes) {
+            if (pruneNode.isRoot() || pruneNode.getParent() == null) continue;
+
+            List<Node> rerootNodes = getSubtreeNodes(pruneNode);
+
+            for (Node rerootNode : rerootNodes) {
+                for (Node targetNode : allNodes) {
+                    if (isValidUtbrMove(pruneNode, rerootNode, targetNode)) {
+                        Tree resultTree = createUtbrTree(tree, pruneNode, rerootNode, targetNode);
+
+                        if (resultTree != null) {
+                            try {
+                                TreeUnrootedHolder newHolder = new TreeUnrootedHolder(resultTree, idGroup);
+                                if (baseTreeHolder == null || !newHolder.equals(baseTreeHolder)) {
+                                    // add() zwraca true tylko wtedy, gdy drzewo nie było wcześniej w secie
+                                    if (seenTrees.add(newHolder)) {
+                                        action.accept(resultTree);
+                                    }
+                                }
+                            } catch (Exception ignored) {}
+                        }
+                    }
+                }
+            }
+        }
     }
 
     //@Override
@@ -85,4 +125,4 @@ public class UTbrUtils extends TreeNeighborhoodUtils {
         return utbrTreeArray;
     }
 
-}*/
+}

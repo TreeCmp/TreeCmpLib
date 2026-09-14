@@ -1,4 +1,3 @@
-/*
 package treecmp.heuristics.tbr;
 
 import pal.misc.IdGroup;
@@ -10,10 +9,51 @@ import treecmp.heuristics.TreeNeighborhoodUtils;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
+import java.util.function.Consumer;
 
 public class TbrUtils extends TreeNeighborhoodUtils {
 
     @Override
+    public void forEachNeighbour(Tree tree, Consumer<Tree> action) {
+        IdGroup idGroup = TreeUtils.getLeafIdGroup(tree);
+        int intNum = tree.getInternalNodeCount();
+
+        int neighSize = calcSprNeighbours(tree) * intNum;
+        Set<treecmp.heuristics.TreeHolder> seenTrees = new HashSet<>((4 * neighSize) / 3);
+
+        treecmp.heuristics.TreeHolder baseTreeHolder = new treecmp.heuristics.TreeRootedHolder(tree, idGroup);
+        List<Node> allNodes = getAllNodes(tree);
+
+        for (Node pruneNode : allNodes) {
+            if (pruneNode.isRoot() || pruneNode.getParent() == null) continue;
+
+            List<Node> rerootNodes = getSubtreeNodes(pruneNode);
+
+            for (Node rerootNode : rerootNodes) {
+                for (Node targetNode : allNodes) {
+                    if (isValidTbrMove(pruneNode, rerootNode, targetNode)) {
+
+                        Tree resultTree;
+                        if (pruneNode == rerootNode) {
+                            resultTree = createSprTree(tree, pruneNode, targetNode);
+                        } else {
+                            resultTree = createTbrTree(tree, pruneNode, rerootNode, targetNode);
+                        }
+
+                        if (resultTree != null) {
+                            treecmp.heuristics.TreeHolder newHolder = new treecmp.heuristics.TreeRootedHolder(resultTree, idGroup);
+                            if (!newHolder.equals(baseTreeHolder)) {
+                                if (seenTrees.add(newHolder)) {
+                                    action.accept(resultTree);
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    }
+
     public Tree[] generateNeighboursOBSOLETE(Tree tree) {
         IdGroup idGroup = TreeUtils.getLeafIdGroup(tree);
         int intNum = tree.getInternalNodeCount();
@@ -62,4 +102,4 @@ public class TbrUtils extends TreeNeighborhoodUtils {
         }
         return tbrTreeArray;
     }
-}*/
+}
