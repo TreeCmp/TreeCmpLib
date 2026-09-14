@@ -61,16 +61,26 @@ public abstract class TreeNeighborhoodUtils {
     }
 
     public boolean isValidUTbrMove(Node pruneNode, Node rerootNode, Node targetNode) {
-        if (pruneNode == rerootNode) {
-            return isValidUsprMove(pruneNode, targetNode);
-        }
-        if (targetNode.isRoot()) return false;
+        if (targetNode == null || pruneNode == null || rerootNode == null) return false;
+
+        // KLUCZOWE: W uTBR target MOŻE być korzeniem! Odrzucamy tylko przypadek trywialny.
+        if (targetNode.isRoot() && pruneNode.getParent().isRoot()) return false;
+
         if (targetNode == pruneNode.getParent()) return false;
+
+        // Cel NIE MOŻE leżeć wewnątrz odcinanego poddrzewa (absolutne zabezpieczenie przed pętlą grafu)
         Node curr = targetNode;
         while (curr != null) {
             if (curr == pruneNode) return false;
             curr = curr.getParent();
         }
+
+        // Filtry sameParent i isChildParent mają sens TYLKO dla czystego uSPR (brak przekorzenienia).
+        if (pruneNode == rerootNode) {
+            if (sameParent(pruneNode, targetNode)) return false;
+            if (isChildParent(pruneNode, targetNode)) return false;
+        }
+
         return true;
     }
 
@@ -95,11 +105,9 @@ public abstract class TreeNeighborhoodUtils {
         if (isSourceParentRoot) {
             Node[] otherChildren = findOtherChildren(source, sourceParent);
             if (otherChildren.length == 1) {
-                // R-TBR: Korzeń ma 2 dzieci, zostaje 1.
                 provisionalRoot = otherChildren[0];
                 provisionalRoot.setParent(null);
             } else if (otherChildren.length == 2) {
-                // U-TBR: Korzeń ma 3 dzieci. Usuwamy korzeń całkowicie, by nie zostawiać widma 2-stopniowego.
                 Node c0 = otherChildren[0];
                 Node c1 = otherChildren[1];
 
@@ -107,7 +115,6 @@ public abstract class TreeNeighborhoodUtils {
                 c1.setParent(null);
 
                 if (target == c0) {
-                    // Wpięcie blisko korzenia - newNode staje się nowym idealnym korzeniem (3 gałęzie)
                     newNode.addChild(c0); c0.setParent(newNode);
                     newNode.addChild(c1); c1.setParent(newNode);
                     provisionalRoot = newNode;
@@ -116,8 +123,19 @@ public abstract class TreeNeighborhoodUtils {
                     newNode.addChild(c0); c0.setParent(newNode);
                     provisionalRoot = newNode;
                 } else {
-                    // Wpięcie jest głębiej. Bezpiecznie dopinamy jedną gałąź pod drugą (obie są wewnętrzne).
-                    if (isNodeInSubtree(target, c0)) {
+                    // Bezpieczne łączenie (zapobiega utracie liści 10 -> 9)
+                    if (c0.isLeaf() && c1.isLeaf()) {
+                        Node join = new SimpleNode();
+                        join.addChild(c0); c0.setParent(join);
+                        join.addChild(c1); c1.setParent(join);
+                        provisionalRoot = join;
+                    } else if (c0.isLeaf()) {
+                        c1.addChild(c0); c0.setParent(c1);
+                        provisionalRoot = c1;
+                    } else if (c1.isLeaf()) {
+                        c0.addChild(c1); c1.setParent(c0);
+                        provisionalRoot = c0;
+                    } else if (isNodeInSubtree(target, c0)) {
                         c0.addChild(c1); c1.setParent(c0);
                         provisionalRoot = c0;
                     } else {
@@ -127,7 +145,6 @@ public abstract class TreeNeighborhoodUtils {
                 }
             }
         } else {
-            // Standardowe odcięcie wewnętrzne
             Node otherSourceChild = findOtherChild(source, sourceParent);
             Node sourceParent2 = sourceParent.getParent();
             int sourceParentPos = findChildPos(sourceParent, sourceParent2);
@@ -141,7 +158,6 @@ public abstract class TreeNeighborhoodUtils {
 
         // 3. WPIĘCIE PODDRZEWA W NOWE MIEJSCE
         if (provisionalRoot == newNode) {
-            // target był u samej góry (c0 lub c1), newNode ma już 2 gałęzie, wystarczy podpiąć nową
             resultTree.setRoot(newNode);
         } else {
             Node targetParent = target.getParent();
@@ -159,7 +175,7 @@ public abstract class TreeNeighborhoodUtils {
 
         newNode.addChild(newSubtreeRoot); newSubtreeRoot.setParent(newNode);
 
-        // 4. TWARDE PRZEINDEKSOWANIE (Chroni przed błędami PAL i utratą liści)
+        // 4. TWARDE PRZEINDEKSOWANIE W PAL
         if (resultTree instanceof pal.tree.SimpleTree) {
             pal.tree.TreeUtils.computeParentPointers(resultTree.getRoot());
             ((pal.tree.SimpleTree) resultTree).createNodeList();
@@ -604,9 +620,17 @@ public abstract class TreeNeighborhoodUtils {
             Node child0 =  target.getChild(0);
             Node child1 =  target.getChild(1);
             Node newRoot = null;
-            if(child1.isLeaf()) {
+
+            if (child0.isLeaf() && child1.isLeaf()) {
+                Node join = new SimpleNode();
+                child0.setParent(join);
+                child1.setParent(join);
+                join.addChild(child0);
+                join.addChild(child1);
+                newRoot = join;
+            } else if (child1.isLeaf()) {
                 child0.setParent(null);
-                child1.setParent(child0); // POPRAWIONE: Łączymy z child0, uniemożliwiamy stworzenie pętli
+                child1.setParent(child0);
                 child0.addChild(child1);
                 newRoot = child0;
             } else {
@@ -630,11 +654,16 @@ public abstract class TreeNeighborhoodUtils {
             newNode.setParent(null);
             resultTree.setRoot(newNode);
         } else if (isSourceParentRoot){
-            // POPRAWIONE: Bezpieczne zarządzanie dziećmi odcinanego korzenia
             if (otherSourceChildren.length >= 2) {
                 otherSourceChildren[0].setParent(null);
                 otherSourceChildren[1].setParent(null);
-                if (otherSourceChildren[0].isLeaf()) {
+
+                if (otherSourceChildren[0].isLeaf() && otherSourceChildren[1].isLeaf()) {
+                    Node join = new SimpleNode();
+                    join.addChild(otherSourceChildren[0]); otherSourceChildren[0].setParent(join);
+                    join.addChild(otherSourceChildren[1]); otherSourceChildren[1].setParent(join);
+                    resultTree.setRoot(join);
+                } else if (otherSourceChildren[0].isLeaf()) {
                     otherSourceChildren[1].addChild(otherSourceChildren[0]);
                     resultTree.setRoot(otherSourceChildren[1]);
                 } else {
@@ -645,10 +674,16 @@ public abstract class TreeNeighborhoodUtils {
                 otherSourceChildren[0].setParent(null);
                 resultTree.setRoot(otherSourceChildren[0]);
             }
-        } else{
+        } else {
             resultRoot.setParent(null);
             resultTree.setRoot(resultRoot);
         }
+
+        if (resultTree instanceof pal.tree.SimpleTree) {
+            pal.tree.TreeUtils.computeParentPointers(resultTree.getRoot());
+            ((pal.tree.SimpleTree) resultTree).createNodeList();
+        }
+
         return resultTree;
     }
 
