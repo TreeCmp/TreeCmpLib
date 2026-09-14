@@ -1,4 +1,3 @@
-/*
 package treecmp.heuristics.tbr;
 
 import org.junit.jupiter.params.ParameterizedTest;
@@ -14,13 +13,12 @@ import java.util.stream.Stream;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-*/
 /**
  * Zunifikowany test dla heurystyk TBR i uTBR (Tree Bisection and Reconnection).
  * Weryfikuje poprawne wstrzykiwanie zależności i obsługę obu wariantów drzew.
- *//*
+ */
 
-class TbrClassicHeuristicTest {
+class TbrHeuristicMetricTest {
 
     private static final double DELTA = 0.000001;
 
@@ -29,14 +27,14 @@ class TbrClassicHeuristicTest {
     static Stream<Arguments> provideRootedMetrics() {
         return Stream.of(
                 // TBR dla drzew ukorzenionych (np. RFClusterMetric)
-                Arguments.of(new TbrClassicHeuristic(new RFClusterMetric(), true, "RFC"))
+                Arguments.of(new TbrHeuristicMetric(new RFClusterMetric(), true, "RFC"))
         );
     }
 
     static Stream<Arguments> provideUnrootedMetrics() {
         return Stream.of(
                 // uTBR dla drzew nieukorzenionych (np. RFMetric)
-                Arguments.of(new TbrClassicHeuristic(new RFMetric(), false, "RF"))
+                Arguments.of(new TbrHeuristicMetric(new RFMetric(), false, "RF"))
         );
     }
 
@@ -44,7 +42,7 @@ class TbrClassicHeuristicTest {
 
     @ParameterizedTest(name = "[{index}] Rooted TBR - Dystans do siebie (0.0): {0}")
     @MethodSource("provideRootedMetrics")
-    void testRootedDistanceToSelfIsZero(TbrClassicHeuristic metric) {
+    void testRootedDistanceToSelfIsZero(TbrHeuristicMetric metric) {
         Tree t = TestTreeFactory.randomRootedBinaryTree(8, 42L);
         assertEquals(0.0, metric.getDistance(t, t), DELTA,
                 "Heurystyka TBR (" + metric.getName() + ") musi zwracać 0.0 dla tych samych drzew.");
@@ -52,7 +50,7 @@ class TbrClassicHeuristicTest {
 
     @ParameterizedTest(name = "[{index}] Rooted TBR - Różne drzewa (>0.0): {0}")
     @MethodSource("provideRootedMetrics")
-    void testRootedDistanceBetweenDifferentTrees(TbrClassicHeuristic metric) {
+    void testRootedDistanceBetweenDifferentTrees(TbrHeuristicMetric metric) {
         Tree t1 = TestTreeFactory.randomRootedBinaryTree(10, 100L);
         Tree t2 = TestTreeFactory.randomRootedBinaryTree(10, 200L);
 
@@ -65,7 +63,7 @@ class TbrClassicHeuristicTest {
 
     @ParameterizedTest(name = "[{index}] Unrooted uTBR - Dystans do siebie (0.0): {0}")
     @MethodSource("provideUnrootedMetrics")
-    void testUnrootedDistanceToSelfIsZero(TbrClassicHeuristic metric) {
+    void testUnrootedDistanceToSelfIsZero(TbrHeuristicMetric metric) {
         Tree t = TestTreeFactory.randomUnrootedBinaryTree(8, 42L);
         assertEquals(0.0, metric.getDistance(t, t), DELTA,
                 "Heurystyka uTBR (" + metric.getName() + ") musi zwracać 0.0 dla tych samych drzew.");
@@ -73,7 +71,7 @@ class TbrClassicHeuristicTest {
 
     @ParameterizedTest(name = "[{index}] Unrooted uTBR - Różne drzewa (>0.0): {0}")
     @MethodSource("provideUnrootedMetrics")
-    void testUnrootedDistanceBetweenDifferentTrees(TbrClassicHeuristic metric) {
+    void testUnrootedDistanceBetweenDifferentTrees(TbrHeuristicMetric metric) {
         Tree t1 = TestTreeFactory.randomUnrootedBinaryTree(10, 100L);
         Tree t2 = TestTreeFactory.randomUnrootedBinaryTree(10, 200L);
 
@@ -81,4 +79,4 @@ class TbrClassicHeuristicTest {
         assertTrue(distance > 0.0,
                 "Heurystyka uTBR (" + metric.getName() + ") musi znaleźć różnicę i zwrócić > 0.");
     }
-}*/
+}
