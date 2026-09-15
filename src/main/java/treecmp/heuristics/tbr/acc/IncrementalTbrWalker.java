@@ -52,15 +52,18 @@ public class IncrementalTbrWalker {
 
             Node wanderingSource = pruneNode.getParent();
 
-            // 1. Wycięcie poddrzewa (Bisection)
+            // 1. Wycięcie poddrzewa (Bisection) -> push #1
             metric.setPrunedState(pruneNode, wanderingSource);
 
-            // 2. Dwuwymiarowy DFS 1-NNI:
+            // 2. Punkt startowy w T2 dla target DFS -> push #2
+            metric.setTargetRoot(pruneNode, pruneNode, wanderingSource);
+
+            // 3. Dwuwymiarowy DFS 1-NNI:
             //    Zewnętrzny DFS nawiguje przekorzenienie w T1,
             //    Wewnętrzny DFS nawiguje punkt wpięcia w T2.
             dfsReroot(pruneNode, pruneNode, wanderingSource, root, metric, visitor);
 
-            // 3. Przywrócenie pierwotnego stanu drzewa
+            // 4. Przywrócenie pierwotnego stanu drzewa (zdejmuje push #2 oraz push #1)
             metric.revertPrunedState(pruneNode, wanderingSource);
         }
     }
@@ -71,8 +74,7 @@ public class IncrementalTbrWalker {
      */
     private void dfsReroot(Node currentReroot, Node pruneNode, Node wanderingSource, Node root, RootedTbrMetric metric, TbrVisitor visitor) {
         // A. Dla bieżącego przekorzenienia w T1 wykonujemy pełny Target DFS w T2
-        metric.setTargetRoot(pruneNode, currentReroot, wanderingSource);
-
+        // (Target w T2 znajduje się w korzeniu root)
         if (isValidMove(pruneNode, currentReroot, root)) {
             visitor.visit(metric.getCurrentDistance(), pruneNode, currentReroot, root);
         }
