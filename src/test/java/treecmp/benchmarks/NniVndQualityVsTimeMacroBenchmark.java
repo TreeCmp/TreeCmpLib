@@ -25,38 +25,7 @@ import java.util.*;
 
 public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBenchmark {
 
-    public enum MetricFilter {
-        ALL,
-        ROOTED,
-        UNROOTED;
-
-        public static MetricFilter parse(String token) {
-            if (token == null) return null;
-            String s = token.trim().toLowerCase();
-            if (s.startsWith("--")) {
-                s = s.substring(2);
-            } else if (s.startsWith("-")) {
-                s = s.substring(1);
-            }
-            switch (s) {
-                case "r":
-                case "rooted":
-                    return ROOTED;
-                case "u":
-                case "unrooted":
-                    return UNROOTED;
-                case "a":
-                case "all":
-                case "both":
-                    return ALL;
-                default:
-                    return null;
-            }
-        }
-    }
-
     private final int maxAllowedClassicVndSize;
-    private final MetricFilter metricFilter;
     private long globalNniT, globalEcr2T, globalEcr3T, globalSprT;
 
     static class TimeProfiler {
@@ -87,24 +56,7 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
         }
     }
 
-    private static class BenchmarkConfig {
-        final int[] sizes;
-        final MetricFilter filter;
-        final boolean customSizesSpecified;
-
-        BenchmarkConfig(int[] sizes, MetricFilter filter, boolean customSizesSpecified) {
-            this.sizes = sizes;
-            this.filter = filter;
-            this.customSizesSpecified = customSizesSpecified;
-        }
-    }
-
     public NniVndQualityVsTimeMacroBenchmark() {
-        this(MetricFilter.ALL);
-    }
-
-    public NniVndQualityVsTimeMacroBenchmark(MetricFilter metricFilter) {
-        this.metricFilter = metricFilter != null ? metricFilter : MetricFilter.ALL;
         this.MAX_ALLOC_PER_PAIR_BYTES = 100L * 1024 * 1024 * 1024; // 100 GB
 
         long maxHeapBytes = Runtime.getRuntime().maxMemory();
@@ -115,7 +67,6 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
         System.out.println("======================================================================");
         System.out.printf("[MEMORY CONFIG] Detected JVM Max Heap: %.2f GB%n", maxHeapGb);
         System.out.printf("[MEMORY CONFIG] Max allowed tree size (N) for Classic VND: %d%n", maxAllowedClassicVndSize);
-        System.out.printf("[FILTER CONFIG] Metric target: %s%n", this.metricFilter);
         System.out.println("======================================================================");
     }
 
@@ -131,69 +82,18 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
         treecmp.heuristics.vnd.acc.NniVndIncrementalHeuristic.ENABLE_LOGGING = false;
         treecmp.heuristics.vnd.NniVndHeuristic.ENABLE_LOGGING = false;
 
-        int[] defaultSizes = new int[]{10, 20, 30, 50, 80, 120};
-        BenchmarkConfig config = parseArguments(args, defaultSizes);
-
-        if (config.customSizesSpecified) {
-            System.out.println("[CONFIG] Custom tree sizes requested: " + Arrays.toString(config.sizes));
-        }
-        System.out.println("[CONFIG] Metric execution mode: " + config.filter);
-
-        new NniVndQualityVsTimeMacroBenchmark(config.filter).runBenchmark(
-                new String[0],
+        new NniVndQualityVsTimeMacroBenchmark().runBenchmark(
+                args,
                 "VND ULTIMATE QUALITY VS TIME MACRO-BENCHMARK (100 TREE PAIRS)",
                 "benchmark_results_VND",
-                config.sizes
+                new int[]{10, 20, 30, 50, 80, 120}
         );
-    }
-
-    private static BenchmarkConfig parseArguments(String[] args, int[] defaultSizes) {
-        MetricFilter filter = MetricFilter.ALL;
-        if (args == null || args.length == 0) {
-            return new BenchmarkConfig(defaultSizes, filter, false);
-        }
-
-        List<Integer> sizesList = new ArrayList<>();
-        for (String arg : args) {
-            String[] tokens = arg.split("[,;\\s]+");
-            for (String token : tokens) {
-                token = token.trim();
-                if (token.isEmpty()) continue;
-
-                MetricFilter parsedFilter = MetricFilter.parse(token);
-                if (parsedFilter != null) {
-                    filter = parsedFilter;
-                } else {
-                    try {
-                        sizesList.add(Integer.parseInt(token));
-                    } catch (NumberFormatException e) {
-                        System.err.println("Warning: Invalid parameter '" + token + "' (ignored).");
-                    }
-                }
-            }
-        }
-
-        boolean hasCustomSizes = !sizesList.isEmpty();
-        int[] chosenSizes;
-        if (hasCustomSizes) {
-            chosenSizes = new int[sizesList.size()];
-            for (int i = 0; i < sizesList.size(); i++) {
-                chosenSizes[i] = sizesList.get(i);
-            }
-        } else {
-            chosenSizes = defaultSizes;
-        }
-
-        return new BenchmarkConfig(chosenSizes, filter, hasCustomSizes);
     }
 
     @Override
     protected void evaluateVariant(int size, boolean isRooted, String metricName, String variantName, Metric heuristic,
                                    List<Tree> trees, Set<String> blacklist, Map<String, List<HistoryRecord>> history, String csvFileName) {
         if (heuristic == null) return;
-
-        if (metricFilter == MetricFilter.ROOTED && !isRooted) return;
-        if (metricFilter == MetricFilter.UNROOTED && isRooted) return;
 
         if (isClassicVndVariant(variantName) && size > maxAllowedClassicVndSize) {
             printSkipped(metricName, variantName, "Skip(RAM Limit)", "Max N=" + maxAllowedClassicVndSize);
@@ -209,9 +109,6 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
 
     @Override
     protected void runEvaluationsForSize(int size, boolean rooted, List<Tree> trees, Set<String> blacklist, Map<String, List<HistoryRecord>> history, String csvFileName) {
-        if (metricFilter == MetricFilter.ROOTED && !rooted) return;
-        if (metricFilter == MetricFilter.UNROOTED && rooted) return;
-
         List<MetricSetupVnd> metricsToTest = rooted ? getRootedMetrics() : getUnrootedMetrics();
         for (MetricSetupVnd setup : metricsToTest) {
             forceCleanMemory(); evaluateVariant(size, rooted, setup.name, "1. NNI (Classic)", setup.classicNni, trees, blacklist, history, csvFileName);
