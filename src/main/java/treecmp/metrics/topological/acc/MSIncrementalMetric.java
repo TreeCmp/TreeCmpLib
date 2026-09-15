@@ -55,6 +55,27 @@ public class MSIncrementalMetric implements IncrementalMetric {
     private final Stack<Map<Node, BitSet>> splitHistory = new Stack<>();
     private final Stack<Integer> nniPushCountHistory = new Stack<>();
 
+    private final treecmp.heuristics.tbr.UTbrUtils utbrUtils = new treecmp.heuristics.tbr.UTbrUtils();
+
+    public BitSet getSplit(Node n) {
+        return getSplitBits(n);
+    }
+
+    public double evaluateExactUTbrDistance(Node pruneNode, Node rerootNode, Node targetNode, BitSet movingBits) {
+        Tree tempTree = utbrUtils.createUtbrTree(this.baseTree, pruneNode, rerootNode, targetNode);
+        if (tempTree != null) {
+            if (tempTree instanceof pal.tree.SimpleTree) {
+                ((pal.tree.SimpleTree) tempTree).createNodeList();
+            }
+            return msMetricFull.getDistance(tempTree, this.targetTree);
+        }
+        return Double.POSITIVE_INFINITY;
+    }
+
+    public double evaluateExactUtbrDistance(Node pruneNode, Node rerootNode, Node targetNode, BitSet movingBits) {
+        return evaluateExactUTbrDistance(pruneNode, rerootNode, targetNode, movingBits);
+    }
+
     private static class LapStateDelta {
         final int[] rows;
         final short[][] oldRows;

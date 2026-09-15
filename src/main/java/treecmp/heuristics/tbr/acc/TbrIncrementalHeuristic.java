@@ -15,34 +15,46 @@ import treecmp.metrics.IncrementalMetric;
  */
 public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
 
-    private final TbrNeighborhoodWalker walker;
-    private final String metricShortName;
-    private final IncrementalMetric primaryMetric;
-    private final TbrUtils tbrUtils;
-    private int tbrStepsCount = 0;
+        private final TbrNeighborhoodWalker classicWalker;
+        private final IncrementalTbrWalker incrementalWalker;
+        private final String metricShortName;
+        private final IncrementalMetric primaryMetric;
+        private final TbrUtils tbrUtils;
+        private int tbrStepsCount = 0;
 
-    public TbrIncrementalHeuristic(IncrementalMetric metric, String metricShortName) {
-        this(metric, null, metricShortName);
-    }
+        public TbrIncrementalHeuristic(IncrementalMetric metric, String metricShortName) {
+            this(metric, null, metricShortName);
+        }
 
-    public TbrIncrementalHeuristic(IncrementalMetric metric, IncrementalMetric primaryMetric, String metricShortName) {
-        super(true, metric);
-        this.primaryMetric = primaryMetric;
-        this.metricShortName = metricShortName;
-        this.walker = new TbrNeighborhoodWalker();
-        this.tbrUtils = new TbrUtils();
-    }
+        public TbrIncrementalHeuristic(IncrementalMetric metric, IncrementalMetric primaryMetric, String metricShortName) {
+            super(true, metric);
+            this.primaryMetric = primaryMetric;
+            this.metricShortName = metricShortName;
+            this.classicWalker = new TbrNeighborhoodWalker();
+            this.incrementalWalker = new IncrementalTbrWalker();
+            this.tbrUtils = new TbrUtils();
+        }
 
-    @Override
-    protected void searchNeighborhood(Tree currentTree) {
-        IncrementalMetric activeMetric = this.primaryMetric != null ? this.primaryMetric : this.incMetric;
-        this.tiedMoves.clear();
-        this.bestDist = Double.POSITIVE_INFINITY;
+        @Override
+        protected void searchNeighborhood(Tree currentTree) {
+            IncrementalMetric activeMetric = this.primaryMetric != null ? this.primaryMetric : this.incMetric;
+            this.tiedMoves.clear();
+            this.bestDist = Double.POSITIVE_INFINITY;
 
-        walker.walk(currentTree, activeMetric, (currentDist, pruneNode, rerootNode, targetNode) -> {
-            checkImprovementWithTies(currentDist, new TbrMove(pruneNode, rerootNode, targetNode));
-        });
-    }
+            // JEŚLI METRYKA WSPIERA 1-NNI 2D-DFS (MC, MP) -> UŻYWAMY INCREMENTAL WALKERA!
+            if (activeMetric instanceof IncrementalTbrWalker.RootedTbrMetric) {
+                incrementalWalker.walk(currentTree, (IncrementalTbrWalker.RootedTbrMetric) activeMetric,
+                        (currentDist, pruneNode, rerootNode, targetNode) -> {
+                            checkImprovementWithTies(currentDist, new TbrMove(pruneNode, rerootNode, targetNode));
+                        });
+            } else {
+                // Fallback dla metryk bitowych klastrów (RFC)
+                classicWalker.walk(currentTree, activeMetric,
+                        (currentDist, pruneNode, rerootNode, targetNode) -> {
+                            checkImprovementWithTies(currentDist, new TbrMove(pruneNode, rerootNode, targetNode));
+                        });
+            }
+        }
 
     @Override
     protected Tree applyPhysicalMove(Tree tree, TreeMove move) {

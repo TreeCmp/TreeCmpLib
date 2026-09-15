@@ -55,6 +55,23 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
     private final Stack<StateRecord> history = new Stack<>();
     private final Stack<LapStateDelta> deltaStack = new Stack<>();
 
+    private final treecmp.heuristics.tbr.TbrUtils tbrUtils = new treecmp.heuristics.tbr.TbrUtils();
+
+    public BitSet getCluster(Node n) {
+        return getBaseSplit(n);
+    }
+
+    public double evaluateExactTbrDistance(Node pruneNode, Node rerootNode, Node targetNode, BitSet movingBits) {
+        Tree tempTree = tbrUtils.createTbrTree(this.baseTree, pruneNode, rerootNode, targetNode);
+        if (tempTree != null) {
+            if (tempTree instanceof pal.tree.SimpleTree) {
+                ((pal.tree.SimpleTree) tempTree).createNodeList();
+            }
+            return mpMetricFull.getDistance(tempTree, this.targetTree);
+        }
+        return Double.POSITIVE_INFINITY;
+    }
+
     private static class LapStateDelta {
         final int[] rows;
         final int[][] oldRows;
