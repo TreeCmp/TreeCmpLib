@@ -29,11 +29,18 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
     // Śledzi głębokość odcięcia, by poprawnie cofnąć applySprPrune
     protected final Stack<Integer> sprPruneDepths = new Stack<>();
 
-
     protected abstract BitSet normalizeSplit(BitSet rawSplit);
+
+    protected Tree baseTreeRef;
+    protected Tree targetTreeRef;
+    private final treecmp.heuristics.tbr.TbrUtils tbrUtilsHelper = new treecmp.heuristics.tbr.TbrUtils();
+    private final treecmp.metrics.topological.RFClusterMetric classicRfcHelper = new treecmp.metrics.topological.RFClusterMetric();
 
     @Override
     public void initCalculationState(Tree baseTree, Tree targetTree) {
+        this.baseTreeRef = baseTree;
+        this.targetTreeRef = targetTree;
+
         targetSplits.clear();
         nodeBitSets.clear();
         activeVirtualSplits.clear();
@@ -492,5 +499,29 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
             collection.add((BitSet) bs.clone());
         }
         return bs;
+    }
+
+// ==========================================
+    // IMPLEMENTACJA AKCELERATORA TBR
+    // ==========================================
+
+    public double evaluateExactTbrDistance(Node pruneNode, Node rerootNode, Node targetNode, BitSet movingBits) {
+        if (this.baseTreeRef == null || this.targetTreeRef == null) {
+            return getCurrentDistance();
+        }
+
+        // Niezawodna ewaluacja topologiczna chroniąca przed degeneracją korzenia w PAL
+        Tree physicalTree = tbrUtilsHelper.createTbrTree(this.baseTreeRef, pruneNode, rerootNode, targetNode);
+        if (physicalTree != null) {
+            if (physicalTree instanceof pal.tree.SimpleTree) {
+                ((pal.tree.SimpleTree) physicalTree).createNodeList();
+            }
+            try {
+                return classicRfcHelper.getDistance(physicalTree, this.targetTreeRef);
+            } catch (Exception e) {
+                return Double.POSITIVE_INFINITY;
+            }
+        }
+        return Double.POSITIVE_INFINITY;
     }
 }
