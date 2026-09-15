@@ -68,6 +68,28 @@ public class M3IncrementalMetric implements IncrementalMetric {
     private final Stack<StateRecord> history = new Stack<>();
     private final Stack<LapStateDelta> deltaStack = new Stack<>();
 
+    private final treecmp.heuristics.tbr.UTbrUtils utbrUtils = new treecmp.heuristics.tbr.UTbrUtils();
+
+    public BitSet getSplit(Node n) {
+        return getSplitForNode(n);
+    }
+
+    public double evaluateExactUTbrDistance(Node pruneNode, Node rerootNode, Node targetNode, BitSet movingBits) {
+        Tree srcTree = (this.originalBaseTree != null) ? this.originalBaseTree : this.baseTree;
+        Tree tempTree = utbrUtils.createUtbrTree(srcTree, pruneNode, rerootNode, targetNode);
+        if (tempTree != null) {
+            if (tempTree instanceof pal.tree.SimpleTree) {
+                ((pal.tree.SimpleTree) tempTree).createNodeList();
+            }
+            return mtMetricFull.getDistance(tempTree, this.targetTree);
+        }
+        return Double.POSITIVE_INFINITY;
+    }
+
+    public double evaluateExactUtbrDistance(Node pruneNode, Node rerootNode, Node targetNode, BitSet movingBits) {
+        return evaluateExactUTbrDistance(pruneNode, rerootNode, targetNode, movingBits);
+    }
+
     private static class LapStateDelta {
         final int[] rows;
         final int[][] oldRows;

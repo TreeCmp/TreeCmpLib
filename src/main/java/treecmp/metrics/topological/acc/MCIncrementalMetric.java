@@ -12,18 +12,15 @@ import treecmp.heuristics.ecr.SubtreeEcr3Utils;
 import treecmp.heuristics.moves.NniMove;
 import treecmp.heuristics.spr.SprUtils;
 import treecmp.heuristics.spr.acc.IncrementalSprWalker;
+import treecmp.heuristics.tbr.acc.IncrementalTbrWalker;
 import treecmp.metrics.IncrementalMetric;
 import treecmp.metrics.topological.MatchingClusterMetric;
 
-import java.util.Arrays;
-import java.util.BitSet;
-import java.util.HashMap;
-import java.util.IdentityHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Stack;
+import java.util.*;
 
-public class MCIncrementalMetric implements IncrementalMetric, IncrementalSprWalker.RootedMetric {
+public class MCIncrementalMetric implements IncrementalMetric,
+        IncrementalSprWalker.RootedMetric,
+        IncrementalTbrWalker.RootedTbrMetric{
 
     private Tree baseTree;
     private Tree targetTree;
@@ -56,6 +53,11 @@ public class MCIncrementalMetric implements IncrementalMetric, IncrementalSprWal
     private final Stack<Map<Node, BitSet>> clusterHistory = new Stack<>();
 
     private final Stack<Integer> nniPushCountHistory = new Stack<>();
+
+    private final treecmp.heuristics.tbr.TbrUtils tbrUtils = new treecmp.heuristics.tbr.TbrUtils();
+
+    // Pole pamiętające pełny zbiór liści odcinanego komponentu
+    private BitSet currentPrunedLeaves;
 
     private static class LapStateDelta {
         final int[] rows;
@@ -167,7 +169,7 @@ public class MCIncrementalMetric implements IncrementalMetric, IncrementalSprWal
         }
     }
 
-    private BitSet getCluster(Node n) {
+    public BitSet getCluster(Node n) {
         if (n.isLeaf()) {
             BitSet bs = new BitSet();
             int id = idGroup.whichIdNumber(n.getIdentifier().getName());
@@ -176,6 +178,17 @@ public class MCIncrementalMetric implements IncrementalMetric, IncrementalSprWal
         } else {
             return currentClusters.get(n);
         }
+    }
+
+    public double evaluateExactTbrDistance(Node pruneNode, Node rerootNode, Node targetNode, BitSet movingBits) {
+        Tree tempTree = tbrUtils.createTbrTree(this.baseTree, pruneNode, rerootNode, targetNode);
+        if (tempTree != null) {
+            if (tempTree instanceof pal.tree.SimpleTree) {
+                ((pal.tree.SimpleTree) tempTree).createNodeList();
+            }
+            return mcMetricFull.getDistance(tempTree, this.targetTree);
+        }
+        return Double.POSITIVE_INFINITY;
     }
 
     private void updateRowSafelyAndSave(Map<Integer, BitSet> rowUpdates) {
@@ -233,7 +246,9 @@ public class MCIncrementalMetric implements IncrementalMetric, IncrementalSprWal
 
     @Override
     public void setPrunedState(Node pruneNode, Node wanderingSource) {
-        BitSet P = getCluster(pruneNode);
+        // Zapisujemy stały zbiór liści odciętego poddrzewa na cały cykl TBR dla danego pruneNode
+        this.currentPrunedLeaves = (BitSet) getCluster(pruneNode).clone();
+        BitSet P = this.currentPrunedLeaves;
         Map<Integer, BitSet> updates = new HashMap<>();
 
         Node curr = pruneNode.getParent().getParent();
@@ -258,7 +273,7 @@ public class MCIncrementalMetric implements IncrementalMetric, IncrementalSprWal
 
     @Override
     public void setTargetRoot(Node pruneNode, Node wanderingSource) {
-        BitSet P = getCluster(pruneNode);
+        BitSet P = (this.currentPrunedLeaves != null) ? this.currentPrunedLeaves : getCluster(pruneNode);
         Map<Integer, BitSet> updates = new HashMap<>();
 
         Integer r_p = nodeToRow.get(resolveWandering(wanderingSource, pruneNode));
@@ -273,7 +288,7 @@ public class MCIncrementalMetric implements IncrementalMetric, IncrementalSprWal
 
     @Override
     public void moveTargetDown(Node parentTarget, Node childTarget, Node pruneNode, Node wanderingSource) {
-        BitSet P = getCluster(pruneNode);
+        BitSet P = (this.currentPrunedLeaves != null) ? this.currentPrunedLeaves : getCluster(pruneNode);
         Map<Integer, BitSet> updates = new HashMap<>();
 
         Node resolvedWandering = resolveWandering(wanderingSource, pruneNode);
@@ -536,6 +551,66 @@ public class MCIncrementalMetric implements IncrementalMetric, IncrementalSprWal
         clusterHistory.push(clustersCopy);
     }
 
+    // =========================================================================
+    // INKREMENTACJA 1-NNI W T1 (REROOT DFS DLA TBR) - ZŁOŻONOŚĆ O(N^2)
+    // =========================================================================
+
+    @Override
+    public void setTargetRoot(Node pruneNode, Node rerootNode, Node wanderingSource) {
+        // Punkt startowy w T2 dla danego przekorzenienia w T1
+        setTargetRoot(pruneNode, wanderingSource);
+    }
+
+    @Override
+    public void moveTargetDown(Node parentTarget, Node childTarget, Node pruneNode, Node rerootNode, Node wanderingSource) {
+        // Wędrówka 1-NNI w T2: aktualizacja dokładnie 2 wierszy
+        moveTargetDown(parentTarget, childTarget, pruneNode, wanderingSource);
+    }
+
+    @Override
+    public void moveTargetUp(Node parentTarget, Node childTarget, Node pruneNode, Node rerootNode, Node wanderingSource) {
+        moveTargetUp(parentTarget, childTarget, pruneNode, wanderingSource);
+    }
+
+    @Override
+    public void moveRerootDown(Node parentReroot, Node childReroot, Node pruneNode) {
+        // Jeśli parentReroot to pruneNode, to w regraftowanym drzewie korzeń poddrzewa
+        // zachowuje wszystkie liście (currentPrunedLeaves), więc jego wiersz nie powinien tracić liści.
+        // Jeśli parentReroot jest węzłem wewnętrznym wewnątrz poddrzewa, jego nowy klaster
+        // po odwróceniu krawędzi to (currentPrunedLeaves \ childCluster).
+        if (parentReroot == pruneNode) {
+            // Bezpiecznik na stos delty
+            deltaStack.push(new LapStateDelta(new int[0], new short[0][0], Arrays.copyOf(u, dim), Arrays.copyOf(v, dim),
+                    Arrays.copyOf(rowsol, dim), Arrays.copyOf(colsol, dim), currentDistance, new IdentityHashMap<>()));
+            return;
+        }
+
+        Integer rParent = nodeToRow.get(parentReroot);
+        if (rParent != null && currentPrunedLeaves != null) {
+            BitSet childCluster = getCluster(childReroot);
+            if (childCluster != null) {
+                BitSet newParentCluster = (BitSet) currentPrunedLeaves.clone();
+                newParentCluster.andNot(childCluster);
+                if (newParentCluster.cardinality() == N) newParentCluster.clear();
+
+                Map<Integer, BitSet> updates = new HashMap<>();
+                updates.put(rParent, newParentCluster);
+
+                updateRowSafelyAndSave(updates);
+                return;
+            }
+        }
+
+        deltaStack.push(new LapStateDelta(new int[0], new short[0][0], Arrays.copyOf(u, dim), Arrays.copyOf(v, dim),
+                Arrays.copyOf(rowsol, dim), Arrays.copyOf(colsol, dim), currentDistance, new IdentityHashMap<>()));
+    }
+
+    @Override
+    public void moveRerootUp(Node parentReroot, Node childReroot, Node pruneNode) {
+        // Cofnięcie odwrócenia krawędzi w T1 ze stosu delty
+        undoDeltaStack();
+    }
+
     @Override public double getCurrentDistance() { return this.currentDistance; }
     @Override public void commit() { clearHistory(); }
     @Override public double getDistance(Tree t1, Tree t2, int... indexes) { return mcMetricFull.getDistance(t1, t2, indexes); }
@@ -550,4 +625,87 @@ public class MCIncrementalMetric implements IncrementalMetric, IncrementalSprWal
     @Override public boolean isWeighted() { return false; }
     @Override public boolean isDiffLeafSets() { return mcMetricFull.isDiffLeafSets(); }
     @Override public AlignInfo getAlignment() { return mcMetricFull.getAlignment(); }
+
+    /**
+     * Drukuje pełną analizę porównawczą stanu inkrementalnego z fizycznym drzewem
+     * wygenerowanym przez TbrUtils.
+     */
+    public void printDiagnosticDump(Tree physicalTree) {
+        System.err.println("\n================================================================================");
+        System.err.println("            SZCZEGÓŁOWA ANALIZA KLASTRÓW I MACIERZY KOSZTÓW (MC)");
+        System.err.println("================================================================================");
+        System.err.printf("Wymiar macierzy: %dx%d | Zgłoszony dystans LAP: %.2f%n", dim, dim, currentDistance);
+
+        // 1. Zbieramy klastry z fizycznego drzewa wzorcowego
+        Map<Node, BitSet> physClusters = new IdentityHashMap<>();
+        extractClusters(physicalTree.getRoot(), idGroup, physClusters);
+
+        Set<String> physClusterStrings = new HashSet<>();
+        for (Map.Entry<Node, BitSet> e : physClusters.entrySet()) {
+            if (!e.getKey().isRoot()) {
+                physClusterStrings.add(bitSetToLeafNames(e.getValue()));
+            }
+        }
+
+        System.err.println("\n--- [A] Klastry w FIZYCZNYM drzewie (rzeczywista topologia) ---");
+        for (String pcs : physClusterStrings) {
+            System.err.println("   (fizyczny) " + pcs);
+        }
+
+        // 2. Analiza każdego wiersza w stanie inkrementalnym (T1) i jego dopasowania do T2
+        System.err.println("\n--- [B] Klastry w STANIE INKREMENTALNYM (rowToNode) vs Dopasowanie w T2 ---");
+        Set<String> incrClusterStrings = new HashSet<>();
+        double sumCosts = 0;
+
+        for (int i = 0; i < dim; i++) {
+            Node n = rowToNode[i];
+            BitSet bs = (n != null) ? currentClusters.get(n) : null;
+            String bsStr = (bs != null) ? bitSetToLeafNames(bs) : "NULL/EMPTY";
+            incrClusterStrings.add(bsStr);
+
+            boolean inPhys = physClusterStrings.contains(bsStr);
+            String status = inPhys ? "[OK]" : "[BŁĄD: PHANTOM/STALE]";
+
+            // Informacja o przypisanej kolumnie w T2 przez LapSolwera
+            int matchedCol = (rowsol != null && i < rowsol.length) ? rowsol[i] : -1;
+            int cost = (matchedCol >= 0 && matchedCol < dim) ? assigncost[i][matchedCol] : -1;
+            if (cost >= 0) sumCosts += cost;
+
+            Node colNode = (matchedCol >= 0 && matchedCol < dim) ? colToNode[matchedCol] : null;
+            BitSet colBs = (colNode != null) ? targetClusters.get(colNode) : null;
+            String colBsStr = (colBs != null) ? bitSetToLeafNames(colBs) : "PADDING";
+
+            System.err.printf("   Wiersz %d | Węzeł: %-6s | Klaster T1: %-26s | %-20s | Cel T2 (kol. %d): %-20s -> Koszt: %d%n",
+                    i, (n != null ? (n.isLeaf() ? n.getIdentifier().getName() : "int#" + n.getNumber()) : "null"),
+                    bsStr, status, matchedCol, colBsStr, cost);
+        }
+
+        System.err.printf("\nSuma cząstkowych wag dopasowania: %.2f%n", sumCosts);
+
+        // 3. Klastry, które powinny być w T1, ale walker ich nie wytworzył
+        System.err.println("\n--- [C] Klastry FIZYCZNE, których BRAKUJE w strukturach inkrementalnych ---");
+        for (String pcs : physClusterStrings) {
+            if (!incrClusterStrings.contains(pcs)) {
+                System.err.println("   [BRAKUJĄCY KLASTER] " + pcs);
+            }
+        }
+        System.err.println("================================================================================\n");
+    }
+
+    private String bitSetToLeafNames(BitSet bs) {
+        if (bs == null || bs.isEmpty()) return "{}";
+        StringBuilder sb = new StringBuilder("{");
+        boolean first = true;
+        for (int i = bs.nextSetBit(0); i >= 0; i = bs.nextSetBit(i + 1)) {
+            if (!first) sb.append(", ");
+            if (idGroup != null && i < idGroup.getIdCount()) {
+                sb.append(idGroup.getIdentifier(i).getName());
+            } else {
+                sb.append(i);
+            }
+            first = false;
+        }
+        sb.append("}");
+        return sb.toString();
+    }
 }
