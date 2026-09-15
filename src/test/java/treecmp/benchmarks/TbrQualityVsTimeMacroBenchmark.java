@@ -200,13 +200,13 @@ public class TbrQualityVsTimeMacroBenchmark extends AbstractQualityMacroBenchmar
                 new TbrHeuristicMetric(new MatchingClusterMetric(), true, "MC_Pure"),
                 new TbrIncrementalHeuristic(new MCIncrementalMetric(), "MCinc"),
                 new TbrHeuristicMetric(new MatchingClusterMetric(), new RFClusterMetric(), true, "MC_RF"),
-                new TbrIncrementalHeuristic(new MCIncrementalMetric(), new RFClusterIncrementalMetric(), "MCinc_RF")
+                null // TbrIncrementalHeuristic nie posiada wariantu z Tie-breakerem
         ));
         list.add(new MetricSetup("MP",
                 new TbrHeuristicMetric(new MatchingPairMetric(), true, "MP_Pure"),
                 new TbrIncrementalHeuristic(new MPIncrementalMetric(), "MPinc"),
                 new TbrHeuristicMetric(new MatchingPairMetric(), new RFClusterMetric(), true, "MP_RF"),
-                new TbrIncrementalHeuristic(new MPIncrementalMetric(), new RFClusterIncrementalMetric(), "MPinc_RF")
+                null // TbrIncrementalHeuristic nie posiada wariantu z Tie-breakerem
         ));
         return list;
     }
@@ -222,13 +222,13 @@ public class TbrQualityVsTimeMacroBenchmark extends AbstractQualityMacroBenchmar
                 new TbrHeuristicMetric(new MatchingSplitMetric(), false, "MS_Pure"),
                 new UtbrIncrementalHeuristic(new MSIncrementalMetric(), "MSinc"),
                 new TbrHeuristicMetric(new MatchingSplitMetric(), new RFMetric(), false, "MS_RF"),
-                new UtbrIncrementalHeuristic(new MSIncrementalMetric(), new RFIncrementalMetric(), "MSinc_RF")
+                null // UtbrIncrementalHeuristic nie posiada wariantu z Tie-breakerem
         ));
         list.add(new MetricSetup("M3",
                 new TbrHeuristicMetric(new MatchingTripletMetric(), false, "M3_Pure"),
                 new UtbrIncrementalHeuristic(new M3IncrementalMetric(), "M3inc"),
                 new TbrHeuristicMetric(new MatchingTripletMetric(), new RFMetric(), false, "M3_RF"),
-                new UtbrIncrementalHeuristic(new M3IncrementalMetric(), new RFIncrementalMetric(), "M3inc_RF")
+                null // UtbrIncrementalHeuristic nie posiada wariantu z Tie-breakerem
         ));
         return list;
     }
