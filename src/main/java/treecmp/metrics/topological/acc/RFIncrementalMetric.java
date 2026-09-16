@@ -10,14 +10,17 @@ import treecmp.metrics.topological.RFMetric;
 import java.util.BitSet;
 
 /**
- * Standardowa metryka Robinson-Foulds (Symmetric Difference of Splits).
- * Traktuje drzewa jako NIEUKORZENIONE.
+ * Zoptymalizowana, przyrostowa metryka Robinson-Foulds dla drzew NIEUKORZENIONYCH.
+ * Kanonicznie polaryzuje splity względem liścia 0 i współpracuje z UtbrNeighborhoodWalker.
  */
 public class RFIncrementalMetric extends BaseRFIncrementalMetric {
 
     private final RFMetric classicRf = new RFMetric();
     private final UsprUtils usprUtils = new UsprUtils();
     private final UTbrUtils utbrUtils = new UTbrUtils();
+
+    private Tree baseTreeRef;
+    private Tree targetTreeRef;
 
     @Override
     public void initCalculationState(Tree baseTree, Tree targetTree) {
@@ -26,8 +29,14 @@ public class RFIncrementalMetric extends BaseRFIncrementalMetric {
         this.targetTreeRef = targetTree;
     }
 
+    /**
+     * Kanoniczna normalizacja splitu dla drzew nieukorzenionych:
+     * Split {A, L \ A} reprezentujemy tak, aby liść 0 ZAWSZE miał bit 0 (poza maską).
+     * Bezpieczne klonowanie zapobiega współdzieleniu referencji w mapach.
+     */
     @Override
     protected BitSet normalizeSplit(BitSet rawSplit) {
+        if (rawSplit == null) return null;
         if (rawSplit.get(0)) {
             BitSet inverted = (BitSet) rawSplit.clone();
             inverted.xor(allLeavesMask);
@@ -36,12 +45,8 @@ public class RFIncrementalMetric extends BaseRFIncrementalMetric {
         return rawSplit;
     }
 
-    // =========================================================================
-    // KONTRAKT DLA DRZEW NIEUKORZENIONYCH (Splits zamiast Clusters)
-    // =========================================================================
-
     /**
-     * Zwraca podział (split) skojarzony z węzłem w drzewie nieukorzenionym.
+     * Zwraca kanoniczny split powiązany z danym węzłem w drzewie nieukorzenionym.
      * Wymagany przez UtbrNeighborhoodWalker.
      */
     public BitSet getSplit(Node node) {
@@ -52,25 +57,23 @@ public class RFIncrementalMetric extends BaseRFIncrementalMetric {
     // AKCELERATOR uTBR DLA DRZEW NIEUKORZENIONYCH
     // =========================================================================
 
-    /**
-     * Sygnatura dopasowana do UtbrNeighborhoodWalker ("evaluateExactUTbrDistance").
-     */
     public double evaluateExactUTbrDistance(Node pruneNode, Node rerootNode, Node targetNode, BitSet movingBits) {
         if (this.baseTreeRef == null || this.targetTreeRef == null) {
             return getCurrentDistance();
         }
 
-        Tree physicalTree = utbrUtils.createUtbrTree(this.baseTreeRef, pruneNode, rerootNode, targetNode);
-        if (physicalTree != null) {
-            if (physicalTree instanceof SimpleTree) {
-                ((SimpleTree) physicalTree).createNodeList();
-            }
-            try {
+        try {
+            Tree physicalTree = utbrUtils.createUtbrTree(this.baseTreeRef, pruneNode, rerootNode, targetNode);
+            if (physicalTree != null) {
+                if (physicalTree instanceof SimpleTree) {
+                    ((SimpleTree) physicalTree).createNodeList();
+                }
                 return classicRf.getDistance(physicalTree, this.targetTreeRef);
-            } catch (Exception e) {
-                return Double.POSITIVE_INFINITY;
             }
+        } catch (Exception e) {
+            return Double.POSITIVE_INFINITY;
         }
+
         return Double.POSITIVE_INFINITY;
     }
 

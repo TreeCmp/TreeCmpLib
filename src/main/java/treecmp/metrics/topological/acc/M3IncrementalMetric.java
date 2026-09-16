@@ -12,12 +12,15 @@ import treecmp.heuristics.ecr.SubtreeEcr2Utils;
 import treecmp.heuristics.ecr.SubtreeEcr3Utils;
 import treecmp.heuristics.moves.NniMove;
 import treecmp.heuristics.spr.UsprUtils;
+import treecmp.heuristics.tbr.acc.IncrementalTbrWalker;
+import treecmp.heuristics.tbr.acc.RootedTbrMetric;
 import treecmp.metrics.IncrementalMetric;
 import treecmp.metrics.topological.MatchingTripletMetric;
 
 import java.util.*;
 
-public class M3IncrementalMetric implements IncrementalMetric {
+public class M3IncrementalMetric implements IncrementalMetric,
+        RootedTbrMetric {
 
     private Tree originalBaseTree;
     private Tree baseTree;
@@ -48,7 +51,7 @@ public class M3IncrementalMetric implements IncrementalMetric {
     private int[] currentT1TripletCount;
     private int[] t2IntTripletCount;
 
-    // PREALOKOWANE BUFORY ROBOCZE (Scratchpad Buffers) - eliminacja alokacji w gorących ścieżkach SPR i NNI
+    // PREALOKOWANE BUFORY ROBOCZE (Scratchpad Buffers)
     private int[] scratchOldRow;
     private int[] scratchOldU;
     private int[] scratchOldV;
@@ -63,6 +66,8 @@ public class M3IncrementalMetric implements IncrementalMetric {
     private BitSet scratchSetB;
     private BitSet scratchSetC;
     private BitSet[] scratchSets;
+
+    private BitSet currentPrunedLeaves;
 
     private final MatchingTripletMetric mtMetricFull = new MatchingTripletMetric();
     private final Stack<StateRecord> history = new Stack<>();
@@ -309,10 +314,342 @@ public class M3IncrementalMetric implements IncrementalMetric {
         return getLeaves(n, baseIdGroup);
     }
 
-    @Override public void applySprPrune(Node pruneNode) { this.activePruneNode = pruneNode; }
-    @Override public void undoSprPrune(Node pruneNode) { this.activePruneNode = null; }
-    @Override public void applySprRegraftStep(Node pruneNode, Node currentNode) { throw new UnsupportedOperationException(); }
-    @Override public void undoSprRegraftStep() { throw new UnsupportedOperationException(); }
+    private void updateRowsSafelyAndSave(Map<Integer, BitSet[]> rowUpdates) {
+        int[] rows = new int[rowUpdates.size()];
+        int[][] oldRows = new int[rows.length][dim];
+        int[] oldTripletCounts = new int[rows.length];
+
+        int idx = 0;
+        for (Map.Entry<Integer, BitSet[]> entry : rowUpdates.entrySet()) {
+            int r = entry.getKey();
+            rows[idx] = r;
+            oldRows[idx] = Arrays.copyOf(assigncost[r], dim);
+            oldTripletCounts[idx] = currentT1TripletCount[r];
+            idx++;
+        }
+
+        deltaStack.push(new LapStateDelta(
+                rows, oldRows, oldTripletCounts,
+                Arrays.copyOf(u, dim), Arrays.copyOf(v, dim),
+                Arrays.copyOf(rowsol, dim), Arrays.copyOf(colsol, dim), currentDistance, new IdentityHashMap<>()
+        ));
+
+        for (Map.Entry<Integer, BitSet[]> entry : rowUpdates.entrySet()) {
+            computeRowCost(entry.getKey(), entry.getValue());
+        }
+
+        if (rows.length > 0) {
+            int rawMetric = LapSolver.lapUpdate(dim, assigncost, rowsol, colsol, u, v, rows);
+            this.currentDistance = 0.5 * rawMetric;
+        }
+    }
+
+    private void undoDeltaStack() {
+        if (deltaStack.isEmpty()) return;
+        LapStateDelta delta = deltaStack.pop();
+
+        for (int i = 0; i < delta.rows.length; i++) {
+            System.arraycopy(delta.oldRows[i], 0, assigncost[delta.rows[i]], 0, dim);
+            currentT1TripletCount[delta.rows[i]] = delta.oldTripletCounts[i];
+        }
+
+        System.arraycopy(delta.oldU, 0, u, 0, dim);
+        System.arraycopy(delta.oldV, 0, v, 0, dim);
+        System.arraycopy(delta.oldRowsol, 0, rowsol, 0, dim);
+        System.arraycopy(delta.oldColsol, 0, colsol, 0, dim);
+
+        for (Map.Entry<Node, BitSet> e : delta.oldSplits.entrySet()) {
+            currentSplits.put(e.getKey(), e.getValue());
+        }
+
+        this.currentDistance = delta.oldDistance;
+    }
+
+    // =========================================================================
+    // IMPLEMENTACJA INCREMENTAL TBR WALKER (RootedTbrMetric)
+    // =========================================================================
+
+    @Override
+    public void setPrunedState(Node pruneNode, Node wanderingSource) {
+        this.currentPrunedLeaves = (BitSet) getSplitForNode(pruneNode).clone();
+        BitSet P = this.currentPrunedLeaves;
+        Map<Integer, BitSet[]> updates = new HashMap<>();
+
+        Node curr = pruneNode.getParent().getParent();
+        while (curr != null) {
+            Integer r = getRowForNode(curr);
+            if (r != null) {
+                int chCount = curr.getChildCount();
+                int numNeighbors = (curr.getParent() == null) ? chCount : chCount + 1;
+                BitSet[] cSets = new BitSet[numNeighbors];
+                BitSet childrenUnion = new BitSet(N);
+
+                for (int i = 0; i < chCount; i++) {
+                    cSets[i] = (BitSet) getSplitForNode(curr.getChild(i)).clone();
+                    cSets[i].andNot(P);
+                    childrenUnion.or(cSets[i]);
+                }
+                if (curr.getParent() != null) {
+                    BitSet pSet = new BitSet(N);
+                    pSet.set(0, N);
+                    pSet.andNot(P);
+                    pSet.andNot(childrenUnion);
+                    cSets[chCount] = pSet;
+                }
+                updates.put(r, cSets);
+            }
+            curr = curr.getParent();
+        }
+
+        Integer r_floating = getRowForNode(pruneNode.getParent());
+        if (r_floating != null) {
+            updates.put(r_floating, new BitSet[0]);
+        }
+
+        updateRowsSafelyAndSave(updates);
+    }
+
+    public void setTargetRoot(Node pruneNode, Node wanderingSource) {
+        BitSet P = (this.currentPrunedLeaves != null) ? this.currentPrunedLeaves : getSplitForNode(pruneNode);
+        Map<Integer, BitSet[]> updates = new HashMap<>();
+
+        Integer r_floating = getRowForNode(pruneNode.getParent());
+        if (r_floating != null) {
+            Node root = baseTree.getRoot();
+            BitSet left = (BitSet) getSplitForNode(root.getChild(0)).clone();
+            left.andNot(P);
+            BitSet right = (BitSet) getSplitForNode(root.getChild(1)).clone();
+            right.andNot(P);
+
+            updates.put(r_floating, new BitSet[]{P, left, right});
+        }
+        updateRowsSafelyAndSave(updates);
+    }
+
+    @Override
+    public void setTargetRoot(Node pruneNode, Node rerootNode, Node wanderingSource) {
+        setTargetRoot(pruneNode, wanderingSource);
+    }
+
+    public void moveTargetDown(Node parentTarget, Node childTarget, Node pruneNode, Node wanderingSource) {
+        BitSet P = (this.currentPrunedLeaves != null) ? this.currentPrunedLeaves : getSplitForNode(pruneNode);
+        Map<Integer, BitSet[]> updates = new HashMap<>();
+
+        Integer r_floating = getRowForNode(pruneNode.getParent());
+        if (r_floating != null) {
+            BitSet childLeaves = (BitSet) getSplitForNode(childTarget).clone();
+            childLeaves.andNot(P);
+
+            BitSet rest = new BitSet(N);
+            rest.set(0, N);
+            rest.andNot(P);
+            rest.andNot(childLeaves);
+
+            updates.put(r_floating, new BitSet[]{P, childLeaves, rest});
+        }
+
+        Integer r_p = getRowForNode(parentTarget);
+        if (r_p != null && !r_p.equals(r_floating)) {
+            int chCount = parentTarget.getChildCount();
+            int numNeighbors = (parentTarget.getParent() == null) ? chCount : chCount + 1;
+            BitSet[] cSets = new BitSet[numNeighbors];
+            BitSet targetLeaves = getSplitForNode(childTarget);
+            BitSet childrenUnion = new BitSet(N);
+
+            for (int i = 0; i < chCount; i++) {
+                cSets[i] = (BitSet) getSplitForNode(parentTarget.getChild(i)).clone();
+                cSets[i].andNot(P);
+                if (cSets[i].intersects(targetLeaves)) {
+                    cSets[i].or(P);
+                }
+                childrenUnion.or(cSets[i]);
+            }
+
+            if (parentTarget.getParent() != null) {
+                BitSet pSet = new BitSet(N);
+                pSet.set(0, N);
+                pSet.andNot(childrenUnion);
+                cSets[chCount] = pSet;
+            }
+
+            updates.put(r_p, cSets);
+        }
+
+        updateRowsSafelyAndSave(updates);
+    }
+
+    @Override
+    public void moveTargetDown(Node parentTarget, Node childTarget, Node pruneNode, Node rerootNode, Node wanderingSource) {
+        moveTargetDown(parentTarget, childTarget, pruneNode, wanderingSource);
+    }
+
+    @Override
+    public void moveTargetUp(Node parentTarget, Node childTarget, Node pruneNode, Node rerootNode, Node wanderingSource) {
+        undoDeltaStack();
+    }
+
+    public void moveTargetUp(Node parentTarget, Node childTarget, Node pruneNode, Node wanderingSource) {
+        undoDeltaStack();
+    }
+
+    @Override
+    public void revertPrunedState(Node pruneNode, Node wanderingSource) {
+        undoDeltaStack();
+        undoDeltaStack();
+    }
+
+    @Override
+    public void moveRerootDown(Node parentReroot, Node childReroot, Node pruneNode) {
+        Map<Integer, BitSet[]> updates = new HashMap<>();
+
+        if (currentPrunedLeaves != null) {
+            BitSet outsideP = new BitSet(N);
+            outsideP.set(0, N);
+            outsideP.andNot(currentPrunedLeaves);
+
+            Integer rChild = getRowForNode(childReroot);
+            Integer rParent = getRowForNode(parentReroot);
+
+            // 1. Nowy węzeł wpięcia (childReroot) przejmuje krawędź do T2 (outsideP)
+            if (rChild != null) {
+                int chCount = childReroot.getChildCount();
+                BitSet[] cSets = new BitSet[chCount + 1];
+                BitSet union = new BitSet(N);
+
+                for (int i = 0; i < chCount; i++) {
+                    cSets[i] = (BitSet) getSplitForNode(childReroot.getChild(i)).clone();
+                    union.or(cSets[i]);
+                }
+                // Dopełnienie wewnątrz P względem childReroot:
+                BitSet restInP = (BitSet) currentPrunedLeaves.clone();
+                restInP.andNot(union);
+
+                // Trójstronny podział w nowym korzeniu T1:
+                updates.put(rChild, new BitSet[]{union, restInP, outsideP});
+            }
+
+            // 2. Poprzedni korzeń (parentReroot) traci outsideP i łączy się z childReroot
+            if (rParent != null && parentReroot != childReroot) {
+                BitSet childLeaves = getSplitForNode(childReroot);
+                BitSet pMinusChild = (BitSet) currentPrunedLeaves.clone();
+                pMinusChild.andNot(childLeaves);
+
+                BitSet[] pSets = getPartitionsForNode(parentReroot);
+                if (pSets.length >= 3) {
+                    updates.put(rParent, pSets);
+                }
+            }
+        }
+
+        if (!updates.isEmpty()) {
+            updateRowsSafelyAndSave(updates);
+        } else {
+            // Fallback wyceny exact, gdy węzły przekorzenienia są liśćmi (brak wiersza w macierzy)
+            deltaStack.push(new LapStateDelta(new int[0], new int[0][0], new int[0],
+                    Arrays.copyOf(u, dim), Arrays.copyOf(v, dim),
+                    Arrays.copyOf(rowsol, dim), Arrays.copyOf(colsol, dim), currentDistance, new IdentityHashMap<>()));
+        }
+    }
+
+    @Override
+    public void moveRerootUp(Node parentReroot, Node childReroot, Node pruneNode) {
+        undoDeltaStack();
+    }
+
+    // =========================================================================
+    // NNI (ZOPTYMALIZOWANA METODA LOKALNA O(1) WIERSZY)
+    // =========================================================================
+
+    @Override
+    public double applyNni(NniMove move) {
+        Node virtMoving = getMappedNode(this.currentVirtualTree, move.movingSubtree);
+        Node virtPartner = getMappedNode(this.currentVirtualTree, move.swapPartner);
+
+        if (virtMoving == null || virtPartner == null) return pushUnchangedState();
+
+        Node p1 = virtMoving.getParent();
+        Node p2 = virtPartner.getParent();
+        if (p1 == null || p2 == null || p1 == p2) return pushUnchangedState();
+
+        int idx1 = findChildPos(virtMoving, p1);
+        int idx2 = findChildPos(virtPartner, p2);
+        if (idx1 == -1 || idx2 == -1) return pushUnchangedState();
+
+        Integer r1 = getRowForNode(p1);
+        Integer r2 = getRowForNode(p2);
+        if (r1 == null && r2 == null) return pushUnchangedState();
+
+        history.push(new StateRecord(assigncost, rowsol, colsol, u, v, currentDistance, currentVirtualTree, currentT1TripletCount, currentSplits, nodeToRow, virtMoving, virtPartner));
+
+        // 1. Zamiana wskaźników w drzewie wirtualnym
+        p1.setChild(idx1, virtPartner); virtPartner.setParent(p1);
+        p2.setChild(idx2, virtMoving); virtMoving.setParent(p2);
+
+        // 2. Lokalna aktualizacja masek bitowych splitów dla p1 i p2
+        BitSet b1 = new BitSet(N);
+        for (int i = 0; i < p1.getChildCount(); i++) {
+            b1.or(getSplitForNode(p1.getChild(i)));
+        }
+        currentSplits.put(p1, b1);
+
+        BitSet b2 = new BitSet(N);
+        for (int i = 0; i < p2.getChildCount(); i++) {
+            b2.or(getSplitForNode(p2.getChild(i)));
+        }
+        currentSplits.put(p2, b2);
+
+        // 3. Rekalkulacja kosztów wyłącznie dla zmienionych wierszy (1-2 wiersze zamiast O(N))
+        List<Integer> changedList = new ArrayList<>(2);
+        if (r1 != null) {
+            computeRowCost(r1, getPartitionsForNode(p1));
+            changedList.add(r1);
+        }
+        if (r2 != null && !r2.equals(r1)) {
+            computeRowCost(r2, getPartitionsForNode(p2));
+            changedList.add(r2);
+        }
+
+        int[] changedRows = changedList.stream().mapToInt(i -> i).toArray();
+        if (changedRows.length > 0) {
+            int rawMetric = LapSolver.lapUpdate(dim, assigncost, rowsol, colsol, u, v, changedRows);
+            this.currentDistance = 0.5 * rawMetric;
+        }
+
+        return this.currentDistance;
+    }
+
+    @Override
+    public void undoNni(NniMove move) {
+        if (!history.isEmpty()) {
+            StateRecord r = history.pop();
+            this.assigncost = r.oldAssigncost;
+            this.rowsol = r.rowsol;
+            this.colsol = r.colsol;
+            this.u = r.u;
+            this.v = r.v;
+            this.currentDistance = r.distance;
+            this.currentT1TripletCount = r.oldTripletCount;
+
+            if (r.nniMovingNode != null && r.nniPartnerNode != null) {
+                Node p1 = r.nniPartnerNode.getParent();
+                Node p2 = r.nniMovingNode.getParent();
+                if (p1 != null && p2 != null) {
+                    int i1 = findChildPos(r.nniPartnerNode, p1);
+                    int i2 = findChildPos(r.nniMovingNode, p2);
+                    if (i1 != -1 && i2 != -1) {
+                        p1.setChild(i1, r.nniMovingNode); r.nniMovingNode.setParent(p1);
+                        p2.setChild(i2, r.nniPartnerNode); r.nniPartnerNode.setParent(p2);
+                    }
+                }
+            } else {
+                this.currentVirtualTree = r.oldTree;
+            }
+
+            this.currentSplits.clear();
+            this.currentSplits.putAll(r.oldSplits);
+            this.nodeToRow = new IdentityHashMap<>(r.oldNodeToRow);
+        }
+    }
 
     public boolean applyNniStep(Node nodeToUpdate, BitSet bitsOut, BitSet bitsIn) {
         Node v = nodeToUpdate;
@@ -361,25 +698,17 @@ public class M3IncrementalMetric implements IncrementalMetric {
     }
 
     public void undoNniStep() {
-        if (deltaStack.isEmpty()) return;
-        LapStateDelta delta = deltaStack.pop();
-
-        for (int i = 0; i < delta.rows.length; i++) {
-            System.arraycopy(delta.oldRows[i], 0, assigncost[delta.rows[i]], 0, dim);
-            currentT1TripletCount[delta.rows[i]] = delta.oldTripletCounts[i];
-        }
-
-        System.arraycopy(delta.oldU, 0, u, 0, dim);
-        System.arraycopy(delta.oldV, 0, v, 0, dim);
-        System.arraycopy(delta.oldRowsol, 0, rowsol, 0, dim);
-        System.arraycopy(delta.oldColsol, 0, colsol, 0, dim);
-
-        for (Map.Entry<Node, BitSet> e : delta.oldSplits.entrySet()) {
-            currentSplits.put(e.getKey(), e.getValue());
-        }
-
-        this.currentDistance = delta.oldDistance;
+        undoDeltaStack();
     }
+
+    // =========================================================================
+    // METODY SPR & POMOCNICZE
+    // =========================================================================
+
+    @Override public void applySprPrune(Node pruneNode) { this.activePruneNode = pruneNode; }
+    @Override public void undoSprPrune(Node pruneNode) { this.activePruneNode = null; }
+    @Override public void applySprRegraftStep(Node pruneNode, Node currentNode) { throw new UnsupportedOperationException(); }
+    @Override public void undoSprRegraftStep() { throw new UnsupportedOperationException(); }
 
     public double getFixedDistanceForRegraft(Node targetNode, Node wanderingSource, BitSet pruneMask, Node pruneNode) {
         Integer r_w = getRowForNode(wanderingSource);
@@ -537,8 +866,6 @@ public class M3IncrementalMetric implements IncrementalMetric {
     }
 
     private double calculateCleanSlateDistance(SimpleTree tNew, boolean isCommit, int maxCostBound) {
-
-        // KLUCZOWA POPRAWKA: Użycie natywnego klucza Signature zamiast String hash
         Map<Signature, Integer> sigToOldRow = new HashMap<>((intT1Num * 4) / 3 + 1);
         for (int i = 0; i < intT1Num; i++) {
             Node n = this.currentVirtualTree.getInternalNode(i);
@@ -733,59 +1060,6 @@ public class M3IncrementalMetric implements IncrementalMetric {
         return this.currentDistance;
     }
 
-    private void refreshAllRowsInPlace() {
-        int[] countWrap = {0};
-        postOrderRefresh(this.currentVirtualTree.getRoot(), countWrap);
-        if (countWrap[0] > 0) {
-            int[] rowsToUpdate = Arrays.copyOf(scratchChangedRowAll, countWrap[0]);
-            int rawMetric = LapSolver.lapUpdate(dim, assigncost, rowsol, colsol, u, v, rowsToUpdate);
-            this.currentDistance = 0.5 * rawMetric;
-        }
-    }
-
-    private void postOrderRefresh(Node n, int[] countWrap) {
-        if (n == null || n.isLeaf()) return;
-        for (int i = 0; i < n.getChildCount(); i++) {
-            postOrderRefresh(n.getChild(i), countWrap);
-        }
-        BitSet split = new BitSet(N);
-        for (int i = 0; i < n.getChildCount(); i++) {
-            split.or(getSplitForNode(n.getChild(i)));
-        }
-        currentSplits.put(n, split);
-
-        Integer row = getRowForNode(n);
-        if (row != null) {
-            scratchChangedRowAll[countWrap[0]++] = row;
-            computeRowCost(row, getPartitionsForNode(n));
-        }
-    }
-
-    @Override
-    public double applyNni(NniMove move) {
-        Node virtMoving = getMappedNode(this.currentVirtualTree, move.movingSubtree);
-        Node virtPartner = getMappedNode(this.currentVirtualTree, move.swapPartner);
-
-        if (virtMoving == null || virtPartner == null) return pushUnchangedState();
-
-        Node p1 = virtMoving.getParent();
-        Node p2 = virtPartner.getParent();
-        if (p1 == null || p2 == null || p1 == p2) return pushUnchangedState();
-
-        int idx1 = findChildPos(virtMoving, p1);
-        int idx2 = findChildPos(virtPartner, p2);
-        if (idx1 == -1 || idx2 == -1) return pushUnchangedState();
-
-        history.push(new StateRecord(assigncost, rowsol, colsol, u, v, currentDistance, currentVirtualTree, currentT1TripletCount, currentSplits, nodeToRow, virtMoving, virtPartner));
-
-        p1.setChild(idx1, virtPartner); virtPartner.setParent(p1);
-        p2.setChild(idx2, virtMoving); virtMoving.setParent(p2);
-
-        refreshAllRowsInPlace();
-
-        return this.currentDistance;
-    }
-
     @Override
     public double evaluate2sEcrMove(Node top, Node m1, Node m2, Node[] boundarySubtrees, SubtreeEcr2Utils.TopologyTemplate2sECR template) {
         return internalApply2sEcrMove(top, m1, m2, boundarySubtrees, template, false);
@@ -895,39 +1169,6 @@ public class M3IncrementalMetric implements IncrementalMetric {
         return idx;
     }
 
-    @Override
-    public void undoNni(NniMove move) {
-        if (!history.isEmpty()) {
-            StateRecord r = history.pop();
-            this.assigncost = r.oldAssigncost;
-            this.rowsol = r.rowsol;
-            this.colsol = r.colsol;
-            this.u = r.u;
-            this.v = r.v;
-            this.currentDistance = r.distance;
-            this.currentT1TripletCount = r.oldTripletCount;
-
-            if (r.nniMovingNode != null && r.nniPartnerNode != null) {
-                Node p1 = r.nniPartnerNode.getParent();
-                Node p2 = r.nniMovingNode.getParent();
-                if (p1 != null && p2 != null) {
-                    int i1 = findChildPos(r.nniPartnerNode, p1);
-                    int i2 = findChildPos(r.nniMovingNode, p2);
-                    if (i1 != -1 && i2 != -1) {
-                        p1.setChild(i1, r.nniMovingNode); r.nniMovingNode.setParent(p1);
-                        p2.setChild(i2, r.nniPartnerNode); r.nniPartnerNode.setParent(p2);
-                    }
-                }
-            } else {
-                this.currentVirtualTree = r.oldTree;
-            }
-
-            this.currentSplits.clear();
-            this.currentSplits.putAll(r.oldSplits);
-            this.nodeToRow = new IdentityHashMap<>(r.oldNodeToRow);
-        }
-    }
-
     private Tree createCleanCopy(Tree original) {
         SimpleTree copy = new SimpleTree(original);
         copy.createNodeList();
@@ -953,7 +1194,6 @@ public class M3IncrementalMetric implements IncrementalMetric {
         return null;
     }
 
-    // NATYWNY, BEZALOKACYJNY KOMPARATOR BITSETÓW
     private static final Comparator<BitSet> BITSET_COMPARATOR = (a, b) -> {
         if (a == b) return 0;
         int cA = a.cardinality();
@@ -970,7 +1210,6 @@ public class M3IncrementalMetric implements IncrementalMetric {
         return 0;
     };
 
-    // ZERO-ALLOCATION SIGNATURE (Bez BitSet.toString!)
     private static class Signature {
         private final BitSet[] canonicalParts;
         private final int cachedHashCode;
@@ -1045,20 +1284,6 @@ public class M3IncrementalMetric implements IncrementalMetric {
             }
         }
         return pairCount;
-    }
-
-    private int getNcvByCanonicalId(int i, int j, int k, int[][] lcaMatrix) {
-        int i_j_lca = lcaMatrix[i][j];
-        int i_k_lca = lcaMatrix[i][k];
-        int j_k_lca = lcaMatrix[j][k];
-
-        if (i_j_lca == i_k_lca) {
-            return j_k_lca;
-        } else if (i_j_lca == j_k_lca) {
-            return i_k_lca;
-        } else {
-            return i_j_lca;
-        }
     }
 
     private static class StateRecord {

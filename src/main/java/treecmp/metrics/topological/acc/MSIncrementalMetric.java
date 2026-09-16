@@ -1,8 +1,8 @@
 package treecmp.metrics.topological.acc;
 
+import pal.misc.IdGroup;
 import pal.tree.Node;
 import pal.tree.Tree;
-import pal.misc.IdGroup;
 import pal.tree.TreeUtils;
 import treecmp.common.AlignInfo;
 import treecmp.common.ClusterDist;
@@ -11,6 +11,8 @@ import treecmp.heuristics.ecr.SubtreeEcr2Utils;
 import treecmp.heuristics.ecr.SubtreeEcr3Utils;
 import treecmp.heuristics.moves.NniMove;
 import treecmp.heuristics.spr.UsprUtils;
+import treecmp.heuristics.tbr.acc.IncrementalTbrWalker;
+import treecmp.heuristics.tbr.acc.RootedTbrMetric;
 import treecmp.metrics.IncrementalMetric;
 import treecmp.metrics.topological.MatchingSplitMetric;
 
@@ -22,12 +24,14 @@ import java.util.List;
 import java.util.Map;
 import java.util.Stack;
 
-public class MSIncrementalMetric implements IncrementalMetric {
+public class MSIncrementalMetric implements IncrementalMetric,
+        RootedTbrMetric {
 
     private Tree baseTree;
     private Tree targetTree;
     private double currentDistance;
     private IdGroup idGroup;
+    private int N;
 
     private final MatchingSplitMetric msMetricFull = new MatchingSplitMetric();
 
@@ -45,6 +49,8 @@ public class MSIncrementalMetric implements IncrementalMetric {
 
     private Node[] rowToNode;
     private Node[] colToNode;
+
+    private BitSet currentPrunedLeaves;
 
     private final Stack<short[][]> costHistory = new Stack<>();
     private final Stack<int[]> rowsolHistory = new Stack<>();
@@ -105,7 +111,7 @@ public class MSIncrementalMetric implements IncrementalMetric {
         if (baseTree != null && targetTree != null) {
             clearHistory();
             this.idGroup = TreeUtils.getLeafIdGroup(baseTree);
-            int numLeaves = baseTree.getExternalNodeCount();
+            this.N = baseTree.getExternalNodeCount();
 
             int size1 = baseTree.getInternalNodeCount() - 1;
             int size2 = targetTree.getInternalNodeCount() - 1;
@@ -119,13 +125,13 @@ public class MSIncrementalMetric implements IncrementalMetric {
 
             this.baseSplits = new IdentityHashMap<>();
             this.currentSplits = new IdentityHashMap<>();
-            extractSplits(baseTree.getRoot(), idGroup, this.baseSplits, numLeaves, false);
+            extractSplits(baseTree.getRoot(), idGroup, this.baseSplits, N, false);
             for (Map.Entry<Node, BitSet> e : baseSplits.entrySet()) {
                 currentSplits.put(e.getKey(), (BitSet) e.getValue().clone());
             }
 
             this.targetSplits = new IdentityHashMap<>();
-            extractSplits(targetTree.getRoot(), idGroup, this.targetSplits, numLeaves, true);
+            extractSplits(targetTree.getRoot(), idGroup, this.targetSplits, N, true);
 
             this.rowToNode = new Node[dim];
             this.colToNode = new Node[dim];
@@ -152,7 +158,7 @@ public class MSIncrementalMetric implements IncrementalMetric {
                 }
             }
 
-            buildInitialCostMatrix(numLeaves);
+            buildInitialCostMatrix(N);
             this.currentDistance = LapSolver.lapShort(dim, assigncost, rowsol, colsol, u, v);
         } else {
             this.currentDistance = 0;
@@ -337,6 +343,147 @@ public class MSIncrementalMetric implements IncrementalMetric {
         }
     }
 
+    private Node resolveWandering(Node wanderingSource, Node pruneNode) {
+        if (wanderingSource != null && wanderingSource.isRoot()) {
+            Node p = pruneNode.getParent();
+            for (int i = 0; i < p.getChildCount(); i++) {
+                if (p.getChild(i) != pruneNode) return p.getChild(i);
+            }
+        }
+        return wanderingSource;
+    }
+
+    // =========================================================================
+    // IMPLEMENTACJA ROOTED / UNROOTED TBR METRIC DLA MS
+    // =========================================================================
+
+    public void setPrunedState(Node pruneNode, Node wanderingSource) {
+        this.currentPrunedLeaves = (BitSet) getSplitBits(pruneNode).clone();
+        BitSet P = this.currentPrunedLeaves;
+        Map<Integer, BitSet> updates = new HashMap<>();
+
+        Node curr = pruneNode.getParent().getParent();
+        while (curr != null) {
+            Integer r = nodeToRow.get(curr);
+            if (r != null) {
+                BitSet bs = (BitSet) currentSplits.get(curr).clone();
+                bs.andNot(P);
+                if (bs.cardinality() == N) bs.clear();
+                updates.put(r, bs);
+            }
+            curr = curr.getParent();
+        }
+
+        Integer r_p = nodeToRow.get(resolveWandering(wanderingSource, pruneNode));
+        if (r_p != null) {
+            BitSet empty = new BitSet();
+            updates.put(r_p, empty);
+        }
+        updateRowSafelyAndSave(updates);
+    }
+
+    public void setTargetRoot(Node pruneNode, Node wanderingSource) {
+        BitSet P = (this.currentPrunedLeaves != null) ? this.currentPrunedLeaves : getSplitBits(pruneNode);
+        Map<Integer, BitSet> updates = new HashMap<>();
+
+        Integer r_p = nodeToRow.get(resolveWandering(wanderingSource, pruneNode));
+        if (r_p != null) {
+            BitSet newRp = (BitSet) getSplitBits(baseTree.getRoot()).clone();
+            newRp.andNot(P);
+            if (newRp.cardinality() == N) newRp.clear();
+            updates.put(r_p, newRp);
+        }
+        updateRowSafelyAndSave(updates);
+    }
+
+    public void moveTargetDown(Node parentTarget, Node childTarget, Node pruneNode, Node wanderingSource) {
+        BitSet P = (this.currentPrunedLeaves != null) ? this.currentPrunedLeaves : getSplitBits(pruneNode);
+        Map<Integer, BitSet> updates = new HashMap<>();
+
+        Node resolvedWandering = resolveWandering(wanderingSource, pruneNode);
+        Integer r_p = nodeToRow.get(resolvedWandering);
+        if (r_p != null) {
+            BitSet childSplit = currentSplits.containsKey(childTarget) ? currentSplits.get(childTarget) : getSplitBits(childTarget);
+            BitSet newRp = (BitSet) childSplit.clone();
+            newRp.or(P);
+            if (newRp.cardinality() == N) newRp.clear();
+            updates.put(r_p, newRp);
+        }
+
+        Integer r_parent = nodeToRow.get(parentTarget);
+        if (r_parent != null && parentTarget != wanderingSource && parentTarget != resolvedWandering) {
+            BitSet parentSplit = currentSplits.get(parentTarget);
+            BitSet newParent = (BitSet) parentSplit.clone();
+            newParent.or(P);
+            if (newParent.cardinality() == N) newParent.clear();
+            updates.put(r_parent, newParent);
+        }
+
+        updateRowSafelyAndSave(updates);
+    }
+
+    public void moveTargetUp(Node parentTarget, Node childTarget, Node pruneNode, Node wanderingSource) {
+        undoDeltaStack();
+    }
+
+    public void revertPrunedState(Node pruneNode, Node wanderingSource) {
+        undoDeltaStack();
+        undoDeltaStack();
+    }
+
+    @Override
+    public void setTargetRoot(Node pruneNode, Node rerootNode, Node wanderingSource) {
+        setTargetRoot(pruneNode, wanderingSource);
+    }
+
+    @Override
+    public void moveTargetDown(Node parentTarget, Node childTarget, Node pruneNode, Node rerootNode, Node wanderingSource) {
+        moveTargetDown(parentTarget, childTarget, pruneNode, wanderingSource);
+    }
+
+    @Override
+    public void moveTargetUp(Node parentTarget, Node childTarget, Node pruneNode, Node rerootNode, Node wanderingSource) {
+        moveTargetUp(parentTarget, childTarget, pruneNode, wanderingSource);
+    }
+
+    @Override
+    public void moveRerootDown(Node parentReroot, Node childReroot, Node pruneNode) {
+        // pruneNode zachowuje rolę klastra pełnego poddrzewa P
+        if (parentReroot == pruneNode) {
+            deltaStack.push(new LapStateDelta(new int[0], new short[0][0], Arrays.copyOf(u, dim), Arrays.copyOf(v, dim),
+                    Arrays.copyOf(rowsol, dim), Arrays.copyOf(colsol, dim), currentDistance, new IdentityHashMap<>()));
+            return;
+        }
+
+        Integer rParent = nodeToRow.get(parentReroot);
+        if (rParent != null && currentPrunedLeaves != null) {
+            BitSet childSplit = getSplitBits(childReroot);
+            if (childSplit != null) {
+                BitSet newParentSplit = (BitSet) currentPrunedLeaves.clone();
+                newParentSplit.andNot(childSplit);
+                if (newParentSplit.cardinality() == N) newParentSplit.clear();
+
+                Map<Integer, BitSet> updates = new HashMap<>();
+                updates.put(rParent, newParentSplit);
+
+                updateRowSafelyAndSave(updates);
+                return;
+            }
+        }
+
+        deltaStack.push(new LapStateDelta(new int[0], new short[0][0], Arrays.copyOf(u, dim), Arrays.copyOf(v, dim),
+                Arrays.copyOf(rowsol, dim), Arrays.copyOf(colsol, dim), currentDistance, new IdentityHashMap<>()));
+    }
+
+    @Override
+    public void moveRerootUp(Node parentReroot, Node childReroot, Node pruneNode) {
+        undoDeltaStack();
+    }
+
+    // =========================================================================
+    // NNI, SPR & ECR
+    // =========================================================================
+
     public boolean applyNniStep(Node nodeToUpdate, BitSet bitsOut, BitSet bitsIn) {
         Integer rIndex = nodeToRow.get(nodeToUpdate);
         if (rIndex == null) return false;
@@ -417,10 +564,6 @@ public class MSIncrementalMetric implements IncrementalMetric {
         }
     }
 
-    // ========================================================================
-    // O(1) INCREMENTAL EXTENDED CLUSTER REDUCTION (ECR)
-    // ========================================================================
-
     @Override
     public double evaluate2sEcrMove(Node top, Node m1, Node m2, Node[] b, SubtreeEcr2Utils.TopologyTemplate2sECR template) {
         double dist = commit2sEcrMove(top, m1, m2, b, template);
@@ -484,7 +627,6 @@ public class MSIncrementalMetric implements IncrementalMetric {
         return this.currentDistance;
     }
 
-    // POPRAWKA: Bezpieczne przypisanie indeksu zapobiegające ArrayIndexOutOfBoundsException
     private BitSet compute3sEcrTemplateBits(SubtreeEcr3Utils.TopologyTemplate3sECR temp, Node currentInternal, Node[] available, int[] idxArr, BitSet[] bBits, Map<Integer, BitSet> updates) {
         BitSet myBits = new BitSet();
 

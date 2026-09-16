@@ -2,9 +2,9 @@ package treecmp.metrics.topological.acc;
 
 import pal.tree.Node;
 import pal.tree.Tree;
+import treecmp.heuristics.moves.NniMove;
 import treecmp.metrics.BaseMetric;
 import treecmp.metrics.IncrementalMetric;
-import treecmp.heuristics.moves.NniMove;
 
 import java.util.*;
 
@@ -15,17 +15,19 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
     protected final Map<Node, BitSet> nodeBitSets = new IdentityHashMap<>();
     protected BitSet allLeavesMask;
 
-    // Śledzi aktualny wirtualny split węzła w trakcie długich spacerów SPR
+    // Śledzi aktualny wirtualny split węzła w trakcie przeszukiwania otoczenia
     protected final Map<Node, BitSet> activeVirtualSplits = new HashMap<>();
 
-    // Stosy pamiętające dokładny stan sprzed każdego ruchu
+    // Stosy pamiętające dokładny stan sprzed każdego ruchu (zsynchronizowane atomowo)
     protected final Stack<Integer> sharedSplitsHistory = new Stack<>();
     protected final Stack<Node> movingNodeHistory = new Stack<>();
     protected final Stack<BitSet> activeSplitHistory = new Stack<>();
+    protected final Stack<Integer> operationNodeCountHistory = new Stack<>();
 
     protected int sharedSplitsCount;
     protected int totalInternalSplits;
     protected double currentDistance;
+
     // Śledzi głębokość odcięcia, by poprawnie cofnąć applySprPrune
     protected final Stack<Integer> sprPruneDepths = new Stack<>();
 
@@ -47,6 +49,8 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
         sharedSplitsHistory.clear();
         movingNodeHistory.clear();
         activeSplitHistory.clear();
+        operationNodeCountHistory.clear();
+        sprPruneDepths.clear();
 
         Map<String, Integer> leafMapping = createLeafMapping(baseTree);
         int leafCount = leafMapping.size();
@@ -73,18 +77,19 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
     public double applyNniStep(Node nodeToUpdate, BitSet bitsOut, BitSet bitsIn) {
         sharedSplitsHistory.push(sharedSplitsCount);
         movingNodeHistory.push(nodeToUpdate);
+        operationNodeCountHistory.push(1);
 
         BitSet oldBS = activeVirtualSplits.getOrDefault(nodeToUpdate, nodeBitSets.get(nodeToUpdate));
         activeSplitHistory.push(oldBS);
 
-        if (targetSplits.contains(normalizeSplit(oldBS))) sharedSplitsCount--;
+        if (isShared(oldBS)) sharedSplitsCount--;
 
         BitSet newBS = (BitSet) oldBS.clone();
         if (bitsOut != null) newBS.andNot(bitsOut);
         if (bitsIn != null) newBS.or(bitsIn);
 
         activeVirtualSplits.put(nodeToUpdate, newBS);
-        if (targetSplits.contains(normalizeSplit(newBS))) sharedSplitsCount++;
+        if (isShared(newBS)) sharedSplitsCount++;
 
         updateCurrentDistance();
         return currentDistance;
@@ -92,65 +97,69 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
 
     public void undoNniStep() {
         if (sharedSplitsHistory.isEmpty()) return;
+
         this.sharedSplitsCount = sharedSplitsHistory.pop();
-        activeVirtualSplits.put(movingNodeHistory.pop(), activeSplitHistory.pop());
+        int nodeCount = operationNodeCountHistory.isEmpty() ? 1 : operationNodeCountHistory.pop();
+
+        for (int i = 0; i < nodeCount; i++) {
+            Node n = movingNodeHistory.pop();
+            BitSet oldBS = activeSplitHistory.pop();
+            if (oldBS != null) {
+                activeVirtualSplits.put(n, oldBS);
+            } else {
+                activeVirtualSplits.remove(n);
+            }
+        }
+
         updateCurrentDistance();
     }
 
     @Override
     public double applyNni(NniMove move) {
-        // 1. Wyznaczamy węzeł do aktualizacji (rodzic)
         Node nodeToUpdate = move.movingSubtree.getParent();
-
-        // 2. Wyciągamy bity (uwzględniając ewentualne wirtualne zmiany na stosie)
         BitSet bitsOut = activeVirtualSplits.getOrDefault(move.movingSubtree, nodeBitSets.get(move.movingSubtree));
         BitSet bitsIn = activeVirtualSplits.getOrDefault(move.swapPartner, nodeBitSets.get(move.swapPartner));
-
-        // 3. Wywołujemy uniwersalny rdzeń
         return applyNniStep(nodeToUpdate, bitsOut, bitsIn);
     }
 
     @Override
     public void undoNni(NniMove move) {
-        // Cofnięcie NNI z obiektu to dokładnie to samo, co cofnięcie kroku ze stosu
         undoNniStep();
     }
 
     public double applyUpdate(Node node, BitSet bitsToApply, boolean add) {
         sharedSplitsHistory.push(sharedSplitsCount);
         movingNodeHistory.push(node);
+        operationNodeCountHistory.push(1);
 
         BitSet oldBS = activeVirtualSplits.getOrDefault(node, nodeBitSets.get(node));
         activeSplitHistory.push(oldBS);
 
-        if (targetSplits.contains(normalizeSplit(oldBS))) sharedSplitsCount--;
+        if (isShared(oldBS)) sharedSplitsCount--;
 
         BitSet newBS = (BitSet) oldBS.clone();
         if (add) newBS.or(bitsToApply); else newBS.andNot(bitsToApply);
 
         activeVirtualSplits.put(node, newBS);
-        if (targetSplits.contains(normalizeSplit(newBS))) sharedSplitsCount++;
+        if (isShared(newBS)) sharedSplitsCount++;
 
         updateCurrentDistance();
         return currentDistance;
     }
 
     public void undoUpdate() {
-        if (sharedSplitsHistory.isEmpty()) return;
-        this.sharedSplitsCount = sharedSplitsHistory.pop();
-        activeVirtualSplits.put(movingNodeHistory.pop(), activeSplitHistory.pop());
-        updateCurrentDistance();
+        undoNniStep();
     }
 
-    /**
-     * Generyczne zatwierdzenie ruchu dla architektury heurystyk.
-     */
+    @Override
     public void commit() {
         nodeBitSets.putAll(activeVirtualSplits);
         activeVirtualSplits.clear();
         sharedSplitsHistory.clear();
         movingNodeHistory.clear();
         activeSplitHistory.clear();
+        operationNodeCountHistory.clear();
+        sprPruneDepths.clear();
     }
 
     @Override
@@ -158,23 +167,19 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
         return currentDistance;
     }
 
-    // Pobiera aktualny klaster ze stosu NNI (lub bazowy)
     public BitSet getCluster(Node node) {
         return activeVirtualSplits.getOrDefault(node, nodeBitSets.get(node));
     }
 
-    // Bezstanowa ewaluacja fizycznego dystansu SPR w oparciu o aktualny stan stosu NNI
     public double evaluateExactSprDistance(Node pruneNode, Node targetNode, BitSet movingBits) {
         int virtualShared = this.sharedSplitsCount;
 
-        // 1. oldParent (stary rodzic) fizycznie znika w ruchu SPR
         Node oldParent = pruneNode.getParent();
         if (oldParent != null) {
             BitSet oldParentBits = getCluster(oldParent);
             if (isShared(oldParentBits)) virtualShared--;
         }
 
-        // 2. Nowy węzeł powstaje bezpośrednio nad miejscem wpięcia (targetNode)
         BitSet targetBits = getCluster(targetNode);
         if (targetBits != null) {
             BitSet newNodeBits = (BitSet) targetBits.clone();
@@ -182,17 +187,14 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
             if (isShared(newNodeBits)) virtualShared++;
         }
 
-        // 3. Obliczenie dokładnego dystansu RF
         return (totalInternalSplits + targetSplits.size() - 2.0 * virtualShared) / 2.0;
     }
 
-    // Pomocnicza metoda sprawdzająca, czy klaster występuje w drzewie docelowym
     public boolean isShared(BitSet bs) {
         if (bs == null) return false;
         BitSet norm = normalizeSplit((BitSet) bs.clone());
         int card = norm.cardinality();
         int total = allLeavesMask.cardinality();
-        // Ignorujemy liście i korzeń
         if (card > 1 && card < total) {
             return targetSplits.contains(norm);
         }
@@ -206,8 +208,6 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
     }
 
     protected void updateCurrentDistance() {
-        // Symetryczny dystans: |S1| + |S2| - 2*|S1 ∩ S2|
-        // TreeCmp używa RF(0.5), więc dzielimy wynik przez 2.
         this.currentDistance = (totalInternalSplits + targetSplits.size() - 2.0 * sharedSplitsCount) / 2.0;
     }
 
@@ -216,12 +216,12 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
         int index = 0;
         Stack<Node> stack = new Stack<>();
         stack.push(tree.getRoot());
-        while(!stack.isEmpty()) {
+        while (!stack.isEmpty()) {
             Node n = stack.pop();
             if (n.isLeaf()) {
                 mapping.put(n.getIdentifier().getName(), index++);
             } else {
-                for(int i=0; i<n.getChildCount(); i++) stack.push(n.getChild(i));
+                for (int i = 0; i < n.getChildCount(); i++) stack.push(n.getChild(i));
             }
         }
         return mapping;
@@ -271,13 +271,11 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
         int pruneDepth = 0;
         Node curr = (oldParent != null) ? oldParent.getParent() : null;
 
-        // Ścieżka od dziadka do korzenia traci wędrujące bity
         while (curr != null && !curr.isRoot()) {
             applyNniStep(curr, movingBits, null);
             pruneDepth++;
             curr = curr.getParent();
         }
-        // Zapamiętujemy ile operacji wykonaliśmy, by móc je cofnąć
         sprPruneDepths.push(pruneDepth);
     }
 
@@ -299,7 +297,6 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
     @Override
     public void applySprRegraftStep(Node pruneNode, Node currentNode) {
         BitSet movingBits = getCluster(pruneNode);
-        // Tymczasowo dodajemy wędrujące bity do currentNode
         applyNniStep(currentNode, null, movingBits);
     }
 
@@ -309,35 +306,36 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
     }
 
     // ==========================================
-    // IMPLEMENTACJA INTERFEJSU 2-sECR
+    // IMPLEMENTACJA INTERFEJSU 2-sECR (Wielowęzłowy Undo)
     // ==========================================
 
     @Override
     public double evaluate2sEcrMove(Node top, Node m1, Node m2, Node[] boundarySubtrees, treecmp.heuristics.ecr.SubtreeEcr2Utils.TopologyTemplate2sECR newTopology) {
-        // Zapisujemy stany by je cofnąć
-        int savedSharedSplitsCount = this.sharedSplitsCount;
-        BitSet oldTopBits = getCluster(top);
-        BitSet oldM1Bits = getCluster(m1);
-        BitSet oldM2Bits = getCluster(m2);
+        double evaluatedDistance = commit2sEcrMove(top, m1, m2, boundarySubtrees, newTopology);
+        undoNniStep();
+        return evaluatedDistance;
+    }
 
-        // 1. Unieważniamy (odejmujemy) stary szkielet 3 węzłów od aktualnego wyniku
-        if (isShared(oldTopBits)) this.sharedSplitsCount--;
-        if (isShared(oldM1Bits)) this.sharedSplitsCount--;
-        if (isShared(oldM2Bits)) this.sharedSplitsCount--;
+    @Override
+    public double commit2sEcrMove(Node top, Node m1, Node m2, Node[] boundarySubtrees, treecmp.heuristics.ecr.SubtreeEcr2Utils.TopologyTemplate2sECR newTopology) {
+        sharedSplitsHistory.push(sharedSplitsCount);
+        movingNodeHistory.push(top); activeSplitHistory.push(getCluster(top));
+        movingNodeHistory.push(m1);  activeSplitHistory.push(getCluster(m1));
+        movingNodeHistory.push(m2);  activeSplitHistory.push(getCluster(m2));
+        operationNodeCountHistory.push(3);
 
-        // 2. Pobieramy maski bitowe dla 4 poddrzew otaczających gwiazdę 2-sECR
+        if (isShared(getCluster(top))) this.sharedSplitsCount--;
+        if (isShared(getCluster(m1)))  this.sharedSplitsCount--;
+        if (isShared(getCluster(m2)))  this.sharedSplitsCount--;
+
         BitSet[] sBits = new BitSet[4];
-        for (int i = 0; i < 4; i++) {
-            sBits[i] = getCluster(boundarySubtrees[i]);
-        }
+        for (int i = 0; i < 4; i++) sBits[i] = getCluster(boundarySubtrees[i]);
 
-        // 3. Budujemy 3 nowe węzły wewnętrzne (nowy szkielet) zgodnie z żądanym szablonem
         BitSet newM1 = new BitSet();
         BitSet newM2 = new BitSet();
         BitSet newTop = new BitSet();
 
         if (newTopology.isFork) {
-            // Szablon typu Fork: (s0, s1) oraz (s2, s3) połączone w 'top'
             newM1.or(sBits[newTopology.indices[0]]);
             newM1.or(sBits[newTopology.indices[1]]);
 
@@ -347,7 +345,6 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
             newTop.or(newM1);
             newTop.or(newM2);
         } else {
-            // Szablon typu Chain: struktura zagnieżdżona s0 -> s1 -> s2 -> s3
             newM2.or(sBits[newTopology.indices[2]]);
             newM2.or(sBits[newTopology.indices[3]]);
 
@@ -358,53 +355,9 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
             newTop.or(newM1);
         }
 
-        // 4. Testujemy nowe deskryptory względem docelowego drzewa
         if (isShared(newTop)) this.sharedSplitsCount++;
-        if (isShared(newM1)) this.sharedSplitsCount++;
-        if (isShared(newM2)) this.sharedSplitsCount++;
-
-        // 5. Zapisujemy wirtualny dystans
-        updateCurrentDistance();
-        double evaluatedDistance = this.currentDistance;
-
-        // 6. COFAMY (metoda 'evaluate' nie modyfikuje stanu wirtualnego trwale)
-        this.sharedSplitsCount = savedSharedSplitsCount;
-        updateCurrentDistance(); // Przywraca poprzedni dystans
-
-        return evaluatedDistance;
-    }
-
-    @Override
-    public double commit2sEcrMove(Node top, Node m1, Node m2, Node[] boundarySubtrees, treecmp.heuristics.ecr.SubtreeEcr2Utils.TopologyTemplate2sECR newTopology) {
-        // Oblicza wszystko tak samo jak evaluate, ale ZAPISUJE nowe maski bitowe na stos historii Walkera
-
-        // Push stare maski na stos żeby poprawnie współdziałać z frameworkiem Undo
-        sharedSplitsHistory.push(sharedSplitsCount);
-        movingNodeHistory.push(top); activeSplitHistory.push(getCluster(top));
-        movingNodeHistory.push(m1); activeSplitHistory.push(getCluster(m1));
-        movingNodeHistory.push(m2); activeSplitHistory.push(getCluster(m2));
-
-        if (isShared(getCluster(top))) this.sharedSplitsCount--;
-        if (isShared(getCluster(m1))) this.sharedSplitsCount--;
-        if (isShared(getCluster(m2))) this.sharedSplitsCount--;
-
-        BitSet[] sBits = new BitSet[4];
-        for (int i = 0; i < 4; i++) sBits[i] = getCluster(boundarySubtrees[i]);
-
-        BitSet newM1 = new BitSet(); BitSet newM2 = new BitSet(); BitSet newTop = new BitSet();
-        if (newTopology.isFork) {
-            newM1.or(sBits[newTopology.indices[0]]); newM1.or(sBits[newTopology.indices[1]]);
-            newM2.or(sBits[newTopology.indices[2]]); newM2.or(sBits[newTopology.indices[3]]);
-            newTop.or(newM1); newTop.or(newM2);
-        } else {
-            newM2.or(sBits[newTopology.indices[2]]); newM2.or(sBits[newTopology.indices[3]]);
-            newM1.or(sBits[newTopology.indices[1]]); newM1.or(newM2);
-            newTop.or(sBits[newTopology.indices[0]]); newTop.or(newM1);
-        }
-
-        if (isShared(newTop)) this.sharedSplitsCount++;
-        if (isShared(newM1)) this.sharedSplitsCount++;
-        if (isShared(newM2)) this.sharedSplitsCount++;
+        if (isShared(newM1))  this.sharedSplitsCount++;
+        if (isShared(newM2))  this.sharedSplitsCount++;
 
         activeVirtualSplits.put(top, newTop);
         activeVirtualSplits.put(m1, newM1);
@@ -415,52 +368,30 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
     }
 
     // ==========================================
-    // IMPLEMENTACJA INTERFEJSU 3-sECR
+    // IMPLEMENTACJA INTERFEJSU 3-sECR (Wielowęzłowy Undo)
     // ==========================================
 
     @Override
     public double evaluate3sEcrMove(List<Node> cluster, Node[] boundarySubtrees, treecmp.heuristics.ecr.SubtreeEcr3Utils.TopologyTemplate3sECR newTopology) {
-        int savedSharedSplitsCount = this.sharedSplitsCount;
-
-        // Unieważnij 4 węzły wewnętrzne klastra
-        for (Node n : cluster) {
-            if (isShared(getCluster(n))) this.sharedSplitsCount--;
-        }
-
-        // Pobierz maski 5 poddrzew brzegowych
-        BitSet[] sBits = new BitSet[5];
-        for (int i = 0; i < 5; i++) {
-            sBits[i] = getCluster(boundarySubtrees[i]);
-        }
-
-        // Zbuduj nowe maski na podstawie rekurencyjnego szablonu MiniTree z SubtreeEcr3Utils
-        buildAndEvaluate3sEcrTemplate(newTopology, sBits);
-
-        updateCurrentDistance();
-        double evaluatedDistance = this.currentDistance;
-
-        // Cofnij zmiany
-        this.sharedSplitsCount = savedSharedSplitsCount;
-        updateCurrentDistance();
-
+        double evaluatedDistance = commit3sEcrMove(cluster, boundarySubtrees, newTopology);
+        undoNniStep();
         return evaluatedDistance;
     }
 
     @Override
     public double commit3sEcrMove(List<Node> cluster, Node[] boundarySubtrees, treecmp.heuristics.ecr.SubtreeEcr3Utils.TopologyTemplate3sECR newTopology) {
         sharedSplitsHistory.push(sharedSplitsCount);
-
         for (Node n : cluster) {
             movingNodeHistory.push(n);
             activeSplitHistory.push(getCluster(n));
             if (isShared(getCluster(n))) this.sharedSplitsCount--;
         }
+        operationNodeCountHistory.push(cluster.size());
 
         BitSet[] sBits = new BitSet[5];
         for (int i = 0; i < 5; i++) sBits[i] = getCluster(boundarySubtrees[i]);
 
-        // Buduje nowe klastry i mapuje je z powrotem na fizyczne węzły z klastra (w dowolnej kolejności)
-        List<BitSet> newBitSets = new ArrayList<>();
+        List<BitSet> newBitSets = new ArrayList<>(cluster.size());
         buildAndReturn3sEcrClusters(newTopology, sBits, newBitSets);
 
         for (int i = 0; i < cluster.size(); i++) {
@@ -474,34 +405,34 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
         return this.currentDistance;
     }
 
-    // --- Narzędzia rekurencyjne dla 3-sECR (budowa masek z szablonów) ---
-
-    private BitSet buildAndEvaluate3sEcrTemplate(treecmp.heuristics.ecr.SubtreeEcr3Utils.TopologyTemplate3sECR temp, BitSet[] sBits) {
+    private void buildAndReturn3sEcrClusters(treecmp.heuristics.ecr.SubtreeEcr3Utils.TopologyTemplate3sECR temp, BitSet[] sBits, List<BitSet> collection) {
         BitSet bs = new BitSet();
         if (temp.leafIndex != -1) {
             bs.or(sBits[temp.leafIndex]);
         } else {
-            bs.or(buildAndEvaluate3sEcrTemplate(temp.left, sBits));
-            bs.or(buildAndEvaluate3sEcrTemplate(temp.right, sBits));
-            // Dodajemy uformowany, nowy węzeł wewnętrzny do wyceny (pomijając całkowity korzeń klastra, jeśli to potrzebne)
-            if (isShared(bs)) this.sharedSplitsCount++;
+            BitSet left = computeTemplateBits(temp.left, sBits, collection);
+            BitSet right = computeTemplateBits(temp.right, sBits, collection);
+            bs.or(left);
+            bs.or(right);
+            collection.add((BitSet) bs.clone());
         }
-        return bs;
     }
 
-    private BitSet buildAndReturn3sEcrClusters(treecmp.heuristics.ecr.SubtreeEcr3Utils.TopologyTemplate3sECR temp, BitSet[] sBits, List<BitSet> collection) {
+    private BitSet computeTemplateBits(treecmp.heuristics.ecr.SubtreeEcr3Utils.TopologyTemplate3sECR temp, BitSet[] sBits, List<BitSet> collection) {
         BitSet bs = new BitSet();
         if (temp.leafIndex != -1) {
             bs.or(sBits[temp.leafIndex]);
         } else {
-            bs.or(buildAndReturn3sEcrClusters(temp.left, sBits, collection));
-            bs.or(buildAndReturn3sEcrClusters(temp.right, sBits, collection));
+            BitSet left = computeTemplateBits(temp.left, sBits, collection);
+            BitSet right = computeTemplateBits(temp.right, sBits, collection);
+            bs.or(left);
+            bs.or(right);
             collection.add((BitSet) bs.clone());
         }
         return bs;
     }
 
-// ==========================================
+    // ==========================================
     // IMPLEMENTACJA AKCELERATORA TBR
     // ==========================================
 
@@ -510,7 +441,6 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
             return getCurrentDistance();
         }
 
-        // Niezawodna ewaluacja topologiczna chroniąca przed degeneracją korzenia w PAL
         Tree physicalTree = tbrUtilsHelper.createTbrTree(this.baseTreeRef, pruneNode, rerootNode, targetNode);
         if (physicalTree != null) {
             if (physicalTree instanceof pal.tree.SimpleTree) {

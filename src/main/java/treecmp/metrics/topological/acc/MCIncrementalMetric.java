@@ -13,6 +13,7 @@ import treecmp.heuristics.moves.NniMove;
 import treecmp.heuristics.spr.SprUtils;
 import treecmp.heuristics.spr.acc.IncrementalSprWalker;
 import treecmp.heuristics.tbr.acc.IncrementalTbrWalker;
+import treecmp.heuristics.tbr.acc.RootedTbrMetric;
 import treecmp.metrics.IncrementalMetric;
 import treecmp.metrics.topological.MatchingClusterMetric;
 
@@ -20,7 +21,7 @@ import java.util.*;
 
 public class MCIncrementalMetric implements IncrementalMetric,
         IncrementalSprWalker.RootedMetric,
-        IncrementalTbrWalker.RootedTbrMetric{
+        RootedTbrMetric {
 
     private Tree baseTree;
     private Tree targetTree;

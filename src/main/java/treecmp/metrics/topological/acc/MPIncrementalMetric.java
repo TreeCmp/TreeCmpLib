@@ -12,13 +12,17 @@ import treecmp.heuristics.ecr.SubtreeEcr2Utils;
 import treecmp.heuristics.ecr.SubtreeEcr3Utils;
 import treecmp.heuristics.moves.NniMove;
 import treecmp.heuristics.spr.acc.IncrementalSprWalker;
+import treecmp.heuristics.tbr.acc.IncrementalTbrWalker;
+import treecmp.heuristics.tbr.acc.RootedTbrMetric;
 import treecmp.metrics.IncrementalMetric;
 import treecmp.metrics.BaseMetric;
 import treecmp.metrics.topological.MatchingPairMetric;
 
 import java.util.*;
 
-public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric, IncrementalSprWalker.RootedMetric {
+public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric,
+        IncrementalSprWalker.RootedMetric,
+        RootedTbrMetric {
 
     private Tree baseTree;
     private Tree targetTree;
@@ -56,6 +60,8 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
     private final Stack<LapStateDelta> deltaStack = new Stack<>();
 
     private final treecmp.heuristics.tbr.TbrUtils tbrUtils = new treecmp.heuristics.tbr.TbrUtils();
+
+    private BitSet currentPrunedLeaves;
 
     public BitSet getCluster(Node n) {
         return getBaseSplit(n);
@@ -311,7 +317,8 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
 
     @Override
     public void setPrunedState(Node pruneNode, Node wanderingSource) {
-        BitSet P = getBaseSplit(pruneNode);
+        this.currentPrunedLeaves = (BitSet) getBaseSplit(pruneNode).clone();
+        BitSet P = this.currentPrunedLeaves;
         Map<Integer, BitSet[]> updates = new HashMap<>();
 
         Node curr = pruneNode.getParent().getParent();
@@ -329,18 +336,18 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
             curr = curr.getParent();
         }
 
+        // Tylko r_floating jest odpinany i czyszczony; wanderingSource (brat) zachowuje swoje pary!
         Integer r_floating = getRowForNode(pruneNode.getParent());
-        if (r_floating != null) updates.put(r_floating, new BitSet[0]);
-
-        Integer r_w = getRowForNode(wanderingSource);
-        if (r_w != null) updates.put(r_w, new BitSet[0]);
+        if (r_floating != null) {
+            updates.put(r_floating, new BitSet[0]);
+        }
 
         updateRowsSafelyAndSave(updates);
     }
 
     @Override
     public void setTargetRoot(Node pruneNode, Node wanderingSource) {
-        BitSet P = getBaseSplit(pruneNode);
+        BitSet P = (this.currentPrunedLeaves != null) ? this.currentPrunedLeaves : getBaseSplit(pruneNode);
         Map<Integer, BitSet[]> updates = new HashMap<>();
 
         Integer r_floating = getRowForNode(pruneNode.getParent());
@@ -355,7 +362,7 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
 
     @Override
     public void moveTargetDown(Node parentTarget, Node childTarget, Node pruneNode, Node wanderingSource) {
-        BitSet P = getBaseSplit(pruneNode);
+        BitSet P = (this.currentPrunedLeaves != null) ? this.currentPrunedLeaves : getBaseSplit(pruneNode);
         Map<Integer, BitSet[]> updates = new HashMap<>();
 
         Integer r_floating = getRowForNode(pruneNode.getParent());
@@ -483,9 +490,13 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
         for (int i = 0; i < sets.length; i++) {
             BitSet setA = sets[i];
             if (setA == null || setA.isEmpty()) continue;
+            int cardA = setA.cardinality();
+
             for (int j = i + 1; j < sets.length; j++) {
                 BitSet setB = sets[j];
                 if (setB == null || setB.isEmpty()) continue;
+
+                pairsCount += cardA * setB.cardinality();
 
                 for (int l1 = setA.nextSetBit(0); l1 >= 0; l1 = setA.nextSetBit(l1 + 1)) {
                     int[] lcaRowT2 = targetLcaMatrix[l1];
@@ -495,14 +506,12 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
                             int c = targetIdToCol[lcaT2];
                             if (c >= 0) scratchIntersections[c]++;
                         }
-                        pairsCount++;
                     }
                 }
             }
         }
 
         currentT1PairCount[row] = pairsCount;
-
         int[] costRow = assigncost[row];
         for (int c = 0; c < intT2Num; c++) {
             costRow[c] = pairsCount + t2IntPairCount[c] - (scratchIntersections[c] << 1);
@@ -1076,6 +1085,70 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
         }
 
         return dist;
+    }
+
+    @Override
+    public void setTargetRoot(Node pruneNode, Node rerootNode, Node wanderingSource) {
+        setTargetRoot(pruneNode, wanderingSource);
+    }
+
+    @Override
+    public void moveTargetDown(Node parentTarget, Node childTarget, Node pruneNode, Node rerootNode, Node wanderingSource) {
+        moveTargetDown(parentTarget, childTarget, pruneNode, wanderingSource);
+    }
+
+    @Override
+    public void moveTargetUp(Node parentTarget, Node childTarget, Node pruneNode, Node rerootNode, Node wanderingSource) {
+        moveTargetUp(parentTarget, childTarget, pruneNode, wanderingSource);
+    }
+
+    @Override
+    public void moveRerootDown(Node parentReroot, Node childReroot, Node pruneNode) {
+        Map<Integer, BitSet[]> updates = new HashMap<>();
+
+        if (currentPrunedLeaves != null) {
+            // 1. ZAWSZE aktualizujemy wiersz pruneNode (nowy korzeń odciętego fragmentu w T1)
+            Integer rPrune = getRowForNode(pruneNode);
+            if (rPrune != null) {
+                BitSet cLeaves = getBaseSplit(childReroot);
+                BitSet pMinusC = (BitSet) currentPrunedLeaves.clone();
+                pMinusC.andNot(cLeaves);
+                updates.put(rPrune, new BitSet[]{cLeaves, pMinusC});
+            }
+
+            // 2. Jeśli parentReroot nie jest korzeniem poddrzewa, odwracamy krawędź wewnątrz T1
+            if (parentReroot != pruneNode) {
+                Integer rParent = getRowForNode(parentReroot);
+                if (rParent != null) {
+                    BitSet sLeaves = new BitSet(N);
+                    for (int i = 0; i < parentReroot.getChildCount(); i++) {
+                        Node ch = parentReroot.getChild(i);
+                        if (ch != childReroot) {
+                            sLeaves.or(getBaseSplit(ch));
+                        }
+                    }
+
+                    // Reszta poddrzewa poza parentReroot: P \ leaves(parentReroot)
+                    BitSet above = (BitSet) currentPrunedLeaves.clone();
+                    above.andNot(getBaseSplit(parentReroot));
+
+                    updates.put(rParent, new BitSet[]{sLeaves, above});
+                }
+            }
+        }
+
+        if (!updates.isEmpty()) {
+            updateRowsSafelyAndSave(updates);
+        } else {
+            deltaStack.push(new LapStateDelta(new int[0], new int[0][0], new int[0],
+                    Arrays.copyOf(u, dim), Arrays.copyOf(v, dim),
+                    Arrays.copyOf(rowsol, dim), Arrays.copyOf(colsol, dim), currentDistance, new IdentityHashMap<>()));
+        }
+    }
+
+    @Override
+    public void moveRerootUp(Node parentReroot, Node childReroot, Node pruneNode) {
+        undoDeltaStack();
     }
 
     @Override public double getCurrentDistance() { return this.currentDistance; }
