@@ -8,6 +8,7 @@ import treecmp.heuristics.moves.TbrMove;
 import treecmp.heuristics.moves.TreeMove;
 import treecmp.heuristics.tbr.TbrUtils;
 import treecmp.metrics.IncrementalMetric;
+import treecmp.metrics.topological.acc.RFClusterIncrementalMetric;
 
 /**
  * Uniwersalna, akcelerowana heurystyka (Steepest Descent) dla otoczenia rTBR.
@@ -35,26 +36,27 @@ public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
             this.tbrUtils = new TbrUtils();
         }
 
-        @Override
-        protected void searchNeighborhood(Tree currentTree) {
-            IncrementalMetric activeMetric = this.primaryMetric != null ? this.primaryMetric : this.incMetric;
-            this.tiedMoves.clear();
-            this.bestDist = Double.POSITIVE_INFINITY;
+    @Override
+    protected void searchNeighborhood(Tree currentTree) {
+        IncrementalMetric activeMetric = this.primaryMetric != null ? this.primaryMetric : this.incMetric;
+        this.tiedMoves.clear();
+        this.bestDist = Double.POSITIVE_INFINITY;
 
-            // JEŚLI METRYKA WSPIERA 1-NNI 2D-DFS (MC, MP) -> UŻYWAMY INCREMENTAL WALKERA!
-            if (activeMetric instanceof IncrementalTbrWalker.RootedTbrMetric) {
-                incrementalWalker.walk(currentTree, (IncrementalTbrWalker.RootedTbrMetric) activeMetric,
-                        (currentDist, pruneNode, rerootNode, targetNode) -> {
-                            checkImprovementWithTies(currentDist, new TbrMove(pruneNode, rerootNode, targetNode));
-                        });
-            } else {
-                // Fallback dla metryk bitowych klastrów (RFC)
-                classicWalker.walk(currentTree, activeMetric,
-                        (currentDist, pruneNode, rerootNode, targetNode) -> {
-                            checkImprovementWithTies(currentDist, new TbrMove(pruneNode, rerootNode, targetNode));
-                        });
-            }
+        // Wszystkie metryki 2D-DFS (RFCluster, MC, MP) implementują RootedTbrMetric
+        // i są obsługiwane przez gotową instancję incrementalWalker:
+        if (activeMetric instanceof RootedTbrMetric) {
+            incrementalWalker.walk(currentTree, (RootedTbrMetric) activeMetric,
+                    (dist, prune, reroot, target) -> {
+                        checkImprovementWithTies(dist, new TbrMove(prune, reroot, target));
+                    });
+        } else {
+            // Klasyczny fallback dla metryk nie-inkrementalnych
+            classicWalker.walk(currentTree, activeMetric,
+                    (dist, prune, reroot, target) -> {
+                        checkImprovementWithTies(dist, new TbrMove(prune, reroot, target));
+                    });
         }
+    }
 
     @Override
     protected Tree applyPhysicalMove(Tree tree, TreeMove move) {
