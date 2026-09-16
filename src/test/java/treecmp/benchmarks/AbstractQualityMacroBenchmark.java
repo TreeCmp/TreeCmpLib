@@ -17,6 +17,36 @@ import java.util.*;
 
 public abstract class AbstractQualityMacroBenchmark {
 
+    public enum MetricFilter {
+        ALL,
+        ROOTED,
+        UNROOTED;
+
+        public static MetricFilter parse(String token) {
+            if (token == null) return null;
+            String s = token.trim().toLowerCase();
+            if (s.startsWith("--")) {
+                s = s.substring(2);
+            } else if (s.startsWith("-")) {
+                s = s.substring(1);
+            }
+            switch (s) {
+                case "r":
+                case "rooted":
+                    return ROOTED;
+                case "u":
+                case "unrooted":
+                    return UNROOTED;
+                case "a":
+                case "all":
+                case "both":
+                    return ALL;
+                default:
+                    return null;
+            }
+        }
+    }
+
     public static class HistoryRecord {
         public int n;
         public long allocPerPairBytes;
@@ -51,6 +81,15 @@ public abstract class AbstractQualityMacroBenchmark {
 
     protected String metricColFormat = "%-15s";
     protected String variantColFormat = "%-30s";
+    protected MetricFilter metricFilter = MetricFilter.ALL;
+
+    public void setMetricFilter(MetricFilter metricFilter) {
+        this.metricFilter = metricFilter != null ? metricFilter : MetricFilter.ALL;
+    }
+
+    public MetricFilter getMetricFilter() {
+        return metricFilter;
+    }
 
     protected void runBenchmark(String[] args, String title, String csvPrefix, int[] defaultSizes) {
         System.out.println("========================================================================================================================================================================");
@@ -59,22 +98,30 @@ public abstract class AbstractQualityMacroBenchmark {
 
         int[] sizes;
         List<Integer> parsedSizes = new ArrayList<>();
+        MetricFilter activeFilter = this.metricFilter != null ? this.metricFilter : MetricFilter.ALL;
 
         if (args != null && args.length > 0) {
             for (String arg : args) {
-                // Obsługa wartości rozdzielonych przecinkami lub spacjami (np. "30" lub "20,30,50")
-                String[] tokens = arg.split("[,\\s]+");
+                String[] tokens = arg.split("[,;\\s]+");
                 for (String token : tokens) {
-                    if (!token.trim().isEmpty()) {
+                    token = token.trim();
+                    if (token.isEmpty()) continue;
+
+                    MetricFilter parsed = MetricFilter.parse(token);
+                    if (parsed != null) {
+                        activeFilter = parsed;
+                    } else {
                         try {
-                            parsedSizes.add(Integer.parseInt(token.trim()));
+                            parsedSizes.add(Integer.parseInt(token));
                         } catch (NumberFormatException e) {
-                            System.err.println("[CLI WARN] Parameter '" + token + "' is not a valid integer. Ignoring.");
+                            System.err.println("[CLI WARN] Parameter '" + token + "' is not a valid integer or filter flag. Ignoring.");
                         }
                     }
                 }
             }
         }
+
+        System.out.println("[CONFIG] Metric filter mode: " + activeFilter);
 
         if (!parsedSizes.isEmpty()) {
             sizes = parsedSizes.stream().mapToInt(Integer::intValue).toArray();
@@ -92,8 +139,12 @@ public abstract class AbstractQualityMacroBenchmark {
             System.out.println("                                                      TREE SIZE: N=" + size);
             System.out.println("########################################################################################################################################################################");
 
-            runForSizeAndType(size, true, blacklist, history, csvPrefix);
-            runForSizeAndType(size, false, blacklist, history, csvPrefix);
+            if (activeFilter == MetricFilter.ALL || activeFilter == MetricFilter.ROOTED) {
+                runForSizeAndType(size, true, blacklist, history, csvPrefix);
+            }
+            if (activeFilter == MetricFilter.ALL || activeFilter == MetricFilter.UNROOTED) {
+                runForSizeAndType(size, false, blacklist, history, csvPrefix);
+            }
         }
     }
 

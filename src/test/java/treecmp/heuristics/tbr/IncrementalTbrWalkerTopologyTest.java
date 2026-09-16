@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 import pal.tree.Node;
 import pal.tree.Tree;
 import treecmp.heuristics.tbr.acc.IncrementalTbrWalker;
+import treecmp.heuristics.tbr.acc.RootedTbrMetric;
 import treecmp.heuristics.tbr.acc.TbrNeighborhoodWalker;
 import treecmp.metrics.topological.acc.RFClusterIncrementalMetric;
 import treecmp.util.TestTreeFactory;
@@ -32,7 +33,7 @@ public class IncrementalTbrWalkerTopologyTest {
         Set<String> incrementalMoves = new HashSet<>();
         IncrementalTbrWalker incWalker = new IncrementalTbrWalker();
 
-        IncrementalTbrWalker.RootedTbrMetric stubMetric = new IncrementalTbrWalker.RootedTbrMetric() {
+        RootedTbrMetric stubMetric = new RootedTbrMetric() {
             @Override public void setPrunedState(Node pruneNode, Node wanderingSource) {}
             @Override public void revertPrunedState(Node pruneNode, Node wanderingSource) {}
             @Override public void setTargetRoot(Node pruneNode, Node rerootNode, Node wanderingSource) {}
