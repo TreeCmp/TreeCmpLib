@@ -98,6 +98,13 @@ public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
         activeMetric.initCalculationState(currentTree, targetTree);
         double currentDist = activeMetric.getCurrentDistance();
 
+        // Śledzimy dystans metryki drugorzędnej, aby zapobiec cyklom na płaskowyżach
+        double currentSecDist = Double.POSITIVE_INFINITY;
+        if (this.primaryMetric != null) {
+            this.incMetric.initCalculationState(currentTree, targetTree);
+            currentSecDist = this.incMetric.getCurrentDistance();
+        }
+
         if (currentDist == 0) {
             this.lastOptimumTree = currentTree;
             return 0.0;
@@ -109,23 +116,26 @@ public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
 
             if (!this.tiedMoves.isEmpty() && this.bestDist <= currentDist) {
                 TreeMove bestMove = null;
+                double nextSecDist = currentSecDist;
 
                 if (this.primaryMetric == null || this.tiedMoves.size() == 1) {
-                    // SCENARIUSZ 1: Brak drugorzędnej metryki. Wybór tańszego ruchu pod kątem NNI
-                    if (this.tiedMoves.size() > 1 && this.bestDist < currentDist) {
-                        double lowestNniCost = Double.POSITIVE_INFINITY;
-                        for (TreeMove move : this.tiedMoves) {
-                            double cost = move.getNniEquivalentCost();
-                            if (cost < lowestNniCost) {
-                                lowestNniCost = cost;
-                                bestMove = move;
+                    // SCENARIUSZ 1: Brak drugorzędnej metryki LUB dokładnie 1 ruch remisowy
+                    if (this.bestDist < currentDist - 1e-9) {
+                        if (this.tiedMoves.size() > 1) {
+                            double lowestNniCost = Double.POSITIVE_INFINITY;
+                            for (TreeMove move : this.tiedMoves) {
+                                double cost = move.getNniEquivalentCost();
+                                if (cost < lowestNniCost) {
+                                    lowestNniCost = cost;
+                                    bestMove = move;
+                                }
                             }
+                        } else {
+                            bestMove = this.tiedMoves.get(0);
                         }
-                    } else if (this.bestDist < currentDist) {
-                        bestMove = this.tiedMoves.get(0);
                     }
                 } else {
-                    // SCENARIUSZ 2: Ewaluacja remisów metryką właściwą (this.incMetric)
+                    // SCENARIUSZ 2: Ewaluacja remisów metryką drugorzędną (this.incMetric)
                     double bestSecondaryDist = Double.POSITIVE_INFINITY;
                     double bestNniCostForTie = Double.POSITIVE_INFINITY;
 
@@ -150,6 +160,15 @@ public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
                             bestNniCostForTie = moveCost;
                         }
                     }
+
+                    // BLOKADA PĘTLI: Ruch neutralny w metryce głównej (płaskowyż)
+                    // wolno zaakceptować TYLKO wtedy, gdy metryka pomocnicza ściśle maleje!
+                    if (Math.abs(this.bestDist - currentDist) <= 1e-9) {
+                        if (bestSecondaryDist >= currentSecDist - 1e-9) {
+                            bestMove = null; // Ślepy zaułek na płaskowyżu -> przerywamy wspinaczkę
+                        }
+                    }
+                    nextSecDist = bestSecondaryDist;
                 }
 
                 if (bestMove != null) {
@@ -169,11 +188,15 @@ public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
                     activeMetric.initCalculationState(currentTree, targetTree);
                     double newDist = activeMetric.getCurrentDistance();
 
-                    if (this.primaryMetric == null && newDist >= currentDist) {
-                        break;
+                    // Bezpiecznik leksykograficzny
+                    if (newDist > currentDist - 1e-9) {
+                        if (this.primaryMetric == null || nextSecDist >= currentSecDist - 1e-9) {
+                            break;
+                        }
                     }
 
                     currentDist = newDist;
+                    currentSecDist = nextSecDist;
                     this.improved = true;
                 }
             }

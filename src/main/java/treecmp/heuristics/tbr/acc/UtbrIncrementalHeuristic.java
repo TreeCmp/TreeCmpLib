@@ -71,18 +71,24 @@ public class UtbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
 
     @Override
     public double performLocalDescent(Tree startTree, Tree targetTree) {
-        Tree currentTree = new SimpleTree(startTree);
-        if (currentTree instanceof SimpleTree) {
-            ((SimpleTree) currentTree).createNodeList();
+        Tree currentTree = new pal.tree.SimpleTree(startTree);
+        if (currentTree instanceof pal.tree.SimpleTree) {
+            ((pal.tree.SimpleTree) currentTree).createNodeList();
         }
 
         this.improved = true;
         this.accumulatedNniCost = 0.0;
         this.utbrStepsCount = 0;
-        IncrementalMetric activeMetric = this.primaryMetric != null ? this.primaryMetric : this.incMetric;
+        IncrementalMetric activeMetric = primaryMetric != null ? primaryMetric : this.incMetric;
 
         activeMetric.initCalculationState(currentTree, targetTree);
         double currentDist = activeMetric.getCurrentDistance();
+
+        double currentSecDist = Double.POSITIVE_INFINITY;
+        if (this.primaryMetric != null) {
+            this.incMetric.initCalculationState(currentTree, targetTree);
+            currentSecDist = this.incMetric.getCurrentDistance();
+        }
 
         if (currentDist == 0) {
             this.lastOptimumTree = currentTree;
@@ -95,69 +101,76 @@ public class UtbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
 
             if (!this.tiedMoves.isEmpty() && this.bestDist <= currentDist) {
                 TreeMove bestMove = null;
+                double nextSecDist = currentSecDist;
 
-                if (this.primaryMetric == null || this.tiedMoves.size() == 1) {
-                    if (this.tiedMoves.size() > 1 && this.bestDist < currentDist) {
-                        double lowestNniCost = Double.POSITIVE_INFINITY;
-                        for (TreeMove move : this.tiedMoves) {
-                            double cost = move.getNniEquivalentCost();
-                            if (cost < lowestNniCost) {
-                                lowestNniCost = cost;
-                                bestMove = move;
+                if (primaryMetric == null || tiedMoves.size() == 1) {
+                    if (this.bestDist < currentDist - 1e-9) {
+                        if (tiedMoves.size() > 1) {
+                            double lowestNniCost = Double.POSITIVE_INFINITY;
+                            for (TreeMove move : tiedMoves) {
+                                double currentMoveCost = move.getNniEquivalentCost();
+                                if (currentMoveCost < lowestNniCost) {
+                                    lowestNniCost = currentMoveCost;
+                                    bestMove = move;
+                                }
                             }
+                        } else {
+                            bestMove = tiedMoves.get(0);
                         }
-                    } else if (this.bestDist < currentDist) {
-                        bestMove = this.tiedMoves.get(0);
                     }
                 } else {
                     double bestSecondaryDist = Double.POSITIVE_INFINITY;
                     double bestNniCostForTie = Double.POSITIVE_INFINITY;
 
-                    for (TreeMove move : this.tiedMoves) {
+                    for (TreeMove move : tiedMoves) {
                         Tree candidateTree = applyPhysicalMove(currentTree, move);
                         if (candidateTree == null || candidateTree == currentTree) {
                             continue;
                         }
-
-                        TreeUtils.computeParentPointers(candidateTree.getRoot());
+                        pal.tree.TreeUtils.computeParentPointers(candidateTree.getRoot());
                         this.incMetric.initCalculationState(candidateTree, targetTree);
 
                         double secDist = this.incMetric.getCurrentDistance();
-                        double moveCost = move.getNniEquivalentCost();
+                        double moveNniCost = move.getNniEquivalentCost();
 
                         if (secDist < bestSecondaryDist - 1e-9) {
                             bestSecondaryDist = secDist;
                             bestMove = move;
-                            bestNniCostForTie = moveCost;
-                        } else if (Math.abs(secDist - bestSecondaryDist) <= 1e-9 && moveCost < bestNniCostForTie) {
+                            bestNniCostForTie = moveNniCost;
+                        } else if (Math.abs(secDist - bestSecondaryDist) <= 1e-9 && moveNniCost < bestNniCostForTie) {
                             bestMove = move;
-                            bestNniCostForTie = moveCost;
+                            bestNniCostForTie = moveNniCost;
                         }
                     }
+
+                    if (Math.abs(this.bestDist - currentDist) <= 1e-9) {
+                        if (bestSecondaryDist >= currentSecDist - 1e-9) {
+                            bestMove = null;
+                        }
+                    }
+                    nextSecDist = bestSecondaryDist;
                 }
 
                 if (bestMove != null) {
-                    Tree nextTree = applyPhysicalMove(currentTree, bestMove);
-                    if (nextTree == null || nextTree == currentTree) {
-                        break;
-                    }
-
                     this.accumulatedNniCost += bestMove.getNniEquivalentCost();
                     this.utbrStepsCount++;
 
                     this.lastOptimumMove = bestMove;
                     this.lastMoveBaseTree = currentTree;
-                    currentTree = nextTree;
+                    currentTree = applyPhysicalMove(currentTree, bestMove);
 
                     TreeUtils.computeParentPointers(currentTree.getRoot());
                     activeMetric.initCalculationState(currentTree, targetTree);
                     double newDist = activeMetric.getCurrentDistance();
 
-                    if (this.primaryMetric == null && newDist >= currentDist) {
-                        break;
+                    if (newDist > currentDist - 1e-9) {
+                        if (this.primaryMetric == null || nextSecDist >= currentSecDist - 1e-9) {
+                            break;
+                        }
                     }
 
                     currentDist = newDist;
+                    currentSecDist = nextSecDist;
                     this.improved = true;
                 }
             }
