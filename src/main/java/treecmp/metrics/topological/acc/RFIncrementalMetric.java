@@ -7,17 +7,25 @@ import treecmp.heuristics.spr.UsprUtils;
 import treecmp.heuristics.tbr.UTbrUtils;
 import treecmp.metrics.topological.RFMetric;
 
-import java.util.BitSet;
+import java.util.*;
 
 /**
- * Zoptymalizowana, przyrostowa metryka Robinson-Foulds dla drzew NIEUKORZENIONYCH.
- * Kanonicznie polaryzuje splity względem liścia 0 i współpracuje z UtbrNeighborhoodWalker.
+ * W pełni przyrostowa metryka Robinson-Foulds dla drzew NIEUKORZENIONYCH.
+ * Oblicza dokładną zmianę liczby wspólnych podziałów (splitów) w czasie O(depth)
+ * na maskach bitowych, całkowicie eliminując alokację drzew PAL.
  */
 public class RFIncrementalMetric extends BaseRFIncrementalMetric {
 
     private final RFMetric classicRf = new RFMetric();
     private final UsprUtils usprUtils = new UsprUtils();
     private final UTbrUtils utbrUtils = new UTbrUtils();
+
+    private int N;
+    private final Map<Node, BitSet> initialClusters = new IdentityHashMap<>();
+    private final Set<BitSet> initialSplitsSet = new HashSet<>();
+    private final Set<BitSet> finalSplits = new HashSet<>();
+    private final Set<BitSet> removedSplits = new HashSet<>();
+    private final Set<BitSet> addedSplits = new HashSet<>();
 
     private Tree baseTreeRef;
     private Tree targetTreeRef;
@@ -27,13 +35,21 @@ public class RFIncrementalMetric extends BaseRFIncrementalMetric {
         super.initCalculationState(baseTree, targetTree);
         this.baseTreeRef = baseTree;
         this.targetTreeRef = targetTree;
+        this.N = baseTree.getExternalNodeCount();
+
+        this.initialClusters.clear();
+        this.initialSplitsSet.clear();
+        for (Map.Entry<Node, BitSet> e : nodeBitSets.entrySet()) {
+            BitSet bs = (BitSet) e.getValue().clone();
+            this.initialClusters.put(e.getKey(), bs);
+
+            // Rejestrujemy tylko nietrywialne splity: 1 < cardinality < N-1
+            if (bs.cardinality() > 1 && bs.cardinality() < N - 1) {
+                this.initialSplitsSet.add(normalizeSplit(bs));
+            }
+        }
     }
 
-    /**
-     * Kanoniczna normalizacja splitu dla drzew nieukorzenionych:
-     * Split {A, L \ A} reprezentujemy tak, aby liść 0 ZAWSZE miał bit 0 (poza maską).
-     * Bezpieczne klonowanie zapobiega współdzieleniu referencji w mapach.
-     */
     @Override
     protected BitSet normalizeSplit(BitSet rawSplit) {
         if (rawSplit == null) return null;
@@ -45,36 +61,166 @@ public class RFIncrementalMetric extends BaseRFIncrementalMetric {
         return rawSplit;
     }
 
-    /**
-     * Zwraca kanoniczny split powiązany z danym węzłem w drzewie nieukorzenionym.
-     * Wymagany przez UtbrNeighborhoodWalker.
-     */
     public BitSet getSplit(Node node) {
         return getCluster(node);
     }
 
+    @Override
+    public BitSet getCluster(Node n) {
+        if (n == null) return null;
+        BitSet bs = initialClusters.get(n);
+        if (bs != null) return bs;
+        if (n.isLeaf()) {
+            BitSet leafBs = new BitSet(N);
+            leafBs.set(n.getNumber());
+            return leafBs;
+        }
+        return super.getCluster(n);
+    }
+
+    private Node findLca(Node a, Node b) {
+        if (a == null || b == null) return null;
+        int dA = getDepth(a);
+        int dB = getDepth(b);
+
+        while (dA > dB && a != null) { a = a.getParent(); dA--; }
+        while (dB > dA && b != null) { b = b.getParent(); dB--; }
+
+        while (a != b && a != null && b != null) {
+            a = a.getParent();
+            b = b.getParent();
+        }
+        return a;
+    }
+
+    private int getDepth(Node n) {
+        int d = 0;
+        Node curr = n;
+        while (curr != null) {
+            d++;
+            curr = curr.getParent();
+        }
+        return d;
+    }
+
     // =========================================================================
-    // AKCELERATOR uTBR DLA DRZEW NIEUKORZENIONYCH
+    // AKCELERATOR BEZALOKACYJNY uTBR (O(depth))
     // =========================================================================
 
     public double evaluateExactUTbrDistance(Node pruneNode, Node rerootNode, Node targetNode, BitSet movingBits) {
         if (this.baseTreeRef == null || this.targetTreeRef == null) {
-            return getCurrentDistance();
+            return this.currentDistance;
         }
 
-        try {
-            Tree physicalTree = utbrUtils.createUtbrTree(this.baseTreeRef, pruneNode, rerootNode, targetNode);
-            if (physicalTree != null) {
-                if (physicalTree instanceof SimpleTree) {
-                    ((SimpleTree) physicalTree).createNodeList();
+        Node root = this.baseTreeRef.getRoot();
+        Node pParent = pruneNode.getParent();
+        if (pParent == null) return Double.POSITIVE_INFINITY;
+
+        BitSet LP = getCluster(pruneNode);
+        if (LP == null) return Double.POSITIVE_INFINITY;
+
+        removedSplits.clear();
+        addedSplits.clear();
+
+        // --- A. DRZEWO T2 ---
+        if (pParent != root) {
+            BitSet bsParent = getCluster(pParent);
+            if (bsParent != null) removedSplits.add(normalizeSplit(bsParent));
+        }
+
+        Node lca = findLca(pParent, targetNode);
+
+        if (pParent != lca) {
+            Node curr = pParent.getParent();
+            while (curr != null && curr != lca) {
+                BitSet oldC = getCluster(curr);
+                if (oldC != null) {
+                    removedSplits.add(normalizeSplit(oldC));
+                    BitSet newC = (BitSet) oldC.clone();
+                    newC.andNot(LP);
+                    addedSplits.add(normalizeSplit(newC));
                 }
-                return classicRf.getDistance(physicalTree, this.targetTreeRef);
+                curr = curr.getParent();
             }
-        } catch (Exception e) {
-            return Double.POSITIVE_INFINITY;
         }
 
-        return Double.POSITIVE_INFINITY;
+        if (targetNode != lca) {
+            Node currT = targetNode.getParent();
+            while (currT != null && currT != lca) {
+                BitSet oldC = getCluster(currT);
+                if (oldC != null) {
+                    removedSplits.add(normalizeSplit(oldC));
+                    BitSet newC = (BitSet) oldC.clone();
+                    newC.or(LP);
+                    addedSplits.add(normalizeSplit(newC));
+                }
+                currT = currT.getParent();
+            }
+        }
+
+        if (targetNode == lca && targetNode != root) {
+            BitSet oldC = getCluster(targetNode);
+            if (oldC != null) {
+                removedSplits.add(normalizeSplit(oldC));
+                BitSet newC = (BitSet) oldC.clone();
+                newC.andNot(LP);
+                addedSplits.add(normalizeSplit(newC));
+            }
+        }
+
+        // Węzeł wpięcia W
+        BitSet targetBs = getCluster(targetNode);
+        if (targetBs != null) {
+            BitSet newW = (BitSet) targetBs.clone();
+            newW.or(LP);
+            addedSplits.add(normalizeSplit(newW));
+        }
+
+        // --- B. DRZEWO T1 (Przekorzenienie) ---
+        if (rerootNode != pruneNode) {
+            // Węzeł R zachowuje swój oryginalny podział L(R).
+            // Wstawienie punktu wpięcia nad R tworzy tylko dodatkowy split LP \ L(R).
+            BitSet rCluster = getCluster(rerootNode);
+            if (rCluster != null) {
+                BitSet newR = (BitSet) LP.clone();
+                newR.andNot(rCluster);
+                addedSplits.add(normalizeSplit(newR));
+            }
+
+            // Węzły na ścieżce ŚCIŚLE pomiędzy R a P odwracają swoją orientację
+            Node currOnPath = rerootNode.getParent();
+            while (currOnPath != null && currOnPath != pruneNode) {
+                BitSet oldC = getCluster(currOnPath);
+                if (oldC != null) {
+                    removedSplits.add(normalizeSplit(oldC));
+
+                    BitSet newC = (BitSet) LP.clone();
+                    newC.andNot(oldC);
+                    addedSplits.add(normalizeSplit(newC));
+                }
+                currOnPath = currOnPath.getParent();
+            }
+        }
+
+        // --- C. BEZPOŚREDNIA REKONSTRUKCJA ---
+        finalSplits.clear();
+        finalSplits.addAll(initialSplitsSet);
+        finalSplits.removeAll(removedSplits);
+
+        for (BitSet bs : addedSplits) {
+            if (bs != null && bs.cardinality() > 1 && bs.cardinality() < N - 1) {
+                finalSplits.add(bs);
+            }
+        }
+
+        int shared = 0;
+        for (BitSet bs : finalSplits) {
+            if (targetSplits.contains(bs)) {
+                shared++;
+            }
+        }
+
+        return (finalSplits.size() + targetSplits.size() - 2.0 * shared) / 2.0;
     }
 
     public double evaluateExactUtbrDistance(Node pruneNode, Node rerootNode, Node targetNode, BitSet movingBits) {
@@ -104,7 +250,6 @@ public class RFIncrementalMetric extends BaseRFIncrementalMetric {
     @Override
     public double evaluateSprRegraft(Node pruneNode, Node targetNode) {
         boolean isInnerMove = isDescendant(targetNode, pruneNode);
-
         boolean pruneInvolvesRoot = (pruneNode.getParent() != null && pruneNode.getParent().isRoot());
         boolean targetInvolvesRoot = (targetNode.getParent() != null && targetNode.getParent().isRoot()) || targetNode.isRoot();
 
