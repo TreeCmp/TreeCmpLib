@@ -97,13 +97,13 @@ public class TbrQualityVsTimeMacroBenchmark extends AbstractQualityMacroBenchmar
                 new TbrHeuristicMetric(new MatchingClusterMetric(), true, "MC_Pure"),
                 new TbrIncrementalHeuristic(new MCIncrementalMetric(), "MCinc"),
                 new TbrHeuristicMetric(new MatchingClusterMetric(), new RFClusterMetric(), true, "MC_RF"),
-                null
+                new TbrIncrementalHeuristic(new MCIncrementalMetric(), new RFClusterIncrementalMetric(), "MC_RFinc")
         ));
         list.add(new MetricSetup("MP",
                 new TbrHeuristicMetric(new MatchingPairMetric(), true, "MP_Pure"),
                 new TbrIncrementalHeuristic(new MPIncrementalMetric(), "MPinc"),
                 new TbrHeuristicMetric(new MatchingPairMetric(), new RFClusterMetric(), true, "MP_RF"),
-                null
+                new TbrIncrementalHeuristic(new MPIncrementalMetric(), new RFClusterIncrementalMetric(), "MP_RFinc")
         ));
         return list;
     }
@@ -119,13 +119,13 @@ public class TbrQualityVsTimeMacroBenchmark extends AbstractQualityMacroBenchmar
                 new TbrHeuristicMetric(new MatchingSplitMetric(), false, "MS_Pure"),
                 new UtbrIncrementalHeuristic(new MSIncrementalMetric(), "MSinc"),
                 new TbrHeuristicMetric(new MatchingSplitMetric(), new RFMetric(), false, "MS_RF"),
-                null
+                new UtbrIncrementalHeuristic(new MSIncrementalMetric(), new RFIncrementalMetric(), "MS_RFinc")
         ));
         list.add(new MetricSetup("M3",
                 new TbrHeuristicMetric(new MatchingTripletMetric(), false, "M3_Pure"),
                 new UtbrIncrementalHeuristic(new M3IncrementalMetric(), "M3inc"),
                 new TbrHeuristicMetric(new MatchingTripletMetric(), new RFMetric(), false, "M3_RF"),
-                null
+                new UtbrIncrementalHeuristic(new M3IncrementalMetric(), new RFIncrementalMetric(), "M3_RFinc")
         ));
         return list;
     }
