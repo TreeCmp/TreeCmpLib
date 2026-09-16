@@ -4,16 +4,15 @@ import pal.tree.Node;
 import pal.tree.Tree;
 import treecmp.heuristics.tbr.UTbrUtils;
 import treecmp.metrics.IncrementalMetric;
+import treecmp.metrics.topological.acc.M3IncrementalMetric;
+import treecmp.metrics.topological.acc.RFIncrementalMetric;
 
-import java.lang.reflect.Method;
 import java.util.ArrayList;
-import java.util.BitSet;
 import java.util.List;
 
 /**
  * Zoptymalizowany, przyrostowy Walker dla otoczenia uTBR (Unrooted TBR).
- * Obsługuje dwuetapową eksplorację 2D-DFS dla metryk implementujących RootedTbrMetric (MS, M3, MC, MP),
- * eliminując narzut O(N^3) i alokacje pamięci, z bezpiecznym fallbackiem dla pozostałych metryk.
+ * Obsługuje szybką 2D-DFS dla MS/MC/MP, a dla M3 i RF omija obciążającą pamięć Refleksję.
  */
 public class UtbrNeighborhoodWalker {
 
@@ -28,30 +27,17 @@ public class UtbrNeighborhoodWalker {
     private final List<Node> rerootNodesBuf = new ArrayList<>();
     private final List<Node> targetNodesBuf = new ArrayList<>();
 
-    // Pamięć podręczna refleksji powiązana z klasą metryki
-    private Class<?> cachedMetricClass = null;
-    private Method cachedEvalMethod = null;
-    private Method cachedDescriptorMethod = null;
-
     public void walk(Tree baseTree, IncrementalMetric metric, UtbrVisitor visitor) {
-        // MS wspiera pełny 2D-DFS splitów O(N^2)
-        // M3 oraz RF korzystają ze zoptymalizowanej ścieżki wyceny uTBR
-        if (metric instanceof RootedTbrMetric && !(metric instanceof treecmp.metrics.topological.acc.M3IncrementalMetric)) {
+        // MS, MC, MP używają błyskawicznego 2D-DFS
+        if (metric instanceof RootedTbrMetric && !(metric instanceof M3IncrementalMetric)) {
             walkFast2dDfs(baseTree, (RootedTbrMetric) metric, visitor);
             return;
         }
 
-        // Ścieżka dla M3 oraz RFIncrementalMetric
+        // RF oraz M3 korzystają ze zoptymalizowanej, bezalokacyjnej wyroczni O(depth)
         walkFallback(baseTree, metric, visitor);
     }
 
-    /**
-     * W pełni przyrostowy spacer 2D-DFS po otoczeniu uTBR:
-     * - Bisekcja w T1 (pruneNode)
-     * - DFS po wariantach przekorzenienia odciętego fragmentu (Reroot DFS)
-     * - DFS po wariantach wpięcia w drzewie głównym (Target DFS)
-     * Każdy krok to modyfikacja 1-2 wierszy macierzy kosztów w czasie O(N^2).
-     */
     private void walkFast2dDfs(Tree baseTree, RootedTbrMetric metric, UtbrVisitor visitor) {
         allNodesBuf.clear();
         collectSubtreeNodes(baseTree.getRoot(), allNodesBuf);
@@ -63,14 +49,11 @@ public class UtbrNeighborhoodWalker {
 
             Node wanderingSource = pruneNode.getParent();
 
-            // 1. Faza bisekcji
             metric.setPrunedState(pruneNode, wanderingSource);
             metric.setTargetRoot(pruneNode, pruneNode, wanderingSource);
 
-            // 2. Eksploracja 2D-DFS (Reroot DFS x Target DFS)
             dfsReroot(pruneNode, pruneNode, wanderingSource, root, metric, visitor);
 
-            // 3. Wycofanie bisekcji
             metric.revertPrunedState(pruneNode, wanderingSource);
         }
     }
@@ -78,10 +61,8 @@ public class UtbrNeighborhoodWalker {
     private void dfsReroot(Node currentReroot, Node pruneNode, Node wanderingSource, Node root,
                            RootedTbrMetric metric, UtbrVisitor visitor) {
 
-        // Dla aktualnego ukorzenienia odciętego fragmentu przeszukujemy wszystkie pozycje wpięcia w T2
         dfsTarget(root, pruneNode, currentReroot, wanderingSource, metric, visitor);
 
-        // Schodzimy w dół odciętego poddrzewa T1, odwracając krawędzie
         if (!currentReroot.isLeaf()) {
             for (int i = 0; i < currentReroot.getChildCount(); i++) {
                 Node nextReroot = currentReroot.getChild(i);
@@ -95,14 +76,12 @@ public class UtbrNeighborhoodWalker {
     private void dfsTarget(Node currentTarget, Node pruneNode, Node currentReroot, Node wanderingSource,
                            RootedTbrMetric metric, UtbrVisitor visitor) {
 
-        // Pomijamy ruch tożsamościowy
         if (!(currentReroot == pruneNode && currentTarget == pruneNode.getParent())) {
             if (utbrUtils.isValidUtbrMove(pruneNode, currentReroot, currentTarget)) {
                 visitor.visit(metric.getCurrentDistance(), pruneNode, currentReroot, currentTarget);
             }
         }
 
-        // Schodzimy w głąb głównego drzewa docelowego
         if (!currentTarget.isLeaf()) {
             for (int i = 0; i < currentTarget.getChildCount(); i++) {
                 Node childTarget = currentTarget.getChild(i);
@@ -116,12 +95,10 @@ public class UtbrNeighborhoodWalker {
     }
 
     /**
-     * Zoptymalizowana ścieżka fallbackowa (z buforowaniem alokacji i refleksji)
-     * dla metryk, które posiadają akcelerator matematyczny evaluateExactUTbrDistance (np. RFIncrementalMetric).
+     * Szybka ścieżka dla metryk bez 2D-DFS (RF, M3) wywołująca bezpośrednio metody klas
+     * zamiast korzystania z obciążającej metody Method.invoke()
      */
     private void walkFallback(Tree baseTree, IncrementalMetric metric, UtbrVisitor visitor) {
-        initReflection(metric.getClass());
-
         allNodesBuf.clear();
         collectSubtreeNodes(baseTree.getRoot(), allNodesBuf);
 
@@ -143,37 +120,19 @@ public class UtbrNeighborhoodWalker {
                     if (rerootNode == pruneNode && targetNode == pruneNode.getParent()) continue;
 
                     if (utbrUtils.isValidUtbrMove(pruneNode, rerootNode, targetNode)) {
-                        double dist = evaluateFallback(metric, pruneNode, rerootNode, targetNode);
+                        double dist;
+                        if (metric instanceof RFIncrementalMetric) {
+                            dist = ((RFIncrementalMetric) metric).evaluateExactUTbrDistance(pruneNode, rerootNode, targetNode, null);
+                        } else if (metric instanceof M3IncrementalMetric) {
+                            dist = ((M3IncrementalMetric) metric).evaluateExactUTbrDistance(pruneNode, rerootNode, targetNode, null);
+                        } else {
+                            dist = metric.getCurrentDistance();
+                        }
                         visitor.visit(dist, pruneNode, rerootNode, targetNode);
                     }
                 }
             }
         }
-    }
-
-    private void initReflection(Class<?> metricClass) {
-        if (cachedMetricClass != metricClass) {
-            cachedMetricClass = metricClass;
-            cachedEvalMethod = null;
-            cachedDescriptorMethod = null;
-            try {
-                cachedDescriptorMethod = metricClass.getMethod("getSplit", Node.class);
-                cachedEvalMethod = metricClass.getMethod("evaluateExactUTbrDistance", Node.class, Node.class, Node.class, BitSet.class);
-            } catch (NoSuchMethodException ignored) {
-            }
-        }
-    }
-
-    private double evaluateFallback(IncrementalMetric metric, Node prune, Node reroot, Node target) {
-        if (cachedEvalMethod != null && cachedDescriptorMethod != null) {
-            try {
-                BitSet movingBits = (BitSet) cachedDescriptorMethod.invoke(metric, reroot);
-                return (Double) cachedEvalMethod.invoke(metric, prune, reroot, target, movingBits);
-            } catch (Exception e) {
-                return metric.getCurrentDistance();
-            }
-        }
-        return metric.getCurrentDistance();
     }
 
     private void collectSubtreeNodes(Node node, List<Node> list) {
