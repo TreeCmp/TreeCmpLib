@@ -4,7 +4,6 @@ import pal.tree.Node;
 import pal.tree.Tree;
 import treecmp.heuristics.tbr.UTbrUtils;
 import treecmp.metrics.IncrementalMetric;
-import treecmp.metrics.topological.acc.M3IncrementalMetric;
 import treecmp.metrics.topological.acc.RFIncrementalMetric;
 
 import java.util.ArrayList;
@@ -12,7 +11,7 @@ import java.util.List;
 
 /**
  * Zoptymalizowany, przyrostowy Walker dla otoczenia uTBR (Unrooted TBR).
- * Obsługuje szybką 2D-DFS dla MS/MC/MP, a dla M3 i RF omija obciążającą pamięć Refleksję.
+ * Obsługuje szybką 2D-DFS O(1) dla wszystkich metryk implementujących RootedTbrMetric.
  */
 public class UtbrNeighborhoodWalker {
 
@@ -22,19 +21,16 @@ public class UtbrNeighborhoodWalker {
 
     private final UTbrUtils utbrUtils = new UTbrUtils();
 
-    // Buforowane listy węzłów (Zero-Allocation per walk)
     private final List<Node> allNodesBuf = new ArrayList<>();
     private final List<Node> rerootNodesBuf = new ArrayList<>();
     private final List<Node> targetNodesBuf = new ArrayList<>();
 
     public void walk(Tree baseTree, IncrementalMetric metric, UtbrVisitor visitor) {
-        // MS, MC, MP używają błyskawicznego 2D-DFS
-        if (metric instanceof RootedTbrMetric && !(metric instanceof M3IncrementalMetric)) {
+        if (metric instanceof RootedTbrMetric) {
             walkFast2dDfs(baseTree, (RootedTbrMetric) metric, visitor);
             return;
         }
 
-        // RF oraz M3 korzystają ze zoptymalizowanej, bezalokacyjnej wyroczni O(depth)
         walkFallback(baseTree, metric, visitor);
     }
 
@@ -94,10 +90,6 @@ public class UtbrNeighborhoodWalker {
         }
     }
 
-    /**
-     * Szybka ścieżka dla metryk bez 2D-DFS (RF, M3) wywołująca bezpośrednio metody klas
-     * zamiast korzystania z obciążającej metody Method.invoke()
-     */
     private void walkFallback(Tree baseTree, IncrementalMetric metric, UtbrVisitor visitor) {
         allNodesBuf.clear();
         collectSubtreeNodes(baseTree.getRoot(), allNodesBuf);
@@ -123,8 +115,6 @@ public class UtbrNeighborhoodWalker {
                         double dist;
                         if (metric instanceof RFIncrementalMetric) {
                             dist = ((RFIncrementalMetric) metric).evaluateExactUTbrDistance(pruneNode, rerootNode, targetNode, null);
-                        } else if (metric instanceof M3IncrementalMetric) {
-                            dist = ((M3IncrementalMetric) metric).evaluateExactUTbrDistance(pruneNode, rerootNode, targetNode, null);
                         } else {
                             dist = metric.getCurrentDistance();
                         }
