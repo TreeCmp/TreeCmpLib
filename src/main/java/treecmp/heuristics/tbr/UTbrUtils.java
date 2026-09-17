@@ -5,17 +5,11 @@ import pal.tree.Node;
 import pal.tree.SimpleTree;
 import pal.tree.Tree;
 import pal.tree.TreeUtils;
-import treecmp.common.TreeCmpUtils;
 import treecmp.heuristics.TreeNeighborhoodUtils;
 import treecmp.heuristics.spr.SprTopologyGuard;
 import treecmp.heuristics.spr.UsprUtils;
 
-import java.util.ArrayList;
-import java.util.BitSet;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Set;
+import java.util.*;
 import java.util.function.Consumer;
 
 public class UTbrUtils extends TreeNeighborhoodUtils {
@@ -52,16 +46,16 @@ public class UTbrUtils extends TreeNeighborhoodUtils {
         }
 
         if (resultTree != null) {
-            // Przypisanie zwracanego obiektu Tree
+            // fastUnrootIfNeeded jest dziedziczone statycznie z TreeNeighborhoodUtils
             if (resultTree.getRoot().getChildCount() == 2) {
-                resultTree = TreeCmpUtils.unrootTreeIfNeeded(resultTree);
+                resultTree = fastUnrootIfNeeded(resultTree);
                 if (resultTree instanceof SimpleTree) {
                     TreeUtils.computeParentPointers(resultTree.getRoot());
                     ((SimpleTree) resultTree).createNodeList();
                 }
             }
 
-            if (resultTree.getRoot().getChildCount() < 3) {
+            if (resultTree == null || resultTree.getRoot().getChildCount() < 3) {
                 return null;
             }
 
@@ -78,10 +72,9 @@ public class UTbrUtils extends TreeNeighborhoodUtils {
 
     @Override
     public void forEachNeighbour(Tree tree, Consumer<Tree> action) {
-        // Przypisanie znormalizowanego drzewa do workingTree
         Tree workingTree = tree;
         if (workingTree.getRoot().getChildCount() == 2) {
-            workingTree = TreeCmpUtils.unrootTreeIfNeeded(workingTree.getCopy());
+            workingTree = fastUnrootIfNeeded(fastTreeClone(workingTree));
             if (workingTree instanceof SimpleTree) {
                 TreeUtils.computeParentPointers(workingTree.getRoot());
                 ((SimpleTree) workingTree).createNodeList();
@@ -91,10 +84,8 @@ public class UTbrUtils extends TreeNeighborhoodUtils {
         IdGroup idGroup = TreeUtils.getLeafIdGroup(workingTree);
         int numLeaves = workingTree.getExternalNodeCount();
 
-        Set<String> seenTopologies = new HashSet<>();
-
-        String baseTreeHash = getUnrootedCanonicalTopology(workingTree, idGroup, numLeaves);
-        seenTopologies.add(baseTreeHash);
+        Set<CanonicalTopologyKey> seenTopologies = new HashSet<>();
+        seenTopologies.add(buildCanonicalKey(workingTree, idGroup, numLeaves));
 
         List<Node> allNodes = getAllNodes(workingTree);
 
@@ -109,8 +100,8 @@ public class UTbrUtils extends TreeNeighborhoodUtils {
                         Tree resultTree = createUtbrTree(workingTree, pruneNode, rerootNode, targetNode);
 
                         if (resultTree != null) {
-                            String topologyHash = getUnrootedCanonicalTopology(resultTree, idGroup, numLeaves);
-                            if (seenTopologies.add(topologyHash)) {
+                            CanonicalTopologyKey key = buildCanonicalKey(resultTree, idGroup, numLeaves);
+                            if (seenTopologies.add(key)) {
                                 action.accept(resultTree);
                             }
                         }
@@ -124,45 +115,5 @@ public class UTbrUtils extends TreeNeighborhoodUtils {
         List<Tree> list = new ArrayList<>();
         forEachNeighbour(tree, list::add);
         return list.toArray(new Tree[0]);
-    }
-
-    // =========================================================================
-    // KANONICZNA DEDUPLIKACJA PODZIAŁÓW
-    // =========================================================================
-
-    private String getUnrootedCanonicalTopology(Tree tree, IdGroup idGroup, int numLeaves) {
-        List<String> splits = new ArrayList<>();
-        getSplits(tree.getRoot(), idGroup, numLeaves, splits);
-        Collections.sort(splits);
-        StringBuilder sb = new StringBuilder();
-        for (String split : splits) {
-            sb.append(split).append("|");
-        }
-        return sb.toString();
-    }
-
-    private BitSet getSplits(Node node, IdGroup idGroup, int numLeaves, List<String> splits) {
-        BitSet bs = new BitSet(numLeaves);
-        if (node.isLeaf()) {
-            if (node.getIdentifier() != null && node.getIdentifier().getName() != null) {
-                int id = idGroup.whichIdNumber(node.getIdentifier().getName());
-                if (id >= 0 && id < numLeaves) {
-                    bs.set(id);
-                }
-            }
-        } else {
-            for (int i = 0; i < node.getChildCount(); i++) {
-                bs.or(getSplits(node.getChild(i), idGroup, numLeaves, splits));
-            }
-        }
-
-        if (!node.isRoot()) {
-            BitSet normalized = (BitSet) bs.clone();
-            if (normalized.get(0)) {
-                normalized.flip(0, numLeaves);
-            }
-            splits.add(normalized.toString());
-        }
-        return bs;
     }
 }

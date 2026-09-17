@@ -196,7 +196,7 @@ public class UsprUtils extends TreeNeighborhoodUtils {
     public boolean sameParent(Node n1, Node n2) {
         boolean n1Root = n1.isRoot();
         boolean n2Root = n2.isRoot();
-        if (n1Root && n1Root) return true;
+        if (n1Root && n2Root) return true;
         if (!n1Root && !n2Root) { return (n1.getParent() == n2.getParent()); }
         return false;
     }
@@ -290,13 +290,8 @@ public class UsprUtils extends TreeNeighborhoodUtils {
         return 2 * (n - 3) * (2 * n - 7);
     }
 
-    protected Node findNodeEquivalent(Tree newTree, Node oldNode) {
-        if (oldNode.isLeaf()) return newTree.getExternalNode(oldNode.getNumber());
-        return newTree.getInternalNode(oldNode.getNumber());
-    }
-
     public Tree createSprTree(Tree baseTree, Node s, Node t) {
-        Tree resultTree = baseTree.getCopy();
+        Tree resultTree = fastTreeClone(baseTree);
         Node source = findNodeEquivalent(resultTree, s);
         Node target = findNodeEquivalent(resultTree, t);
 
@@ -352,7 +347,6 @@ public class UsprUtils extends TreeNeighborhoodUtils {
             ((pal.tree.SimpleTree) resultTree).createNodeList();
         }
 
-        // TARCZA Z WSPÓLNEJ KLASY NARZĘDZIOWEJ:
         if (!SprTopologyGuard.isStrictlyValidUnrootedTree(resultTree, baseTree.getExternalNodeCount())) {
             return null;
         }
@@ -374,9 +368,6 @@ public class UsprUtils extends TreeNeighborhoodUtils {
     }
 
     public Tree createUsprTree(Tree baseTree, Node s, Node t) {
-        // 1. FIZYCZNA TARCZA ANTYCYKLICZNA:
-        // Odrzucamy wyłącznie ruchy niemożliwe strukturalnie (cykle rodzic-dziecko, self-loop, korzeń),
-        // ale NIE blokujemy testów jednostkowych regułami deduplikacji z isValidUsprMove!
         if (baseTree == null || s == null || t == null || s == t) {
             return null;
         }
@@ -387,7 +378,8 @@ public class UsprUtils extends TreeNeighborhoodUtils {
             return null;
         }
 
-        Tree resultTree = baseTree.getCopy();
+        // Zastąpiono powolne getCopy() szybkim klonowaniem w pamięci
+        Tree resultTree = fastTreeClone(baseTree);
         Node source = findNodeEquivalent(resultTree, s);
         Node target = findNodeEquivalent(resultTree, t);
 
@@ -460,16 +452,13 @@ public class UsprUtils extends TreeNeighborhoodUtils {
             sParent.addChild(newNode);
             newNode.setParent(sParent);
 
+            resultTree = fastUnrootIfNeeded(resultTree);
+
             if (resultTree instanceof SimpleTree) {
                 pal.tree.TreeUtils.computeParentPointers(resultTree.getRoot());
                 ((SimpleTree) resultTree).createNodeList();
             }
-            treecmp.common.TreeCmpUtils.unrootTreeIfNeeded(resultTree);
-            if (resultTree instanceof SimpleTree) {
-                pal.tree.TreeUtils.computeParentPointers(resultTree.getRoot());
-                ((SimpleTree) resultTree).createNodeList();
-            }
-            // TARCZA Z WSPÓLNEJ KLASY NARZĘDZIOWEJ:
+
             if (!SprTopologyGuard.isStrictlyValidUnrootedTree(resultTree, baseTree.getExternalNodeCount())) {
                 return null;
             }
@@ -547,55 +536,18 @@ public class UsprUtils extends TreeNeighborhoodUtils {
             resultTree.getRoot().setParent(null);
         }
 
-        if (resultTree instanceof SimpleTree) {
-            pal.tree.TreeUtils.computeParentPointers(resultTree.getRoot());
-            ((SimpleTree) resultTree).createNodeList();
-        }
-
-        treecmp.common.TreeCmpUtils.unrootTreeIfNeeded(resultTree);
+        resultTree = fastUnrootIfNeeded(resultTree);
 
         if (resultTree instanceof SimpleTree) {
             pal.tree.TreeUtils.computeParentPointers(resultTree.getRoot());
             ((SimpleTree) resultTree).createNodeList();
         }
 
-        // TARCZA Z WSPÓLNEJ KLASY NARZĘDZIOWEJ:
         if (!SprTopologyGuard.isStrictlyValidUnrootedTree(resultTree, baseTree.getExternalNodeCount())) {
             return null;
         }
 
         return resultTree;
-    }
-
-    public int findChildPos(Node child, Node parent) {
-        int childNum = parent.getChildCount();
-        for (int i = 0; i < childNum; i++) {
-            if (parent.getChild(i) == child) return i;
-        }
-        return -1;
-    }
-
-    public Node[] findOtherChildren(Node child1, Node parent) {
-        int childNum = parent.getChildCount();
-        Node[] nodes = new Node[childNum - 1];
-        int childInd = 0;
-        for (int i = 0; i < childNum; i++) {
-            Node ch = parent.getChild(i);
-            if (ch != child1) {
-                nodes[childInd] = ch;
-                childInd++;
-            }
-        }
-        return nodes;
-    }
-
-    public Node findOtherChild(Node child1, Node parent) {
-        int childNum = parent.getChildCount();
-        for (int i = 0; i < childNum; i++) {
-            Node ch = parent.getChild(i);
-            if (ch != child1) return ch;
-        }
-        return null;
     }
 
     @Override
@@ -604,53 +556,58 @@ public class UsprUtils extends TreeNeighborhoodUtils {
     }
 
     public void forEachUsprTree(Tree tree, Consumer<Tree> action) {
-        int extNum = tree.getExternalNodeCount();
-        int intNum = tree.getInternalNodeCount();
-        IdGroup idGroup = TreeUtils.getLeafIdGroup(tree);
+        Tree workingTree = tree;
+        if (workingTree.getRoot().getChildCount() == 2) {
+            workingTree = fastUnrootIfNeeded(fastTreeClone(workingTree));
+        }
+
+        int extNum = workingTree.getExternalNodeCount();
+        int intNum = workingTree.getInternalNodeCount();
+        IdGroup idGroup = TreeUtils.getLeafIdGroup(workingTree);
         int numLeaves = extNum;
 
-        Set<String> seenTopologies = new HashSet<>();
+        Set<CanonicalTopologyKey> seenTopologies = new HashSet<>();
+        seenTopologies.add(buildCanonicalKey(workingTree, idGroup, numLeaves));
         Node s, t;
 
         for (int i = 0; i < extNum; i++) {
-            s = tree.getExternalNode(i);
+            s = workingTree.getExternalNode(i);
             for (int j = 0; j < extNum; j++) {
-                t = tree.getExternalNode(j);
-                processAndYieldUspr(tree, s, t, idGroup, numLeaves, seenTopologies, action);
+                t = workingTree.getExternalNode(j);
+                processAndYieldUspr(workingTree, s, t, idGroup, numLeaves, seenTopologies, action);
             }
         }
         for (int i = 0; i < intNum; i++) {
-            s = tree.getInternalNode(i);
+            s = workingTree.getInternalNode(i);
             if (s.isRoot()) continue;
             for (int j = 0; j < extNum; j++) {
-                t = tree.getExternalNode(j);
-                processAndYieldUspr(tree, s, t, idGroup, numLeaves, seenTopologies, action);
+                t = workingTree.getExternalNode(j);
+                processAndYieldUspr(workingTree, s, t, idGroup, numLeaves, seenTopologies, action);
             }
         }
         for (int i = 0; i < extNum; i++) {
-            s = tree.getExternalNode(i);
+            s = workingTree.getExternalNode(i);
             for (int j = 0; j < intNum; j++) {
-                t = tree.getInternalNode(j);
-                processAndYieldUspr(tree, s, t, idGroup, numLeaves, seenTopologies, action);
+                t = workingTree.getInternalNode(j);
+                processAndYieldUspr(workingTree, s, t, idGroup, numLeaves, seenTopologies, action);
             }
         }
         for (int i = 0; i < intNum; i++) {
-            s = tree.getInternalNode(i);
+            s = workingTree.getInternalNode(i);
             if (s.isRoot()) continue;
             for (int j = 0; j < intNum; j++) {
-                t = tree.getInternalNode(j);
-                processAndYieldUspr(tree, s, t, idGroup, numLeaves, seenTopologies, action);
+                t = workingTree.getInternalNode(j);
+                processAndYieldUspr(workingTree, s, t, idGroup, numLeaves, seenTopologies, action);
             }
         }
     }
 
-    private void processAndYieldUspr(Tree baseTree, Node s, Node t, IdGroup idGroup, int numLeaves, Set<String> seen, Consumer<Tree> action) {
+    private void processAndYieldUspr(Tree baseTree, Node s, Node t, IdGroup idGroup, int numLeaves, Set<CanonicalTopologyKey> seen, Consumer<Tree> action) {
         if (isValidUsprMove(s, t)) {
             Tree resultTree = createUsprTree(baseTree, s, t);
             if (resultTree != null) {
-                String topologyHash = getUnrootedCanonicalTopology(resultTree, idGroup, numLeaves);
-                if (seen.add(topologyHash)) {
-                    // NOWOŚĆ: Przywrócone księgowanie kosztu i ruchu dla algorytmu Classic
+                CanonicalTopologyKey topologyKey = buildCanonicalKey(resultTree, idGroup, numLeaves);
+                if (seen.add(topologyKey)) {
                     SprMove move = new SprMove(s, t);
                     registerTreeCost(resultTree, move.getNniEquivalentCost());
                     registerTreeMove(resultTree, move);
@@ -659,36 +616,5 @@ public class UsprUtils extends TreeNeighborhoodUtils {
                 }
             }
         }
-    }
-
-    private String getUnrootedCanonicalTopology(Tree tree, IdGroup idGroup, int numLeaves) {
-        List<String> splits = new ArrayList<>();
-        getSplits(tree.getRoot(), idGroup, numLeaves, splits);
-        Collections.sort(splits);
-        StringBuilder sb = new StringBuilder();
-        for (String split : splits) {
-            sb.append(split).append("|");
-        }
-        return sb.toString();
-    }
-
-    private BitSet getSplits(Node node, IdGroup idGroup, int numLeaves, List<String> splits) {
-        BitSet bs = new BitSet(numLeaves);
-        if (node.isLeaf()) {
-            bs.set(idGroup.whichIdNumber(node.getIdentifier().getName()));
-        } else {
-            for (int i = 0; i < node.getChildCount(); i++) {
-                bs.or(getSplits(node.getChild(i), idGroup, numLeaves, splits));
-            }
-        }
-
-        if (!node.isRoot()) {
-            BitSet normalized = (BitSet) bs.clone();
-            if (normalized.get(0)) {
-                normalized.flip(0, numLeaves);
-            }
-            splits.add(normalized.toString());
-        }
-        return bs;
     }
 }
