@@ -33,7 +33,7 @@ import treecmp.util.TreeCreator;
 @State(Scope.Benchmark)
 public class TbrDistanceBenchmark {
 
-    @Param({"RF", "RFC", "MS", "MC", "MP", "M3"})
+    @Param({/*"RF", "RFC", "MS", "MC", "MP", */"M3"})
     public String metricName;
 
     @Param({"10", "20", "30", "50", "80", "120", "200"})
@@ -257,7 +257,8 @@ public class TbrDistanceBenchmark {
                 .param("treeSize", sizeStr)
                 .param("metricName", metrics)
                 .jvmArgs("-Xms4g", "-Xmx16g")
-                .addProfiler("gc");
+                .addProfiler("gc")
+                .addProfiler("stack");
 
         if (quickEstimate) {
             builder.warmupIterations(1)
