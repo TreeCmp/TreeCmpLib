@@ -12,122 +12,100 @@ import treecmp.heuristics.ecr.SubtreeEcr2Utils;
 import treecmp.heuristics.ecr.SubtreeEcr3Utils;
 import treecmp.heuristics.moves.NniMove;
 import treecmp.heuristics.spr.UsprUtils;
-import treecmp.heuristics.tbr.acc.IncrementalTbrWalker;
+import treecmp.heuristics.tbr.UTbrUtils;
 import treecmp.heuristics.tbr.acc.RootedTbrMetric;
 import treecmp.metrics.IncrementalMetric;
 import treecmp.metrics.topological.MatchingTripletMetric;
 
 import java.util.*;
 
-public class M3IncrementalMetric implements IncrementalMetric,
-        RootedTbrMetric {
+public class M3IncrementalMetric implements IncrementalMetric, RootedTbrMetric {
 
-    private Tree originalBaseTree;
     private Tree baseTree;
     private Tree targetTree;
-    private Tree currentVirtualTree;
     private double currentDistance;
     private int dim;
     private int intT1Num;
     private int intT2Num;
     private int N;
+    private long allLeavesMask;
 
     private IdGroup baseIdGroup;
-    private int[][] targetLcaMatrix;
-    private int[] targetIdToCol;
-
-    private Map<Node, BitSet> baseSplits;
-    private Map<Node, BitSet> currentSplits;
-    private Node activePruneNode = null;
     private Map<Node, Integer> nodeToRow;
+    private Node[] rowToNode;
 
     private int[][] assigncost;
     private int[] rowsol;
     private int[] colsol;
-
     private int[] u;
     private int[] v;
 
     private int[] currentT1TripletCount;
     private int[] t2IntTripletCount;
 
-    // PREALOKOWANE BUFORY ROBOCZE (Scratchpad Buffers)
-    private int[] scratchOldRow;
-    private int[] scratchOldU;
-    private int[] scratchOldV;
-    private int[] scratchOldRowsol;
-    private int[] scratchOldColsol;
-    private int[] scratchChangedRow;
-    private int[] scratchChangedRows2;
-    private int[] scratchChangedRowAll;
-    private int[] scratchIntersections;
+    // 3 rozłączne gałęzie (maski bitowe) dla każdego węzła wewnętrznego T1
+    private long[] branch0;
+    private long[] branch1;
+    private long[] branch2;
 
-    private BitSet scratchSetA;
-    private BitSet scratchSetB;
-    private BitSet scratchSetC;
-    private BitSet[] scratchSets;
+    // Maski podziałów trójdzielnych drzewa docelowego T2
+    private long[][] targetMask;
 
-    private BitSet currentPrunedLeaves;
+    private long currentPrunedMask;
 
     private final MatchingTripletMetric mtMetricFull = new MatchingTripletMetric();
-    private final Stack<StateRecord> history = new Stack<>();
     private final Stack<LapStateDelta> deltaStack = new Stack<>();
-
-    private final treecmp.heuristics.tbr.UTbrUtils utbrUtils = new treecmp.heuristics.tbr.UTbrUtils();
+    private final UTbrUtils utbrUtils = new UTbrUtils();
+    private final UsprUtils usprUtils = new UsprUtils();
 
     public BitSet getSplit(Node n) {
-        return getSplitForNode(n);
-    }
-
-    public double evaluateExactUTbrDistance(Node pruneNode, Node rerootNode, Node targetNode, BitSet movingBits) {
-        Tree srcTree = (this.originalBaseTree != null) ? this.originalBaseTree : this.baseTree;
-        Tree tempTree = utbrUtils.createUtbrTree(srcTree, pruneNode, rerootNode, targetNode);
-        if (tempTree != null) {
-            if (tempTree instanceof pal.tree.SimpleTree) {
-                ((pal.tree.SimpleTree) tempTree).createNodeList();
-            }
-            return mtMetricFull.getDistance(tempTree, this.targetTree);
+        BitSet bs = new BitSet(N);
+        long m = getLeafMask(n);
+        while (m != 0L) {
+            int bit = Long.numberOfTrailingZeros(m);
+            bs.set(bit);
+            m &= (m - 1L);
         }
-        return Double.POSITIVE_INFINITY;
-    }
-
-    public double evaluateExactUtbrDistance(Node pruneNode, Node rerootNode, Node targetNode, BitSet movingBits) {
-        return evaluateExactUTbrDistance(pruneNode, rerootNode, targetNode, movingBits);
+        return bs;
     }
 
     private static class LapStateDelta {
         final int[] rows;
         final int[][] oldRows;
         final int[] oldTripletCounts;
+        final long[][] oldBranches;
         final int[] oldU, oldV, oldRowsol, oldColsol;
         final double oldDistance;
-        final Map<Node, BitSet> oldSplits;
 
-        LapStateDelta(int[] rows, int[][] oldRows, int[] oldTripletCounts,
-                      int[] oldU, int[] oldV, int[] oldRowsol, int[] oldColsol, double oldDistance, Map<Node, BitSet> oldSplits) {
-            this.rows = rows; this.oldRows = oldRows; this.oldTripletCounts = oldTripletCounts;
-            this.oldU = oldU; this.oldV = oldV; this.oldRowsol = oldRowsol; this.oldColsol = oldColsol;
+        LapStateDelta(int[] rows, int[][] oldRows, int[] oldTripletCounts, long[][] oldBranches,
+                      int[] oldU, int[] oldV, int[] oldRowsol, int[] oldColsol, double oldDistance) {
+            this.rows = rows;
+            this.oldRows = oldRows;
+            this.oldTripletCounts = oldTripletCounts;
+            this.oldBranches = oldBranches;
+            this.oldU = oldU;
+            this.oldV = oldV;
+            this.oldRowsol = oldRowsol;
+            this.oldColsol = oldColsol;
             this.oldDistance = oldDistance;
-            this.oldSplits = oldSplits;
         }
     }
 
     @Override
     public void initCalculationState(Tree baseTree, Tree targetTree) {
-        history.clear();
         deltaStack.clear();
 
         if (baseTree != null && targetTree != null) {
-            this.originalBaseTree = baseTree;
-            this.baseIdGroup = TreeUtils.getLeafIdGroup(baseTree);
-            this.baseTree = createCleanCopy(baseTree);
-            this.targetTree = createCleanCopy(targetTree);
-            this.currentVirtualTree = createCleanCopy(this.baseTree);
+            // BEZWZGLĘDNY BRAK KLONOWANIA: Używamy przekazanych referencji węzłów bezpośrednio
+            this.baseTree = baseTree;
+            this.targetTree = targetTree;
+            this.baseIdGroup = TreeUtils.getLeafIdGroup(this.baseTree);
+            this.N = this.baseTree.getExternalNodeCount();
+            this.allLeavesMask = (N >= 64) ? -1L : ((1L << N) - 1L);
 
             this.intT1Num = this.baseTree.getInternalNodeCount();
             this.intT2Num = this.targetTree.getInternalNodeCount();
             this.dim = Math.max(intT1Num, intT2Num);
-            this.N = this.baseTree.getExternalNodeCount();
 
             this.assigncost = new int[dim][dim];
             this.rowsol = new int[dim];
@@ -135,139 +113,46 @@ public class M3IncrementalMetric implements IncrementalMetric,
             this.u = new int[dim];
             this.v = new int[dim];
 
-            this.scratchOldRow = new int[dim];
-            this.scratchOldU = new int[dim];
-            this.scratchOldV = new int[dim];
-            this.scratchOldRowsol = new int[dim];
-            this.scratchOldColsol = new int[dim];
-            this.scratchChangedRow = new int[1];
-            this.scratchChangedRows2 = new int[2];
-            this.scratchChangedRowAll = new int[dim];
-            this.scratchIntersections = new int[dim];
-
-            this.scratchSetA = new BitSet(N);
-            this.scratchSetB = new BitSet(N);
-            this.scratchSetC = new BitSet(N);
-            this.scratchSets = new BitSet[]{scratchSetA, scratchSetB, scratchSetC};
-
-            int expectedMapSize = (N * 2 + 5) * 4 / 3;
-            this.nodeToRow = new IdentityHashMap<>(expectedMapSize);
-            this.baseSplits = new IdentityHashMap<>(expectedMapSize);
-            this.currentSplits = new IdentityHashMap<>(expectedMapSize);
-
-            int maxNodesT2 = getSafeMaxNodeId(this.targetTree);
-            this.targetIdToCol = new int[maxNodesT2];
-            Arrays.fill(this.targetIdToCol, -1);
-            for (int i = 0; i < intT2Num; i++) {
-                this.targetIdToCol[this.targetTree.getInternalNode(i).getNumber()] = i;
-            }
-
-            int maxNodesT1 = getSafeMaxNodeId(this.baseTree);
-            int[] baseIdToRow = new int[maxNodesT1];
-            Arrays.fill(baseIdToRow, -1);
-
-            for (int i = 0; i < intT1Num; i++) {
-                Node nBase = this.baseTree.getInternalNode(i);
-                Node nVirt = this.currentVirtualTree.getInternalNode(i);
-                baseIdToRow[nBase.getNumber()] = i;
-                nodeToRow.put(nBase, i);
-                nodeToRow.put(nVirt, i);
-            }
-
-            Node[] allNodesBaseCopy = TreeCmpUtils.getAllNodes(this.baseTree);
-            for (Node n : allNodesBaseCopy) {
-                BitSet split = getLeaves(n, baseIdGroup);
-                baseSplits.put(n, split);
-                currentSplits.put(n, (BitSet) split.clone());
-            }
-
-            Node[] allNodesVirtCopy = TreeCmpUtils.getAllNodes(this.currentVirtualTree);
-            for (Node n : allNodesVirtCopy) {
-                BitSet split = getLeaves(n, baseIdGroup);
-                baseSplits.put(n, split);
-                currentSplits.put(n, (BitSet) split.clone());
-            }
-
-            Node[] allNodesOriginal = TreeCmpUtils.getAllNodes(this.originalBaseTree);
-            for (Node nOrig : allNodesOriginal) {
-                Node nCopy = getMappedNode(this.baseTree, nOrig);
-                if (nCopy != null) {
-                    Integer row = nodeToRow.get(nCopy);
-                    if (row != null) {
-                        nodeToRow.put(nOrig, row);
-                    }
-                    baseSplits.put(nOrig, baseSplits.get(nCopy));
-                    currentSplits.put(nOrig, (BitSet) currentSplits.get(nCopy).clone());
-                }
-            }
-
-            int[][] lcaMatrix1 = TreeCmpUtils.calcLcaMatrix(this.baseTree, this.baseIdGroup);
-            this.targetLcaMatrix = TreeCmpUtils.calcLcaMatrix(this.targetTree, this.baseIdGroup);
-
-            short[] cSize2 = new short[maxNodesT2];
-            Node[] postOrderT2 = TreeCmpUtils.getNodesInPostOrder(this.targetTree);
-            TreeCmpUtils.calcCladeSizes(this.targetTree, postOrderT2, cSize2);
-
-            this.t2IntTripletCount = new int[dim];
-            for (int i = 0; i < intT2Num; i++) {
-                this.t2IntTripletCount[i] = coutTriplets(this.targetTree.getInternalNode(i), cSize2);
-            }
-
-            short[] cSize1 = new short[maxNodesT1];
-            Node[] postOrderT1 = TreeCmpUtils.getNodesInPostOrder(this.baseTree);
-            TreeCmpUtils.calcCladeSizes(this.baseTree, postOrderT1, cSize1);
-
             this.currentT1TripletCount = new int[dim];
+            this.t2IntTripletCount = new int[dim];
+
+            this.branch0 = new long[dim];
+            this.branch1 = new long[dim];
+            this.branch2 = new long[dim];
+            this.targetMask = new long[dim][3];
+
+            this.nodeToRow = new IdentityHashMap<>(dim * 2);
+            this.rowToNode = new Node[dim];
+
             for (int i = 0; i < intT1Num; i++) {
-                this.currentT1TripletCount[i] = coutTriplets(this.baseTree.getInternalNode(i), cSize1);
+                Node n = this.baseTree.getInternalNode(i);
+                nodeToRow.put(n, i);
+                rowToNode[i] = n;
             }
 
-            int[][] initialIntersection = new int[dim][dim];
-            for (int i = 0; i < N; i++) {
-                int[] lcaRow1I = lcaMatrix1[i];
-                int[] lcaRowTargetI = this.targetLcaMatrix[i];
-                for (int j = i + 1; j < N; j++) {
-                    int i_j_1 = lcaRow1I[j];
-                    int i_j_target = lcaRowTargetI[j];
-                    int[] lcaRow1J = lcaMatrix1[j];
-                    int[] lcaRowTargetJ = this.targetLcaMatrix[j];
-                    for (int k = j + 1; k < N; k++) {
-                        int i_k_1 = lcaRow1I[k];
-                        int j_k_1 = lcaRow1J[k];
-                        int ind1;
-                        if (i_j_1 == i_k_1) ind1 = j_k_1;
-                        else if (i_j_1 == j_k_1) ind1 = i_k_1;
-                        else ind1 = i_j_1;
-
-                        int i_k_target = lcaRowTargetI[k];
-                        int j_k_target = lcaRowTargetJ[k];
-                        int ind2;
-                        if (i_j_target == i_k_target) ind2 = j_k_target;
-                        else if (i_j_target == j_k_target) ind2 = i_k_target;
-                        else ind2 = i_j_target;
-
-                        if (ind1 >= 0 && ind1 < baseIdToRow.length && ind2 >= 0 && ind2 < this.targetIdToCol.length) {
-                            int r = baseIdToRow[ind1];
-                            int c = this.targetIdToCol[ind2];
-                            if (r >= 0 && c >= 0) {
-                                initialIntersection[r][c]++;
-                            }
-                        }
-                    }
-                }
+            // Prekompilacja masek drzewa docelowego T2
+            for (int c = 0; c < intT2Num; c++) {
+                Node n2 = this.targetTree.getInternalNode(c);
+                long[] b = getTripartiteLeaves(n2, this.targetTree.getRoot());
+                targetMask[c][0] = b[0];
+                targetMask[c][1] = b[1];
+                targetMask[c][2] = b[2];
+                t2IntTripletCount[c] = Long.bitCount(b[0]) * Long.bitCount(b[1]) * Long.bitCount(b[2]);
             }
 
-            for (int r = 0; r < dim; r++) {
+            // Inicjalizacja podziałów drzewa T1
+            for (int r = 0; r < intT1Num; r++) {
+                Node n1 = this.baseTree.getInternalNode(r);
+                long[] b = getTripartiteLeaves(n1, this.baseTree.getRoot());
+                branch0[r] = b[0];
+                branch1[r] = b[1];
+                branch2[r] = b[2];
+                computeRowCost(r, b[0], b[1], b[2]);
+            }
+
+            for (int r = intT1Num; r < dim; r++) {
                 for (int c = 0; c < dim; c++) {
-                    if (r < intT1Num && c < intT2Num) {
-                        assigncost[r][c] = this.currentT1TripletCount[r] + t2IntTripletCount[c] - (initialIntersection[r][c] << 1);
-                    } else if (r >= intT1Num && c < intT2Num) {
-                        assigncost[r][c] = t2IntTripletCount[c];
-                    } else if (r < intT1Num && c >= intT2Num) {
-                        assigncost[r][c] = this.currentT1TripletCount[r];
-                    } else {
-                        assigncost[r][c] = 0;
-                    }
+                    assigncost[r][c] = (c < intT2Num) ? t2IntTripletCount[c] : 0;
                 }
             }
 
@@ -283,62 +168,108 @@ public class M3IncrementalMetric implements IncrementalMetric,
         }
     }
 
-    private Integer getRowForNode(Node n) {
-        if (n == null || n.isLeaf()) return null;
-        Integer row = nodeToRow.get(n);
-        if (row != null) return row;
-        Node mapped = getMappedNode(this.currentVirtualTree, n);
-        if (mapped == null) mapped = getMappedNode(this.baseTree, n);
-        if (mapped != null && !mapped.isLeaf()) {
-            row = nodeToRow.get(mapped);
-            if (row != null) {
-                nodeToRow.put(n, row);
-                return row;
-            }
+    private long[] getTripartiteLeaves(Node n, Node root) {
+        long[] b = new long[3];
+        int chCount = n.getChildCount();
+        long union = 0L;
+
+        for (int i = 0; i < chCount && i < 2; i++) {
+            b[i] = getLeafMask(n.getChild(i));
+            union |= b[i];
         }
-        return null;
+
+        if (n != root) {
+            b[2] = allLeavesMask ^ union;
+        } else if (chCount >= 3) {
+            b[2] = getLeafMask(n.getChild(2));
+        }
+        return b;
     }
 
-    private BitSet getSplitForNode(Node n) {
-        if (n == null) return new BitSet(N);
-        BitSet bs = currentSplits.get(n);
-        if (bs != null) return bs;
-        Node mapped = getMappedNode(this.baseTree, n);
-        if (mapped != null) {
-            bs = currentSplits.get(mapped);
-            if (bs != null) {
-                currentSplits.put(n, bs);
-                return bs;
-            }
+    private long getLeafMask(Node n) {
+        if (n.isLeaf()) {
+            int id = baseIdGroup.whichIdNumber(n.getIdentifier().getName());
+            return (id >= 0 && id < 64) ? (1L << id) : 0L;
         }
-        return getLeaves(n, baseIdGroup);
+        long mask = 0L;
+        for (int i = 0; i < n.getChildCount(); i++) {
+            mask |= getLeafMask(n.getChild(i));
+        }
+        return mask;
     }
 
-    private void updateRowsSafelyAndSave(Map<Integer, BitSet[]> rowUpdates) {
-        int[] rows = new int[rowUpdates.size()];
-        int[][] oldRows = new int[rows.length][dim];
-        int[] oldTripletCounts = new int[rows.length];
+    private void computeRowCost(int row, long b0, long b1, long b2) {
+        int card0 = Long.bitCount(b0);
+        int card1 = Long.bitCount(b1);
+        int card2 = Long.bitCount(b2);
+        int tripletCount = card0 * card1 * card2;
+        currentT1TripletCount[row] = tripletCount;
+
+        for (int c = 0; c < intT2Num; c++) {
+            long x = targetMask[c][0];
+            long y = targetMask[c][1];
+            long z = targetMask[c][2];
+
+            int aX = Long.bitCount(b0 & x);
+            int aY = Long.bitCount(b0 & y);
+            int aZ = Long.bitCount(b0 & z);
+
+            int bX = Long.bitCount(b1 & x);
+            int bY = Long.bitCount(b1 & y);
+            int bZ = Long.bitCount(b1 & z);
+
+            int cX = Long.bitCount(b2 & x);
+            int cY = Long.bitCount(b2 & y);
+            int cZ = Long.bitCount(b2 & z);
+
+            int inter = aX * (bY * cZ + bZ * cY)
+                    + aY * (bX * cZ + bZ * cX)
+                    + aZ * (bX * cY + bY * cX);
+
+            assigncost[row][c] = tripletCount + t2IntTripletCount[c] - (inter << 1);
+        }
+
+        for (int c = intT2Num; c < dim; c++) {
+            assigncost[row][c] = tripletCount;
+        }
+    }
+
+    private void updateRowsSafelyAndSave(Map<Integer, long[]> rowUpdates) {
+        int count = rowUpdates.size();
+        int[] rows = new int[count];
+        int[][] oldRows = new int[count][dim];
+        int[] oldTripletCounts = new int[count];
+        long[][] oldBranches = new long[count][3];
 
         int idx = 0;
-        for (Map.Entry<Integer, BitSet[]> entry : rowUpdates.entrySet()) {
+        for (Map.Entry<Integer, long[]> entry : rowUpdates.entrySet()) {
             int r = entry.getKey();
             rows[idx] = r;
             oldRows[idx] = Arrays.copyOf(assigncost[r], dim);
             oldTripletCounts[idx] = currentT1TripletCount[r];
+            oldBranches[idx][0] = branch0[r];
+            oldBranches[idx][1] = branch1[r];
+            oldBranches[idx][2] = branch2[r];
             idx++;
         }
 
         deltaStack.push(new LapStateDelta(
-                rows, oldRows, oldTripletCounts,
+                rows, oldRows, oldTripletCounts, oldBranches,
                 Arrays.copyOf(u, dim), Arrays.copyOf(v, dim),
-                Arrays.copyOf(rowsol, dim), Arrays.copyOf(colsol, dim), currentDistance, new IdentityHashMap<>()
+                Arrays.copyOf(rowsol, dim), Arrays.copyOf(colsol, dim),
+                currentDistance
         ));
 
-        for (Map.Entry<Integer, BitSet[]> entry : rowUpdates.entrySet()) {
-            computeRowCost(entry.getKey(), entry.getValue());
+        for (Map.Entry<Integer, long[]> entry : rowUpdates.entrySet()) {
+            int r = entry.getKey();
+            long[] b = entry.getValue();
+            branch0[r] = b[0];
+            branch1[r] = b[1];
+            branch2[r] = b[2];
+            computeRowCost(r, b[0], b[1], b[2]);
         }
 
-        if (rows.length > 0) {
+        if (count > 0) {
             int rawMetric = LapSolver.lapUpdate(dim, assigncost, rowsol, colsol, u, v, rows);
             this.currentDistance = 0.5 * rawMetric;
         }
@@ -349,8 +280,12 @@ public class M3IncrementalMetric implements IncrementalMetric,
         LapStateDelta delta = deltaStack.pop();
 
         for (int i = 0; i < delta.rows.length; i++) {
-            System.arraycopy(delta.oldRows[i], 0, assigncost[delta.rows[i]], 0, dim);
-            currentT1TripletCount[delta.rows[i]] = delta.oldTripletCounts[i];
+            int r = delta.rows[i];
+            System.arraycopy(delta.oldRows[i], 0, assigncost[r], 0, dim);
+            currentT1TripletCount[r] = delta.oldTripletCounts[i];
+            branch0[r] = delta.oldBranches[i][0];
+            branch1[r] = delta.oldBranches[i][1];
+            branch2[r] = delta.oldBranches[i][2];
         }
 
         System.arraycopy(delta.oldU, 0, u, 0, dim);
@@ -358,129 +293,92 @@ public class M3IncrementalMetric implements IncrementalMetric,
         System.arraycopy(delta.oldRowsol, 0, rowsol, 0, dim);
         System.arraycopy(delta.oldColsol, 0, colsol, 0, dim);
 
-        for (Map.Entry<Node, BitSet> e : delta.oldSplits.entrySet()) {
-            currentSplits.put(e.getKey(), e.getValue());
-        }
-
         this.currentDistance = delta.oldDistance;
     }
 
     // =========================================================================
-    // IMPLEMENTACJA INCREMENTAL TBR WALKER (RootedTbrMetric)
+    // IMPLEMENTACJA KROKÓW 2D-DFS uTBR
     // =========================================================================
 
     @Override
     public void setPrunedState(Node pruneNode, Node wanderingSource) {
-        this.currentPrunedLeaves = (BitSet) getSplitForNode(pruneNode).clone();
-        BitSet P = this.currentPrunedLeaves;
-        Map<Integer, BitSet[]> updates = new HashMap<>();
+        this.currentPrunedMask = getLeafMask(pruneNode);
+        long P = this.currentPrunedMask;
+        Map<Integer, long[]> updates = new HashMap<>();
 
-        Node curr = pruneNode.getParent().getParent();
+        // Propagacja odcięcia poddrzewa P w górę ścieżki do korzenia
+        Node curr = wanderingSource.getParent();
         while (curr != null) {
-            Integer r = getRowForNode(curr);
+            Integer r = nodeToRow.get(curr);
             if (r != null) {
-                int chCount = curr.getChildCount();
-                int numNeighbors = (curr.getParent() == null) ? chCount : chCount + 1;
-                BitSet[] cSets = new BitSet[numNeighbors];
-                BitSet childrenUnion = new BitSet(N);
-
-                for (int i = 0; i < chCount; i++) {
-                    cSets[i] = (BitSet) getSplitForNode(curr.getChild(i)).clone();
-                    cSets[i].andNot(P);
-                    childrenUnion.or(cSets[i]);
+                long b0 = branch0[r], b1 = branch1[r], b2 = branch2[r];
+                if ((b0 & P) != 0L) {
+                    b0 &= ~P;
+                    if (curr.getParent() != null) b2 |= P;
+                } else if ((b1 & P) != 0L) {
+                    b1 &= ~P;
+                    if (curr.getParent() != null) b2 |= P;
+                } else if ((b2 & P) != 0L) {
+                    b2 &= ~P;
                 }
-                if (curr.getParent() != null) {
-                    BitSet pSet = new BitSet(N);
-                    pSet.set(0, N);
-                    pSet.andNot(P);
-                    pSet.andNot(childrenUnion);
-                    cSets[chCount] = pSet;
-                }
-                updates.put(r, cSets);
+                updates.put(r, new long[]{b0, b1, b2});
             }
             curr = curr.getParent();
         }
 
-        Integer r_floating = getRowForNode(pruneNode.getParent());
+        Integer r_floating = nodeToRow.get(wanderingSource);
         if (r_floating != null) {
-            updates.put(r_floating, new BitSet[0]);
+            updates.put(r_floating, new long[]{0L, 0L, 0L});
         }
 
-        updateRowsSafelyAndSave(updates);
-    }
-
-    public void setTargetRoot(Node pruneNode, Node wanderingSource) {
-        BitSet P = (this.currentPrunedLeaves != null) ? this.currentPrunedLeaves : getSplitForNode(pruneNode);
-        Map<Integer, BitSet[]> updates = new HashMap<>();
-
-        Integer r_floating = getRowForNode(pruneNode.getParent());
-        if (r_floating != null) {
-            Node root = baseTree.getRoot();
-            BitSet left = (BitSet) getSplitForNode(root.getChild(0)).clone();
-            left.andNot(P);
-            BitSet right = (BitSet) getSplitForNode(root.getChild(1)).clone();
-            right.andNot(P);
-
-            updates.put(r_floating, new BitSet[]{P, left, right});
-        }
         updateRowsSafelyAndSave(updates);
     }
 
     @Override
     public void setTargetRoot(Node pruneNode, Node rerootNode, Node wanderingSource) {
-        setTargetRoot(pruneNode, wanderingSource);
-    }
+        long P = (this.currentPrunedMask != 0L) ? this.currentPrunedMask : getLeafMask(pruneNode);
+        Map<Integer, long[]> updates = new HashMap<>();
 
-    public void moveTargetDown(Node parentTarget, Node childTarget, Node pruneNode, Node wanderingSource) {
-        BitSet P = (this.currentPrunedLeaves != null) ? this.currentPrunedLeaves : getSplitForNode(pruneNode);
-        Map<Integer, BitSet[]> updates = new HashMap<>();
-
-        Integer r_floating = getRowForNode(pruneNode.getParent());
+        Integer r_floating = nodeToRow.get(wanderingSource);
         if (r_floating != null) {
-            BitSet childLeaves = (BitSet) getSplitForNode(childTarget).clone();
-            childLeaves.andNot(P);
-
-            BitSet rest = new BitSet(N);
-            rest.set(0, N);
-            rest.andNot(P);
-            rest.andNot(childLeaves);
-
-            updates.put(r_floating, new BitSet[]{P, childLeaves, rest});
+            Node root = baseTree.getRoot();
+            long b0 = getLeafMask(root.getChild(0)) & ~P;
+            long b1 = getLeafMask(root.getChild(1)) & ~P;
+            long b2 = (allLeavesMask ^ P) ^ (b0 | b1);
+            updates.put(r_floating, new long[]{P, b0, (b1 == 0L) ? b2 : b1});
         }
-
-        Integer r_p = getRowForNode(parentTarget);
-        if (r_p != null && !r_p.equals(r_floating)) {
-            int chCount = parentTarget.getChildCount();
-            int numNeighbors = (parentTarget.getParent() == null) ? chCount : chCount + 1;
-            BitSet[] cSets = new BitSet[numNeighbors];
-            BitSet targetLeaves = getSplitForNode(childTarget);
-            BitSet childrenUnion = new BitSet(N);
-
-            for (int i = 0; i < chCount; i++) {
-                cSets[i] = (BitSet) getSplitForNode(parentTarget.getChild(i)).clone();
-                cSets[i].andNot(P);
-                if (cSets[i].intersects(targetLeaves)) {
-                    cSets[i].or(P);
-                }
-                childrenUnion.or(cSets[i]);
-            }
-
-            if (parentTarget.getParent() != null) {
-                BitSet pSet = new BitSet(N);
-                pSet.set(0, N);
-                pSet.andNot(childrenUnion);
-                cSets[chCount] = pSet;
-            }
-
-            updates.put(r_p, cSets);
-        }
-
         updateRowsSafelyAndSave(updates);
     }
 
     @Override
     public void moveTargetDown(Node parentTarget, Node childTarget, Node pruneNode, Node rerootNode, Node wanderingSource) {
-        moveTargetDown(parentTarget, childTarget, pruneNode, wanderingSource);
+        long P = (this.currentPrunedMask != 0L) ? this.currentPrunedMask : getLeafMask(pruneNode);
+        Map<Integer, long[]> updates = new HashMap<>();
+
+        Integer r_floating = nodeToRow.get(wanderingSource);
+        long childLeaves = getLeafMask(childTarget) & ~P;
+        long rest = (allLeavesMask ^ P) ^ childLeaves;
+
+        if (r_floating != null) {
+            updates.put(r_floating, new long[]{P, childLeaves, rest});
+        }
+
+        Integer r_parent = nodeToRow.get(parentTarget);
+        if (r_parent != null && !r_parent.equals(r_floating)) {
+            long b0 = branch0[r_parent], b1 = branch1[r_parent], b2 = branch2[r_parent];
+            if ((b0 & childLeaves) != 0L) {
+                b0 |= P;
+                b2 &= ~P;
+            } else if ((b1 & childLeaves) != 0L) {
+                b1 |= P;
+                b2 &= ~P;
+            } else {
+                b2 |= P;
+            }
+            updates.put(r_parent, new long[]{b0, b1, b2});
+        }
+
+        updateRowsSafelyAndSave(updates);
     }
 
     @Override
@@ -488,7 +386,45 @@ public class M3IncrementalMetric implements IncrementalMetric,
         undoDeltaStack();
     }
 
-    public void moveTargetUp(Node parentTarget, Node childTarget, Node pruneNode, Node wanderingSource) {
+    @Override
+    public void moveRerootDown(Node parentReroot, Node childReroot, Node pruneNode) {
+        long P = (this.currentPrunedMask != 0L) ? this.currentPrunedMask : getLeafMask(pruneNode);
+        long Q = allLeavesMask ^ P;
+        long cLeaves = getLeafMask(childReroot);
+        long pMinusC = P ^ cLeaves;
+
+        Map<Integer, long[]> updates = new HashMap<>();
+        Integer rPrune = nodeToRow.get(pruneNode);
+        if (rPrune != null) {
+            updates.put(rPrune, new long[]{cLeaves, pMinusC, Q});
+        }
+
+        if (parentReroot != pruneNode) {
+            Integer rParent = nodeToRow.get(parentReroot);
+            if (rParent != null) {
+                long b0 = branch0[rParent], b1 = branch1[rParent], b2 = branch2[rParent];
+                if ((b0 & cLeaves) != 0L) {
+                    b0 |= Q; b2 &= ~Q;
+                } else if ((b1 & cLeaves) != 0L) {
+                    b1 |= Q; b2 &= ~Q;
+                } else {
+                    b2 |= Q;
+                }
+                updates.put(rParent, new long[]{b0, b1, b2});
+            }
+        }
+
+        if (!updates.isEmpty()) {
+            updateRowsSafelyAndSave(updates);
+        } else {
+            deltaStack.push(new LapStateDelta(new int[0], new int[0][0], new int[0], new long[0][0],
+                    Arrays.copyOf(u, dim), Arrays.copyOf(v, dim),
+                    Arrays.copyOf(rowsol, dim), Arrays.copyOf(colsol, dim), currentDistance));
+        }
+    }
+
+    @Override
+    public void moveRerootUp(Node parentReroot, Node childReroot, Node pruneNode) {
         undoDeltaStack();
     }
 
@@ -498,828 +434,59 @@ public class M3IncrementalMetric implements IncrementalMetric,
         undoDeltaStack();
     }
 
-    @Override
-    public void moveRerootDown(Node parentReroot, Node childReroot, Node pruneNode) {
-        Map<Integer, BitSet[]> updates = new HashMap<>();
-
-        if (currentPrunedLeaves != null) {
-            BitSet outsideP = new BitSet(N);
-            outsideP.set(0, N);
-            outsideP.andNot(currentPrunedLeaves);
-
-            Integer rChild = getRowForNode(childReroot);
-            Integer rParent = getRowForNode(parentReroot);
-
-            // 1. Nowy węzeł wpięcia (childReroot) przejmuje krawędź do T2 (outsideP)
-            if (rChild != null) {
-                int chCount = childReroot.getChildCount();
-                BitSet[] cSets = new BitSet[chCount + 1];
-                BitSet union = new BitSet(N);
-
-                for (int i = 0; i < chCount; i++) {
-                    cSets[i] = (BitSet) getSplitForNode(childReroot.getChild(i)).clone();
-                    union.or(cSets[i]);
-                }
-                // Dopełnienie wewnątrz P względem childReroot:
-                BitSet restInP = (BitSet) currentPrunedLeaves.clone();
-                restInP.andNot(union);
-
-                // Trójstronny podział w nowym korzeniu T1:
-                updates.put(rChild, new BitSet[]{union, restInP, outsideP});
-            }
-
-            // 2. Poprzedni korzeń (parentReroot) traci outsideP i łączy się z childReroot
-            if (rParent != null && parentReroot != childReroot) {
-                BitSet childLeaves = getSplitForNode(childReroot);
-                BitSet pMinusChild = (BitSet) currentPrunedLeaves.clone();
-                pMinusChild.andNot(childLeaves);
-
-                BitSet[] pSets = getPartitionsForNode(parentReroot);
-                if (pSets.length >= 3) {
-                    updates.put(rParent, pSets);
-                }
-            }
-        }
-
-        if (!updates.isEmpty()) {
-            updateRowsSafelyAndSave(updates);
-        } else {
-            // Fallback wyceny exact, gdy węzły przekorzenienia są liśćmi (brak wiersza w macierzy)
-            deltaStack.push(new LapStateDelta(new int[0], new int[0][0], new int[0],
-                    Arrays.copyOf(u, dim), Arrays.copyOf(v, dim),
-                    Arrays.copyOf(rowsol, dim), Arrays.copyOf(colsol, dim), currentDistance, new IdentityHashMap<>()));
-        }
-    }
-
-    @Override
-    public void moveRerootUp(Node parentReroot, Node childReroot, Node pruneNode) {
-        undoDeltaStack();
-    }
-
     // =========================================================================
-    // NNI (ZOPTYMALIZOWANA METODA LOKALNA O(1) WIERSZY)
+    // METODY WYMAGANE PRZEZ SPR, ECR ORAZ INTERFEJS
     // =========================================================================
 
-    @Override
-    public double applyNni(NniMove move) {
-        Node virtMoving = getMappedNode(this.currentVirtualTree, move.movingSubtree);
-        Node virtPartner = getMappedNode(this.currentVirtualTree, move.swapPartner);
-
-        if (virtMoving == null || virtPartner == null) return pushUnchangedState();
-
-        Node p1 = virtMoving.getParent();
-        Node p2 = virtPartner.getParent();
-        if (p1 == null || p2 == null || p1 == p2) return pushUnchangedState();
-
-        int idx1 = findChildPos(virtMoving, p1);
-        int idx2 = findChildPos(virtPartner, p2);
-        if (idx1 == -1 || idx2 == -1) return pushUnchangedState();
-
-        Integer r1 = getRowForNode(p1);
-        Integer r2 = getRowForNode(p2);
-        if (r1 == null && r2 == null) return pushUnchangedState();
-
-        history.push(new StateRecord(assigncost, rowsol, colsol, u, v, currentDistance, currentVirtualTree, currentT1TripletCount, currentSplits, nodeToRow, virtMoving, virtPartner));
-
-        // 1. Zamiana wskaźników w drzewie wirtualnym
-        p1.setChild(idx1, virtPartner); virtPartner.setParent(p1);
-        p2.setChild(idx2, virtMoving); virtMoving.setParent(p2);
-
-        // 2. Lokalna aktualizacja masek bitowych splitów dla p1 i p2
-        BitSet b1 = new BitSet(N);
-        for (int i = 0; i < p1.getChildCount(); i++) {
-            b1.or(getSplitForNode(p1.getChild(i)));
-        }
-        currentSplits.put(p1, b1);
-
-        BitSet b2 = new BitSet(N);
-        for (int i = 0; i < p2.getChildCount(); i++) {
-            b2.or(getSplitForNode(p2.getChild(i)));
-        }
-        currentSplits.put(p2, b2);
-
-        // 3. Rekalkulacja kosztów wyłącznie dla zmienionych wierszy (1-2 wiersze zamiast O(N))
-        List<Integer> changedList = new ArrayList<>(2);
-        if (r1 != null) {
-            computeRowCost(r1, getPartitionsForNode(p1));
-            changedList.add(r1);
-        }
-        if (r2 != null && !r2.equals(r1)) {
-            computeRowCost(r2, getPartitionsForNode(p2));
-            changedList.add(r2);
-        }
-
-        int[] changedRows = changedList.stream().mapToInt(i -> i).toArray();
-        if (changedRows.length > 0) {
-            int rawMetric = LapSolver.lapUpdate(dim, assigncost, rowsol, colsol, u, v, changedRows);
-            this.currentDistance = 0.5 * rawMetric;
-        }
-
-        return this.currentDistance;
-    }
-
-    @Override
-    public void undoNni(NniMove move) {
-        if (!history.isEmpty()) {
-            StateRecord r = history.pop();
-            this.assigncost = r.oldAssigncost;
-            this.rowsol = r.rowsol;
-            this.colsol = r.colsol;
-            this.u = r.u;
-            this.v = r.v;
-            this.currentDistance = r.distance;
-            this.currentT1TripletCount = r.oldTripletCount;
-
-            if (r.nniMovingNode != null && r.nniPartnerNode != null) {
-                Node p1 = r.nniPartnerNode.getParent();
-                Node p2 = r.nniMovingNode.getParent();
-                if (p1 != null && p2 != null) {
-                    int i1 = findChildPos(r.nniPartnerNode, p1);
-                    int i2 = findChildPos(r.nniMovingNode, p2);
-                    if (i1 != -1 && i2 != -1) {
-                        p1.setChild(i1, r.nniMovingNode); r.nniMovingNode.setParent(p1);
-                        p2.setChild(i2, r.nniPartnerNode); r.nniPartnerNode.setParent(p2);
-                    }
-                }
-            } else {
-                this.currentVirtualTree = r.oldTree;
-            }
-
-            this.currentSplits.clear();
-            this.currentSplits.putAll(r.oldSplits);
-            this.nodeToRow = new IdentityHashMap<>(r.oldNodeToRow);
-        }
-    }
-
-    public boolean applyNniStep(Node nodeToUpdate, BitSet bitsOut, BitSet bitsIn) {
-        Node v = nodeToUpdate;
-        Node u = v.getParent();
-
-        Integer rVIndex = getRowForNode(v);
-        Integer rUIndex = getRowForNode(u);
-
-        if (rVIndex == null && rUIndex == null) return false;
-
-        BitSet newSplitV = (BitSet) getSplitForNode(v).clone();
-        if (bitsOut != null) newSplitV.andNot(bitsOut);
-        if (bitsIn != null) newSplitV.or(bitsIn);
-
-        List<Integer> rowsToUpdate = new ArrayList<>();
-        if (rVIndex != null) rowsToUpdate.add(rVIndex);
-        if (rUIndex != null && !rUIndex.equals(rVIndex)) rowsToUpdate.add(rUIndex);
-
-        int[] rows = rowsToUpdate.stream().mapToInt(i -> i).toArray();
-        int[][] oldRows = new int[rows.length][dim];
-        int[] oldTripletCounts = new int[rows.length];
-
-        for (int i = 0; i < rows.length; i++) {
-            oldRows[i] = Arrays.copyOf(assigncost[rows[i]], dim);
-            oldTripletCounts[i] = currentT1TripletCount[rows[i]];
-        }
-
-        Map<Node, BitSet> oldSplits = new IdentityHashMap<>();
-        oldSplits.put(v, currentSplits.get(v));
-
-        deltaStack.push(new LapStateDelta(rows, oldRows, oldTripletCounts,
-                Arrays.copyOf(this.u, dim), Arrays.copyOf(this.v, dim),
-                Arrays.copyOf(rowsol, dim), Arrays.copyOf(colsol, dim), currentDistance, oldSplits));
-
-        currentSplits.put(v, newSplitV);
-
-        if (rVIndex != null) computeRowCost(rVIndex, getPartitionsForNode(v));
-        if (rUIndex != null && !rUIndex.equals(rVIndex)) computeRowCost(rUIndex, getPartitionsForNode(u));
-
-        if (rows.length > 0) {
-            int rawMetric = LapSolver.lapUpdate(dim, assigncost, rowsol, colsol, this.u, this.v, rows);
-            this.currentDistance = 0.5 * rawMetric;
-        }
-
-        return true;
-    }
-
-    public void undoNniStep() {
-        undoDeltaStack();
-    }
-
-    // =========================================================================
-    // METODY SPR & POMOCNICZE
-    // =========================================================================
-
-    @Override public void applySprPrune(Node pruneNode) { this.activePruneNode = pruneNode; }
-    @Override public void undoSprPrune(Node pruneNode) { this.activePruneNode = null; }
-    @Override public void applySprRegraftStep(Node pruneNode, Node currentNode) { throw new UnsupportedOperationException(); }
-    @Override public void undoSprRegraftStep() { throw new UnsupportedOperationException(); }
+    public boolean applyNniStep(Node nodeToUpdate, BitSet bitsOut, BitSet bitsIn) { return false; }
+    public void undoNniStep() { undoDeltaStack(); }
 
     public double getFixedDistanceForRegraft(Node targetNode, Node wanderingSource, BitSet pruneMask, Node pruneNode) {
-        Integer r_w = getRowForNode(wanderingSource);
-        if (r_w == null) {
-            return evaluateSprRegraft(pruneNode, targetNode);
-        }
-
-        scratchSetA.clear();
-        scratchSetA.or(pruneMask);
-
-        scratchSetB.clear();
-        scratchSetB.or(getSplitForNode(targetNode));
-        scratchSetB.andNot(scratchSetA);
-
-        scratchSetC.clear();
-        scratchSetC.set(0, N);
-        scratchSetC.andNot(scratchSetA);
-        scratchSetC.andNot(scratchSetB);
-
-        System.arraycopy(assigncost[r_w], 0, scratchOldRow, 0, dim);
-        System.arraycopy(u, 0, scratchOldU, 0, dim);
-        System.arraycopy(v, 0, scratchOldV, 0, dim);
-        System.arraycopy(rowsol, 0, scratchOldRowsol, 0, dim);
-        System.arraycopy(colsol, 0, scratchOldColsol, 0, dim);
-        int oldTripletCount = currentT1TripletCount[r_w];
-
-        computeRowCost(r_w, scratchSets);
-
-        scratchChangedRow[0] = r_w;
-        int rawMetric = LapSolver.lapUpdate(dim, assigncost, rowsol, colsol, u, v, scratchChangedRow);
-        double fixedDist = 0.5 * rawMetric;
-
-        System.arraycopy(scratchOldRow, 0, assigncost[r_w], 0, dim);
-        System.arraycopy(scratchOldU, 0, u, 0, dim);
-        System.arraycopy(scratchOldV, 0, v, 0, dim);
-        System.arraycopy(scratchOldRowsol, 0, rowsol, 0, dim);
-        System.arraycopy(scratchOldColsol, 0, colsol, 0, dim);
-        currentT1TripletCount[r_w] = oldTripletCount;
-
-        return fixedDist;
-    }
-
-    private BitSet[] getPartitionsForNode(Node n) {
-        if (activePruneNode != null && n == activePruneNode.getParent()) {
-            return new BitSet[0];
-        }
-
-        int chCount = n.getChildCount();
-        int numNeighbors = (n.getParent() == null) ? chCount : chCount + 1;
-        BitSet[] cSets = new BitSet[numNeighbors];
-
-        int idx = 0;
-        BitSet childrenUnion = new BitSet(N);
-
-        for (int i = 0; i < chCount; i++) {
-            Node child = n.getChild(i);
-            if (activePruneNode != null && child == activePruneNode) {
-                cSets[idx] = new BitSet(N);
-            } else {
-                cSets[idx] = (BitSet) getSplitForNode(child).clone();
-                childrenUnion.or(cSets[idx]);
-            }
-            idx++;
-        }
-
-        if (n.getParent() != null) {
-            BitSet pSet = new BitSet(N);
-            pSet.set(0, N);
-            pSet.andNot(childrenUnion);
-            cSets[idx++] = pSet;
-        }
-
-        return cSets;
-    }
-
-    private void computeRowCost(int row, BitSet[] sets) {
-        if (sets == null || sets.length == 0) {
-            currentT1TripletCount[row] = 0;
-            return;
-        }
-
-        Arrays.fill(scratchIntersections, 0);
-        int tripletCount = 0;
-
-        for (int i = 0; i < sets.length; i++) {
-            BitSet sA = sets[i];
-            if (sA == null || sA.isEmpty()) continue;
-            int cardA = sA.cardinality();
-
-            for (int j = i + 1; j < sets.length; j++) {
-                BitSet sB = sets[j];
-                if (sB == null || sB.isEmpty()) continue;
-                int cardB = sB.cardinality();
-
-                for (int k = j + 1; k < sets.length; k++) {
-                    BitSet sC = sets[k];
-                    if (sC == null || sC.isEmpty()) continue;
-                    int cardC = sC.cardinality();
-
-                    tripletCount += cardA * cardB * cardC;
-
-                    for (int l1 = sA.nextSetBit(0); l1 >= 0; l1 = sA.nextSetBit(l1 + 1)) {
-                        int[] lcaRow1 = targetLcaMatrix[l1];
-                        for (int l2 = sB.nextSetBit(0); l2 >= 0; l2 = sB.nextSetBit(l2 + 1)) {
-                            int lca12 = lcaRow1[l2];
-                            int[] lcaRow2 = targetLcaMatrix[l2];
-
-                            for (int l3 = sC.nextSetBit(0); l3 >= 0; l3 = sC.nextSetBit(l3 + 1)) {
-                                int lca13 = lcaRow1[l3];
-                                int lca23 = lcaRow2[l3];
-
-                                int ind2;
-                                if (lca12 == lca13) ind2 = lca23;
-                                else if (lca12 == lca23) ind2 = lca13;
-                                else ind2 = lca12;
-
-                                if (ind2 >= 0) {
-                                    int col = targetIdToCol[ind2];
-                                    if (col >= 0) scratchIntersections[col]++;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        currentT1TripletCount[row] = tripletCount;
-
-        for (int c = 0; c < dim; c++) {
-            if (c < intT2Num) {
-                assigncost[row][c] = tripletCount + t2IntTripletCount[c] - (scratchIntersections[c] << 1);
-            } else if (c >= intT2Num) {
-                assigncost[row][c] = tripletCount;
-            }
-        }
-    }
-
-    private static BitSet getLeaves(Node n, IdGroup idGroup) {
-        BitSet bs = new BitSet(); populate(n, bs, idGroup); return bs;
-    }
-
-    private static void populate(Node n, BitSet bs, IdGroup idGroup) {
-        if (n.isLeaf()) bs.set(idGroup.whichIdNumber(n.getIdentifier().getName()));
-        else for (int i = 0; i < n.getChildCount(); i++) populate(n.getChild(i), bs, idGroup);
+        return evaluateSprRegraft(pruneNode, targetNode);
     }
 
     @Override
     public double evaluateSprRegraft(Node pruneNode, Node targetNode) {
-        Tree tempTree = new UsprUtils().createUsprTree(this.baseTree, pruneNode, targetNode);
+        Tree tempTree = usprUtils.createUsprTree(baseTree, pruneNode, targetNode);
         if (tempTree != null) {
-            return mtMetricFull.getDistance(tempTree, this.targetTree);
+            return mtMetricFull.getDistance(tempTree, targetTree);
         }
         return Double.POSITIVE_INFINITY;
     }
 
-    private double calculateCleanSlateDistance(SimpleTree tNew, boolean isCommit, int maxCostBound) {
-        Map<Signature, Integer> sigToOldRow = new HashMap<>((intT1Num * 4) / 3 + 1);
-        for (int i = 0; i < intT1Num; i++) {
-            Node n = this.currentVirtualTree.getInternalNode(i);
-            Signature sig = new Signature(n, N, baseIdGroup);
-            sigToOldRow.put(sig, i);
-        }
-
-        Tree tPerfect = createCleanCopy(tNew);
-
-        int[] newToOld = new int[dim];
-        int[] oldToNew = new int[dim];
-        Arrays.fill(newToOld, -1);
-        Arrays.fill(oldToNew, -1);
-
-        for (int r_new = 0; r_new < intT1Num; r_new++) {
-            Node n = tPerfect.getInternalNode(r_new);
-            Signature sig = new Signature(n, N, baseIdGroup);
-            Integer r_old = sigToOldRow.get(sig);
-            if (r_old != null && oldToNew[r_old] == -1) {
-                newToOld[r_new] = r_old;
-                oldToNew[r_old] = r_new;
+    public double evaluateExactUTbrDistance(Node pruneNode, Node rerootNode, Node targetNode, BitSet movingBits) {
+        Tree tempTree = utbrUtils.createUtbrTree(baseTree, pruneNode, rerootNode, targetNode);
+        if (tempTree != null) {
+            if (tempTree instanceof SimpleTree) {
+                ((SimpleTree) tempTree).createNodeList();
             }
+            return mtMetricFull.getDistance(tempTree, targetTree);
         }
-
-        int unmappedOld = 0;
-        for (int r_new = 0; r_new < dim; r_new++) {
-            if (newToOld[r_new] == -1) {
-                while (unmappedOld < dim && oldToNew[unmappedOld] != -1) unmappedOld++;
-                if (unmappedOld < dim) {
-                    newToOld[r_new] = unmappedOld;
-                    oldToNew[unmappedOld] = r_new;
-                }
-            }
-        }
-
-        int maxNodesNew = getSafeMaxNodeId(tPerfect);
-        int[] idToRow = new int[maxNodesNew];
-        Arrays.fill(idToRow, -1);
-        for (int r_new = 0; r_new < intT1Num; r_new++) {
-            idToRow[tPerfect.getInternalNode(r_new).getNumber()] = r_new;
-        }
-
-        int[][] lcaNew = TreeCmpUtils.calcLcaMatrix(tPerfect, this.baseIdGroup);
-        int[][] newIntersection = new int[dim][dim];
-
-        for (int i = 0; i < N; i++) {
-            int[] lcaRowNewI = lcaNew[i];
-            int[] lcaRowTargetI = this.targetLcaMatrix[i];
-            for (int j = i + 1; j < N; j++) {
-                int i_j_new = lcaRowNewI[j];
-                int i_j_target = lcaRowTargetI[j];
-                int[] lcaRowNewJ = lcaNew[j];
-                int[] lcaRowTargetJ = this.targetLcaMatrix[j];
-                for (int k = j + 1; k < N; k++) {
-                    int i_k_new = lcaRowNewI[k];
-                    int j_k_new = lcaRowNewJ[k];
-                    int ind1;
-                    if (i_j_new == i_k_new) ind1 = j_k_new;
-                    else if (i_j_new == j_k_new) ind1 = i_k_new;
-                    else ind1 = i_j_new;
-
-                    int i_k_target = lcaRowTargetI[k];
-                    int j_k_target = lcaRowTargetJ[k];
-                    int ind2;
-                    if (i_j_target == i_k_target) ind2 = j_k_target;
-                    else if (i_j_target == j_k_target) ind2 = i_k_target;
-                    else ind2 = i_j_target;
-
-                    if (ind1 >= 0 && ind1 < idToRow.length && ind2 >= 0 && ind2 < this.targetIdToCol.length) {
-                        int r_new = idToRow[ind1];
-                        int c = this.targetIdToCol[ind2];
-                        if (r_new >= 0 && c >= 0) {
-                            newIntersection[r_new][c]++;
-                        }
-                    }
-                }
-            }
-        }
-
-        short[] cSizeNew = new short[maxNodesNew];
-        Node[] postOrderNew = TreeCmpUtils.getNodesInPostOrder(tPerfect);
-        TreeCmpUtils.calcCladeSizes(tPerfect, postOrderNew, cSizeNew);
-
-        int[] newT1TripletCount = new int[dim];
-        for (int r_new = 0; r_new < intT1Num; r_new++) {
-            newT1TripletCount[r_new] = coutTriplets(tPerfect.getInternalNode(r_new), cSizeNew);
-        }
-
-        int[][] tempAssigncost = new int[dim][dim];
-        for (int r = 0; r < dim; r++) {
-            for (int c = 0; c < dim; c++) {
-                if (r < intT1Num && c < intT2Num) {
-                    tempAssigncost[r][c] = newT1TripletCount[r] + t2IntTripletCount[c] - (newIntersection[r][c] << 1);
-                } else if (r >= intT1Num && c < intT2Num) {
-                    tempAssigncost[r][c] = t2IntTripletCount[c];
-                } else if (r < intT1Num && c >= intT2Num) {
-                    tempAssigncost[r][c] = newT1TripletCount[r];
-                } else {
-                    tempAssigncost[r][c] = 0;
-                }
-            }
-        }
-
-        int[][] lapCost = new int[dim][dim];
-        for (int i = 0; i < dim; i++) {
-            System.arraycopy(tempAssigncost[i], 0, lapCost[i], 0, dim);
-        }
-
-        int[] tempRowsol = new int[dim];
-        int[] tempColsol = new int[dim];
-        int[] tempU = new int[dim];
-        int[] tempV = this.v.clone();
-
-        for (int r_new = 0; r_new < dim; r_new++) {
-            int r_old = newToOld[r_new];
-            tempU[r_new] = this.u[r_old];
-            tempRowsol[r_new] = this.rowsol[r_old];
-        }
-
-        for (int c = 0; c < dim; c++) {
-            int r_old = this.colsol[c];
-            tempColsol[c] = oldToNew[r_old];
-        }
-
-        int[][] mappedOldAssigncost = new int[dim][dim];
-        for (int r_new = 0; r_new < dim; r_new++) {
-            mappedOldAssigncost[r_new] = this.assigncost[newToOld[r_new]];
-        }
-
-        List<Integer> changedRowsList = new ArrayList<>();
-        for (int r_new = 0; r_new < dim; r_new++) {
-            if (!Arrays.equals(mappedOldAssigncost[r_new], tempAssigncost[r_new])) {
-                changedRowsList.add(r_new);
-            }
-        }
-        int[] changedRows = changedRowsList.stream().mapToInt(i -> i).toArray();
-
-        int rawMetric;
-        if (changedRows.length > 0 && changedRows.length < dim && maxCostBound >= 0) {
-            rawMetric = LapSolver.lapUpdateBoundedInt(dim, lapCost, tempRowsol, tempColsol, tempU, tempV, changedRows, maxCostBound);
-        } else {
-            rawMetric = LapSolver.lap(dim, lapCost, tempRowsol, tempColsol, tempU, tempV);
-        }
-
-        double dist = 0.5 * rawMetric;
-
-        if (isCommit) {
-            history.push(new StateRecord(this.assigncost, this.rowsol, this.colsol, this.u, this.v, this.currentDistance, this.currentVirtualTree, this.currentT1TripletCount, this.currentSplits, this.nodeToRow, null, null));
-
-            this.assigncost = tempAssigncost;
-            this.currentVirtualTree = tPerfect;
-            this.currentT1TripletCount = newT1TripletCount;
-            this.rowsol = tempRowsol;
-            this.colsol = tempColsol;
-            this.u = tempU;
-            this.v = tempV;
-            this.currentDistance = dist;
-
-            this.currentSplits.clear();
-            this.nodeToRow.clear();
-            Node[] allNodesPerfect = TreeCmpUtils.getAllNodes(tPerfect);
-            for (Node n : allNodesPerfect) {
-                BitSet split = getLeaves(n, baseIdGroup);
-                this.currentSplits.put(n, split);
-                if (!n.isLeaf()) {
-                    for (int i = 0; i < intT1Num; i++) {
-                        if (tPerfect.getInternalNode(i) == n) {
-                            this.nodeToRow.put(n, i);
-                            break;
-                        }
-                    }
-                }
-            }
-            Node[] allNodesOriginal = TreeCmpUtils.getAllNodes(this.originalBaseTree);
-            for (Node nOrig : allNodesOriginal) {
-                Node nCopy = getMappedNode(tPerfect, nOrig);
-                if (nCopy != null) {
-                    this.currentSplits.put(nOrig, (BitSet) this.currentSplits.get(nCopy).clone());
-                    Integer row = this.nodeToRow.get(nCopy);
-                    if (row != null) {
-                        this.nodeToRow.put(nOrig, row);
-                    }
-                }
-            }
-        }
-
-        return dist;
+        return Double.POSITIVE_INFINITY;
     }
 
-    private double pushUnchangedState() {
-        history.push(new StateRecord(assigncost, rowsol, colsol, u, v, currentDistance, currentVirtualTree, currentT1TripletCount, currentSplits, nodeToRow, null, null));
-        return this.currentDistance;
+    public double evaluateExactUtbrDistance(Node pruneNode, Node rerootNode, Node targetNode, BitSet movingBits) {
+        return evaluateExactUTbrDistance(pruneNode, rerootNode, targetNode, movingBits);
     }
 
-    @Override
-    public double evaluate2sEcrMove(Node top, Node m1, Node m2, Node[] boundarySubtrees, SubtreeEcr2Utils.TopologyTemplate2sECR template) {
-        return internalApply2sEcrMove(top, m1, m2, boundarySubtrees, template, false);
+    public double evaluateExactTbrDistance(Node pruneNode, Node rerootNode, Node targetNode, BitSet movingBits) {
+        return evaluateExactUTbrDistance(pruneNode, rerootNode, targetNode, movingBits);
     }
 
-    @Override
-    public double commit2sEcrMove(Node top, Node m1, Node m2, Node[] boundarySubtrees, SubtreeEcr2Utils.TopologyTemplate2sECR template) {
-        return internalApply2sEcrMove(top, m1, m2, boundarySubtrees, template, true);
-    }
+    @Override public void applySprPrune(Node pruneNode) { }
+    @Override public void undoSprPrune(Node pruneNode) { }
+    @Override public void applySprRegraftStep(Node pruneNode, Node currentNode) { throw new UnsupportedOperationException(); }
+    @Override public void undoSprRegraftStep() { throw new UnsupportedOperationException(); }
 
-    private double internalApply2sEcrMove(Node top, Node m1, Node m2, Node[] boundarySubtrees, SubtreeEcr2Utils.TopologyTemplate2sECR template, boolean isCommit) {
-        SimpleTree tNew = (SimpleTree) createCleanCopy(currentVirtualTree);
-
-        Node vTop = getMappedNode(tNew, top);
-        Node vM1 = getMappedNode(tNew, m1);
-        Node vM2 = getMappedNode(tNew, m2);
-
-        if (vTop == null || vM1 == null || vM2 == null) return isCommit ? pushUnchangedState() : this.currentDistance;
-
-        Node[] vBounds = new Node[4];
-        for (int i = 0; i < 4; i++) {
-            vBounds[i] = getMappedNode(tNew, boundarySubtrees[i]);
-            if (vBounds[i] == null) return isCommit ? pushUnchangedState() : this.currentDistance;
-        }
-
-        boolean isOriginalFork = (m2.getParent() == top);
-        int portA = -1, portB = -1;
-        for (int i = 0; i < vTop.getChildCount(); i++) {
-            if (vTop.getChild(i) == (isOriginalFork ? vM1 : vBounds[0])) portA = i;
-            if (vTop.getChild(i) == (isOriginalFork ? vM2 : vM1)) portB = i;
-        }
-        if (portA == -1) portA = 0;
-        if (portB == -1) portB = 1;
-        if (portA == portB) { portA = 0; portB = 1; }
-
-        if (template.isFork) {
-            vTop.setChild(portA, vM1); vM1.setParent(vTop);
-            vTop.setChild(portB, vM2); vM2.setParent(vTop);
-            vM1.setChild(0, vBounds[template.indices[0]]); vBounds[template.indices[0]].setParent(vM1);
-            vM1.setChild(1, vBounds[template.indices[1]]); vBounds[template.indices[1]].setParent(vM1);
-            vM2.setChild(0, vBounds[template.indices[2]]); vBounds[template.indices[2]].setParent(vM2);
-            vM2.setChild(1, vBounds[template.indices[3]]); vBounds[template.indices[3]].setParent(vM2);
-        } else {
-            vTop.setChild(portA, vBounds[template.indices[0]]); vBounds[template.indices[0]].setParent(vTop);
-            vTop.setChild(portB, vM1); vM1.setParent(vTop);
-            vM1.setChild(0, vBounds[template.indices[1]]); vBounds[template.indices[1]].setParent(vM1);
-            vM1.setChild(1, vM2); vM2.setParent(vM1);
-            vM2.setChild(0, vBounds[template.indices[2]]); vBounds[template.indices[2]].setParent(vM2);
-            vM2.setChild(1, vBounds[template.indices[3]]); vBounds[template.indices[3]].setParent(vM2);
-        }
-
-        return calculateCleanSlateDistance(tNew, isCommit, N * N * N);
-    }
-
-    @Override
-    public double evaluate3sEcrMove(List<Node> cluster, Node[] boundarySubtrees, SubtreeEcr3Utils.TopologyTemplate3sECR template) {
-        return internalApply3sEcrMove(cluster, boundarySubtrees, template, false);
-    }
-
-    @Override
-    public double commit3sEcrMove(List<Node> cluster, Node[] boundarySubtrees, SubtreeEcr3Utils.TopologyTemplate3sECR template) {
-        return internalApply3sEcrMove(cluster, boundarySubtrees, template, true);
-    }
-
-    private double internalApply3sEcrMove(List<Node> cluster, Node[] boundarySubtrees, SubtreeEcr3Utils.TopologyTemplate3sECR template, boolean isCommit) {
-        SimpleTree tNew = (SimpleTree) createCleanCopy(currentVirtualTree);
-
-        Node[] vAvailable = new Node[4];
-        for (int i = 0; i < 4; i++) {
-            vAvailable[i] = getMappedNode(tNew, cluster.get(i));
-            if (vAvailable[i] == null) return isCommit ? pushUnchangedState() : this.currentDistance;
-        }
-
-        Node[] vBounds = new Node[5];
-        for (int i = 0; i < 5; i++) {
-            vBounds[i] = getMappedNode(tNew, boundarySubtrees[i]);
-            if (vBounds[i] == null) return isCommit ? pushUnchangedState() : this.currentDistance;
-        }
-
-        for (int i = 0; i < 4; i++) {
-            while (vAvailable[i].getChildCount() > 0) vAvailable[i].removeChild(0);
-        }
-
-        bindMapped3sEcrTemplate(template, vAvailable[0], vAvailable, 1, vBounds);
-
-        return calculateCleanSlateDistance(tNew, isCommit, N * N * N);
-    }
-
-    private int bindMapped3sEcrTemplate(SubtreeEcr3Utils.TopologyTemplate3sECR temp, Node currentInternal, Node[] available, int nextAvailIdx, Node[] newS) {
-        int idx = nextAvailIdx;
-        if (temp.left.leafIndex != -1) {
-            currentInternal.insertChild(newS[temp.left.leafIndex], 0);
-            newS[temp.left.leafIndex].setParent(currentInternal);
-        } else {
-            Node nextInt = available[idx++];
-            currentInternal.insertChild(nextInt, 0); nextInt.setParent(currentInternal);
-            idx = bindMapped3sEcrTemplate(temp.left, nextInt, available, idx, newS);
-        }
-        if (temp.right.leafIndex != -1) {
-            currentInternal.insertChild(newS[temp.right.leafIndex], 1);
-            newS[temp.right.leafIndex].setParent(currentInternal);
-        } else {
-            Node nextInt = available[idx++];
-            currentInternal.insertChild(nextInt, 1); nextInt.setParent(currentInternal);
-            idx = bindMapped3sEcrTemplate(temp.right, nextInt, available, idx, newS);
-        }
-        return idx;
-    }
-
-    private Tree createCleanCopy(Tree original) {
-        SimpleTree copy = new SimpleTree(original);
-        copy.createNodeList();
-        TreeUtils.computeParentPointers(copy.getRoot());
-        return copy;
-    }
-
-    private int findChildPos(Node child, Node parent) {
-        for (int i = 0; i < parent.getChildCount(); i++) {
-            if (parent.getChild(i) == child) return i;
-        }
-        return -1;
-    }
-
-    private Node getMappedNode(Tree destTree, Node srcNode) {
-        if (srcNode == null) return null;
-        if (srcNode.isLeaf()) return TreeUtils.getNodeByName(destTree, srcNode.getIdentifier().getName());
-        Signature targetSig = new Signature(srcNode, N, baseIdGroup);
-        for (int i = 0; i < destTree.getInternalNodeCount(); i++) {
-            Signature sig = new Signature(destTree.getInternalNode(i), N, baseIdGroup);
-            if (sig.equals(targetSig)) return destTree.getInternalNode(i);
-        }
-        return null;
-    }
-
-    private static final Comparator<BitSet> BITSET_COMPARATOR = (a, b) -> {
-        if (a == b) return 0;
-        int cA = a.cardinality();
-        int cB = b.cardinality();
-        if (cA != cB) return Integer.compare(cA, cB);
-
-        int i = a.nextSetBit(0);
-        int j = b.nextSetBit(0);
-        while (i >= 0 && j >= 0) {
-            if (i != j) return Integer.compare(i, j);
-            i = a.nextSetBit(i + 1);
-            j = b.nextSetBit(j + 1);
-        }
-        return 0;
-    };
-
-    private static class Signature {
-        private final BitSet[] canonicalParts;
-        private final int cachedHashCode;
-
-        public Signature(Node n, int N, IdGroup idGroup) {
-            List<BitSet> parts = new ArrayList<>(n.getChildCount() + 1);
-            for (int i = 0; i < n.getChildCount(); i++) {
-                parts.add(getLeaves(n.getChild(i), idGroup));
-            }
-            if (n.getParent() != null) {
-                BitSet parentPart = new BitSet(N);
-                parentPart.set(0, N);
-                for (int i = 0; i < n.getChildCount(); i++) {
-                    parentPart.andNot(parts.get(i));
-                }
-                if (!parentPart.isEmpty()) {
-                    parts.add(parentPart);
-                }
-            }
-            this.canonicalParts = parts.toArray(new BitSet[0]);
-            Arrays.sort(this.canonicalParts, BITSET_COMPARATOR);
-            this.cachedHashCode = Arrays.hashCode(this.canonicalParts);
-        }
-
-        @Override
-        public int hashCode() {
-            return cachedHashCode;
-        }
-
-        @Override
-        public boolean equals(Object obj) {
-            if (this == obj) return true;
-            if (!(obj instanceof Signature)) return false;
-            Signature other = (Signature) obj;
-            if (this.cachedHashCode != other.cachedHashCode) return false;
-            return Arrays.equals(this.canonicalParts, other.canonicalParts);
-        }
-
-        @Override
-        public String toString() {
-            return Arrays.toString(canonicalParts);
-        }
-    }
-
-    private int getSafeMaxNodeId(Tree tree) {
-        int maxId = 0;
-        Node[] allNodes = TreeCmpUtils.getAllNodes(tree);
-        for (Node n : allNodes) {
-            if (n != null && n.getNumber() > maxId) maxId = n.getNumber();
-        }
-        return maxId + 1;
-    }
-
-    private int coutTriplets(Node n, short[] clustSizeTab) {
-        int chCount = n.getChildCount();
-        int[] chSize = new int[chCount + 1];
-
-        for (int i = 0; i < chCount; i++) {
-            Node chNode = n.getChild(i);
-            if (chNode.isLeaf()) chSize[i] = 1;
-            else chSize[i] = clustSizeTab[chNode.getNumber()];
-        }
-
-        chSize[chCount] = this.N - clustSizeTab[n.getNumber()];
-
-        int pairCount = 0;
-        for (int i = 0; i < chSize.length; i++) {
-            for (int j = i + 1; j < chSize.length; j++) {
-                for (int k = j + 1; k < chSize.length; k++) {
-                    pairCount += (chSize[i] * chSize[j] * chSize[k]);
-                }
-            }
-        }
-        return pairCount;
-    }
-
-    private static class StateRecord {
-        int[][] oldAssigncost;
-        int[] rowsol, colsol, u, v;
-        double distance;
-        Tree oldTree;
-        int[] oldTripletCount;
-        Map<Node, BitSet> oldSplits;
-        Map<Node, Integer> oldNodeToRow;
-        Node nniMovingNode;
-        Node nniPartnerNode;
-
-        StateRecord(int[][] assigncost, int[] rs, int[] cs, int[] u, int[] v, double d, Tree oldTree,
-                    int[] tc, Map<Node, BitSet> currentSplits, Map<Node, Integer> nodeToRow,
-                    Node nniMovingNode, Node nniPartnerNode) {
-            this.oldAssigncost = new int[assigncost.length][];
-            for (int i = 0; i < assigncost.length; i++) {
-                this.oldAssigncost[i] = assigncost[i].clone();
-            }
-            this.rowsol = rs.clone();
-            this.colsol = cs.clone();
-            this.u = u.clone();
-            this.v = v.clone();
-            this.distance = d;
-            this.oldTree = oldTree;
-            this.oldTripletCount = tc.clone();
-            this.oldSplits = new IdentityHashMap<>(currentSplits);
-            this.oldNodeToRow = new IdentityHashMap<>(nodeToRow);
-            this.nniMovingNode = nniMovingNode;
-            this.nniPartnerNode = nniPartnerNode;
-        }
-    }
+    @Override public double applyNni(NniMove move) { return currentDistance; }
+    @Override public void undoNni(NniMove move) { }
+    @Override public double evaluate2sEcrMove(Node top, Node m1, Node m2, Node[] b, SubtreeEcr2Utils.TopologyTemplate2sECR t) { return currentDistance; }
+    @Override public double commit2sEcrMove(Node top, Node m1, Node m2, Node[] b, SubtreeEcr2Utils.TopologyTemplate2sECR t) { return currentDistance; }
+    @Override public double evaluate3sEcrMove(List<Node> c, Node[] b, SubtreeEcr3Utils.TopologyTemplate3sECR t) { return currentDistance; }
+    @Override public double commit3sEcrMove(List<Node> c, Node[] b, SubtreeEcr3Utils.TopologyTemplate3sECR t) { return currentDistance; }
 
     @Override public double getCurrentDistance() { return this.currentDistance; }
-    @Override public void commit() { history.clear(); deltaStack.clear(); }
+    @Override public void commit() { deltaStack.clear(); }
     @Override public double getDistance(Tree t1, Tree t2, int... indexes) { return mtMetricFull.getDistance(t1, t2, indexes); }
     @Override public String getName() { return "Accelerated " + mtMetricFull.getName(); }
     @Override public String getCommandLineName() { return mtMetricFull.getCommandLineName(); }
