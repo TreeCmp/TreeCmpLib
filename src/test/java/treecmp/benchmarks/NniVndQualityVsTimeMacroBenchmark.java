@@ -34,7 +34,8 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
     // FLAGI KONTROLNE DIAGNOSTYKI ECR / VND
     // =========================================================================
     public static boolean ENABLE_DIAGNOSTIC_ASSERTIONS = true;
-    public static boolean THROW_ON_DIAGNOSTIC_MISMATCH = false; // Zmień na true, aby zatrzymać na debuggerze
+    public static boolean THROW_ON_DIAGNOSTIC_MISMATCH = false;
+    public static boolean ENABLE_LOGGING = false;
 
     private final int maxAllowedClassicVndSize;
     private long globalNniT, globalEcr2T, globalEcr3T, globalSprT, globalTbrT;
@@ -80,6 +81,10 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
         System.out.printf("[MEMORY CONFIG] Max allowed tree size (N) for Classic VND: %d%n", maxAllowedClassicVndSize);
         System.out.printf("[DIAGNOSTIC CONFIG] Assertions Enabled: %b | Throw on error: %b%n",
                 ENABLE_DIAGNOSTIC_ASSERTIONS, THROW_ON_DIAGNOSTIC_MISMATCH);
+        System.out.printf("[LOGGING CONFIG] NNI Trajectory Logging (ENABLE_LOGGING): %b%n", ENABLE_LOGGING);
+        if (ENABLE_LOGGING) {
+            System.out.println("  -> [WARNING] Detailed NNI logging is active. Timing metrics will reflect I/O and trajectory synthesis overhead!");
+        }
         System.out.println("======================================================================");
     }
 
@@ -92,13 +97,45 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
     }
 
     public static void main(String[] args) {
-        treecmp.heuristics.vnd.acc.NniVndIncrementalHeuristic.ENABLE_LOGGING = false;
-        treecmp.heuristics.vnd.NniVndHeuristic.ENABLE_LOGGING = false;
+        boolean enableLogging = false;
+        List<String> cleanArgs = new ArrayList<>();
+
+        for (String arg : args) {
+            String lower = arg.toLowerCase().trim();
+            if (lower.equals("--log") || lower.equals("-log") || lower.equals("log")
+                    || lower.equals("--enable-logging") || lower.equals("-enable-logging")
+                    || lower.equals("enable-logging") || lower.equals("enable_logging")
+                    || lower.equals("enablelogging")
+                    || lower.startsWith("--log=") || lower.startsWith("-log=") || lower.startsWith("log=")
+                    || lower.startsWith("--enable-logging=") || lower.startsWith("enable_logging=")) {
+                if (lower.contains("=")) {
+                    String val = lower.substring(lower.indexOf('=') + 1);
+                    enableLogging = "true".equalsIgnoreCase(val) || "1".equals(val);
+                } else {
+                    enableLogging = true;
+                }
+            } else {
+                cleanArgs.add(arg);
+            }
+        }
+
+        if (!enableLogging) {
+            String sysProp = System.getProperty("ENABLE_LOGGING", System.getProperty("log", "false"));
+            enableLogging = "true".equalsIgnoreCase(sysProp) || "1".equals(sysProp);
+        }
+
+        ENABLE_LOGGING = enableLogging;
+        treecmp.heuristics.vnd.acc.NniVndIncrementalHeuristic.ENABLE_LOGGING = enableLogging;
+        treecmp.heuristics.vnd.NniVndHeuristic.ENABLE_LOGGING = enableLogging;
+
+        String baseCsvName = enableLogging
+                ? "quality_results_VND_WITH_NNI_LOGS_OVERHEAD"
+                : "quality_results_VND";
 
         new NniVndQualityVsTimeMacroBenchmark().runBenchmark(
-                args,
+                cleanArgs.toArray(new String[0]),
                 "VND ULTIMATE QUALITY VS TIME MACRO-BENCHMARK (100 TREE PAIRS)",
-                "benchmark_results_VND",
+                baseCsvName,
                 new int[]{10, 20, 30, 50, 80, 120}
         );
     }
@@ -145,7 +182,13 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
 
     @Override
     protected String getCsvHeader() {
-        return "Size,IsRooted,Metric,Variant,PairIndex,Success,Distance,TotalTimeMs,NniTimeNs,Ecr2TimeNs,Ecr3TimeNs,SprTimeNs,TbrTimeNs,AllocBytes,PeakRamBytes";
+        String columns = "Size,IsRooted,Metric,Variant,PairIndex,Success,Distance,TotalTimeMs,NniTimeNs,Ecr2TimeNs,Ecr3TimeNs,SprTimeNs,TbrTimeNs,AllocBytes,PeakRamBytes";
+        if (ENABLE_LOGGING) {
+            return "# WARNING: NNI trajectory logging (ENABLE_LOGGING=true) was active during this benchmark run.\n"
+                    + "# Disk I/O, Newick serialization, and intermediate trajectory synthesis overhead significantly inflate TotalTimeMs and phase times!\n"
+                    + columns;
+        }
+        return columns;
     }
 
     @Override
