@@ -47,7 +47,7 @@ public class SprQualityVsTimeMacroBenchmark extends AbstractQualityMacroBenchmar
         new SprQualityVsTimeMacroBenchmark().runBenchmark(
                 args,
                 "SPR QUALITY VS TIME MACRO-BENCHMARK (100 TREE PAIRS)",
-                "benchmark_results_SPR",
+                "benchmark_quality_SPR",
                 new int[]{10, 20, 30, 50, 80, 120, 200}
         );
     }
