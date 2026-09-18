@@ -124,6 +124,9 @@ public abstract class EcrIncrementalHeuristic extends IncrementalHeuristicBaseMe
                     }
 
                     currentTree = applyPhysicalMove(currentTree, winningMove);
+                    if (currentTree instanceof pal.tree.SimpleTree) {
+                        ((pal.tree.SimpleTree) currentTree).createNodeList();
+                    }
                     this.improved = true;
                 }
             }
