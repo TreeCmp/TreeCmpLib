@@ -252,6 +252,11 @@ public class SubtreeEcr2Utils extends TreeNeighborhoodUtils {
             nM2.setChild(0, nS[template.indices[2]]); nS[template.indices[2]].setParent(nM2);
             nM2.setChild(1, nS[template.indices[3]]); nS[template.indices[3]].setParent(nM2);
         }
+
+        if (tree instanceof SimpleTree) {
+            ((SimpleTree) tree).createNodeList();
+        }
+
         return tree;
     }
 
