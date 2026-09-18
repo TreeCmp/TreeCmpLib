@@ -1,7 +1,6 @@
 package treecmp.metrics.topological.acc;
 
 import pal.tree.Node;
-import pal.tree.SimpleTree;
 import pal.tree.Tree;
 import treecmp.heuristics.tbr.TbrUtils;
 import treecmp.heuristics.tbr.acc.RootedTbrMetric;
@@ -13,7 +12,6 @@ public class RFClusterIncrementalMetric extends BaseRFIncrementalMetric
         implements RootedTbrMetric {
 
     private int N;
-    private final Map<Node, BitSet> initialClusters = new IdentityHashMap<>();
     private final Set<BitSet> initialClustersSet = new HashSet<>();
     private final Set<BitSet> finalClusters = new HashSet<>();
     private final Set<BitSet> removedClusters = new HashSet<>();
@@ -30,16 +28,21 @@ public class RFClusterIncrementalMetric extends BaseRFIncrementalMetric
     @Override
     public void initCalculationState(Tree baseTree, Tree targetTree) {
         super.initCalculationState(baseTree, targetTree);
-        this.baseTreeRef = baseTree;
-        this.targetTreeRef = targetTree;
         this.N = baseTree.getExternalNodeCount();
+        refreshInitialClustersSet();
+    }
 
-        this.initialClusters.clear();
+    @Override
+    public void commit() {
+        super.commit();
+        refreshInitialClustersSet();
+    }
+
+    private void refreshInitialClustersSet() {
         this.initialClustersSet.clear();
         for (Map.Entry<Node, BitSet> e : nodeBitSets.entrySet()) {
             BitSet bs = (BitSet) e.getValue().clone();
-            this.initialClusters.put(e.getKey(), bs);
-            if (bs.cardinality() > 1 && bs.cardinality() < N) {
+            if (isNonTrivial(bs.cardinality(), N)) {
                 this.initialClustersSet.add(bs);
             }
         }
@@ -48,19 +51,6 @@ public class RFClusterIncrementalMetric extends BaseRFIncrementalMetric
     @Override
     protected BitSet normalizeSplit(BitSet rawSplit) {
         return rawSplit;
-    }
-
-    @Override
-    public BitSet getCluster(Node n) {
-        if (n == null) return null;
-        BitSet bs = initialClusters.get(n);
-        if (bs != null) return bs;
-        if (n.isLeaf()) {
-            BitSet leafBs = new BitSet(N);
-            leafBs.set(n.getNumber());
-            return leafBs;
-        }
-        return super.getCluster(n);
     }
 
     private boolean isClusterShared(BitSet bs) {
@@ -170,7 +160,6 @@ public class RFClusterIncrementalMetric extends BaseRFIncrementalMetric
         addedClusters.clear();
 
         // --- A. DRZEWO T2 ---
-        // Stary rodzic pParent ulega kontrakcji
         if (pParent != root) {
             BitSet bsParent = getCluster(pParent);
             if (bsParent != null) removedClusters.add(bsParent);
@@ -178,7 +167,6 @@ public class RFClusterIncrementalMetric extends BaseRFIncrementalMetric
 
         Node lca = findLca(pParent, targetNode);
 
-        // Ścieżka od pParent w górę do LCA traci LP
         if (pParent != lca) {
             Node curr = pParent.getParent();
             while (curr != null && curr != lca) {
@@ -187,7 +175,7 @@ public class RFClusterIncrementalMetric extends BaseRFIncrementalMetric
                     removedClusters.add(oldC);
                     BitSet newC = (BitSet) oldC.clone();
                     newC.andNot(LP);
-                    if (newC.cardinality() > 1 && newC.cardinality() < N) {
+                    if (isNonTrivial(newC.cardinality(), N)) {
                         addedClusters.add(newC);
                     }
                 }
@@ -195,7 +183,6 @@ public class RFClusterIncrementalMetric extends BaseRFIncrementalMetric
             }
         }
 
-        // Ścieżka od targetNode w górę do LCA zyskuje LP
         if (targetNode != lca) {
             Node currT = targetNode.getParent();
             while (currT != null && currT != lca) {
@@ -204,7 +191,7 @@ public class RFClusterIncrementalMetric extends BaseRFIncrementalMetric
                     removedClusters.add(oldC);
                     BitSet newC = (BitSet) oldC.clone();
                     newC.or(LP);
-                    if (newC.cardinality() > 1 && newC.cardinality() < N) {
+                    if (isNonTrivial(newC.cardinality(), N)) {
                         addedClusters.add(newC);
                     }
                 }
@@ -212,15 +199,13 @@ public class RFClusterIncrementalMetric extends BaseRFIncrementalMetric
             }
         }
 
-        // KOREKTA: Jeśli targetNode jest przodkiem pParent (targetNode == lca),
-        // to sam targetNode również traci LP, ponieważ nowe wpięcie jest POWYŻEJ niego.
         if (targetNode == lca) {
             BitSet oldC = getCluster(targetNode);
             if (oldC != null) {
                 removedClusters.add(oldC);
                 BitSet newC = (BitSet) oldC.clone();
                 newC.andNot(LP);
-                if (newC.cardinality() > 1 && newC.cardinality() < N) {
+                if (isNonTrivial(newC.cardinality(), N)) {
                     addedClusters.add(newC);
                 }
             }
@@ -231,7 +216,7 @@ public class RFClusterIncrementalMetric extends BaseRFIncrementalMetric
             leavesT2.clear();
             leavesT2.set(0, N);
             leavesT2.andNot(LP);
-            if (leavesT2.cardinality() > 1 && leavesT2.cardinality() < N) {
+            if (isNonTrivial(leavesT2.cardinality(), N)) {
                 addedClusters.add((BitSet) leavesT2.clone());
             }
         } else {
@@ -239,7 +224,7 @@ public class RFClusterIncrementalMetric extends BaseRFIncrementalMetric
             if (targetBs != null) {
                 BitSet newW = (BitSet) targetBs.clone();
                 newW.or(LP);
-                if (newW.cardinality() > 1 && newW.cardinality() < N) {
+                if (isNonTrivial(newW.cardinality(), N)) {
                     addedClusters.add(newW);
                 }
             }
@@ -247,8 +232,6 @@ public class RFClusterIncrementalMetric extends BaseRFIncrementalMetric
 
         // --- B. DRZEWO T1 (Przekorzenienie na krawędź powyżej R) ---
         if (rerootNode != pruneNode) {
-            // R zachowuje swoje poddrzewo i klaster L(R).
-            // Tylko węzły ściśle pomiędzy R a P odwracają swoje klastry:
             Node childOnPath = rerootNode;
             Node currOnPath = rerootNode.getParent();
 
@@ -262,7 +245,7 @@ public class RFClusterIncrementalMetric extends BaseRFIncrementalMetric
                 if (childC != null) {
                     BitSet newC = (BitSet) LP.clone();
                     newC.andNot(childC);
-                    if (newC.cardinality() > 1 && newC.cardinality() < N) {
+                    if (isNonTrivial(newC.cardinality(), N)) {
                         addedClusters.add(newC);
                     }
                 }
