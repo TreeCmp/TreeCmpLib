@@ -9,11 +9,6 @@ import treecmp.metrics.topological.RFMetric;
 
 import java.util.*;
 
-/**
- * W pełni przyrostowa metryka Robinson-Foulds dla drzew NIEUKORZENIONYCH.
- * Oblicza dokładną zmianę liczby wspólnych podziałów (splitów) w czasie O(depth)
- * na maskach bitowych, całkowicie eliminując alokację drzew PAL.
- */
 public class RFIncrementalMetric extends BaseRFIncrementalMetric {
 
     private final RFMetric classicRf = new RFMetric();
@@ -21,7 +16,6 @@ public class RFIncrementalMetric extends BaseRFIncrementalMetric {
     private final UTbrUtils utbrUtils = new UTbrUtils();
 
     private int N;
-    private final Map<Node, BitSet> initialClusters = new IdentityHashMap<>();
     private final Set<BitSet> initialSplitsSet = new HashSet<>();
     private final Set<BitSet> finalSplits = new HashSet<>();
     private final Set<BitSet> removedSplits = new HashSet<>();
@@ -37,17 +31,28 @@ public class RFIncrementalMetric extends BaseRFIncrementalMetric {
         this.targetTreeRef = targetTree;
         this.N = baseTree.getExternalNodeCount();
 
-        this.initialClusters.clear();
+        refreshInitialSplitsSet();
+    }
+
+    @Override
+    public void commit() {
+        super.commit();
+        refreshInitialSplitsSet();
+    }
+
+    private void refreshInitialSplitsSet() {
         this.initialSplitsSet.clear();
         for (Map.Entry<Node, BitSet> e : nodeBitSets.entrySet()) {
             BitSet bs = (BitSet) e.getValue().clone();
-            this.initialClusters.put(e.getKey(), bs);
-
-            // Rejestrujemy tylko nietrywialne splity: 1 < cardinality < N-1
-            if (bs.cardinality() > 1 && bs.cardinality() < N - 1) {
+            if (isNonTrivial(bs.cardinality(), N)) {
                 this.initialSplitsSet.add(normalizeSplit(bs));
             }
         }
+    }
+
+    @Override
+    protected boolean isNonTrivial(int card, int total) {
+        return card > 1 && card < total - 1;
     }
 
     @Override
@@ -63,19 +68,6 @@ public class RFIncrementalMetric extends BaseRFIncrementalMetric {
 
     public BitSet getSplit(Node node) {
         return getCluster(node);
-    }
-
-    @Override
-    public BitSet getCluster(Node n) {
-        if (n == null) return null;
-        BitSet bs = initialClusters.get(n);
-        if (bs != null) return bs;
-        if (n.isLeaf()) {
-            BitSet leafBs = new BitSet(N);
-            leafBs.set(n.getNumber());
-            return leafBs;
-        }
-        return super.getCluster(n);
     }
 
     private Node findLca(Node a, Node b) {
@@ -178,8 +170,6 @@ public class RFIncrementalMetric extends BaseRFIncrementalMetric {
 
         // --- B. DRZEWO T1 (Przekorzenienie) ---
         if (rerootNode != pruneNode) {
-            // Węzeł R zachowuje swój oryginalny podział L(R).
-            // Wstawienie punktu wpięcia nad R tworzy tylko dodatkowy split LP \ L(R).
             BitSet rCluster = getCluster(rerootNode);
             if (rCluster != null) {
                 BitSet newR = (BitSet) LP.clone();
@@ -187,13 +177,11 @@ public class RFIncrementalMetric extends BaseRFIncrementalMetric {
                 addedSplits.add(normalizeSplit(newR));
             }
 
-            // Węzły na ścieżce ŚCIŚLE pomiędzy R a P odwracają swoją orientację
             Node currOnPath = rerootNode.getParent();
             while (currOnPath != null && currOnPath != pruneNode) {
                 BitSet oldC = getCluster(currOnPath);
                 if (oldC != null) {
                     removedSplits.add(normalizeSplit(oldC));
-
                     BitSet newC = (BitSet) LP.clone();
                     newC.andNot(oldC);
                     addedSplits.add(normalizeSplit(newC));
@@ -208,7 +196,7 @@ public class RFIncrementalMetric extends BaseRFIncrementalMetric {
         finalSplits.removeAll(removedSplits);
 
         for (BitSet bs : addedSplits) {
-            if (bs != null && bs.cardinality() > 1 && bs.cardinality() < N - 1) {
+            if (bs != null && isNonTrivial(bs.cardinality(), N)) {
                 finalSplits.add(bs);
             }
         }
@@ -241,7 +229,7 @@ public class RFIncrementalMetric extends BaseRFIncrementalMetric {
         if (isDescendant(currentNode, pruneNode)) {
             sharedSplitsHistory.push(sharedSplitsCount);
             movingNodeHistory.push(currentNode);
-            activeSplitHistory.push(getCluster(currentNode));
+            activeSplitHistory.push(activeVirtualSplits.get(currentNode));
         } else {
             super.applySprRegraftStep(pruneNode, currentNode);
         }
