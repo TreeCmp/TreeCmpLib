@@ -33,6 +33,10 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
 
     protected abstract BitSet normalizeSplit(BitSet rawSplit);
 
+    protected boolean isNonTrivial(int card, int total) {
+        return card > 1 && card < total;
+    }
+
     protected Tree baseTreeRef;
     protected Tree targetTreeRef;
     private final treecmp.heuristics.tbr.TbrUtils tbrUtilsHelper = new treecmp.heuristics.tbr.TbrUtils();
@@ -79,12 +83,13 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
         movingNodeHistory.push(nodeToUpdate);
         operationNodeCountHistory.push(1);
 
-        BitSet oldBS = activeVirtualSplits.getOrDefault(nodeToUpdate, nodeBitSets.get(nodeToUpdate));
-        activeSplitHistory.push(oldBS);
+        BitSet oldBSInVirtual = activeVirtualSplits.get(nodeToUpdate);
+        activeSplitHistory.push(oldBSInVirtual);
 
-        if (isShared(oldBS)) sharedSplitsCount--;
+        BitSet currentBS = (oldBSInVirtual != null) ? oldBSInVirtual : nodeBitSets.get(nodeToUpdate);
+        if (isShared(currentBS)) sharedSplitsCount--;
 
-        BitSet newBS = (BitSet) oldBS.clone();
+        BitSet newBS = (BitSet) currentBS.clone();
         if (bitsOut != null) newBS.andNot(bitsOut);
         if (bitsIn != null) newBS.or(bitsIn);
 
@@ -117,8 +122,8 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
     @Override
     public double applyNni(NniMove move) {
         Node nodeToUpdate = move.movingSubtree.getParent();
-        BitSet bitsOut = activeVirtualSplits.getOrDefault(move.movingSubtree, nodeBitSets.get(move.movingSubtree));
-        BitSet bitsIn = activeVirtualSplits.getOrDefault(move.swapPartner, nodeBitSets.get(move.swapPartner));
+        BitSet bitsOut = getCluster(move.movingSubtree);
+        BitSet bitsIn = getCluster(move.swapPartner);
         return applyNniStep(nodeToUpdate, bitsOut, bitsIn);
     }
 
@@ -132,12 +137,13 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
         movingNodeHistory.push(node);
         operationNodeCountHistory.push(1);
 
-        BitSet oldBS = activeVirtualSplits.getOrDefault(node, nodeBitSets.get(node));
-        activeSplitHistory.push(oldBS);
+        BitSet oldBSInVirtual = activeVirtualSplits.get(node);
+        activeSplitHistory.push(oldBSInVirtual);
 
-        if (isShared(oldBS)) sharedSplitsCount--;
+        BitSet currentBS = (oldBSInVirtual != null) ? oldBSInVirtual : nodeBitSets.get(node);
+        if (isShared(currentBS)) sharedSplitsCount--;
 
-        BitSet newBS = (BitSet) oldBS.clone();
+        BitSet newBS = (BitSet) currentBS.clone();
         if (add) newBS.or(bitsToApply); else newBS.andNot(bitsToApply);
 
         activeVirtualSplits.put(node, newBS);
@@ -195,7 +201,7 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
         BitSet norm = normalizeSplit((BitSet) bs.clone());
         int card = norm.cardinality();
         int total = allLeavesMask.cardinality();
-        if (card > 1 && card < total) {
+        if (isNonTrivial(card, total)) {
             return targetSplits.contains(norm);
         }
         return false;
@@ -247,7 +253,7 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
             int card = normalized.cardinality();
             int total = allLeavesMask.cardinality();
 
-            if (card > 1 && card < total) {
+            if (isNonTrivial(card, total)) {
                 store.add(normalized);
             }
         }
@@ -306,7 +312,7 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
     }
 
     // ==========================================
-    // IMPLEMENTACJA INTERFEJSU 2-sECR (Wielowęzłowy Undo)
+    // IMPLEMENTACJA 2-sECR
     // ==========================================
 
     @Override
@@ -318,22 +324,11 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
 
     @Override
     public double commit2sEcrMove(Node top, Node m1, Node m2, Node[] boundarySubtrees, treecmp.heuristics.ecr.SubtreeEcr2Utils.TopologyTemplate2sECR newTopology) {
-        sharedSplitsHistory.push(sharedSplitsCount);
-        movingNodeHistory.push(top); activeSplitHistory.push(getCluster(top));
-        movingNodeHistory.push(m1);  activeSplitHistory.push(getCluster(m1));
-        movingNodeHistory.push(m2);  activeSplitHistory.push(getCluster(m2));
-        operationNodeCountHistory.push(3);
-
-        if (isShared(getCluster(top))) this.sharedSplitsCount--;
-        if (isShared(getCluster(m1)))  this.sharedSplitsCount--;
-        if (isShared(getCluster(m2)))  this.sharedSplitsCount--;
-
         BitSet[] sBits = new BitSet[4];
         for (int i = 0; i < 4; i++) sBits[i] = getCluster(boundarySubtrees[i]);
 
         BitSet newM1 = new BitSet();
         BitSet newM2 = new BitSet();
-        BitSet newTop = new BitSet();
 
         if (newTopology.isFork) {
             newM1.or(sBits[newTopology.indices[0]]);
@@ -341,26 +336,33 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
 
             newM2.or(sBits[newTopology.indices[2]]);
             newM2.or(sBits[newTopology.indices[3]]);
-
-            newTop.or(newM1);
-            newTop.or(newM2);
         } else {
             newM2.or(sBits[newTopology.indices[2]]);
             newM2.or(sBits[newTopology.indices[3]]);
 
             newM1.or(sBits[newTopology.indices[1]]);
             newM1.or(newM2);
-
-            newTop.or(sBits[newTopology.indices[0]]);
-            newTop.or(newM1);
         }
 
-        if (isShared(newTop)) this.sharedSplitsCount++;
-        if (isShared(newM1))  this.sharedSplitsCount++;
-        if (isShared(newM2))  this.sharedSplitsCount++;
+        sharedSplitsHistory.push(sharedSplitsCount);
+        operationNodeCountHistory.push(2);
 
-        activeVirtualSplits.put(top, newTop);
+        // Modyfikacja m1
+        BitSet oldM1InVirtual = activeVirtualSplits.get(m1);
+        movingNodeHistory.push(m1);
+        activeSplitHistory.push(oldM1InVirtual);
+        BitSet currentM1 = (oldM1InVirtual != null) ? oldM1InVirtual : nodeBitSets.get(m1);
+        if (isShared(currentM1)) this.sharedSplitsCount--;
+        if (isShared(newM1)) this.sharedSplitsCount++;
         activeVirtualSplits.put(m1, newM1);
+
+        // Modyfikacja m2
+        BitSet oldM2InVirtual = activeVirtualSplits.get(m2);
+        movingNodeHistory.push(m2);
+        activeSplitHistory.push(oldM2InVirtual);
+        BitSet currentM2 = (oldM2InVirtual != null) ? oldM2InVirtual : nodeBitSets.get(m2);
+        if (isShared(currentM2)) this.sharedSplitsCount--;
+        if (isShared(newM2)) this.sharedSplitsCount++;
         activeVirtualSplits.put(m2, newM2);
 
         updateCurrentDistance();
@@ -368,7 +370,7 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
     }
 
     // ==========================================
-    // IMPLEMENTACJA INTERFEJSU 3-sECR (Wielowęzłowy Undo)
+    // IMPLEMENTACJA 3-sECR (ŚCISŁY PORZĄDEK DFS ZGODNY Z BIND PHYSICAL)
     // ==========================================
 
     @Override
@@ -380,56 +382,66 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
 
     @Override
     public double commit3sEcrMove(List<Node> cluster, Node[] boundarySubtrees, treecmp.heuristics.ecr.SubtreeEcr3Utils.TopologyTemplate3sECR newTopology) {
-        sharedSplitsHistory.push(sharedSplitsCount);
-        for (Node n : cluster) {
-            movingNodeHistory.push(n);
-            activeSplitHistory.push(getCluster(n));
-            if (isShared(getCluster(n))) this.sharedSplitsCount--;
-        }
-        operationNodeCountHistory.push(cluster.size());
-
         BitSet[] sBits = new BitSet[5];
         for (int i = 0; i < 5; i++) sBits[i] = getCluster(boundarySubtrees[i]);
 
-        List<BitSet> newBitSets = new ArrayList<>(cluster.size());
-        buildAndReturn3sEcrClusters(newTopology, sBits, newBitSets);
+        Node[] available = cluster.toArray(new Node[0]);
+        int[] idxArr = {1};
+        Map<Node, BitSet> newClusters = new LinkedHashMap<>();
+        compute3sEcrTemplateBits(newTopology, available[0], available, idxArr, sBits, newClusters);
 
-        for (int i = 0; i < cluster.size(); i++) {
-            Node n = cluster.get(i);
-            BitSet bs = newBitSets.get(i);
-            activeVirtualSplits.put(n, bs);
-            if (isShared(bs)) this.sharedSplitsCount++;
+        sharedSplitsHistory.push(sharedSplitsCount);
+        operationNodeCountHistory.push(newClusters.size());
+
+        for (Map.Entry<Node, BitSet> entry : newClusters.entrySet()) {
+            Node n = entry.getKey();
+            BitSet oldBSInVirtual = activeVirtualSplits.get(n);
+            movingNodeHistory.push(n);
+            activeSplitHistory.push(oldBSInVirtual);
+
+            BitSet currentBS = (oldBSInVirtual != null) ? oldBSInVirtual : nodeBitSets.get(n);
+            if (isShared(currentBS)) this.sharedSplitsCount--;
+
+            BitSet newBS = entry.getValue();
+            if (isShared(newBS)) this.sharedSplitsCount++;
+            activeVirtualSplits.put(n, newBS);
         }
 
         updateCurrentDistance();
         return this.currentDistance;
     }
 
-    private void buildAndReturn3sEcrClusters(treecmp.heuristics.ecr.SubtreeEcr3Utils.TopologyTemplate3sECR temp, BitSet[] sBits, List<BitSet> collection) {
-        BitSet bs = new BitSet();
-        if (temp.leafIndex != -1) {
-            bs.or(sBits[temp.leafIndex]);
+    private BitSet compute3sEcrTemplateBits(treecmp.heuristics.ecr.SubtreeEcr3Utils.TopologyTemplate3sECR temp,
+                                            Node currentInternal,
+                                            Node[] available,
+                                            int[] idxArr,
+                                            BitSet[] sBits,
+                                            Map<Node, BitSet> updates) {
+        BitSet leftBits;
+        if (temp.left.leafIndex != -1) {
+            leftBits = sBits[temp.left.leafIndex];
         } else {
-            BitSet left = computeTemplateBits(temp.left, sBits, collection);
-            BitSet right = computeTemplateBits(temp.right, sBits, collection);
-            bs.or(left);
-            bs.or(right);
-            collection.add((BitSet) bs.clone());
+            Node nextInternal = available[idxArr[0]++];
+            leftBits = compute3sEcrTemplateBits(temp.left, nextInternal, available, idxArr, sBits, updates);
         }
-    }
 
-    private BitSet computeTemplateBits(treecmp.heuristics.ecr.SubtreeEcr3Utils.TopologyTemplate3sECR temp, BitSet[] sBits, List<BitSet> collection) {
-        BitSet bs = new BitSet();
-        if (temp.leafIndex != -1) {
-            bs.or(sBits[temp.leafIndex]);
+        BitSet rightBits;
+        if (temp.right.leafIndex != -1) {
+            rightBits = sBits[temp.right.leafIndex];
         } else {
-            BitSet left = computeTemplateBits(temp.left, sBits, collection);
-            BitSet right = computeTemplateBits(temp.right, sBits, collection);
-            bs.or(left);
-            bs.or(right);
-            collection.add((BitSet) bs.clone());
+            Node nextInternal = available[idxArr[0]++];
+            rightBits = compute3sEcrTemplateBits(temp.right, nextInternal, available, idxArr, sBits, updates);
         }
-        return bs;
+
+        BitSet myBits = new BitSet();
+        if (leftBits != null) myBits.or(leftBits);
+        if (rightBits != null) myBits.or(rightBits);
+
+        if (currentInternal != available[0]) {
+            updates.put(currentInternal, myBits);
+        }
+
+        return myBits;
     }
 
     // ==========================================
