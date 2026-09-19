@@ -5,14 +5,14 @@ import pal.tree.Tree;
 import treecmp.heuristics.tbr.UTbrUtils;
 import treecmp.metrics.IncrementalMetric;
 import treecmp.metrics.topological.acc.M3IncrementalMetric;
+import treecmp.metrics.topological.acc.MSIncrementalMetric;
 import treecmp.metrics.topological.acc.RFIncrementalMetric;
 
 import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Zoptymalizowany, przyrostowy Walker dla otoczenia uTBR (Unrooted TBR).
- * Obsługuje szybką 2D-DFS dla MS/MC/MP, a dla M3 i RF omija obciążającą pamięć Refleksję.
+ * Zoptymalizowany Walker dla otoczenia uTBR (Unrooted TBR).
  */
 public class UtbrNeighborhoodWalker {
 
@@ -27,13 +27,12 @@ public class UtbrNeighborhoodWalker {
     private final List<Node> targetNodesBuf = new ArrayList<>();
 
     public void walk(Tree baseTree, IncrementalMetric metric, UtbrVisitor visitor) {
-        // MS, MC, MP używają błyskawicznego 2D-DFS
-        if (metric instanceof RootedTbrMetric && !(metric instanceof M3IncrementalMetric)) {
+        // MS, M3 oraz RF korzystają ze ścisłej, zoptymalizowanej wyceny wskaźnikowej
+        if (metric instanceof RootedTbrMetric && !(metric instanceof M3IncrementalMetric) && !(metric instanceof MSIncrementalMetric)) {
             walkFast2dDfs(baseTree, (RootedTbrMetric) metric, visitor);
             return;
         }
 
-        // RF oraz M3 korzystają ze zoptymalizowanej wyceny wskaźnikowej
         walkFallback(baseTree, metric, visitor);
     }
 
@@ -120,6 +119,8 @@ public class UtbrNeighborhoodWalker {
                             dist = ((RFIncrementalMetric) metric).evaluateExactUTbrDistance(pruneNode, rerootNode, targetNode, null);
                         } else if (metric instanceof M3IncrementalMetric) {
                             dist = ((M3IncrementalMetric) metric).evaluateExactUTbrDistance(pruneNode, rerootNode, targetNode, null);
+                        } else if (metric instanceof MSIncrementalMetric) {
+                            dist = ((MSIncrementalMetric) metric).evaluateExactUTbrDistance(pruneNode, rerootNode, targetNode, null);
                         } else {
                             dist = metric.getCurrentDistance();
                         }
