@@ -6,6 +6,7 @@ import pal.tree.SimpleTree;
 import pal.tree.Tree;
 import pal.tree.TreeUtils;
 import treecmp.heuristics.TreeNeighborhoodUtils;
+import treecmp.heuristics.moves.TbrMove;
 import treecmp.heuristics.spr.SprTopologyGuard;
 import treecmp.heuristics.spr.UsprUtils;
 
@@ -46,13 +47,12 @@ public class UTbrUtils extends TreeNeighborhoodUtils {
         }
 
         if (resultTree != null) {
-            // fastUnrootIfNeeded jest dziedziczone statycznie z TreeNeighborhoodUtils
             if (resultTree.getRoot().getChildCount() == 2) {
                 resultTree = fastUnrootIfNeeded(resultTree);
-                if (resultTree instanceof SimpleTree) {
-                    TreeUtils.computeParentPointers(resultTree.getRoot());
-                    ((SimpleTree) resultTree).createNodeList();
-                }
+            }
+            if (resultTree instanceof SimpleTree) {
+                TreeUtils.computeParentPointers(resultTree.getRoot());
+                ((SimpleTree) resultTree).createNodeList();
             }
 
             if (resultTree == null || resultTree.getRoot().getChildCount() < 3) {
@@ -102,6 +102,9 @@ public class UTbrUtils extends TreeNeighborhoodUtils {
                         if (resultTree != null) {
                             CanonicalTopologyKey key = buildCanonicalKey(resultTree, idGroup, numLeaves);
                             if (seenTopologies.add(key)) {
+                                TbrMove move = new TbrMove(pruneNode, rerootNode, targetNode);
+                                registerTreeCost(resultTree, move.getNniEquivalentCost());
+                                registerTreeMove(resultTree, move);
                                 action.accept(resultTree);
                             }
                         }

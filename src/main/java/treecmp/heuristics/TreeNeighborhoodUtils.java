@@ -46,6 +46,7 @@ public abstract class TreeNeighborhoodUtils {
     // ==========================================
 
     public boolean isValidTbrMove(Node pruneNode, Node rerootNode, Node targetNode) {
+        if (targetNode == null || pruneNode == null || rerootNode == null) return false;
         if (pruneNode == rerootNode) {
             return isValidSprMove(pruneNode, targetNode);
         }
@@ -55,14 +56,14 @@ public abstract class TreeNeighborhoodUtils {
             if (curr == pruneNode) return false;
             curr = curr.getParent();
         }
-        if (targetNode.isRoot() && pruneNode.getParent().isRoot()) return false;
+        if (targetNode.isRoot() && pruneNode.getParent() != null && pruneNode.getParent().isRoot()) return false;
         return true;
     }
 
     public boolean isValidUTbrMove(Node pruneNode, Node rerootNode, Node targetNode) {
         if (targetNode == null || pruneNode == null || rerootNode == null) return false;
 
-        if (targetNode.isRoot() && pruneNode.getParent().isRoot()) return false;
+        if (targetNode.isRoot() && pruneNode.getParent() != null && pruneNode.getParent().isRoot()) return false;
         if (targetNode == pruneNode.getParent()) return false;
 
         Node curr = targetNode;
@@ -80,16 +81,16 @@ public abstract class TreeNeighborhoodUtils {
     }
 
     public Tree createTbrTree(Tree baseTree, Node s, Node r, Node t) {
-        // Zastąpiono wolne getCopy() szybkim klonowaniem wskaźnikowym
         Tree resultTree = fastTreeClone(baseTree);
 
-        Node source = findNodeEquivalent(resultTree, s);
-        Node reroot = findNodeEquivalent(resultTree, r);
-        Node target = findNodeEquivalent(resultTree, t);
+        Node source = findNodeEquivalent(baseTree, resultTree, s);
+        Node reroot = findNodeEquivalent(baseTree, resultTree, r);
+        Node target = findNodeEquivalent(baseTree, resultTree, t);
 
         if (source == null || reroot == null || target == null) return null;
 
         Node sourceParent = source.getParent();
+        if (sourceParent == null) return null;
         boolean isSourceParentRoot = sourceParent.isRoot();
         Node provisionalRoot = resultTree.getRoot();
         Node newNode = new SimpleNode();
@@ -176,6 +177,11 @@ public abstract class TreeNeighborhoodUtils {
         return resultTree;
     }
 
+    public Tree createSprTree(Tree baseTree, Node s, Node t) {
+        // Bezpieczna realizacja SPR jako TBR bez przekorzenienia
+        return createTbrTree(baseTree, s, s, t);
+    }
+
     private boolean isNodeInSubtree(Node target, Node root) {
         Node curr = target;
         while (curr != null) {
@@ -229,30 +235,28 @@ public abstract class TreeNeighborhoodUtils {
         return newRoot;
     }
 
-    protected Node findNodeEquivalent(Tree newTree, Node oldNode) {
+    protected Node findNodeEquivalent(Tree baseTree, Tree newTree, Node oldNode) {
         if (oldNode == null) return null;
-        if (oldNode.isLeaf()) {
-            int num = oldNode.getNumber();
-            if (num >= 0 && num < newTree.getExternalNodeCount()) {
-                Node candidate = newTree.getExternalNode(num);
-                if (oldNode.getIdentifier() != null && candidate.getIdentifier() != null &&
-                        oldNode.getIdentifier().getName().equals(candidate.getIdentifier().getName())) {
-                    return candidate;
-                }
-            }
-            return TreeUtils.getNodeByName(newTree, oldNode.getIdentifier().getName());
-        } else {
-            int num = oldNode.getNumber();
-            if (num >= 0 && num < newTree.getInternalNodeCount()) {
-                return newTree.getInternalNode(num);
-            }
-            for (int i = 0; i < newTree.getInternalNodeCount(); i++) {
-                if (newTree.getInternalNode(i).getNumber() == num) {
-                    return newTree.getInternalNode(i);
-                }
-            }
-            return null;
+        if (oldNode.isLeaf() && oldNode.getIdentifier() != null) {
+            Node n = TreeUtils.getNodeByName(newTree, oldNode.getIdentifier().getName());
+            if (n != null) return n;
         }
+        if (baseTree != null) {
+            List<Integer> path = new ArrayList<>();
+            if (getPathToNode(baseTree.getRoot(), oldNode, path)) {
+                Node n = findNodeByPath(newTree.getRoot(), path);
+                if (n != null) return n;
+            }
+        }
+        int num = oldNode.getNumber();
+        if (num >= 0 && num < newTree.getInternalNodeCount()) {
+            return newTree.getInternalNode(num);
+        }
+        return null;
+    }
+
+    protected Node findNodeEquivalent(Tree newTree, Node oldNode) {
+        return findNodeEquivalent(null, newTree, oldNode);
     }
 
     public List<Node> getAllNodes(Tree tree) {
@@ -273,10 +277,6 @@ public abstract class TreeNeighborhoodUtils {
         collectNodes(root, list);
         return list;
     }
-
-    // ==========================================
-    // METODY DLA SPR I UTILITIES
-    // ==========================================
 
     public TreeValuePair findBestNeighbour(Tree tree, BestTreeChooser btc, double neighSizeFrac, double inputTreeValue) throws TreeCmpException {
         int extNum = tree.getExternalNodeCount();
@@ -504,65 +504,6 @@ public abstract class TreeNeighborhoodUtils {
     public int calcUsprNeighbours(Tree baseTree) {
         int n = baseTree.getExternalNodeCount();
         return 2 * (n - 3) * (2 * n - 7);
-    }
-
-    public Tree createSprTree(Tree baseTree, Node s, Node t) {
-        Tree resultTree = fastTreeClone(baseTree);
-        Node resultRoot = resultTree.getRoot();
-        int sourceNum = s.getNumber();
-        int targetNum = t.getNumber();
-
-        Node source, target;
-        if (s.isLeaf()) {
-            source = resultTree.getExternalNode(sourceNum);
-        } else {
-            source = resultTree.getInternalNode(sourceNum);
-        }
-
-        if (t.isLeaf()) {
-            target = resultTree.getExternalNode(targetNum);
-        } else {
-            target = resultTree.getInternalNode(targetNum);
-        }
-
-        Node sourceParent = source.getParent();
-        Node targetParent = target.getParent();
-        boolean isTargetRoot = target.isRoot();
-        boolean isSourceParentRoot = sourceParent.isRoot();
-
-        if (isTargetRoot && isSourceParentRoot) return null;
-
-        Node otherSourceChild = findOtherChild(source, sourceParent);
-        Node sourceParent2 = null;
-        int sourceParentPos = -1;
-        if (!isSourceParentRoot) {
-            sourceParent2 = sourceParent.getParent();
-            sourceParentPos = findChildPos(sourceParent, sourceParent2);
-        }
-
-        Node newNode = new SimpleNode();
-        if (!isTargetRoot) {
-            int targetPos = findChildPos(target, targetParent);
-            targetParent.setChild(targetPos, newNode);
-        }
-
-        if (!isSourceParentRoot) {
-            sourceParent2.setChild(sourceParentPos, otherSourceChild);
-        }
-        newNode.addChild(target);
-        newNode.addChild(source);
-
-        if (isTargetRoot) {
-            newNode.setParent(null);
-            resultTree.setRoot(newNode);
-        } else if (isSourceParentRoot) {
-            otherSourceChild.setParent(null);
-            resultTree.setRoot(otherSourceChild);
-        } else {
-            resultRoot.setParent(null);
-            resultTree.setRoot(resultRoot);
-        }
-        return resultTree;
     }
 
     public Tree createUsprTree(Tree baseTree, Node s, Node t) {
