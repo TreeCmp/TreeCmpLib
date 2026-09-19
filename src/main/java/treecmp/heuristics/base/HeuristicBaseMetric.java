@@ -9,7 +9,9 @@ import java.util.logging.Logger;
 
 import pal.io.InputSource;
 import pal.tree.ReadTree;
+import pal.tree.SimpleTree;
 import pal.tree.TreeParseException;
+import pal.tree.TreeUtils;
 import treecmp.common.TreeCmpException;
 import treecmp.heuristics.TreeNeighborhoodUtils;
 import treecmp.heuristics.moves.TreeMove;
@@ -22,7 +24,7 @@ public abstract class HeuristicBaseMetric extends BaseMetric implements Metric {
     protected boolean reduceCommonBinarySubtreesTrees = false;
     protected Tree lastOptimumTree;
     protected double accumulatedNniCost = 0.0;
-    protected int accumulatedSteps = 0; // NOWOŚĆ: Natywny licznik kroków heurystyki
+    protected int accumulatedSteps = 0;
     protected List<Tree> fullOptimumTrajectory = new ArrayList<>();
 
     public Tree getLastOptimumTree() {
@@ -30,11 +32,11 @@ public abstract class HeuristicBaseMetric extends BaseMetric implements Metric {
     }
 
     public double getAccumulatedNniCost() {
-        return this.accumulatedNniCost; // Dla VND: ekwiwalent NNI
+        return this.accumulatedNniCost;
     }
 
     public int getAccumulatedSteps() {
-        return this.accumulatedSteps; // Dla ECR/SPR: natywna liczba kroków
+        return this.accumulatedSteps;
     }
 
     protected HeuristicBaseMetric(boolean rooted) {
@@ -64,31 +66,28 @@ public abstract class HeuristicBaseMetric extends BaseMetric implements Metric {
     @Override
     public double getDistance(Tree tree1, Tree tree2, int... indexes) {
         double finalMetricDist = performLocalDescent(tree1, tree2);
-
-
         if (finalMetricDist == 0.0) {
-            // NOWOŚĆ: Autonomiczne wywołanie zwraca natywną liczbę kroków
             return (double) this.accumulatedSteps;
         }
         return Double.POSITIVE_INFINITY;
     }
+
     public double performLocalDescent(Tree startTree, Tree targetTree) {
         Metric primary = getPrimaryMetric();
         Metric secondary = getMetric();
         TreeNeighborhoodUtils tnu = getTreeNeighborhoodUtils();
 
-        // NOWOŚĆ: Resetujemy waluty i czyścimy historię trajektorii przed startem
         this.accumulatedNniCost = 0.0;
         this.accumulatedSteps = 0;
         this.fullOptimumTrajectory.clear();
 
-        Tree currentStepTree = startTree;
+        Tree currentStepTree = ensureIndexedSimpleTree(startTree);
         Tree targetStepTree = targetTree;
 
         try {
             if (reduceCommonBinarySubtreesTrees) {
-                Tree[] reducedTrees = SubtreeUtils.reduceCommonBinarySubtreesEx(startTree, targetTree, null);
-                currentStepTree = reducedTrees[0];
+                Tree[] reducedTrees = SubtreeUtils.reduceCommonBinarySubtreesEx(currentStepTree, targetStepTree, null);
+                currentStepTree = ensureIndexedSimpleTree(reducedTrees[0]);
                 targetStepTree = reducedTrees[1];
             }
 
@@ -126,7 +125,6 @@ public abstract class HeuristicBaseMetric extends BaseMetric implements Metric {
                 double bestDist = bestDistHolder[0];
                 Tree bestTree = null;
 
-                // NOWOŚĆ: Ręczne rozstrzyganie remisów z kryterium kosztu NNI
                 if (!bestTreeList.isEmpty()) {
                     double bestSecDist = Double.POSITIVE_INFINITY;
                     double bestNniCost = Double.POSITIVE_INFINITY;
@@ -141,14 +139,11 @@ public abstract class HeuristicBaseMetric extends BaseMetric implements Metric {
 
                         double nniCost = tnu.getTreeCost(candidate);
 
-                        // 1. Zwycięża lepszy wynik metryki drugorzędnej (z tolerancją błędów zmiennoprzecinkowych)
                         if (secDist < bestSecDist - 1e-9) {
                             bestSecDist = secDist;
                             bestNniCost = nniCost;
                             bestTree = candidate;
-                        }
-                        // 2. KRYTERIUM NNI: Remis w metryce drugorzędnej -> wygrywa ruch wymagający mniejszej liczby podstawowych rotacji
-                        else if (Math.abs(secDist - bestSecDist) <= 1e-9 && nniCost < bestNniCost) {
+                        } else if (Math.abs(secDist - bestSecDist) <= 1e-9 && nniCost < bestNniCost) {
                             bestNniCost = nniCost;
                             bestTree = candidate;
                         }
@@ -174,11 +169,9 @@ public abstract class HeuristicBaseMetric extends BaseMetric implements Metric {
 
                 currentBestDist = bestDist;
 
-                // Podwójna księgowość (NNI dla VND, natywne kroki dla heurystyki)
                 this.accumulatedNniCost += tnu.getTreeCost(bestTree);
                 this.accumulatedSteps++;
 
-                // NOWOŚĆ: Generujemy mikrokroki NNI dla BIEŻĄCEJ mutacji i dołączamy do pełnej trajektorii
                 TreeMove move = tnu.getMoveForTree(bestTree);
                 if (move != null) {
                     try {
@@ -197,7 +190,7 @@ public abstract class HeuristicBaseMetric extends BaseMetric implements Metric {
 
                 String bestTreeString = bestTree.toString();
                 try (InputSource is = InputSource.openString(bestTreeString)) {
-                    currentStepTree = new ReadTree(is);
+                    currentStepTree = ensureIndexedSimpleTree(new ReadTree(is));
                 }
 
             } while (currentBestDist > 0);
@@ -211,6 +204,14 @@ public abstract class HeuristicBaseMetric extends BaseMetric implements Metric {
 
         this.lastOptimumTree = currentStepTree;
         return Double.POSITIVE_INFINITY;
+    }
+
+    private Tree ensureIndexedSimpleTree(Tree tree) {
+        if (tree == null) return null;
+        SimpleTree st = (tree instanceof SimpleTree) ? (SimpleTree) tree : new SimpleTree(tree);
+        st.createNodeList();
+        TreeUtils.computeParentPointers(st.getRoot());
+        return st;
     }
 
     protected Tree findBestTree(List<Tree> treeList, Tree t2, Metric secondary) throws TreeCmpException {

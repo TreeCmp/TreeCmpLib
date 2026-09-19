@@ -9,6 +9,8 @@ import treecmp.heuristics.moves.TreeMove;
 import treecmp.heuristics.tbr.UTbrUtils;
 import treecmp.metrics.IncrementalMetric;
 
+import java.util.List;
+
 /**
  * Uniwersalna, akcelerowana heurystyka (Steepest Descent) dla otoczenia uTBR.
  * Dedykowana dla drzew nieukorzenionych. Obsługuje tryb Pure oraz Tie-breaker.
@@ -79,6 +81,7 @@ public class UtbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
         this.improved = true;
         this.accumulatedNniCost = 0.0;
         this.utbrStepsCount = 0;
+        this.fullOptimumTrajectory.clear(); // Wyczyszczenie bufora trajektorii NNI na starcie
         IncrementalMetric activeMetric = primaryMetric != null ? primaryMetric : this.incMetric;
 
         activeMetric.initCalculationState(currentTree, targetTree);
@@ -152,22 +155,37 @@ public class UtbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
                 }
 
                 if (bestMove != null) {
-                    this.accumulatedNniCost += bestMove.getNniEquivalentCost();
-                    this.utbrStepsCount++;
+                    Tree nextTree = applyPhysicalMove(currentTree, bestMove);
+                    if (nextTree == null || nextTree == currentTree) {
+                        break;
+                    }
 
-                    this.lastOptimumMove = bestMove;
-                    this.lastMoveBaseTree = currentTree;
-                    currentTree = applyPhysicalMove(currentTree, bestMove);
-
-                    TreeUtils.computeParentPointers(currentTree.getRoot());
-                    activeMetric.initCalculationState(currentTree, targetTree);
+                    TreeUtils.computeParentPointers(nextTree.getRoot());
+                    activeMetric.initCalculationState(nextTree, targetTree);
                     double newDist = activeMetric.getCurrentDistance();
 
+                    // Bezpiecznik leksykograficzny: odrzucenie ruchu przed modyfikacją stanu
                     if (newDist > currentDist - 1e-9) {
                         if (this.primaryMetric == null || nextSecDist >= currentSecDist - 1e-9) {
                             break;
                         }
                     }
+
+                    try {
+                        List<Tree> stepTraj = bestMove.getNniTrajectory(currentTree);
+                        if (stepTraj != null && !stepTraj.isEmpty()) {
+                            this.fullOptimumTrajectory.addAll(stepTraj);
+                        }
+                    } catch (Exception e) {
+                        // Bezpieczny fallback
+                    }
+
+                    this.accumulatedNniCost += bestMove.getNniEquivalentCost();
+                    this.utbrStepsCount++;
+
+                    this.lastOptimumMove = bestMove;
+                    this.lastMoveBaseTree = currentTree;
+                    currentTree = nextTree;
 
                     currentDist = newDist;
                     currentSecDist = nextSecDist;

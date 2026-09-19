@@ -10,31 +10,33 @@ import treecmp.heuristics.tbr.TbrUtils;
 import treecmp.metrics.IncrementalMetric;
 import treecmp.metrics.topological.acc.RFClusterIncrementalMetric;
 
+import java.util.List;
+
 /**
  * Uniwersalna, akcelerowana heurystyka (Steepest Descent) dla otoczenia rTBR.
  * Obsługuje warianty Pure oraz dwuetapowy filtr (Tie-breaker z primaryMetric).
  */
 public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
 
-        private final TbrNeighborhoodWalker classicWalker;
-        private final IncrementalTbrWalker incrementalWalker;
-        private final String metricShortName;
-        private final IncrementalMetric primaryMetric;
-        private final TbrUtils tbrUtils;
-        private int tbrStepsCount = 0;
+    private final TbrNeighborhoodWalker classicWalker;
+    private final IncrementalTbrWalker incrementalWalker;
+    private final String metricShortName;
+    private final IncrementalMetric primaryMetric;
+    private final TbrUtils tbrUtils;
+    private int tbrStepsCount = 0;
 
-        public TbrIncrementalHeuristic(IncrementalMetric metric, String metricShortName) {
-            this(metric, null, metricShortName);
-        }
+    public TbrIncrementalHeuristic(IncrementalMetric metric, String metricShortName) {
+        this(metric, null, metricShortName);
+    }
 
-        public TbrIncrementalHeuristic(IncrementalMetric metric, IncrementalMetric primaryMetric, String metricShortName) {
-            super(true, metric);
-            this.primaryMetric = primaryMetric;
-            this.metricShortName = metricShortName;
-            this.classicWalker = new TbrNeighborhoodWalker();
-            this.incrementalWalker = new IncrementalTbrWalker();
-            this.tbrUtils = new TbrUtils();
-        }
+    public TbrIncrementalHeuristic(IncrementalMetric metric, IncrementalMetric primaryMetric, String metricShortName) {
+        super(true, metric);
+        this.primaryMetric = primaryMetric;
+        this.metricShortName = metricShortName;
+        this.classicWalker = new TbrNeighborhoodWalker();
+        this.incrementalWalker = new IncrementalTbrWalker();
+        this.tbrUtils = new TbrUtils();
+    }
 
     @Override
     protected void searchNeighborhood(Tree currentTree) {
@@ -93,6 +95,7 @@ public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
         this.improved = true;
         this.accumulatedNniCost = 0.0;
         this.tbrStepsCount = 0;
+        this.fullOptimumTrajectory.clear(); // Wyczyszczenie bufora trajektorii NNI na starcie
         IncrementalMetric activeMetric = this.primaryMetric != null ? this.primaryMetric : this.incMetric;
 
         activeMetric.initCalculationState(currentTree, targetTree);
@@ -177,23 +180,32 @@ public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
                         break;
                     }
 
+                    TreeUtils.computeParentPointers(nextTree.getRoot());
+                    activeMetric.initCalculationState(nextTree, targetTree);
+                    double newDist = activeMetric.getCurrentDistance();
+
+                    // Bezpiecznik leksykograficzny: odrzucenie ruchu przed modyfikacją stanu
+                    if (newDist > currentDist - 1e-9) {
+                        if (this.primaryMetric == null || nextSecDist >= currentSecDist - 1e-9) {
+                            break;
+                        }
+                    }
+
+                    try {
+                        List<Tree> stepTraj = bestMove.getNniTrajectory(currentTree);
+                        if (stepTraj != null && !stepTraj.isEmpty()) {
+                            this.fullOptimumTrajectory.addAll(stepTraj);
+                        }
+                    } catch (Exception e) {
+                        // Bezpieczny fallback
+                    }
+
                     this.accumulatedNniCost += bestMove.getNniEquivalentCost();
                     this.tbrStepsCount++;
 
                     this.lastOptimumMove = bestMove;
                     this.lastMoveBaseTree = currentTree;
                     currentTree = nextTree;
-
-                    TreeUtils.computeParentPointers(currentTree.getRoot());
-                    activeMetric.initCalculationState(currentTree, targetTree);
-                    double newDist = activeMetric.getCurrentDistance();
-
-                    // Bezpiecznik leksykograficzny
-                    if (newDist > currentDist - 1e-9) {
-                        if (this.primaryMetric == null || nextSecDist >= currentSecDist - 1e-9) {
-                            break;
-                        }
-                    }
 
                     currentDist = newDist;
                     currentSecDist = nextSecDist;
