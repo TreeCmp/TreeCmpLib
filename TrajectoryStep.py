@@ -1,6 +1,10 @@
 #!/usr/bin/env python3
 """
-Skrypt do weryfikacji trajektorii NNI/VND z plików logów TreeCmpLib.
+Skrypt do ścisłej weryfikacji certyfikatów trajektorii NNI/VND z plików logów TreeCmpLib.
+Obsługuje przestrzeń drzew ukorzenionych (klastry) oraz bezkorzennych (splity).
+Weryfikuje, czy każde kolejne przekształcenie to DOKŁADNIE 1 ruch NNI (RF == 2)
+oraz czy sekwencja doprowadziła do pełnej transformacji (Dystans == 0.0).
+
 Wymaga biblioteki DendroPy: pip install dendropy
 """
 
@@ -15,22 +19,25 @@ from dendropy.calculate import treecompare
 
 @dataclass
 class TrajectoryStep:
-    step_num: int
+    step_num: str
+    step_val: float
     name: str
     reported_dist: float
     newick: str
-    tree: Optional[dendropy.Tree] = None
+    tree_rooted: Optional[dendropy.Tree] = None
+    tree_unrooted: Optional[dendropy.Tree] = None
+    is_rooted: bool = False
     parse_error: Optional[str] = None
 
 
 def parse_vnd_runs(
-    file_path: str, tns: dendropy.TaxonNamespace
+        file_path: str, tns: dendropy.TaxonNamespace
 ) -> List[List[TrajectoryStep]]:
     with open(file_path, "r", encoding="utf-8") as f:
         content = f.read()
 
     pattern = re.compile(
-        r"KROK\s+(\d+)\s+\[(.*?)\]\s+-\s+Dystans:\s+([0-9,]+)\s*\n(\(.*?\);)",
+        r"KROK\s+([0-9]+(?:\.[0-9]+)?)\s+\[(.*?)\]\s+-\s+Dystans:\s+([0-9,]+)\s*\n\s*(\(.*?\);)",
         re.DOTALL,
     )
 
@@ -38,36 +45,59 @@ def parse_vnd_runs(
     current_run = []
 
     for match in pattern.finditer(content):
-        step_num = int(match.group(1))
+        step_raw = match.group(1).strip()
+        step_val = float(step_raw)
         name = match.group(2).strip()
         dist = float(match.group(3).replace(",", "."))
         newick_raw = match.group(4).replace("\n", "").replace("\r", "").strip()
 
         try:
-            tree_obj = dendropy.Tree.get(
+            tree_rooted = dendropy.Tree.get(
                 data=newick_raw,
                 schema="newick",
                 taxon_namespace=tns,
                 preserve_underscores=True,
                 suppress_internal_node_taxa=True,
             )
-            tree_obj.deroot()
+            is_rooted = bool(
+                tree_rooted.seed_node
+                and len(tree_rooted.seed_node.child_nodes()) == 2
+            )
+            tree_rooted.is_rooted = is_rooted
+            tree_rooted.encode_bipartitions()
+
+            tree_unrooted = dendropy.Tree.get(
+                data=newick_raw,
+                schema="newick",
+                taxon_namespace=tns,
+                preserve_underscores=True,
+                suppress_internal_node_taxa=True,
+            )
+            tree_unrooted.deroot()
+            tree_unrooted.is_rooted = False
+            tree_unrooted.encode_bipartitions()
+
             parse_err = None
         except Exception as e:
-            tree_obj = None
+            tree_rooted = None
+            tree_unrooted = None
+            is_rooted = False
             parse_err = str(e)
 
         step = TrajectoryStep(
-            step_num=step_num,
+            step_num=step_raw,
+            step_val=step_val,
             name=name,
             reported_dist=dist,
             newick=newick_raw,
-            tree=tree_obj,
+            tree_rooted=tree_rooted,
+            tree_unrooted=tree_unrooted,
+            is_rooted=is_rooted,
             parse_error=parse_err,
         )
 
-        if step_num == 0 or (
-            current_run and step_num <= current_run[-1].step_num
+        if step_val == 0.0 or (
+                current_run and step_val <= current_run[-1].step_val
         ):
             if current_run:
                 runs.append(current_run)
@@ -81,134 +111,96 @@ def parse_vnd_runs(
     return runs
 
 
-def get_substep_num(name: str) -> int:
-    """Wyciąga numer podkroku z nazwy operatora (np. Substep_2 -> 2). Zwraca -1 jeśli brak."""
-    m = re.search(r"Substep_(\d+)", name, re.IGNORECASE)
-    return int(m.group(1)) if m else -1
-
-
 def verify_run(
-    steps: List[TrajectoryStep],
-    run_index: int,
-    total_runs: int,
-    errors_only: bool = False,
+        steps: List[TrajectoryStep],
+        run_index: int,
+        total_runs: int,
+        errors_only: bool = False,
+        allow_collapse_noops: bool = True
 ) -> bool:
+    run_tag = f"[Przebieg {run_index}/{total_runs}] " if total_runs > 1 else ""
+
     if len(steps) < 2:
-        return True
+        if len(steps) == 1 and steps[0].reported_dist == 0.0:
+            if not errors_only:
+                print(f"  {run_tag}Drzewo początkowe jest identyczne z docelowym (Dystans: 0.0000, 0 kroków NNI)")
+            return True
+        else:
+            print(f"  {run_tag}BŁĄD: Trajektoria zawiera mniej niż 2 drzewa (brak pełnej ścieżki)!")
+            return False
 
     all_ok = True
+    valid_step_count = 0
 
-    for i in range(len(steps) - 1):
-        curr = steps[i]
-        nxt = steps[i + 1]
+    effective_steps = [steps[0]]
+    for s in steps[1:]:
+        if allow_collapse_noops and effective_steps[-1].tree_unrooted is not None and s.tree_unrooted is not None:
+            rf_u = treecompare.symmetric_difference(effective_steps[-1].tree_unrooted, s.tree_unrooted)
+            is_both_r = effective_steps[-1].is_rooted and s.is_rooted
+            rf_r = treecompare.symmetric_difference(effective_steps[-1].tree_rooted,
+                                                    s.tree_rooted) if is_both_r else None
+
+            if rf_u == 0 and (not is_both_r or rf_r == 0):
+                continue
+        effective_steps.append(s)
+
+    for i in range(len(effective_steps) - 1):
+        curr = effective_steps[i]
+        nxt = effective_steps[i + 1]
 
         dist_diff = curr.reported_dist - nxt.reported_dist
         trend = "↓" if dist_diff > 0 else ("=" if dist_diff == 0 else "↑")
 
-        if curr.tree is None or nxt.tree is None:
-            err_msg = (
-                nxt.parse_error
-                or curr.parse_error
-                or "Błąd parsowania Newick"
-            )
+        if curr.tree_unrooted is None or nxt.tree_unrooted is None or curr.tree_rooted is None or nxt.tree_rooted is None:
+            err_msg = nxt.parse_error or curr.parse_error or "Błąd parsowania drzewa Newick"
             err_short = err_msg.splitlines()[0] if err_msg else "Błąd Newick"
             status = f"BŁĄD (Uszkodzony Newick: {err_short[:45]})"
             rf_dist = -1
             all_ok = False
         else:
-            rf_dist = treecompare.symmetric_difference(curr.tree, nxt.tree)
+            rf_unrooted = treecompare.symmetric_difference(curr.tree_unrooted, nxt.tree_unrooted)
+            is_both_rooted = curr.is_rooted and nxt.is_rooted
+            rf_rooted = treecompare.symmetric_difference(curr.tree_rooted, nxt.tree_rooted) if is_both_rooted else None
 
-            name_upper = nxt.name.upper()
-
-            is_tbr_step = "TBR" in name_upper
-            is_tbr_substep = is_tbr_step and ("SUBSTEP" in name_upper)
-
-            is_ecr_substep = ("ECR" in name_upper or ("SUBSTEP" in name_upper and not is_tbr_step))
-            is_spr_step = "SPR" in name_upper
-
-            is_pure_nni = (
-                "NNI" in name_upper
-                and not is_ecr_substep
-                and not is_tbr_step
-                and not is_spr_step
-            )
-
-            curr_sub_num = get_substep_num(curr.name)
-            nxt_sub_num = get_substep_num(nxt.name)
-
-            is_entry_into_ecr = is_ecr_substep and (
-                curr_sub_num == -1 or nxt_sub_num <= curr_sub_num
-            )
-            is_entry_into_tbr = is_tbr_substep and (
-                curr_sub_num == -1 or nxt_sub_num <= curr_sub_num
-            )
-
-            status = "OK"
-
-            # 1. Czyste NNI: różnica podziałów to max 4 (pojedyncza rotacja krawędzi)
-            if is_pure_nni and rf_dist > 4:
-                status = f"BŁĄD (Czyste NNI: RF={rf_dist} > 4)"
+            if rf_unrooted == 2:
+                rf_dist = 2
+                status = "OK (Czyste 1-NNI)"
+                valid_step_count += 1
+            elif is_both_rooted and rf_rooted == 2:
+                rf_dist = 2
+                status = "OK (Czyste 1-NNI ukorzenione)"
+                valid_step_count += 1
+            elif rf_unrooted == 0 and (not is_both_rooted or rf_rooted == 0):
+                rf_dist = 0
+                status = "BŁĄD (Drzewa identyczne: RF=0, brak ruchu NNI!)"
+                all_ok = False
+            else:
+                candidate_rfs = [rf_unrooted]
+                if is_both_rooted and rf_rooted is not None:
+                    candidate_rfs.append(rf_rooted)
+                rf_dist = min(candidate_rfs)
+                nni_jumps = max(1, rf_dist // 2)
+                status = f"BŁĄD (Skok o ~{nni_jumps} NNI: RF={rf_dist} != 2, brak {nni_jumps - 1} drzew pośrednich!)"
                 all_ok = False
 
-            # 2. Wejście w klaster ECR (inicjalna przebudowa): limit RF <= 16
-            elif is_entry_into_ecr and rf_dist > 16:
-                status = f"BŁĄD (Wejście w ECR: RF={rf_dist} > 16)"
-                all_ok = False
-            elif is_entry_into_ecr:
-                status = f"OK (Wejście w klaster ECR ~{max(1, rf_dist // 2)} NNI)"
-
-            # 3. Wewnętrzny podkrok ECR: rygorystyczna kontrola (RF <= 6)
-            elif is_ecr_substep and rf_dist > 6:
-                status = f"BŁĄD (Podkrok ECR: RF={rf_dist} > 6)"
-                all_ok = False
-
-            # 4. Wejście w sekwencję podkroków TBR (inicjalne odcięcie / pierwszy krok)
-            elif is_entry_into_tbr and rf_dist > 16:
-                status = f"BŁĄD (Wejście w TBR: RF={rf_dist} > 16)"
-                all_ok = False
-            elif is_entry_into_tbr:
-                status = f"OK (Wejście w TBR ~{max(1, rf_dist // 2)} NNI)"
-
-            # 5. Wewnętrzny podkrok TBR (kolejny atomowy krok wzdłuż ścieżki): RF <= 6
-            elif is_tbr_substep and rf_dist > 6:
-                status = f"BŁĄD (Podkrok TBR: RF={rf_dist} > 6)"
-                all_ok = False
-
-            # 6. Ruch SPR (makrokrok): skok topologiczny proporcjonalny do odległości regraftu
-            elif is_spr_step:
-                status = f"OK (SPR ~{max(1, rf_dist // 2)} NNI)"
-
-            # 7. Ruch TBR (makrokrok bez podkroków): skok proporcjonalny do bisekcji i rekonfiguracji
-            elif is_tbr_step:
-                status = f"OK (TBR ~{max(1, rf_dist // 2)} NNI)"
-
-            # 8. Nieznany operator przekraczający limit elementarnego NNI
-            elif (
-                not is_pure_nni
-                and not is_ecr_substep
-                and not is_spr_step
-                and not is_tbr_step
-                and rf_dist > 4
-            ):
-                status = f"BŁĄD (Nieoczekiwany skok: RF={rf_dist})"
-                all_ok = False
-
-        if not errors_only or not status.startswith("OK") or not all_ok:
-            if errors_only and all_ok:
-                print()
-            run_tag = (
-                f"[Przebieg {run_index}/{total_runs}] "
-                if total_runs > 1
-                else ""
-            )
+        if not errors_only or not status.startswith("OK"):
             rf_str = str(rf_dist) if rf_dist >= 0 else "ERR"
             print(
-                f"  {run_tag}Krok {curr.step_num:02d} -> {nxt.step_num:02d} | "
+                f"  {run_tag}Krok {curr.step_num:>4} -> {nxt.step_num:<4} | "
                 f"Operator: {nxt.name:<35} | "
                 f"RF_diff: {rf_str:<3} | "
                 f"Dystans: {curr.reported_dist:.4f} -> {nxt.reported_dist:.4f} ({trend}) | "
                 f"[{status}]"
             )
+
+    final_step = effective_steps[-1]
+    if final_step.reported_dist > 0.0:
+        all_ok = False
+        print(
+            f"  {run_tag}BŁĄD: Trajektoria nie osiągnęła celu! (Dystans końcowy = {final_step.reported_dist:.4f} != 0.0000)")
+    elif all_ok and not errors_only:
+        print(
+            f"  {run_tag}--> CERTYFIKAT ZATWIERDZONY: Ciągła ścieżka {valid_step_count} kroków 1-NNI doprowadziła do celu (Dystans = 0.0000)\n")
 
     return all_ok
 
@@ -218,13 +210,11 @@ def print_usage(error_msg: str = None):
     if error_msg:
         print(f"[-][BŁĄD] {error_msg}")
         print("-" * 70)
-        print(">>> SUGESTIA SZYBKIEGO URUCHOMIENIA:")
-        print(">>>   python TrajectoryStep.py logs/. --errors-only")
-        print("=" * 70 + "\n")
-        return
-
     print("UŻYCIE SKRYPTU WERYFIKUJĄCEGO:")
-    print("  python TrajectoryStep.py <ścieżka> [--errors-only]\n")
+    print("  python TrajectoryStep.py <ścieżka_do_pliku_lub_katalogu> [--errors-only] [--strict]\n")
+    print("Opcje:")
+    print("  --errors-only : Wyświetla wyłącznie niepoprawne kroki i odrzucone pliki.")
+    print("  --strict      : Wymusza odrzucanie kroków no-op (wyłącza ich kompaktowanie).")
     print("=" * 70 + "\n")
 
 
@@ -235,14 +225,18 @@ if __name__ == "__main__":
 
     input_path = Path(sys.argv[1])
     errors_only = "--errors-only" in sys.argv
+    strict = "--strict" in sys.argv
+    allow_collapse_noops = not strict
 
-    extra_args = [arg for arg in sys.argv[2:] if arg != "--errors-only"]
+    extra_args = [
+        arg for arg in sys.argv[2:] if arg not in ("--errors-only", "--strict")
+    ]
     if extra_args:
-        print_usage(f"Nieznany parametr: {' '.join(extra_args)}.")
+        print_usage(f"Nieznany parametr: {' '.join(extra_args)}")
         sys.exit(1)
 
     if not input_path.exists():
-        print_usage(f"Podana ścieżka nie istnieje: '{input_path}'.")
+        print_usage(f"Podana ścieżka nie istnieje: '{input_path}'")
         sys.exit(1)
 
     if input_path.is_file():
@@ -250,7 +244,7 @@ if __name__ == "__main__":
     elif input_path.is_dir():
         files_to_check = sorted(list(input_path.glob("*.txt")))
         if not files_to_check:
-            print_usage(f"Brak plików .txt w folderze '{input_path}'.")
+            print_usage(f"Brak plików .txt w folderze '{input_path}'")
             sys.exit(1)
     else:
         print_usage(f"Ścieżka '{input_path}' jest nieprawidłowa.")
@@ -262,7 +256,8 @@ if __name__ == "__main__":
     passed_trajectories = 0
 
     print(
-        f"Rozpoczynam weryfikację {total_files} plików (Tryb: {'Tylko Błędy' if errors_only else 'Pełny'})...\n"
+        f"Rozpoczynam rygorystyczną weryfikację certyfikatów 1-NNI dla {total_files} plików "
+        f"(Tryb: {'Tylko Błędy' if errors_only else 'Pełny'} | Kompaktowanie no-opów: {'Wyłączone' if strict else 'Włączone'})...\n"
     )
 
     for file_idx, file_path in enumerate(files_to_check, 1):
@@ -288,7 +283,11 @@ if __name__ == "__main__":
 
         for idx, run_steps in enumerate(runs, 1):
             run_ok = verify_run(
-                run_steps, idx, len(runs), errors_only=errors_only
+                run_steps,
+                idx,
+                len(runs),
+                errors_only=errors_only,
+                allow_collapse_noops=allow_collapse_noops,
             )
             if not run_ok:
                 file_all_ok = False
@@ -297,7 +296,7 @@ if __name__ == "__main__":
             passed_files += 1
             passed_trajectories += len(runs)
         elif errors_only:
-            print(f"  ^^^ Plik z błędem: {file_path.name}\n")
+            print(f"\n  ^^^ ODRZUCONY PLIK: {file_path.name}\n")
 
     if errors_only and total_files > 0:
         print()
@@ -310,3 +309,5 @@ if __name__ == "__main__":
         f"PODSUMOWANIE TRAJEKTORII:  Sprawdzono {total_trajectories} | Poprawnych: {passed_trajectories}/{total_trajectories}"
     )
     print("=" * 70)
+
+    sys.exit(0 if passed_files == total_files and total_trajectories > 0 else 1)
