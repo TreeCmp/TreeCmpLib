@@ -32,14 +32,14 @@ public class Ecr3IncrementalHeuristic extends EcrIncrementalHeuristic {
         IncrementalMetric activeMetric = (this.primaryMetric != null) ? this.primaryMetric : this.incMetric;
 
         this.tiedMoves.clear();
-        this.bestDist = Double.POSITIVE_INFINITY;
+        this.improved = false;
+        this.bestMove = null;
+        this.bestDist = activeMetric.getCurrentDistance();
         int intNum = currentTree.getInternalNodeCount();
 
         for (int i = 0; i < intNum; i++) {
             Node rootOfCluster = currentTree.getInternalNode(i);
 
-            // W PAL każdy węzeł ma 2 dzieci w dół. Aby uzyskać 5 poddrzew brzegowych,
-            // klaster 3-sECR musi zawsze składać się z 4 węzłów wewnętrznych (size = 4).
             int targetClusterSize = 4;
             List<List<Node>> clusters = ecr3Utils.getClusters(rootOfCluster, targetClusterSize);
 
@@ -60,7 +60,7 @@ public class Ecr3IncrementalHeuristic extends EcrIncrementalHeuristic {
             if (template.isIsomorphic(originalSignature)) continue;
 
             double dist = activeMetric.evaluate3sEcrMove(cluster, boundarySubtrees, template);
-            checkImprovementWithTies(dist, new Ecr3Move(cluster, boundarySubtrees, template));
+            checkImprovementWithTies(dist, new Ecr3Move(cluster, boundarySubtrees, originalSignature, template));
         }
     }
 

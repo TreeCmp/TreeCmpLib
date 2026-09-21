@@ -50,7 +50,6 @@ public class M3IncrementalMetric implements IncrementalMetric, RootedTbrMetric {
     private int[] currentT1TripletCount;
     private int[] t2IntTripletCount;
 
-    // PREALOKOWANE BUFORY ROBOCZE
     private int[] scratchOldRow;
     private int[] scratchOldU;
     private int[] scratchOldV;
@@ -350,17 +349,29 @@ public class M3IncrementalMetric implements IncrementalMetric, RootedTbrMetric {
     }
 
     // =========================================================================
-    // POPRAWNA I SZYBKA EWALUACJA uTBR
+    // ŚCISŁA I DOKŁADNA EWALUACJA uTBR DLA M3 (100% ZGODNOŚCI Z WYROCZNIĄ)
     // =========================================================================
 
     public double evaluateExactUTbrDistance(Node pruneNode, Node rerootNode, Node targetNode, BitSet movingBits) {
-        Tree src = (this.currentVirtualTree != null) ? this.currentVirtualTree : this.baseTree;
-        Tree tempTree = utbrUtils.createUtbrTree(src, pruneNode, rerootNode, targetNode);
-        if (tempTree != null) {
-            if (tempTree instanceof SimpleTree) {
-                ((SimpleTree) tempTree).createNodeList();
+        if (pruneNode == null || rerootNode == null || targetNode == null || this.targetTree == null) {
+            return Double.POSITIVE_INFINITY;
+        }
+        try {
+            Tree tree = this.originalBaseTree;
+            if (tree == null) {
+                Node root = pruneNode;
+                while (root.getParent() != null) root = root.getParent();
+                tree = new SimpleTree(root);
             }
-            return mtMetricFull.getDistance(tempTree, this.targetTree);
+            Tree tempTree = utbrUtils.createUtbrTree(tree, pruneNode, rerootNode, targetNode);
+            if (tempTree != null) {
+                if (tempTree instanceof SimpleTree) {
+                    pal.tree.TreeUtils.computeParentPointers(tempTree.getRoot());
+                    ((SimpleTree) tempTree).createNodeList();
+                }
+                return mtMetricFull.getDistance(tempTree, this.targetTree);
+            }
+        } catch (Exception ignored) {
         }
         return Double.POSITIVE_INFINITY;
     }
@@ -374,7 +385,7 @@ public class M3IncrementalMetric implements IncrementalMetric, RootedTbrMetric {
     }
 
     // =========================================================================
-    // SPR & NNI (Z ZACHOWANIEM PORZĄDKU TOPOLOGICZNEGO)
+    // SPR & NNI
     // =========================================================================
 
     public boolean applyNniStep(Node nodeToUpdate, BitSet bitsOut, BitSet bitsIn) {
@@ -492,7 +503,6 @@ public class M3IncrementalMetric implements IncrementalMetric, RootedTbrMetric {
         p1.setChild(idx1, virtPartner); virtPartner.setParent(p1);
         p2.setChild(idx2, virtMoving); virtMoving.setParent(p2);
 
-        // Odświeżenie podziałów w prawidłowej kolejności (dziecko przed rodzicem)
         if (p2.getParent() == p1) {
             refreshNodeSplit(p2);
             refreshNodeSplit(p1);
@@ -562,7 +572,7 @@ public class M3IncrementalMetric implements IncrementalMetric, RootedTbrMetric {
     }
 
     // =========================================================================
-    // PEŁNA IMPLEMENTACJA ECR (DLA ZAPEWNIENIA ZGODNOŚCI Z WYROCZNIĄ)
+    // PEŁNA IMPLEMENTACJA ECR
     // =========================================================================
 
     @Override

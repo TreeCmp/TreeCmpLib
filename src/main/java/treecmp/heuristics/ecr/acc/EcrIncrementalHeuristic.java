@@ -1,6 +1,8 @@
 package treecmp.heuristics.ecr.acc;
 
+import pal.tree.SimpleTree;
 import pal.tree.Tree;
+import pal.tree.TreeUtils;
 import treecmp.heuristics.base.IncrementalHeuristicBaseMetric;
 import treecmp.heuristics.moves.TreeMove;
 import treecmp.metrics.IncrementalMetric;
@@ -37,15 +39,16 @@ public abstract class EcrIncrementalHeuristic extends IncrementalHeuristicBaseMe
 
     @Override
     public double performLocalDescent(Tree startTree, Tree targetTree) {
-        Tree currentTree = new pal.tree.SimpleTree(startTree);
-        if (currentTree instanceof pal.tree.SimpleTree) {
-            ((pal.tree.SimpleTree) currentTree).createNodeList();
+        Tree currentTree = new SimpleTree(startTree);
+        if (currentTree instanceof SimpleTree) {
+            ((SimpleTree) currentTree).createNodeList();
         }
+        TreeUtils.computeParentPointers(currentTree.getRoot());
 
         this.improved = true;
         this.accumulatedNniCost = 0.0;
         this.accumulatedSteps = 0;
-        this.fullOptimumTrajectory.clear(); // NOWOŚĆ: Czyszczenie trajektorii na starcie
+        this.fullOptimumTrajectory.clear();
         this.lastOptimumMove = null;
         this.lastMoveBaseTree = null;
 
@@ -59,77 +62,94 @@ public abstract class EcrIncrementalHeuristic extends IncrementalHeuristicBaseMe
         }
 
         double currentDist = activeMetric.getCurrentDistance();
+        if (currentDist == 0.0) {
+            this.lastOptimumTree = currentTree;
+            return 0.0;
+        }
 
-        while (this.improved && currentDist > 0 && this.accumulatedSteps < maxSteps) {
+        while (currentDist > 0 && this.accumulatedSteps < maxSteps) {
             this.improved = false;
             this.bestDist = currentDist;
             this.bestMove = null;
+            this.tiedMoves.clear();
 
             searchNeighborhood(currentTree);
 
-            if (!this.tiedMoves.isEmpty() && this.bestDist <= currentDist && this.bestDist < Double.POSITIVE_INFINITY) {
-                TreeMove winningMove = null;
+            // BEZPIECZNIK 1: Brak ruchów lub brak poprawy w otoczeniu -> minimum lokalne
+            if (this.tiedMoves.isEmpty() || this.bestDist > currentDist) {
+                break;
+            }
 
-                // PRZYPADEK 1: Brak filtru -> wymagamy ścisłej poprawy na jednej metryce
-                if (primaryMetric == null) {
-                    if (this.bestDist < currentDist) {
-                        winningMove = tiedMoves.get(0);
-                    }
-                }
-                // PRZYPADEK 2: Jest filtr (primaryMetric) -> oceniamy WSZYSTKIE remisy (nawet gdy jest tylko 1!)
-                else {
-                    double bestHeavyDist = Double.POSITIVE_INFINITY;
-                    double currentHeavyDist = this.incMetric.getCurrentDistance();
-                    boolean rfStrictlyImproved = (this.bestDist < currentDist);
+            TreeMove winningMove = null;
 
-                    for (TreeMove tm : tiedMoves) {
-                        double heavyDist = evaluateMoveOnMetric(this.incMetric, tm);
-
-                        if (rfStrictlyImproved) {
-                            if (heavyDist < bestHeavyDist) {
-                                bestHeavyDist = heavyDist;
-                                winningMove = tm;
-                            }
-                        } else {
-                            if (heavyDist < currentHeavyDist - 1e-9 && heavyDist < bestHeavyDist) {
-                                bestHeavyDist = heavyDist;
-                                winningMove = tm;
-                            }
-                        }
-                    }
-                }
-
-                if (winningMove != null) {
-                    currentDist = commitMoveOnMetric(activeMetric, winningMove);
-                    activeMetric.commit();
-
-                    if (primaryMetric != null) {
-                        commitMoveOnMetric(this.incMetric, winningMove);
-                        this.incMetric.commit();
-                    }
-
-                    this.accumulatedSteps++;
-                    this.accumulatedNniCost += getMoveNniCost(winningMove);
-                    this.lastOptimumMove = winningMove;
-                    this.lastMoveBaseTree = currentTree;
-
-                    // NOWOŚĆ: Rejestracja wszystkich podkroków NNI dla bieżącego ruchu ECR
-                    try {
-                        List<Tree> stepTraj = winningMove.getNniTrajectory(currentTree);
-                        if (stepTraj != null && !stepTraj.isEmpty()) {
-                            this.fullOptimumTrajectory.addAll(stepTraj);
-                        }
-                    } catch (Exception e) {
-                        // Bezpieczny fallback
-                    }
-
-                    currentTree = applyPhysicalMove(currentTree, winningMove);
-                    if (currentTree instanceof pal.tree.SimpleTree) {
-                        ((pal.tree.SimpleTree) currentTree).createNodeList();
-                    }
-                    this.improved = true;
+            // PRZYPADEK 1: Brak filtru -> wymagamy ścisłej poprawy na aktywnej metryce
+            if (primaryMetric == null) {
+                if (this.bestDist < currentDist - 1e-9) {
+                    winningMove = tiedMoves.get(0);
                 }
             }
+            // PRZYPADEK 2: Jest filtr (primaryMetric) -> oceniamy remisy metryką pomocniczą
+            else {
+                double bestHeavyDist = Double.POSITIVE_INFINITY;
+                double currentHeavyDist = this.incMetric.getCurrentDistance();
+                boolean rfStrictlyImproved = (this.bestDist < currentDist - 1e-9);
+
+                for (TreeMove tm : tiedMoves) {
+                    double heavyDist = evaluateMoveOnMetric(this.incMetric, tm);
+
+                    if (rfStrictlyImproved) {
+                        if (heavyDist < bestHeavyDist) {
+                            bestHeavyDist = heavyDist;
+                            winningMove = tm;
+                        }
+                    } else {
+                        if (heavyDist < currentHeavyDist - 1e-9 && heavyDist < bestHeavyDist) {
+                            bestHeavyDist = heavyDist;
+                            winningMove = tm;
+                        }
+                    }
+                }
+            }
+
+            // BEZPIECZNIK 2: Brak wybranego ruchu poprawiającego -> natychmiast kończymy pętlę!
+            if (winningMove == null) {
+                break;
+            }
+
+            double newDist = commitMoveOnMetric(activeMetric, winningMove);
+            activeMetric.commit();
+
+            if (primaryMetric != null) {
+                commitMoveOnMetric(this.incMetric, winningMove);
+                this.incMetric.commit();
+            }
+
+            // BEZPIECZNIK 3: Dystans musi ściśle maleć (ochrona przed zapętleniem na plateau)
+            if (newDist >= currentDist - 1e-9 && primaryMetric == null) {
+                break;
+            }
+
+            this.accumulatedSteps++;
+            this.accumulatedNniCost += getMoveNniCost(winningMove);
+            this.lastOptimumMove = winningMove;
+            this.lastMoveBaseTree = currentTree;
+
+            try {
+                List<Tree> stepTraj = winningMove.getNniTrajectory(currentTree);
+                if (stepTraj != null && !stepTraj.isEmpty()) {
+                    this.fullOptimumTrajectory.addAll(stepTraj);
+                }
+            } catch (Exception ignored) {
+            }
+
+            currentTree = applyPhysicalMove(currentTree, winningMove);
+            TreeUtils.computeParentPointers(currentTree.getRoot());
+            if (currentTree instanceof SimpleTree) {
+                ((SimpleTree) currentTree).createNodeList();
+            }
+
+            currentDist = newDist;
+            this.improved = true;
         }
 
         this.lastOptimumTree = currentTree;

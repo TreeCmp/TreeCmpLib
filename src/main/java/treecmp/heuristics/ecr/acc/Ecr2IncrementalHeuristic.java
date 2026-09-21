@@ -29,7 +29,10 @@ public class Ecr2IncrementalHeuristic extends EcrIncrementalHeuristic {
     protected void searchNeighborhood(Tree currentTree) {
         IncrementalMetric activeMetric = primaryMetric != null ? primaryMetric : this.incMetric;
         this.tiedMoves.clear();
-        this.bestDist = Double.POSITIVE_INFINITY;
+        this.improved = false;
+        this.bestMove = null;
+        // Inicjalizujemy bieżącym dystansem: sprawdzamy tylko ruchy równe lub lepsze
+        this.bestDist = activeMetric.getCurrentDistance();
 
         int intNum = currentTree.getInternalNodeCount();
         for (int i = 0; i < intNum; i++) {
@@ -40,20 +43,29 @@ public class Ecr2IncrementalHeuristic extends EcrIncrementalHeuristic {
                 if (c != null && !c.isLeaf()) {
                     Node p = c.getParent();
                     if (p != null && !p.isLeaf()) {
-                        Node[] bounds = new Node[]{ getOtherChild(p, c), getOtherChild(c, node), node.getChild(0), node.getChild(1) };
-                        evaluateEcr2Cluster(p, c, node, bounds, false, activeMetric);
+                        Node b0 = getOtherChild(p, c);
+                        Node b1 = getOtherChild(c, node);
+                        if (b0 != null && b1 != null && node.getChildCount() >= 2) {
+                            Node[] bounds = new Node[]{ b0, b1, node.getChild(0), node.getChild(1) };
+                            evaluateEcr2Cluster(p, c, node, bounds, false, activeMetric);
+                        }
                     }
                 }
             }
 
             List<Node> intChildren = new ArrayList<>();
-            for (int j = 0; j < node.getChildCount(); j++) if (!node.getChild(j).isLeaf()) intChildren.add(node.getChild(j));
+            for (int j = 0; j < node.getChildCount(); j++) {
+                if (!node.getChild(j).isLeaf()) intChildren.add(node.getChild(j));
+            }
             if (intChildren.size() >= 2) {
                 for (int a = 0; a < intChildren.size(); a++) {
                     for (int b = a + 1; b < intChildren.size(); b++) {
-                        Node m1 = intChildren.get(a); Node m2 = intChildren.get(b);
-                        Node[] bounds = new Node[]{m1.getChild(0), m1.getChild(1), m2.getChild(0), m2.getChild(1)};
-                        evaluateEcr2Cluster(node, m1, m2, bounds, true, activeMetric);
+                        Node m1 = intChildren.get(a);
+                        Node m2 = intChildren.get(b);
+                        if (m1.getChildCount() >= 2 && m2.getChildCount() >= 2) {
+                            Node[] bounds = new Node[]{m1.getChild(0), m1.getChild(1), m2.getChild(0), m2.getChild(1)};
+                            evaluateEcr2Cluster(node, m1, m2, bounds, true, activeMetric);
+                        }
                     }
                 }
             }
@@ -69,7 +81,9 @@ public class Ecr2IncrementalHeuristic extends EcrIncrementalHeuristic {
     }
 
     private Node getOtherChild(Node parent, Node exclude) {
-        for (int i = 0; i < parent.getChildCount(); i++) if (parent.getChild(i) != exclude) return parent.getChild(i);
+        for (int i = 0; i < parent.getChildCount(); i++) {
+            if (parent.getChild(i) != exclude) return parent.getChild(i);
+        }
         return null;
     }
 

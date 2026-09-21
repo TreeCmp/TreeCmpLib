@@ -1,6 +1,9 @@
 package treecmp.heuristics.base;
 
+import pal.tree.SimpleTree;
 import pal.tree.Tree;
+import pal.tree.TreeUtils;
+import treecmp.heuristics.TreeNeighborhoodUtils;
 import treecmp.heuristics.moves.TreeMove;
 import treecmp.metrics.BaseMetric;
 import treecmp.metrics.IncrementalMetric;
@@ -34,11 +37,11 @@ public abstract class IncrementalHeuristicBaseMetric extends BaseMetric {
     }
 
     public double getAccumulatedNniCost() {
-        return this.accumulatedNniCost; // Dla VND: ekwiwalent NNI
+        return this.accumulatedNniCost;
     }
 
     public int getAccumulatedSteps() {
-        return this.accumulatedSteps; // Dla ECR/SPR: natywna liczba kroków
+        return this.accumulatedSteps;
     }
 
     public IncrementalHeuristicBaseMetric(boolean rooted, IncrementalMetric metric) {
@@ -51,7 +54,6 @@ public abstract class IncrementalHeuristicBaseMetric extends BaseMetric {
         double finalMetricDist = performLocalDescent(tree1, tree2);
 
         if (finalMetricDist == 0.0) {
-            // NOWOŚĆ: Autonomiczne wywołanie zwraca natywną liczbę kroków
             return (double) this.accumulatedSteps;
         }
         return Double.POSITIVE_INFINITY;
@@ -61,6 +63,7 @@ public abstract class IncrementalHeuristicBaseMetric extends BaseMetric {
         if (currentDist < this.bestDist) {
             this.bestDist = currentDist;
             this.bestMove = move;
+            this.improved = true;
             this.tiedMoves.clear();
             this.tiedMoves.add(move);
         } else if (currentDist == this.bestDist && currentDist != Double.POSITIVE_INFINITY) {
@@ -69,13 +72,14 @@ public abstract class IncrementalHeuristicBaseMetric extends BaseMetric {
     }
 
     public double evaluateSingleStep(Tree tree1, Tree tree2) {
-        this.incMetric.initCalculationState(tree1, tree2);
+        Tree safeTree1 = ensureIndexedSimpleTree(tree1);
+        this.incMetric.initCalculationState(safeTree1, tree2);
         this.improved = false;
         this.bestDist = Double.POSITIVE_INFINITY;
         this.bestMove = null;
         this.tiedMoves.clear();
 
-        searchNeighborhood(tree1);
+        searchNeighborhood(safeTree1);
 
         return this.bestDist;
     }
@@ -87,13 +91,8 @@ public abstract class IncrementalHeuristicBaseMetric extends BaseMetric {
     protected abstract double commitMoveToMetric(TreeMove move);
 
     public double performLocalDescent(Tree startTree, Tree targetTree) {
-        Tree currentTree = new pal.tree.SimpleTree(startTree);
-        if (currentTree instanceof pal.tree.SimpleTree) {
-            ((pal.tree.SimpleTree) currentTree).createNodeList();
-        }
+        Tree currentTree = ensureIndexedSimpleTree(startTree);
 
-        // NOWOŚĆ: Resetujemy waluty oraz czyścimy historię trajektorii
-        this.improved = true;
         this.accumulatedNniCost = 0.0;
         this.accumulatedSteps = 0;
         this.fullOptimumTrajectory.clear();
@@ -103,33 +102,68 @@ public abstract class IncrementalHeuristicBaseMetric extends BaseMetric {
         this.incMetric.initCalculationState(currentTree, targetTree);
         double currentDist = this.incMetric.getCurrentDistance();
 
+        if (currentDist == 0.0) {
+            this.lastOptimumTree = currentTree;
+            return 0.0;
+        }
+
+        this.improved = true;
         while (this.improved && currentDist > 0) {
             this.improved = false;
             this.bestDist = currentDist;
             this.bestMove = null;
+            this.tiedMoves.clear();
 
             searchNeighborhood(currentTree);
 
             if (this.improved && this.bestMove != null) {
-                currentDist = commitMoveToMetric(this.bestMove);
-                this.incMetric.commit();
+                // 1. Sprawdzamy czy fizyczna modyfikacja powiodła się i zmieniła drzewo
+                Tree nextTree = applyPhysicalMove(currentTree, this.bestMove);
+                if (nextTree == null || nextTree == currentTree) {
+                    break;
+                }
+                nextTree = ensureIndexedSimpleTree(nextTree);
 
-                this.accumulatedSteps++;
-                this.accumulatedNniCost += getMoveNniCost(this.bestMove);
-                this.lastOptimumMove = this.bestMove;
-                this.lastMoveBaseTree = currentTree;
-
-                // NOWOŚĆ: Rejestrujemy podkroki NNI dla bieżącej mutacji i dodajemy do pełnej trajektorii
+                // 2. Dekompozycja ruchu makro na ciąg 1-NNI do certyfikacji
+                List<Tree> stepTraj = null;
                 try {
-                    List<Tree> stepTraj = this.bestMove.getNniTrajectory(currentTree);
-                    if (stepTraj != null && !stepTraj.isEmpty()) {
-                        this.fullOptimumTrajectory.addAll(stepTraj);
-                    }
+                    stepTraj = this.bestMove.getNniTrajectory(currentTree);
                 } catch (Exception e) {
-                    // Bezpieczny fallback w razie błędu algebry
+                    stepTraj = null;
                 }
 
-                currentTree = applyPhysicalMove(currentTree, this.bestMove);
+                if (stepTraj != null && !stepTraj.isEmpty()) {
+                    for (Tree intermediateTree : stepTraj) {
+                        this.fullOptimumTrajectory.add(ensureIndexedSimpleTree(intermediateTree));
+                    }
+                    this.accumulatedNniCost += stepTraj.size();
+                } else {
+                    this.fullOptimumTrajectory.add(nextTree);
+                    this.accumulatedNniCost += getMoveNniCost(this.bestMove);
+                }
+
+                this.accumulatedSteps++;
+                this.lastOptimumMove = this.bestMove;
+                this.lastMoveBaseTree = currentTree;
+                currentTree = nextTree;
+
+                // 3. Pełna synchronizacja stanu metryki z fizycznym drzewem
+                try {
+                    commitMoveToMetric(this.bestMove);
+                    this.incMetric.commit();
+                } catch (Exception ignored) {
+                }
+
+                this.incMetric.initCalculationState(currentTree, targetTree);
+                double newDist = this.incMetric.getCurrentDistance();
+
+                // 4. BEZPIECZNIK ANTY-ZAPĘTLENIOWY: Dystans musi ściśle maleć!
+                if (newDist >= currentDist) {
+                    break;
+                }
+
+                currentDist = newDist;
+                this.improved = true;
             }
         }
 
@@ -138,7 +172,8 @@ public abstract class IncrementalHeuristicBaseMetric extends BaseMetric {
     }
 
     public double evaluateInitialDistance(Tree startTree, Tree targetTree) {
-        this.incMetric.initCalculationState(startTree, targetTree);
+        Tree safeStart = ensureIndexedSimpleTree(startTree);
+        this.incMetric.initCalculationState(safeStart, targetTree);
         return this.incMetric.getCurrentDistance();
     }
 
@@ -154,9 +189,14 @@ public abstract class IncrementalHeuristicBaseMetric extends BaseMetric {
         return Collections.singletonList(lastOptimumTree);
     }
 
-    /**
-     * Metoda pomocnicza pobierająca ekwiwalentny koszt NNI z obiektu ruchu.
-     */
+    protected Tree ensureIndexedSimpleTree(Tree tree) {
+        if (tree == null) return null;
+        SimpleTree st = (tree instanceof SimpleTree) ? (SimpleTree) tree : new SimpleTree(tree);
+        st.createNodeList();
+        TreeUtils.computeParentPointers(st.getRoot());
+        return st;
+    }
+
     protected double getMoveNniCost(TreeMove move) {
         if (move == null) return 1.0;
         try {

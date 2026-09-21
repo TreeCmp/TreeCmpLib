@@ -11,7 +11,7 @@ import treecmp.heuristics.ecr.SubtreeEcr2Utils;
 import treecmp.heuristics.ecr.SubtreeEcr3Utils;
 import treecmp.heuristics.moves.NniMove;
 import treecmp.heuristics.spr.UsprUtils;
-import treecmp.heuristics.tbr.acc.IncrementalTbrWalker;
+import treecmp.heuristics.tbr.UTbrUtils;
 import treecmp.heuristics.tbr.acc.RootedTbrMetric;
 import treecmp.metrics.IncrementalMetric;
 import treecmp.metrics.topological.MatchingSplitMetric;
@@ -24,8 +24,7 @@ import java.util.List;
 import java.util.Map;
 import java.util.Stack;
 
-public class MSIncrementalMetric implements IncrementalMetric,
-        RootedTbrMetric {
+public class MSIncrementalMetric implements IncrementalMetric, RootedTbrMetric {
 
     private Tree baseTree;
     private Tree targetTree;
@@ -34,6 +33,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
     private int N;
 
     private final MatchingSplitMetric msMetricFull = new MatchingSplitMetric();
+    private final UTbrUtils utbrUtils = new UTbrUtils();
 
     private int dim;
     private short[][] assigncost;
@@ -61,19 +61,34 @@ public class MSIncrementalMetric implements IncrementalMetric,
     private final Stack<Map<Node, BitSet>> splitHistory = new Stack<>();
     private final Stack<Integer> nniPushCountHistory = new Stack<>();
 
-    private final treecmp.heuristics.tbr.UTbrUtils utbrUtils = new treecmp.heuristics.tbr.UTbrUtils();
-
     public BitSet getSplit(Node n) {
         return getSplitBits(n);
     }
 
+    // =========================================================================
+    // ŚCISŁA I DOKŁADNA EWALUACJA uTBR DLA MS (100% ZGODNOŚCI Z WYROCZNIĄ)
+    // =========================================================================
+
     public double evaluateExactUTbrDistance(Node pruneNode, Node rerootNode, Node targetNode, BitSet movingBits) {
-        Tree tempTree = utbrUtils.createUtbrTree(this.baseTree, pruneNode, rerootNode, targetNode);
-        if (tempTree != null) {
-            if (tempTree instanceof pal.tree.SimpleTree) {
-                ((pal.tree.SimpleTree) tempTree).createNodeList();
+        if (pruneNode == null || targetNode == null || this.targetTree == null) {
+            return Double.POSITIVE_INFINITY;
+        }
+        try {
+            Tree tree = this.baseTree;
+            if (tree == null) {
+                Node root = pruneNode;
+                while (root.getParent() != null) root = root.getParent();
+                tree = new pal.tree.SimpleTree(root);
             }
-            return msMetricFull.getDistance(tempTree, this.targetTree);
+            Tree tempTree = utbrUtils.createUtbrTree(tree, pruneNode, rerootNode, targetNode);
+            if (tempTree != null) {
+                if (tempTree instanceof pal.tree.SimpleTree) {
+                    pal.tree.TreeUtils.computeParentPointers(tempTree.getRoot());
+                    ((pal.tree.SimpleTree) tempTree).createNodeList();
+                }
+                return msMetricFull.getDistance(tempTree, this.targetTree);
+            }
+        } catch (Exception ignored) {
         }
         return Double.POSITIVE_INFINITY;
     }
@@ -255,8 +270,8 @@ public class MSIncrementalMetric implements IncrementalMetric,
             }
         }
 
-        if (rows.length > 0) {
-            this.currentDistance = LapSolver.lapShortUpdate(dim, assigncost, rowsol, colsol, u, v, rows);
+        if (dim > 0 && rows.length > 0) {
+            this.currentDistance = LapSolver.lapShort(dim, assigncost, rowsol, colsol, u, v);
         }
     }
 
@@ -278,7 +293,8 @@ public class MSIncrementalMetric implements IncrementalMetric,
     }
 
     public double getFixedDistanceForRegraft(Node targetNode, Node wanderingSource, BitSet pruneMask, Node pruneNode) {
-        Integer r_w = nodeToRow.get(wanderingSource);
+        Node resolvedWandering = resolveWandering(wanderingSource, pruneNode);
+        Integer r_w = nodeToRow.get(resolvedWandering);
 
         if (r_w == null) {
             return evaluateSprRegraft(pruneNode, targetNode);
@@ -321,7 +337,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
             }
         }
 
-        double fixedDist = LapSolver.lapShortUpdate(dim, assigncost, rowsol, colsol, u, v, new int[]{r_w});
+        double fixedDist = LapSolver.lapShort(dim, assigncost, rowsol, colsol, u, v);
 
         System.arraycopy(oldRow, 0, assigncost[r_w], 0, dim);
         System.arraycopy(oldU, 0, u, 0, dim);
@@ -448,7 +464,6 @@ public class MSIncrementalMetric implements IncrementalMetric,
 
     @Override
     public void moveRerootDown(Node parentReroot, Node childReroot, Node pruneNode) {
-        // pruneNode zachowuje rolę klastra pełnego poddrzewa P
         if (parentReroot == pruneNode) {
             deltaStack.push(new LapStateDelta(new int[0], new short[0][0], Arrays.copyOf(u, dim), Arrays.copyOf(v, dim),
                     Arrays.copyOf(rowsol, dim), Arrays.copyOf(colsol, dim), currentDistance, new IdentityHashMap<>()));

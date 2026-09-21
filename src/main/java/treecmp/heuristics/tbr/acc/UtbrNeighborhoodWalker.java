@@ -27,7 +27,7 @@ public class UtbrNeighborhoodWalker {
     private final List<Node> targetNodesBuf = new ArrayList<>();
 
     public void walk(Tree baseTree, IncrementalMetric metric, UtbrVisitor visitor) {
-        // MS, M3 oraz RF korzystają ze ścisłej, zoptymalizowanej wyceny wskaźnikowej
+        // RFIncrementalMetric (oraz inne wspierające 2D-DFS) korzystają z superszybkiego przeszukiwania wzdłuż krawędzi O(1)
         if (metric instanceof RootedTbrMetric && !(metric instanceof M3IncrementalMetric) && !(metric instanceof MSIncrementalMetric)) {
             walkFast2dDfs(baseTree, (RootedTbrMetric) metric, visitor);
             return;

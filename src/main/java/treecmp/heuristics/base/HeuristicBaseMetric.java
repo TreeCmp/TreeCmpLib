@@ -1,16 +1,12 @@
 package treecmp.heuristics.base;
 
-import java.io.IOException;
 import java.util.ArrayList;
 import java.util.Collections;
 import java.util.List;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import pal.io.InputSource;
-import pal.tree.ReadTree;
 import pal.tree.SimpleTree;
-import pal.tree.TreeParseException;
 import pal.tree.TreeUtils;
 import treecmp.common.TreeCmpException;
 import treecmp.heuristics.TreeNeighborhoodUtils;
@@ -169,36 +165,39 @@ public abstract class HeuristicBaseMetric extends BaseMetric implements Metric {
 
                 currentBestDist = bestDist;
 
-                this.accumulatedNniCost += tnu.getTreeCost(bestTree);
+                // 1. ZAWSZE inkrementujemy liczbę kroków natywnej heurystyki o 1 (1 ruch TBR/SPR/NNI)
                 this.accumulatedSteps++;
 
+                // 2. Dekompozycja ruchu makro na 1-NNI do pełnej trajektorii i kosztu NNI
                 TreeMove move = tnu.getMoveForTree(bestTree);
+                List<Tree> stepTraj = null;
+
                 if (move != null) {
                     try {
-                        List<Tree> stepTraj = move.getNniTrajectory(currentStepTree);
-                        if (stepTraj != null && !stepTraj.isEmpty()) {
-                            this.fullOptimumTrajectory.addAll(stepTraj);
-                        } else {
-                            this.fullOptimumTrajectory.add(bestTree);
-                        }
+                        stepTraj = move.getNniTrajectory(currentStepTree);
                     } catch (Exception e) {
-                        this.fullOptimumTrajectory.add(bestTree);
+                        stepTraj = null;
                     }
-                } else {
-                    this.fullOptimumTrajectory.add(bestTree);
                 }
 
-                String bestTreeString = bestTree.toString();
-                try (InputSource is = InputSource.openString(bestTreeString)) {
-                    currentStepTree = ensureIndexedSimpleTree(new ReadTree(is));
+                if (stepTraj != null && !stepTraj.isEmpty()) {
+                    for (Tree intermediateTree : stepTraj) {
+                        this.fullOptimumTrajectory.add(ensureIndexedSimpleTree(intermediateTree));
+                    }
+                    this.accumulatedNniCost += stepTraj.size();
+                } else {
+                    this.fullOptimumTrajectory.add(ensureIndexedSimpleTree(bestTree));
+                    this.accumulatedNniCost += (move != null) ? move.getNniEquivalentCost() : tnu.getTreeCost(bestTree);
                 }
+
+                currentStepTree = ensureIndexedSimpleTree(TreeNeighborhoodUtils.fastTreeClone(bestTree));
 
             } while (currentBestDist > 0);
 
             this.lastOptimumTree = currentStepTree;
             return currentBestDist;
 
-        } catch (TreeCmpException | TreeParseException | IOException ex) {
+        } catch (TreeCmpException ex) {
             Logger.getLogger(HeuristicBaseMetric.class.getName()).log(Level.SEVERE, null, ex);
         }
 

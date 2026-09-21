@@ -8,7 +8,6 @@ import treecmp.heuristics.moves.TbrMove;
 import treecmp.heuristics.moves.TreeMove;
 import treecmp.heuristics.tbr.TbrUtils;
 import treecmp.metrics.IncrementalMetric;
-import treecmp.metrics.topological.acc.RFClusterIncrementalMetric;
 
 import java.util.List;
 
@@ -42,20 +41,24 @@ public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
     protected void searchNeighborhood(Tree currentTree) {
         IncrementalMetric activeMetric = this.primaryMetric != null ? this.primaryMetric : this.incMetric;
         this.tiedMoves.clear();
-        this.bestDist = Double.POSITIVE_INFINITY;
+        this.bestMove = null;
+        this.improved = false;
+        // Inicjalizacja bieżącym dystansem - interesują nas wyłącznie ruchy <= currentDist
+        this.bestDist = activeMetric.getCurrentDistance();
 
-        // Wszystkie metryki 2D-DFS (RFCluster, MC, MP) implementują RootedTbrMetric
-        // i są obsługiwane przez gotową instancję incrementalWalker:
         if (activeMetric instanceof RootedTbrMetric) {
             incrementalWalker.walk(currentTree, (RootedTbrMetric) activeMetric,
                     (dist, prune, reroot, target) -> {
-                        checkImprovementWithTies(dist, new TbrMove(prune, reroot, target));
+                        if (dist <= this.bestDist + 1e-9) {
+                            checkImprovementWithTies(dist, new TbrMove(prune, reroot, target));
+                        }
                     });
         } else {
-            // Klasyczny fallback dla metryk nie-inkrementalnych
             classicWalker.walk(currentTree, activeMetric,
                     (dist, prune, reroot, target) -> {
-                        checkImprovementWithTies(dist, new TbrMove(prune, reroot, target));
+                        if (dist <= this.bestDist + 1e-9) {
+                            checkImprovementWithTies(dist, new TbrMove(prune, reroot, target));
+                        }
                     });
         }
     }
@@ -82,7 +85,8 @@ public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
 
     @Override
     protected double commitMoveToMetric(TreeMove move) {
-        return this.incMetric.getCurrentDistance();
+        IncrementalMetric activeMetric = this.primaryMetric != null ? this.primaryMetric : this.incMetric;
+        return activeMetric.getCurrentDistance();
     }
 
     @Override
@@ -91,54 +95,71 @@ public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
         if (currentTree instanceof SimpleTree) {
             ((SimpleTree) currentTree).createNodeList();
         }
+        TreeUtils.computeParentPointers(currentTree.getRoot());
 
         this.improved = true;
         this.accumulatedNniCost = 0.0;
+        this.accumulatedSteps = 0;
         this.tbrStepsCount = 0;
-        this.fullOptimumTrajectory.clear(); // Wyczyszczenie bufora trajektorii NNI na starcie
+        this.fullOptimumTrajectory.clear();
+
         IncrementalMetric activeMetric = this.primaryMetric != null ? this.primaryMetric : this.incMetric;
 
         activeMetric.initCalculationState(currentTree, targetTree);
         double currentDist = activeMetric.getCurrentDistance();
 
-        // Śledzimy dystans metryki drugorzędnej, aby zapobiec cyklom na płaskowyżach
         double currentSecDist = Double.POSITIVE_INFINITY;
         if (this.primaryMetric != null) {
             this.incMetric.initCalculationState(currentTree, targetTree);
             currentSecDist = this.incMetric.getCurrentDistance();
         }
 
-        if (currentDist == 0) {
+        if (currentDist == 0.0) {
             this.lastOptimumTree = currentTree;
             return 0.0;
         }
 
-        while (this.improved && currentDist > 0) {
+        int maxSteps = 1000;
+        int steps = 0;
+
+        while (currentDist > 0 && steps < maxSteps) {
             this.improved = false;
             searchNeighborhood(currentTree);
 
-            if (!this.tiedMoves.isEmpty() && this.bestDist <= currentDist) {
-                TreeMove bestMove = null;
-                double nextSecDist = currentSecDist;
+            // BEZPIECZNIK 1: Brak ruchów lub brak poprawy -> natychmiastowe wyjście z minimum lokalnego!
+            if (this.tiedMoves.isEmpty() || this.bestDist > currentDist + 1e-9) {
+                break;
+            }
 
-                if (this.primaryMetric == null || this.tiedMoves.size() == 1) {
-                    // SCENARIUSZ 1: Brak drugorzędnej metryki LUB dokładnie 1 ruch remisowy
-                    if (this.bestDist < currentDist - 1e-9) {
-                        if (this.tiedMoves.size() > 1) {
-                            double lowestNniCost = Double.POSITIVE_INFINITY;
-                            for (TreeMove move : this.tiedMoves) {
-                                double cost = move.getNniEquivalentCost();
-                                if (cost < lowestNniCost) {
-                                    lowestNniCost = cost;
-                                    bestMove = move;
-                                }
+            TreeMove bestMove = null;
+            Tree bestCandidateTree = null;
+            double nextSecDist = currentSecDist;
+            boolean isPlateau = Math.abs(this.bestDist - currentDist) <= 1e-9;
+
+            if (this.primaryMetric == null) {
+                // TRYB JEDNEJ METRYKI: Wymagamy ścisłego spadku funkcji celu
+                if (this.bestDist < currentDist - 1e-9) {
+                    if (this.tiedMoves.size() > 1) {
+                        double lowestNniCost = Double.POSITIVE_INFINITY;
+                        for (TreeMove move : this.tiedMoves) {
+                            double cost = move.getNniEquivalentCost();
+                            if (cost < lowestNniCost) {
+                                lowestNniCost = cost;
+                                bestMove = move;
                             }
-                        } else {
-                            bestMove = this.tiedMoves.get(0);
                         }
+                    } else {
+                        bestMove = this.tiedMoves.get(0);
                     }
                 } else {
-                    // SCENARIUSZ 2: Ewaluacja remisów metryką drugorzędną (this.incMetric)
+                    // Płaskowyż bez metryki pomocniczej to ślepy zaułek -> wyjście!
+                    break;
+                }
+            } else {
+                // TRYB Z METRYKĄ POMOCNICZĄ (Tie-Breaker)
+                if (!isPlateau && this.tiedMoves.size() == 1) {
+                    bestMove = this.tiedMoves.get(0);
+                } else {
                     double bestSecondaryDist = Double.POSITIVE_INFINITY;
                     double bestNniCostForTie = Double.POSITIVE_INFINITY;
 
@@ -158,64 +179,85 @@ public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
                             bestSecondaryDist = secDist;
                             bestMove = move;
                             bestNniCostForTie = moveCost;
+                            bestCandidateTree = candidateTree;
                         } else if (Math.abs(secDist - bestSecondaryDist) <= 1e-9 && moveCost < bestNniCostForTie) {
                             bestMove = move;
                             bestNniCostForTie = moveCost;
+                            bestCandidateTree = candidateTree;
                         }
                     }
 
-                    // BLOKADA PĘTLI: Ruch neutralny w metryce głównej (płaskowyż)
-                    // wolno zaakceptować TYLKO wtedy, gdy metryka pomocnicza ściśle maleje!
-                    if (Math.abs(this.bestDist - currentDist) <= 1e-9) {
+                    if (isPlateau) {
                         if (bestSecondaryDist >= currentSecDist - 1e-9) {
-                            bestMove = null; // Ślepy zaułek na płaskowyżu -> przerywamy wspinaczkę
+                            bestMove = null;
+                            bestCandidateTree = null;
                         }
                     }
                     nextSecDist = bestSecondaryDist;
                 }
+            }
 
-                if (bestMove != null) {
-                    Tree nextTree = applyPhysicalMove(currentTree, bestMove);
-                    if (nextTree == null || nextTree == currentTree) {
-                        break;
-                    }
+            // BEZPIECZNIK 2: Brak wybranego ruchu poprawiającego -> natychmiastowe wyjście!
+            if (bestMove == null) {
+                break;
+            }
 
-                    TreeUtils.computeParentPointers(nextTree.getRoot());
-                    activeMetric.initCalculationState(nextTree, targetTree);
-                    double newDist = activeMetric.getCurrentDistance();
+            Tree nextTree = (bestCandidateTree != null) ? bestCandidateTree : applyPhysicalMove(currentTree, bestMove);
+            if (nextTree == null || nextTree == currentTree) {
+                break;
+            }
 
-                    // Bezpiecznik leksykograficzny: odrzucenie ruchu przed modyfikacją stanu
-                    if (newDist > currentDist - 1e-9) {
-                        if (this.primaryMetric == null || nextSecDist >= currentSecDist - 1e-9) {
-                            break;
-                        }
-                    }
+            if (nextTree instanceof SimpleTree) {
+                ((SimpleTree) nextTree).createNodeList();
+            }
+            TreeUtils.computeParentPointers(nextTree.getRoot());
 
-                    try {
-                        List<Tree> stepTraj = bestMove.getNniTrajectory(currentTree);
-                        if (stepTraj != null && !stepTraj.isEmpty()) {
-                            this.fullOptimumTrajectory.addAll(stepTraj);
-                        }
-                    } catch (Exception e) {
-                        // Bezpieczny fallback
-                    }
+            activeMetric.initCalculationState(nextTree, targetTree);
+            double newDist = activeMetric.getCurrentDistance();
 
-                    this.accumulatedNniCost += bestMove.getNniEquivalentCost();
-                    this.tbrStepsCount++;
-
-                    this.lastOptimumMove = bestMove;
-                    this.lastMoveBaseTree = currentTree;
-                    currentTree = nextTree;
-
-                    currentDist = newDist;
-                    currentSecDist = nextSecDist;
-                    this.improved = true;
+            // Bezpiecznik leksykograficzny
+            if (newDist > currentDist + 1e-9) {
+                break;
+            }
+            if (Math.abs(newDist - currentDist) <= 1e-9) {
+                if (this.primaryMetric == null || nextSecDist >= currentSecDist - 1e-9) {
+                    break;
                 }
             }
+
+            if (this.primaryMetric != null) {
+                this.incMetric.initCalculationState(nextTree, targetTree);
+                nextSecDist = this.incMetric.getCurrentDistance();
+            }
+
+            try {
+                List<Tree> stepTraj = bestMove.getNniTrajectory(currentTree);
+                if (stepTraj != null && !stepTraj.isEmpty()) {
+                    this.fullOptimumTrajectory.addAll(stepTraj);
+                }
+            } catch (Exception ignored) {
+            }
+
+            this.accumulatedNniCost += bestMove.getNniEquivalentCost();
+            this.accumulatedSteps++;
+            this.tbrStepsCount++;
+
+            this.lastOptimumMove = bestMove;
+            this.lastMoveBaseTree = currentTree;
+            currentTree = nextTree;
+
+            currentDist = newDist;
+            currentSecDist = nextSecDist;
+            this.improved = true;
+            steps++;
         }
 
         this.lastOptimumTree = currentTree;
         return currentDist;
+    }
+
+    public int getTbrStepsCount() {
+        return this.tbrStepsCount;
     }
 
     @Override
