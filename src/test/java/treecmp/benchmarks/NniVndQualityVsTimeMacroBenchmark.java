@@ -1,5 +1,6 @@
 package treecmp.benchmarks;
 
+import pal.tree.SimpleTree;
 import pal.tree.Tree;
 import treecmp.common.TreeCmpException;
 import treecmp.heuristics.moves.TreeMove;
@@ -12,7 +13,10 @@ import treecmp.heuristics.spr.acc.UsprIncrementalHeuristicMetric;
 import treecmp.heuristics.tbr.TbrHeuristicMetric;
 import treecmp.heuristics.tbr.acc.TbrIncrementalHeuristic;
 import treecmp.heuristics.tbr.acc.UtbrIncrementalHeuristic;
+import treecmp.heuristics.vnd.DetailedTrajectoryVndLogger;
 import treecmp.heuristics.vnd.NniVndHeuristic;
+import treecmp.heuristics.vnd.NoOpVndLogger;
+import treecmp.heuristics.vnd.VndStepListener;
 import treecmp.heuristics.vnd.acc.NniVndIncrementalHeuristic;
 import treecmp.heuristics.base.HeuristicBaseMetric;
 import treecmp.heuristics.base.IncrementalHeuristicBaseMetric;
@@ -83,7 +87,7 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
                 ENABLE_DIAGNOSTIC_ASSERTIONS, THROW_ON_DIAGNOSTIC_MISMATCH);
         System.out.printf("[LOGGING CONFIG] NNI Trajectory Logging (ENABLE_LOGGING): %b%n", ENABLE_LOGGING);
         if (ENABLE_LOGGING) {
-            System.out.println("  -> [WARNING] Detailed NNI logging is active. Timing metrics will reflect I/O and trajectory synthesis overhead!");
+            System.out.println("  -> [WARNING] Detailed NNI logging is active for ALL heuristics. Timing metrics will reflect I/O and trajectory synthesis overhead!");
         }
         System.out.println("======================================================================");
     }
@@ -257,6 +261,106 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
             }
         }
         return "N/A";
+    }
+
+    // =========================================================================
+    // LOGGING WRAPPER DLA POJEDYNCZYCH HEURYSTYK ZEJŚCIA (WARIANTY 1 i 2)
+    // =========================================================================
+
+    private static Metric wrapWithTrajectoryLogging(HeuristicBaseMetric baseHeuristic, Metric evalMetric, String prefix, String shortName) {
+        return new Metric() {
+            @Override
+            public double getDistance(Tree t1, Tree t2, int... indexes) throws TreeCmpException {
+                Tree currentTree = new SimpleTree(t1);
+                if (currentTree instanceof SimpleTree) {
+                    ((SimpleTree) currentTree).createNodeList();
+                }
+                double initialValue = evalMetric.getDistance(currentTree, t2);
+
+                VndStepListener logger = ENABLE_LOGGING
+                        ? new DetailedTrajectoryVndLogger(prefix, shortName, (a, b) -> {
+                    try { return evalMetric.getDistance(a, b); }
+                    catch (Exception e) { return Double.POSITIVE_INFINITY; }
+                })
+                        : new NoOpVndLogger();
+
+                logger.onStart("Descent (" + shortName + ")", currentTree, initialValue);
+
+                double dist = baseHeuristic.performLocalDescent(currentTree, t2);
+                Tree bestTree = baseHeuristic.getLastOptimumTree();
+
+                if (dist < initialValue) {
+                    List<Tree> trajectory = baseHeuristic.getLastOptimumTrajectory(currentTree);
+                    if (trajectory == null || trajectory.isEmpty()) {
+                        trajectory = Collections.singletonList(bestTree);
+                    }
+                    logger.onStep(baseHeuristic.getName(), trajectory, dist, t2);
+                }
+
+                logger.onFinish(dist);
+                return dist == 0.0 ? baseHeuristic.getAccumulatedNniCost() : Double.POSITIVE_INFINITY;
+            }
+
+            @Override public String getName() { return baseHeuristic.getName(); }
+            @Override public String getDescription() { return baseHeuristic.getDescription(); }
+            @Override public boolean isRooted() { return baseHeuristic.isRooted(); }
+            @Override public boolean isWeighted() { return baseHeuristic.isWeighted(); }
+            @Override public boolean isDiffLeafSets() { return baseHeuristic.isDiffLeafSets(); }
+            @Override public String getCommandLineName() { return baseHeuristic.getCommandLineName(); }
+            @Override public void setCommandLineName(String cln) { baseHeuristic.setCommandLineName(cln); }
+            @Override public void setName(String name) { baseHeuristic.setName(name); }
+            @Override public void setDescription(String d) { baseHeuristic.setDescription(d); }
+            @Override public void initData() { baseHeuristic.initData(); }
+            @Override public treecmp.common.AlignInfo getAlignment() { return baseHeuristic.getAlignment(); }
+        };
+    }
+
+    private static Metric wrapWithTrajectoryLogging(IncrementalHeuristicBaseMetric baseHeuristic, IncrementalMetric incMetric, Metric evalMetric, String prefix, String shortName) {
+        return new Metric() {
+            @Override
+            public double getDistance(Tree t1, Tree t2, int... indexes) throws TreeCmpException {
+                Tree currentTree = new SimpleTree(t1);
+                if (currentTree instanceof SimpleTree) {
+                    ((SimpleTree) currentTree).createNodeList();
+                }
+                double initialValue = evalMetric.getDistance(currentTree, t2);
+
+                VndStepListener logger = ENABLE_LOGGING
+                        ? new DetailedTrajectoryVndLogger(prefix, shortName, (a, b) -> {
+                    try { return evalMetric.getDistance(a, b); }
+                    catch (Exception e) { return Double.POSITIVE_INFINITY; }
+                })
+                        : new NoOpVndLogger();
+
+                logger.onStart("Descent Inc (" + shortName + ")", currentTree, initialValue);
+
+                double dist = baseHeuristic.performLocalDescent(currentTree, t2);
+                Tree bestTree = baseHeuristic.getLastOptimumTree();
+
+                if (dist < initialValue) {
+                    List<Tree> trajectory = baseHeuristic.getLastOptimumTrajectory(currentTree);
+                    if (trajectory == null || trajectory.isEmpty()) {
+                        trajectory = Collections.singletonList(bestTree);
+                    }
+                    logger.onStep(baseHeuristic.getName(), trajectory, dist, t2);
+                }
+
+                logger.onFinish(dist);
+                return dist == 0.0 ? baseHeuristic.getAccumulatedNniCost() : Double.POSITIVE_INFINITY;
+            }
+
+            @Override public String getName() { return baseHeuristic.getName(); }
+            @Override public String getDescription() { return baseHeuristic.getDescription(); }
+            @Override public boolean isRooted() { return baseHeuristic.isRooted(); }
+            @Override public boolean isWeighted() { return baseHeuristic.isWeighted(); }
+            @Override public boolean isDiffLeafSets() { return baseHeuristic.isDiffLeafSets(); }
+            @Override public String getCommandLineName() { return baseHeuristic.getCommandLineName(); }
+            @Override public void setCommandLineName(String cln) { baseHeuristic.setCommandLineName(cln); }
+            @Override public void setName(String name) { baseHeuristic.setName(name); }
+            @Override public void setDescription(String d) { baseHeuristic.setDescription(d); }
+            @Override public void initData() { baseHeuristic.initData(); }
+            @Override public treecmp.common.AlignInfo getAlignment() { return baseHeuristic.getAlignment(); }
+        };
     }
 
     // =========================================================================
@@ -587,7 +691,7 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
     }
 
     // =========================================================================
-    // BUDOWA ŁAŃCUCHÓW VND (POWIĄZANIE METRYK INKREMENTALNYCH Z KLASYCZNYMI)
+    // BUDOWA ŁAŃCUCHÓW VND (ROZPOZNAWALNE PREFIKSY DLA KAŻDEGO WARIANTU)
     // =========================================================================
 
     private static Metric buildClassicVndFull(Metric classicMetric, boolean isRooted, String shortName) {
@@ -597,7 +701,9 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
                 createClassicEcr3Step(classicMetric, isRooted, shortName),
                 createClassicSprStep(classicMetric, null, isRooted, shortName),
                 createClassicTbrStep(classicMetric, isRooted, shortName)
-        ), shortName);
+        ), shortName) {
+            @Override public String getName() { return "ClassicVND_Full_" + shortName; }
+        };
     }
 
     private static Metric buildClassicVndShort(Metric classicMetric, boolean isRooted, String shortName) {
@@ -605,14 +711,18 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
                 createClassicNniStep(classicMetric, isRooted, shortName),
                 createClassicSprStep(classicMetric, null, isRooted, shortName),
                 createClassicTbrStep(classicMetric, isRooted, shortName)
-        ), shortName);
+        ), shortName) {
+            @Override public String getName() { return "ClassicVND_Short_" + shortName; }
+        };
     }
 
     private static Metric buildClassicVndTbr(Metric classicMetric, boolean isRooted, String shortName) {
         return new NniVndHeuristic(Arrays.asList(
                 createClassicNniStep(classicMetric, isRooted, shortName),
                 createClassicTbrStep(classicMetric, isRooted, shortName)
-        ), shortName);
+        ), shortName) {
+            @Override public String getName() { return "ClassicVND_Tbr_" + shortName; }
+        };
     }
 
     private static Metric buildIncrementalVndFull(IncrementalMetric incMetric, Metric classicMetric, boolean isRooted, String shortName) {
@@ -622,7 +732,9 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
                 createIncEcr3Step(incMetric, classicMetric, shortName),
                 createIncSprStep(incMetric, null, classicMetric, isRooted, shortName),
                 createIncTbrStep(incMetric, null, classicMetric, isRooted, shortName)
-        ), null, shortName);
+        ), null, shortName) {
+            @Override public String getName() { return "IncVND_Full_" + shortName; }
+        };
     }
 
     private static Metric buildIncrementalVndShort(IncrementalMetric incMetric, Metric classicMetric, boolean isRooted, String shortName) {
@@ -630,14 +742,18 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
                 createIncNniStep(incMetric, classicMetric, shortName),
                 createIncSprStep(incMetric, null, classicMetric, isRooted, shortName),
                 createIncTbrStep(incMetric, null, classicMetric, isRooted, shortName)
-        ), null, shortName);
+        ), null, shortName) {
+            @Override public String getName() { return "IncVND_Short_" + shortName; }
+        };
     }
 
     private static Metric buildIncrementalVndTbr(IncrementalMetric incMetric, Metric classicMetric, boolean isRooted, String shortName) {
         return new NniVndIncrementalHeuristic(Arrays.asList(
                 createIncNniStep(incMetric, classicMetric, shortName),
                 createIncTbrStep(incMetric, null, classicMetric, isRooted, shortName)
-        ), null, shortName);
+        ), null, shortName) {
+            @Override public String getName() { return "IncVND_Tbr_" + shortName; }
+        };
     }
 
     private static Metric buildClassicVndFullTie(Metric classicMetric, Metric tieMetric, boolean isRooted, String shortName) {
@@ -647,7 +763,9 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
                 createClassicEcr3Step(classicMetric, isRooted, shortName),
                 createClassicSprStep(classicMetric, tieMetric, isRooted, shortName),
                 createClassicTbrStep(classicMetric, tieMetric, isRooted, shortName)
-        ), shortName);
+        ), shortName) {
+            @Override public String getName() { return "ClassicVND_FullTie_" + shortName; }
+        };
     }
 
     private static Metric buildClassicVndShortTie(Metric classicMetric, Metric tieMetric, boolean isRooted, String shortName) {
@@ -655,14 +773,18 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
                 createClassicNniStep(classicMetric, isRooted, shortName),
                 createClassicSprStep(classicMetric, tieMetric, isRooted, shortName),
                 createClassicTbrStep(classicMetric, tieMetric, isRooted, shortName)
-        ), shortName);
+        ), shortName) {
+            @Override public String getName() { return "ClassicVND_ShortTie_" + shortName; }
+        };
     }
 
     private static Metric buildClassicVndTbrTie(Metric classicMetric, Metric tieMetric, boolean isRooted, String shortName) {
         return new NniVndHeuristic(Arrays.asList(
                 createClassicNniStep(classicMetric, isRooted, shortName),
                 createClassicTbrStep(classicMetric, tieMetric, isRooted, shortName)
-        ), shortName);
+        ), shortName) {
+            @Override public String getName() { return "ClassicVND_TbrTie_" + shortName; }
+        };
     }
 
     private static Metric buildIncrementalVndFullTie(IncrementalMetric incMetric, IncrementalMetric tieIncMetric,
@@ -673,7 +795,9 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
                 createIncEcr3Step(incMetric, classicMetric, shortName),
                 createIncSprStep(incMetric, tieIncMetric, classicMetric, isRooted, shortName),
                 createIncTbrStep(incMetric, tieIncMetric, classicMetric, isRooted, shortName)
-        ), null, shortName);
+        ), null, shortName) {
+            @Override public String getName() { return "IncVND_FullTie_" + shortName; }
+        };
     }
 
     private static Metric buildIncrementalVndShortTie(IncrementalMetric incMetric, IncrementalMetric tieIncMetric,
@@ -682,7 +806,9 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
                 createIncNniStep(incMetric, classicMetric, shortName),
                 createIncSprStep(incMetric, tieIncMetric, classicMetric, isRooted, shortName),
                 createIncTbrStep(incMetric, tieIncMetric, classicMetric, isRooted, shortName)
-        ), null, shortName);
+        ), null, shortName) {
+            @Override public String getName() { return "IncVND_ShortTie_" + shortName; }
+        };
     }
 
     private static Metric buildIncrementalVndTbrTie(IncrementalMetric incMetric, IncrementalMetric tieIncMetric,
@@ -690,54 +816,65 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
         return new NniVndIncrementalHeuristic(Arrays.asList(
                 createIncNniStep(incMetric, classicMetric, shortName),
                 createIncTbrStep(incMetric, tieIncMetric, classicMetric, isRooted, shortName)
-        ), null, shortName);
+        ), null, shortName) {
+            @Override public String getName() { return "IncVND_TbrTie_" + shortName; }
+        };
     }
 
     private List<MetricSetupVnd> getRootedMetrics() {
         List<MetricSetupVnd> list = new ArrayList<>();
 
+        Metric rfcClassic = new RFClusterMetric();
+        IncrementalMetric rfcInc = new RFClusterIncrementalMetric();
+
         list.add(new MetricSetupVnd("RFCluster",
-                new NniClassicHeuristic(new RFClusterMetric(), true, "RFC"),
-                new NniIncrementalHeuristic(new RFClusterIncrementalMetric(), "RFC"),
-                buildClassicVndFull(new RFClusterMetric(), true, "RFC"),
-                buildClassicVndShort(new RFClusterMetric(), true, "RFC"),
-                buildClassicVndTbr(new RFClusterMetric(), true, "RFC"),
-                buildIncrementalVndFull(new RFClusterIncrementalMetric(), new RFClusterMetric(), true, "RFC"),
-                buildIncrementalVndShort(new RFClusterIncrementalMetric(), new RFClusterMetric(), true, "RFC"),
-                buildIncrementalVndTbr(new RFClusterIncrementalMetric(), new RFClusterMetric(), true, "RFC"),
+                wrapWithTrajectoryLogging(createClassicNniStep(rfcClassic, true, "RFC"), rfcClassic, "proof_pair_nni_classic", "RFC"),
+                wrapWithTrajectoryLogging(createIncNniStep(rfcInc, rfcClassic, "RFC"), rfcInc, rfcClassic, "proof_pair_nni_inc", "RFC"),
+                buildClassicVndFull(rfcClassic, true, "RFC"),
+                buildClassicVndShort(rfcClassic, true, "RFC"),
+                buildClassicVndTbr(rfcClassic, true, "RFC"),
+                buildIncrementalVndFull(rfcInc, rfcClassic, true, "RFC"),
+                buildIncrementalVndShort(rfcInc, rfcClassic, true, "RFC"),
+                buildIncrementalVndTbr(rfcInc, rfcClassic, true, "RFC"),
                 null, null, null, null, null, null));
 
+        Metric mcClassic = new MatchingClusterMetric();
+        IncrementalMetric mcInc = new MCIncrementalMetric();
+
         list.add(new MetricSetupVnd("MC",
-                new NniClassicHeuristic(new MatchingClusterMetric(), true, "MC"),
-                new NniIncrementalHeuristic(new MCIncrementalMetric(), "MC"),
-                buildClassicVndFull(new MatchingClusterMetric(), true, "MC"),
-                buildClassicVndShort(new MatchingClusterMetric(), true, "MC"),
-                buildClassicVndTbr(new MatchingClusterMetric(), true, "MC"),
-                buildIncrementalVndFull(new MCIncrementalMetric(), new MatchingClusterMetric(), true, "MC"),
-                buildIncrementalVndShort(new MCIncrementalMetric(), new MatchingClusterMetric(), true, "MC"),
-                buildIncrementalVndTbr(new MCIncrementalMetric(), new MatchingClusterMetric(), true, "MC"),
-                buildClassicVndFullTie(new MatchingClusterMetric(), new RFClusterMetric(), true, "MC_RF"),
-                buildClassicVndShortTie(new MatchingClusterMetric(), new RFClusterMetric(), true, "MC_RF"),
-                buildClassicVndTbrTie(new MatchingClusterMetric(), new RFClusterMetric(), true, "MC_RF"),
-                buildIncrementalVndFullTie(new MCIncrementalMetric(), new RFClusterIncrementalMetric(), new MatchingClusterMetric(), new RFClusterMetric(), true, "MC_RF"),
-                buildIncrementalVndShortTie(new MCIncrementalMetric(), new RFClusterIncrementalMetric(), new MatchingClusterMetric(), new RFClusterMetric(), true, "MC_RF"),
-                buildIncrementalVndTbrTie(new MCIncrementalMetric(), new RFClusterIncrementalMetric(), new MatchingClusterMetric(), new RFClusterMetric(), true, "MC_RF")));
+                wrapWithTrajectoryLogging(createClassicNniStep(mcClassic, true, "MC"), mcClassic, "proof_pair_nni_classic", "MC"),
+                wrapWithTrajectoryLogging(createIncNniStep(mcInc, mcClassic, "MC"), mcInc, mcClassic, "proof_pair_nni_inc", "MC"),
+                buildClassicVndFull(mcClassic, true, "MC"),
+                buildClassicVndShort(mcClassic, true, "MC"),
+                buildClassicVndTbr(mcClassic, true, "MC"),
+                buildIncrementalVndFull(mcInc, mcClassic, true, "MC"),
+                buildIncrementalVndShort(mcInc, mcClassic, true, "MC"),
+                buildIncrementalVndTbr(mcInc, mcClassic, true, "MC"),
+                buildClassicVndFullTie(mcClassic, rfcClassic, true, "MC_RF"),
+                buildClassicVndShortTie(mcClassic, rfcClassic, true, "MC_RF"),
+                buildClassicVndTbrTie(mcClassic, rfcClassic, true, "MC_RF"),
+                buildIncrementalVndFullTie(mcInc, rfcInc, mcClassic, rfcClassic, true, "MC_RF"),
+                buildIncrementalVndShortTie(mcInc, rfcInc, mcClassic, rfcClassic, true, "MC_RF"),
+                buildIncrementalVndTbrTie(mcInc, rfcInc, mcClassic, rfcClassic, true, "MC_RF")));
+
+        Metric mpClassic = new MatchingPairMetric();
+        IncrementalMetric mpInc = new MPIncrementalMetric();
 
         list.add(new MetricSetupVnd("MP",
-                new NniClassicHeuristic(new MatchingPairMetric(), true, "MP"),
-                new NniIncrementalHeuristic(new MPIncrementalMetric(), "MP"),
-                buildClassicVndFull(new MatchingPairMetric(), true, "MP"),
-                buildClassicVndShort(new MatchingPairMetric(), true, "MP"),
-                buildClassicVndTbr(new MatchingPairMetric(), true, "MP"),
-                buildIncrementalVndFull(new MPIncrementalMetric(), new MatchingPairMetric(), true, "MP"),
-                buildIncrementalVndShort(new MPIncrementalMetric(), new MatchingPairMetric(), true, "MP"),
-                buildIncrementalVndTbr(new MPIncrementalMetric(), new MatchingPairMetric(), true, "MP"),
-                buildClassicVndFullTie(new MatchingPairMetric(), new RFClusterMetric(), true, "MP_RF"),
-                buildClassicVndShortTie(new MatchingPairMetric(), new RFClusterMetric(), true, "MP_RF"),
-                buildClassicVndTbrTie(new MatchingPairMetric(), new RFClusterMetric(), true, "MP_RF"),
-                buildIncrementalVndFullTie(new MPIncrementalMetric(), new RFClusterIncrementalMetric(), new MatchingPairMetric(), new RFClusterMetric(), true, "MP_RF"),
-                buildIncrementalVndShortTie(new MPIncrementalMetric(), new RFClusterIncrementalMetric(), new MatchingPairMetric(), new RFClusterMetric(), true, "MP_RF"),
-                buildIncrementalVndTbrTie(new MPIncrementalMetric(), new RFClusterIncrementalMetric(), new MatchingPairMetric(), new RFClusterMetric(), true, "MP_RF")));
+                wrapWithTrajectoryLogging(createClassicNniStep(mpClassic, true, "MP"), mpClassic, "proof_pair_nni_classic", "MP"),
+                wrapWithTrajectoryLogging(createIncNniStep(mpInc, mpClassic, "MP"), mpInc, mpClassic, "proof_pair_nni_inc", "MP"),
+                buildClassicVndFull(mpClassic, true, "MP"),
+                buildClassicVndShort(mpClassic, true, "MP"),
+                buildClassicVndTbr(mpClassic, true, "MP"),
+                buildIncrementalVndFull(mpInc, mpClassic, true, "MP"),
+                buildIncrementalVndShort(mpInc, mpClassic, true, "MP"),
+                buildIncrementalVndTbr(mpInc, mpClassic, true, "MP"),
+                buildClassicVndFullTie(mpClassic, rfcClassic, true, "MP_RF"),
+                buildClassicVndShortTie(mpClassic, rfcClassic, true, "MP_RF"),
+                buildClassicVndTbrTie(mpClassic, rfcClassic, true, "MP_RF"),
+                buildIncrementalVndFullTie(mpInc, rfcInc, mpClassic, rfcClassic, true, "MP_RF"),
+                buildIncrementalVndShortTie(mpInc, rfcInc, mpClassic, rfcClassic, true, "MP_RF"),
+                buildIncrementalVndTbrTie(mpInc, rfcInc, mpClassic, rfcClassic, true, "MP_RF")));
 
         return list;
     }
@@ -745,48 +882,57 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
     private List<MetricSetupVnd> getUnrootedMetrics() {
         List<MetricSetupVnd> list = new ArrayList<>();
 
+        Metric rfClassic = new RFMetric();
+        IncrementalMetric rfInc = new RFIncrementalMetric();
+
         list.add(new MetricSetupVnd("RF",
-                new NniClassicHeuristic(new RFMetric(), false, "RF"),
-                new NniIncrementalHeuristic(new RFIncrementalMetric(), "RF"),
-                buildClassicVndFull(new RFMetric(), false, "RF"),
-                buildClassicVndShort(new RFMetric(), false, "RF"),
-                buildClassicVndTbr(new RFMetric(), false, "RF"),
-                buildIncrementalVndFull(new RFIncrementalMetric(), new RFMetric(), false, "RF"),
-                buildIncrementalVndShort(new RFIncrementalMetric(), new RFMetric(), false, "RF"),
-                buildIncrementalVndTbr(new RFIncrementalMetric(), new RFMetric(), false, "RF"),
+                wrapWithTrajectoryLogging(createClassicNniStep(rfClassic, false, "RF"), rfClassic, "proof_pair_nni_classic", "RF"),
+                wrapWithTrajectoryLogging(createIncNniStep(rfInc, rfClassic, "RF"), rfInc, rfClassic, "proof_pair_nni_inc", "RF"),
+                buildClassicVndFull(rfClassic, false, "RF"),
+                buildClassicVndShort(rfClassic, false, "RF"),
+                buildClassicVndTbr(rfClassic, false, "RF"),
+                buildIncrementalVndFull(rfInc, rfClassic, false, "RF"),
+                buildIncrementalVndShort(rfInc, rfClassic, false, "RF"),
+                buildIncrementalVndTbr(rfInc, rfClassic, false, "RF"),
                 null, null, null, null, null, null));
 
+        Metric msClassic = new MatchingSplitMetric();
+        IncrementalMetric msInc = new MSIncrementalMetric();
+
         list.add(new MetricSetupVnd("MS",
-                new NniClassicHeuristic(new MatchingSplitMetric(), false, "MS"),
-                new NniIncrementalHeuristic(new MSIncrementalMetric(), "MS"),
-                buildClassicVndFull(new MatchingSplitMetric(), false, "MS"),
-                buildClassicVndShort(new MatchingSplitMetric(), false, "MS"),
-                buildClassicVndTbr(new MatchingSplitMetric(), false, "MS"),
-                buildIncrementalVndFull(new MSIncrementalMetric(), new MatchingSplitMetric(), false, "MS"),
-                buildIncrementalVndShort(new MSIncrementalMetric(), new MatchingSplitMetric(), false, "MS"),
-                buildIncrementalVndTbr(new MSIncrementalMetric(), new MatchingSplitMetric(), false, "MS"),
-                buildClassicVndFullTie(new MatchingSplitMetric(), new RFMetric(), false, "MS_RF"),
-                buildClassicVndShortTie(new MatchingSplitMetric(), new RFMetric(), false, "MS_RF"),
-                buildClassicVndTbrTie(new MatchingSplitMetric(), new RFMetric(), false, "MS_RF"),
-                buildIncrementalVndFullTie(new MSIncrementalMetric(), new RFIncrementalMetric(), new MatchingSplitMetric(), new RFMetric(), false, "MS_RF"),
-                buildIncrementalVndShortTie(new MSIncrementalMetric(), new RFIncrementalMetric(), new MatchingSplitMetric(), new RFMetric(), false, "MS_RF"),
-                buildIncrementalVndTbrTie(new MSIncrementalMetric(), new RFIncrementalMetric(), new MatchingSplitMetric(), new RFMetric(), false, "MS_RF")));
+                wrapWithTrajectoryLogging(createClassicNniStep(msClassic, false, "MS"), msClassic, "proof_pair_nni_classic", "MS"),
+                wrapWithTrajectoryLogging(createIncNniStep(msInc, msClassic, "MS"), msInc, msClassic, "proof_pair_nni_inc", "MS"),
+                buildClassicVndFull(msClassic, false, "MS"),
+                buildClassicVndShort(msClassic, false, "MS"),
+                buildClassicVndTbr(msClassic, false, "MS"),
+                buildIncrementalVndFull(msInc, msClassic, false, "MS"),
+                buildIncrementalVndShort(msInc, msClassic, false, "MS"),
+                buildIncrementalVndTbr(msInc, msClassic, false, "MS"),
+                buildClassicVndFullTie(msClassic, rfClassic, false, "MS_RF"),
+                buildClassicVndShortTie(msClassic, rfClassic, false, "MS_RF"),
+                buildClassicVndTbrTie(msClassic, rfClassic, false, "MS_RF"),
+                buildIncrementalVndFullTie(msInc, rfInc, msClassic, rfClassic, false, "MS_RF"),
+                buildIncrementalVndShortTie(msInc, rfInc, msClassic, rfClassic, false, "MS_RF"),
+                buildIncrementalVndTbrTie(msInc, rfInc, msClassic, rfClassic, false, "MS_RF")));
+
+        Metric m3Classic = new MatchingTripletMetric();
+        IncrementalMetric m3Inc = new M3IncrementalMetric();
 
         list.add(new MetricSetupVnd("M3",
-                new NniClassicHeuristic(new MatchingTripletMetric(), false, "M3"),
-                new NniIncrementalHeuristic(new M3IncrementalMetric(), "M3"),
-                buildClassicVndFull(new MatchingTripletMetric(), false, "M3"),
-                buildClassicVndShort(new MatchingTripletMetric(), false, "M3"),
-                buildClassicVndTbr(new MatchingTripletMetric(), false, "M3"),
-                buildIncrementalVndFull(new M3IncrementalMetric(), new MatchingTripletMetric(), false, "M3"),
-                buildIncrementalVndShort(new M3IncrementalMetric(), new MatchingTripletMetric(), false, "M3"),
-                buildIncrementalVndTbr(new M3IncrementalMetric(), new MatchingTripletMetric(), false, "M3"),
-                buildClassicVndFullTie(new MatchingTripletMetric(), new RFMetric(), false, "M3_RF"),
-                buildClassicVndShortTie(new MatchingTripletMetric(), new RFMetric(), false, "M3_RF"),
-                buildClassicVndTbrTie(new MatchingTripletMetric(), new RFMetric(), false, "M3_RF"),
-                buildIncrementalVndFullTie(new M3IncrementalMetric(), new RFIncrementalMetric(), new MatchingTripletMetric(), new RFMetric(), false, "M3_RF"),
-                buildIncrementalVndShortTie(new M3IncrementalMetric(), new RFIncrementalMetric(), new MatchingTripletMetric(), new RFMetric(), false, "M3_RF"),
-                buildIncrementalVndTbrTie(new M3IncrementalMetric(), new RFIncrementalMetric(), new MatchingTripletMetric(), new RFMetric(), false, "M3_RF")));
+                wrapWithTrajectoryLogging(createClassicNniStep(m3Classic, false, "M3"), m3Classic, "proof_pair_nni_classic", "M3"),
+                wrapWithTrajectoryLogging(createIncNniStep(m3Inc, m3Classic, "M3"), m3Inc, m3Classic, "proof_pair_nni_inc", "M3"),
+                buildClassicVndFull(m3Classic, false, "M3"),
+                buildClassicVndShort(m3Classic, false, "M3"),
+                buildClassicVndTbr(m3Classic, false, "M3"),
+                buildIncrementalVndFull(m3Inc, m3Classic, false, "M3"),
+                buildIncrementalVndShort(m3Inc, m3Classic, false, "M3"),
+                buildIncrementalVndTbr(m3Inc, m3Classic, false, "M3"),
+                buildClassicVndFullTie(m3Classic, rfClassic, false, "M3_RF"),
+                buildClassicVndShortTie(m3Classic, rfClassic, false, "M3_RF"),
+                buildClassicVndTbrTie(m3Classic, rfClassic, false, "M3_RF"),
+                buildIncrementalVndFullTie(m3Inc, rfInc, m3Classic, rfClassic, false, "M3_RF"),
+                buildIncrementalVndShortTie(m3Inc, rfInc, m3Classic, rfClassic, false, "M3_RF"),
+                buildIncrementalVndTbrTie(m3Inc, rfInc, m3Classic, rfClassic, false, "M3_RF")));
 
         return list;
     }
