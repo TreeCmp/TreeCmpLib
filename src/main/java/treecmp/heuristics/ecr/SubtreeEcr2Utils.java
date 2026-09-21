@@ -43,10 +43,6 @@ public class SubtreeEcr2Utils extends TreeNeighborhoodUtils {
         forEachEcr2Tree(tree, action);
     }
 
-    /**
-     * Pamięciowo oszczędny generator sąsiedztwa 2-sECR.
-     * Przekazuje każde nowe, unikalne drzewo bezpośrednio do konsumenta.
-     */
     private void forEachEcr2Tree(Tree tree, java.util.function.Consumer<Tree> action) {
         IdGroup idGroup = TreeUtils.getLeafIdGroup(tree);
         Set<treecmp.heuristics.TreeHolder> seenHolders = new HashSet<>();
@@ -99,7 +95,6 @@ public class SubtreeEcr2Utils extends TreeNeighborhoodUtils {
         }
 
         for (TopologyTemplate2sECR template : TEMPLATES) {
-            // Pomijamy odtworzenie struktury identycznej ze startową
             if (template.isFork == isOriginalFork && Arrays.equals(template.indices, new int[]{0, 1, 2, 3})) {
                 continue;
             }
@@ -109,17 +104,13 @@ public class SubtreeEcr2Utils extends TreeNeighborhoodUtils {
                 treecmp.heuristics.moves.Ecr2Move move =
                         new treecmp.heuristics.moves.Ecr2Move(top, m1, m2, s, template);
 
-                // Rejestrujemy koszt i ruch (metody z klasy bazowej TreeNeighborhoodUtils)
                 registerTreeCost(newTree, move.getNniEquivalentCost());
                 registerTreeMove(newTree, move);
 
-                // Deduplikacja topologii (z uwzględnieniem faktu czy korzeń ma znaczenie)
                 treecmp.heuristics.TreeHolder holder = unrooted ?
                         new TreeUnrootedHolder(newTree, idGroup) :
                         new TreeRootedHolder(newTree, idGroup);
 
-                // Jeśli topologia pojawia się po raz pierwszy (dodanie do setu się powiodło),
-                // natychmiast wypychamy ją do HeuristicBaseMetric bez budowania listy.
                 if (seenHolders.add(holder)) {
                     action.accept(newTree);
                 }
@@ -201,6 +192,7 @@ public class SubtreeEcr2Utils extends TreeNeighborhoodUtils {
                 nM2.setChild(1, nS[template.indices[3]]); nS[template.indices[3]].setParent(nM2);
             }
 
+            pal.tree.TreeUtils.computeParentPointers(newTree.getRoot());
             if (newTree instanceof SimpleTree) {
                 ((SimpleTree) newTree).createNodeList();
             }
@@ -253,6 +245,7 @@ public class SubtreeEcr2Utils extends TreeNeighborhoodUtils {
             nM2.setChild(1, nS[template.indices[3]]); nS[template.indices[3]].setParent(nM2);
         }
 
+        pal.tree.TreeUtils.computeParentPointers(tree.getRoot());
         if (tree instanceof SimpleTree) {
             ((SimpleTree) tree).createNodeList();
         }

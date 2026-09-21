@@ -6,6 +6,8 @@ import pal.misc.Identifier;
 import pal.tree.*;
 import treecmp.common.TreeCmpException;
 import treecmp.common.TreeCmpUtils;
+import treecmp.heuristics.moves.SprMove;
+import treecmp.heuristics.moves.TbrMove;
 import treecmp.heuristics.moves.TreeMove;
 import treecmp.heuristics.spr.BestTreeChooser;
 import treecmp.heuristics.spr.TreeValuePair;
@@ -81,6 +83,7 @@ public abstract class TreeNeighborhoodUtils {
     }
 
     public Tree createTbrTree(Tree baseTree, Node s, Node r, Node t) {
+        int expectedLeaves = baseTree.getExternalNodeCount();
         Tree resultTree = fastTreeClone(baseTree);
 
         Node source = findNodeEquivalent(baseTree, resultTree, s);
@@ -91,51 +94,20 @@ public abstract class TreeNeighborhoodUtils {
 
         Node sourceParent = source.getParent();
         if (sourceParent == null) return null;
-        boolean isSourceParentRoot = sourceParent.isRoot();
-        Node provisionalRoot = resultTree.getRoot();
-        Node newNode = new SimpleNode();
 
-        // 1. BEZPIECZNE ODCIĘCIE PODDRZEWA
-        if (isSourceParentRoot) {
+        Node provisionalRoot = resultTree.getRoot();
+
+        // 1. BEZPIECZNE ODCIĘCIE PODDRZEWA ORAZ REDUKCJA STAREGO RODZICA
+        if (sourceParent.isRoot()) {
             Node[] otherChildren = findOtherChildren(source, sourceParent);
             if (otherChildren.length == 1) {
                 provisionalRoot = otherChildren[0];
                 provisionalRoot.setParent(null);
-            } else if (otherChildren.length == 2) {
-                Node c0 = otherChildren[0];
-                Node c1 = otherChildren[1];
-
-                c0.setParent(null);
-                c1.setParent(null);
-
-                if (target == c0) {
-                    newNode.addChild(c0); c0.setParent(newNode);
-                    newNode.addChild(c1); c1.setParent(newNode);
-                    provisionalRoot = newNode;
-                } else if (target == c1) {
-                    newNode.addChild(c1); c1.setParent(newNode);
-                    newNode.addChild(c0); c0.setParent(newNode);
-                    provisionalRoot = newNode;
-                } else {
-                    if (c0.isLeaf() && c1.isLeaf()) {
-                        Node join = new SimpleNode();
-                        join.addChild(c0); c0.setParent(join);
-                        join.addChild(c1); c1.setParent(join);
-                        provisionalRoot = join;
-                    } else if (c0.isLeaf()) {
-                        c1.addChild(c0); c0.setParent(c1);
-                        provisionalRoot = c1;
-                    } else if (c1.isLeaf()) {
-                        c0.addChild(c1); c1.setParent(c0);
-                        provisionalRoot = c0;
-                    } else if (isNodeInSubtree(target, c0)) {
-                        c0.addChild(c1); c1.setParent(c0);
-                        provisionalRoot = c0;
-                    } else {
-                        c1.addChild(c0); c0.setParent(c1);
-                        provisionalRoot = c1;
-                    }
-                }
+                source.setParent(null);
+            } else {
+                int sIdx = findChildPos(source, sourceParent);
+                sourceParent.removeChild(sIdx);
+                source.setParent(null);
             }
         } else {
             Node otherSourceChild = findOtherChild(source, sourceParent);
@@ -143,42 +115,77 @@ public abstract class TreeNeighborhoodUtils {
             int sourceParentPos = findChildPos(sourceParent, sourceParent2);
 
             sourceParent2.setChild(sourceParentPos, otherSourceChild);
-            otherSourceChild.setParent(sourceParent2);
+            if (otherSourceChild != null) {
+                otherSourceChild.setParent(sourceParent2);
+            }
+            source.setParent(null);
         }
 
         // 2. PRZEKORZENIENIE ODCIĘTEGO PODDRZEWA
         Node newSubtreeRoot = rerootDetachedSubtree(source, reroot);
+        if (newSubtreeRoot != null) {
+            newSubtreeRoot.setParent(null);
+        }
 
         // 3. WPIĘCIE PODDRZEWA W NOWE MIEJSCE
-        if (provisionalRoot == newNode) {
-            resultTree.setRoot(newNode);
-        } else {
-            Node targetParent = target.getParent();
-            if (targetParent == null) {
-                newNode.setParent(null);
-                resultTree.setRoot(newNode);
-            } else {
-                int targetPos = findChildPos(target, targetParent);
-                targetParent.setChild(targetPos, newNode);
-                newNode.setParent(targetParent);
-                resultTree.setRoot(provisionalRoot);
-            }
+        Node newNode = new SimpleNode();
+        Node targetParent = target.getParent();
+        Node rootNode;
+
+        if (target == provisionalRoot || targetParent == null) {
             newNode.addChild(target); target.setParent(newNode);
+            newNode.addChild(newSubtreeRoot); newSubtreeRoot.setParent(newNode);
+            newNode.setParent(null);
+            rootNode = newNode;
+        } else {
+            int targetPos = findChildPos(target, targetParent);
+            if (targetPos == -1) return null;
+            targetParent.setChild(targetPos, newNode);
+            newNode.setParent(targetParent);
+
+            newNode.addChild(target); target.setParent(newNode);
+            newNode.addChild(newSubtreeRoot); newSubtreeRoot.setParent(newNode);
+            rootNode = provisionalRoot;
         }
 
-        newNode.addChild(newSubtreeRoot); newSubtreeRoot.setParent(newNode);
-
-        // 4. TWARDE PRZEINDEKSOWANIE W PAL
-        if (resultTree instanceof pal.tree.SimpleTree) {
-            pal.tree.TreeUtils.computeParentPointers(resultTree.getRoot());
-            ((pal.tree.SimpleTree) resultTree).createNodeList();
+        // 4. BEZPIECZNIK ANTY-CYKLICZNY
+        if (hasCycle(rootNode)) {
+            return null;
         }
 
-        return resultTree;
+        // 5. KLUCZOWE: Ujednolicenie wskaźników rodziców ZANIM PAL uruchomi createNodeList()!
+        pal.tree.TreeUtils.computeParentPointers(rootNode);
+
+        SimpleTree resTree = new SimpleTree(rootNode);
+        resTree.createNodeList();
+
+        if (resTree.getExternalNodeCount() != expectedLeaves) {
+            return null;
+        }
+
+        TreeMove move = (s == r) ? new SprMove(s, t) : new TbrMove(s, r, t);
+        registerTreeMove(resTree, move);
+        registerTreeCost(resTree, move.getNniEquivalentCost());
+
+        return resTree;
+    }
+
+    private static boolean hasCycle(Node root) {
+        if (root == null) return false;
+        Set<Node> visited = Collections.newSetFromMap(new IdentityHashMap<>());
+        return checkCycleDfs(root, visited);
+    }
+
+    private static boolean checkCycleDfs(Node node, Set<Node> visited) {
+        if (node == null) return false;
+        if (!visited.add(node)) return true;
+        for (int i = 0; i < node.getChildCount(); i++) {
+            if (checkCycleDfs(node.getChild(i), visited)) return true;
+        }
+        return false;
     }
 
     public Tree createSprTree(Tree baseTree, Node s, Node t) {
-        // Bezpieczna realizacja SPR jako TBR bez przekorzenienia
         return createTbrTree(baseTree, s, s, t);
     }
 
@@ -633,6 +640,10 @@ public abstract class TreeNeighborhoodUtils {
             ((pal.tree.SimpleTree) resultTree).createNodeList();
         }
 
+        SprMove move = new SprMove(s, t);
+        registerTreeMove(resultTree, move);
+        registerTreeCost(resultTree, move.getNniEquivalentCost());
+
         return resultTree;
     }
 
@@ -716,8 +727,10 @@ public abstract class TreeNeighborhoodUtils {
             ((SimpleNode) newRoot).addChild(attachedChild);
             attachedChild.setParent(newRoot);
             newRoot.setParent(null);
+
+            // KLUCZOWE: computeParentPointers ZANIM SimpleTree uruchomi createNodeList()!
+            pal.tree.TreeUtils.computeParentPointers(newRoot);
             SimpleTree unrooted = new SimpleTree(newRoot);
-            TreeUtils.computeParentPointers(unrooted.getRoot());
             unrooted.createNodeList();
             return unrooted;
         }
@@ -882,5 +895,10 @@ public abstract class TreeNeighborhoodUtils {
 
     public void clearCosts() {
         treeCosts.clear();
+        treeMoves.clear();
+    }
+
+    public void clearMoves() {
+        treeMoves.clear();
     }
 }

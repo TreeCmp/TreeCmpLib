@@ -27,10 +27,6 @@ public class SubtreeEcr3Utils extends TreeNeighborhoodUtils {
         forEachEcr3Tree(tree, action);
     }
 
-    // ========================================================================
-    // PUBLICZNE METODY DLA HEURYSTYKI INKREMENTALNEJ
-    // ========================================================================
-
     public List<List<Node>> getClusters(Node node, int size) {
         List<List<Node>> res = new ArrayList<>();
         if (size == 0) { res.add(new ArrayList<Node>()); return res; }
@@ -87,10 +83,6 @@ public class SubtreeEcr3Utils extends TreeNeighborhoodUtils {
         );
     }
 
-    // ========================================================================
-    // ODBUDOWA DRZEWA (WSTRZYKIWANIE 105 SZABLONÓW - CLONE & IN PLACE)
-    // ========================================================================
-
     public Tree createEcr3Tree(Tree tree, List<Node> cluster, Node[] s, TopologyTemplate3sECR template) {
         try {
             List<List<Integer>> pathCluster = new ArrayList<>();
@@ -132,6 +124,11 @@ public class SubtreeEcr3Utils extends TreeNeighborhoodUtils {
 
             bindPhysicalTemplate(template, top, availableNodes, 1, newS, topPorts);
 
+            pal.tree.TreeUtils.computeParentPointers(newTree.getRoot());
+            if (newTree instanceof SimpleTree) {
+                ((SimpleTree) newTree).createNodeList();
+            }
+
             return refreshTreeInPlace(newTree);
         } catch (Exception e) {
             return null;
@@ -160,6 +157,11 @@ public class SubtreeEcr3Utils extends TreeNeighborhoodUtils {
 
         Node[] available = cluster.toArray(new Node[0]);
         bindPhysicalTemplate(template, top, available, 1, s, topPorts);
+
+        pal.tree.TreeUtils.computeParentPointers(tree.getRoot());
+        if (tree instanceof SimpleTree) {
+            ((SimpleTree) tree).createNodeList();
+        }
 
         return tree;
     }
@@ -203,10 +205,6 @@ public class SubtreeEcr3Utils extends TreeNeighborhoodUtils {
         }
         return idx;
     }
-
-    // ========================================================================
-    // GENERATOR 105 TOPOLOGII (ALGEBRAICZNY GENERATOR DRZEW)
-    // ========================================================================
 
     private static List<TopologyTemplate3sECR> generate105Templates() {
         List<Integer> leaves = Arrays.asList(0, 1, 2, 3, 4);
@@ -395,11 +393,6 @@ public class SubtreeEcr3Utils extends TreeNeighborhoodUtils {
         return res;
     }
 
-    /**
-     * Pamięciowo oszczędny generator sąsiedztwa 3-sECR.
-     * Zamiast alokować tablicę wszystkich klonów naraz, przekazuje każde nowe,
-     * unikalne drzewo bezpośrednio do konsumenta (np. pętli zstępującej w HeuristicBaseMetric).
-     */
     public void forEachEcr3Tree(Tree tree, Consumer<Tree> action) {
         IdGroup idGroup = TreeUtils.getLeafIdGroup(tree);
         Set<treecmp.heuristics.TreeHolder> seenHolders = new HashSet<>();
@@ -409,7 +402,6 @@ public class SubtreeEcr3Utils extends TreeNeighborhoodUtils {
         for (int i = 0; i < intNum; i++) {
             Node rootOfCluster = tree.getInternalNode(i);
 
-            // W PAL każdy węzeł ma 2 dzieci w dół -> klaster 3-sECR musi mieć rozmiar 4
             int targetClusterSize = 4;
             List<List<Node>> clusters = getClusters(rootOfCluster, targetClusterSize);
 
@@ -428,19 +420,15 @@ public class SubtreeEcr3Utils extends TreeNeighborhoodUtils {
                     Tree newTree = createEcr3Tree(tree, cluster, s, template);
                     if (newTree != null) {
                         treecmp.heuristics.moves.Ecr3Move move =
-                                new treecmp.heuristics.moves.Ecr3Move(cluster, s, template);
+                                new treecmp.heuristics.moves.Ecr3Move(cluster, s, originalSignature, template);
 
-                        // KRYTYCZNE: Rejestrujemy koszt i ruch, aby klasyczny Tie-Breaker
-                        // i NniVndHeuristic miały dostęp do metadanych wybranego kroku!
                         registerTreeCost(newTree, move.getNniEquivalentCost());
                         registerTreeMove(newTree, move);
 
-                        // Deduplikacja topologii (z uwzględnieniem korzenia)
                         treecmp.heuristics.TreeHolder holder = unrooted ?
                                 new TreeUnrootedHolder(newTree, idGroup) :
                                 new TreeRootedHolder(newTree, idGroup);
 
-                        // add() zwraca true tylko dla nowej, nieodwiedzonej dotąd topologii
                         if (seenHolders.add(holder)) {
                             action.accept(newTree);
                         }

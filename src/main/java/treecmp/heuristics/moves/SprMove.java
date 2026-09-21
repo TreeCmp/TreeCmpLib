@@ -1,71 +1,82 @@
 package treecmp.heuristics.moves;
 
 import pal.tree.Node;
+import pal.tree.SimpleTree;
 import pal.tree.Tree;
-import treecmp.heuristics.spr.SprUtils;
+import pal.tree.TreeUtils;
+import treecmp.common.TreeCmpUtils;
+import treecmp.heuristics.tbr.TbrUtils;
+import treecmp.heuristics.tbr.UTbrUtils;
+import treecmp.metrics.topological.RFMetric;
 
-import java.util.ArrayList;
-import java.util.Collections;
-import java.util.List;
+import java.util.*;
 
 public class SprMove implements TreeMove {
-    public final Node movingNode;   // Poddrzewo, które "odcinamy"[cite: 11]
-    public final Node targetNode;   // Węzeł, powyżej którego "wszczepiamy" poddrzewo[cite: 11]
 
-    public SprMove(Node movingNode, Node targetNode) {
-        this.movingNode = movingNode;
+    public final Node sourceNode;
+    public final Node movingNode;
+    public final Node targetNode;
+
+    private static final RFMetric RF = new RFMetric();
+
+    public SprMove(Node sourceNode, Node targetNode) {
+        this.sourceNode = sourceNode;
+        this.movingNode = sourceNode;
         this.targetNode = targetNode;
     }
 
     @Override
-    public String getDescription() {
-        return "SPR: Move node " + movingNode.getNumber() + " above node " + targetNode.getNumber();
-    }
-
-    @Override
     public int getNniEquivalentCost() {
-        Node pruneParent = movingNode.getParent();
-        if (pruneParent == null) return 1; // Zabezpieczenie na wypadek dziwnych struktur[cite: 11]
-        // Odejmujemy 1, ponieważ pierwsze przesunięcie na sąsiednią krawędź daje tę samą topologię (0 NNI)[cite: 11]
-        return Math.max(1, calculatePathLength(pruneParent, targetNode) - 1);
+        if (sourceNode == null || targetNode == null || sourceNode.getParent() == null) {
+            return 1;
+        }
+        return Math.max(1, calculatePathLength(sourceNode.getParent(), targetNode));
     }
 
     @Override
     public List<Tree> getNniTrajectory(Tree startTree) {
-        SprUtils sprUtils = new SprUtils();
-        Node pruneParent = movingNode.getParent();
-
-        // Zabezpieczenie dla struktur brzegowych[cite: 11]
-        if (pruneParent == null || pruneParent == targetNode) {
-            Tree finalTree = sprUtils.createAndFixSprTree(startTree, movingNode, targetNode);
-            return finalTree != null ? Collections.singletonList(finalTree) : Collections.emptyList();
+        if (startTree == null || sourceNode == null || targetNode == null || sourceNode.getParent() == null) {
+            return Collections.emptyList();
         }
 
-        List<Node> path = getSimplePath(pruneParent, targetNode);
-
-        // Jeśli ścieżka ma mniej niż 3 węzły (ruch o koszcie 1 NNI), od razu zwracamy tylko drzewo docelowe[cite: 11]
-        if (path.size() < 3) {
-            Tree finalTree = sprUtils.createAndFixSprTree(startTree, movingNode, targetNode);
-            return finalTree != null ? Collections.singletonList(finalTree) : Collections.emptyList();
+        Node origParent = sourceNode.getParent();
+        List<Node> nodePath = getTargetNodePath(origParent, targetNode);
+        if (nodePath.size() < 2) {
+            return Collections.emptyList();
         }
+
+        Node sibling = findSibling(sourceNode, origParent);
 
         List<Tree> trajectory = new ArrayList<>();
+        int expectedLeaves = startTree.getExternalNodeCount();
+        boolean isUnrooted = startTree.getRoot().getChildCount() >= 3;
 
-        // Generujemy kolejne drzewa pośrednie NNI along the path:[cite: 11]
-        // Indeks 0 to pruneParent (start), indeks 1 to rodzeństwo/ojciec (0 NNI),[cite: 11]
-        // dlatego właściwe kroki NNI zaczynają się od indeksu 2 aż do targetNode.[cite: 11]
-        for (int i = 2; i < path.size(); i++) {
-            Node stepTarget = path.get(i);
-            Tree stepTree = sprUtils.createAndFixSprTree(startTree, movingNode, stepTarget);
-            if (stepTree != null) {
-                trajectory.add(stepTree);
+        Tree lastTree = startTree;
+
+        for (int i = 1; i < nodePath.size(); i++) {
+            Node nextTarget = nodePath.get(i);
+
+            // Wpięcie w rodzeństwo po odcięciu odtwarza pierwotne drzewo
+            if (nextTarget == sibling && nextTarget != targetNode) {
+                continue;
+            }
+
+            Tree intermediate = createIntermediateSprTree(startTree, sourceNode, nextTarget, isUnrooted, expectedLeaves);
+
+            if (intermediate != null) {
+                // Weryfikacja różnicy w przestrzeni bezkorzennej eliminuje ukryte no-opy na ścieżce przodków/korzenia
+                double diff = computeUnrootedRf(lastTree, intermediate);
+                if (diff > 0.0) {
+                    trajectory.add(intermediate);
+                    lastTree = intermediate;
+                }
             }
         }
 
-        // Gwarantujemy, że na końcu listy zawsze znajduje się drzewo docelowe[cite: 11]
+        // Zabezpieczenie: jeśli żaden krok pośredni nie zmienił topologii, generujemy stan docelowy
         if (trajectory.isEmpty()) {
-            Tree finalTree = sprUtils.createAndFixSprTree(startTree, movingNode, targetNode);
-            if (finalTree != null) {
+            Tree finalTree = createIntermediateSprTree(startTree, sourceNode, targetNode, isUnrooted, expectedLeaves);
+            if (finalTree != null && computeUnrootedRf(startTree, finalTree) > 0.0) {
                 trajectory.add(finalTree);
             }
         }
@@ -73,91 +84,105 @@ public class SprMove implements TreeMove {
         return trajectory;
     }
 
-    /**
-     * Zwraca prostą ścieżkę węzłów od 'start' do 'end' w drzewie (odporna na cykle!).
-     */
-    private List<Node> getSimplePath(Node start, Node end) {
-        List<Node> pathStartToRoot = new ArrayList<>();
-        Node curr = start;
-        int safety = 0;
-        while (curr != null) {
-            if (safety++ > 10000) {
-                throw new IllegalStateException("Wykryto cykl wskaźników 'parent' w getSimplePath dla węzła nr " + start.getNumber());
-            }
-            pathStartToRoot.add(curr);
-            curr = curr.getParent();
-        }
-
-        List<Node> pathEndToRoot = new ArrayList<>();
-        curr = end;
-        safety = 0;
-        while (curr != null) {
-            if (safety++ > 10000) {
-                throw new IllegalStateException("Wykryto cykl wskaźników 'parent' w getSimplePath dla węzła nr " + end.getNumber());
-            }
-            pathEndToRoot.add(curr);
-            curr = curr.getParent();
-        }
-
-        // Znajdujemy Najniższego Wspólnego Przodka (LCA)[cite: 11]
-        Node lca = null;
-        for (Node n : pathStartToRoot) {
-            if (pathEndToRoot.contains(n)) {
-                lca = n;
-                break;
-            }
-        }
-
-        List<Node> path = new ArrayList<>();
-        if (lca == null) return path;
-
-        int idxStart = pathStartToRoot.indexOf(lca);
-        int idxEnd = pathEndToRoot.indexOf(lca);
-
-        // 1. Od 'start' w górę do LCA (włącznie)[cite: 11]
-        for (int i = 0; i <= idxStart; i++) {
-            path.add(pathStartToRoot.get(i));
-        }
-
-        // 2. Od LCA w dół do 'end' (pomijając sam LCA na indeksie idxEnd)[cite: 11]
-        for (int i = idxEnd - 1; i >= 0; i--) {
-            path.add(pathEndToRoot.get(i));
-        }
-
-        return path;
+    private double computeUnrootedRf(Tree t1, Tree t2) {
+        Tree u1 = TreeCmpUtils.unrootTreeIfNeeded(t1);
+        Tree u2 = TreeCmpUtils.unrootTreeIfNeeded(t2);
+        return RF.getDistance(u1, u2);
     }
 
-    /**
-     * Wylicza dystans topologiczny (liczbę krawędzi) między dwoma węzłami (odporna na cykle!).
-     */
-    private int calculatePathLength(Node a, Node b) {
-        if (a == null || b == null || a == b) return 0;
+    private Node findSibling(Node child, Node parent) {
+        if (parent == null) return null;
+        for (int i = 0; i < parent.getChildCount(); i++) {
+            Node ch = parent.getChild(i);
+            if (ch != child) return ch;
+        }
+        return null;
+    }
 
-        List<Node> pathA = new ArrayList<>();
-        Node curr = a;
-        int safety = 0;
-        while (curr != null) {
-            if (safety++ > 10000) {
-                throw new IllegalStateException("Wykryto cykl wskaźników 'parent' w drzewie (węzeł nr " + a.getNumber() + ")!");
+    private Tree createIntermediateSprTree(Tree baseTree, Node prune, Node target, boolean isUnrooted, int expectedLeaves) {
+        try {
+            Tree res;
+            if (isUnrooted) {
+                UTbrUtils uUtils = new UTbrUtils();
+                res = uUtils.createUtbrTree(baseTree, prune, prune, target);
+            } else {
+                TbrUtils tUtils = new TbrUtils();
+                res = tUtils.createSprTree(baseTree, prune, target);
             }
-            pathA.add(curr);
+            if (res != null && res.getExternalNodeCount() == expectedLeaves) {
+                if (res instanceof SimpleTree) {
+                    ((SimpleTree) res).createNodeList();
+                }
+                TreeUtils.computeParentPointers(res.getRoot());
+                return res;
+            }
+        } catch (Exception ignored) {
+        }
+        return null;
+    }
+
+    public static List<Node> getTargetNodePath(Node u, Node v) {
+        List<Node> pathToRootU = new ArrayList<>();
+        Set<Node> visitedU = Collections.newSetFromMap(new IdentityHashMap<>());
+        Node curr = u;
+        while (curr != null) {
+            if (!visitedU.add(curr)) {
+                throw new IllegalStateException("Wykryto cykl wskaźników 'parent' w strukturze drzewa przy węźle: " + curr);
+            }
+            pathToRootU.add(curr);
             curr = curr.getParent();
         }
 
-        curr = b;
-        int distB = 0;
-        safety = 0;
+        List<Node> pathToRootV = new ArrayList<>();
+        Set<Node> visitedV = Collections.newSetFromMap(new IdentityHashMap<>());
+        curr = v;
         while (curr != null) {
-            if (safety++ > 10000) {
-                throw new IllegalStateException("Wykryto cykl wskaźników 'parent' w drzewie (węzeł nr " + b.getNumber() + ")!");
+            if (!visitedV.add(curr)) {
+                throw new IllegalStateException("Wykryto cykl wskaźników 'parent' w strukturze drzewa przy węźle: " + curr);
             }
-            int idx = pathA.indexOf(curr); 
-            if (idx != -1) {
-                return idx + distB;
-            }
+            pathToRootV.add(curr);
             curr = curr.getParent();
-            distB++;
         }
-        return 1;
+
+        int idxU = pathToRootU.size() - 1;
+        int idxV = pathToRootV.size() - 1;
+        int lcaIdxU = -1;
+        int lcaIdxV = -1;
+
+        while (idxU >= 0 && idxV >= 0 && pathToRootU.get(idxU) == pathToRootV.get(idxV)) {
+            lcaIdxU = idxU;
+            lcaIdxV = idxV;
+            idxU--;
+            idxV--;
+        }
+
+        if (lcaIdxU == -1) {
+            return Collections.emptyList();
+        }
+
+        List<Node> fullPath = new ArrayList<>();
+        for (int i = 0; i <= lcaIdxU; i++) {
+            fullPath.add(pathToRootU.get(i));
+        }
+        for (int i = lcaIdxV - 1; i >= 0; i--) {
+            fullPath.add(pathToRootV.get(i));
+        }
+        return fullPath;
+    }
+
+    private int calculatePathLength(Node u, Node v) {
+        List<Node> path = getTargetNodePath(u, v);
+        return Math.max(1, path.size() - 1);
+    }
+
+    @Override
+    public String getDescription() {
+        return "SprMove[source=" + (sourceNode.isLeaf() ? sourceNode.getIdentifier().getName() : "Internal_" + sourceNode.getNumber()) +
+                ", target=" + (targetNode.isLeaf() ? targetNode.getIdentifier().getName() : "Internal_" + targetNode.getNumber()) + "]";
+    }
+
+    @Override
+    public String toString() {
+        return getDescription();
     }
 }

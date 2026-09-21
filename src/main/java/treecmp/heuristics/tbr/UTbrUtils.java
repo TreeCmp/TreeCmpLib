@@ -26,11 +26,25 @@ public class UTbrUtils extends TreeNeighborhoodUtils {
         if (targetNode.isRoot() || pruneNode.isRoot()) return false;
         if (targetNode == pruneNode.getParent()) return false;
 
+        // 1. targetNode nie może leżeć wewnątrz odcinanego poddrzewa pruneNode
         Node curr = targetNode;
         while (curr != null) {
             if (curr == pruneNode) return false;
             curr = curr.getParent();
         }
+
+        // 2. rerootNode MUSI leżeć ściśle wewnątrz odcinanego poddrzewa pruneNode
+        boolean rerootInPruneSubtree = false;
+        Node currR = rerootNode;
+        while (currR != null) {
+            if (currR == pruneNode) {
+                rerootInPruneSubtree = true;
+                break;
+            }
+            currR = currR.getParent();
+        }
+        if (!rerootInPruneSubtree) return false;
+
         return true;
     }
 
@@ -39,34 +53,43 @@ public class UTbrUtils extends TreeNeighborhoodUtils {
     }
 
     public Tree createUtbrTree(Tree tree, Node pruneNode, Node rerootNode, Node targetNode) {
-        Tree resultTree;
-        if (pruneNode == rerootNode) {
-            resultTree = usprUtils.createUsprTree(tree, pruneNode, targetNode);
-        } else {
+        if (tree == null || pruneNode == null || rerootNode == null || targetNode == null) {
+            return null;
+        }
+        if (!isValidUTbrMove(pruneNode, rerootNode, targetNode)) {
+            return null;
+        }
+
+        Tree resultTree = null;
+        try {
+            // Bezpiecznie używamy createTbrTree z precyzyjnym findNodeEquivalent dla wszystkich ruchów
             resultTree = createTbrTree(tree, pruneNode, rerootNode, targetNode);
+
+            if (resultTree != null) {
+                if (resultTree.getRoot().getChildCount() == 2) {
+                    resultTree = fastUnrootIfNeeded(resultTree);
+                }
+                if (resultTree instanceof SimpleTree) {
+                    TreeUtils.computeParentPointers(resultTree.getRoot());
+                    ((SimpleTree) resultTree).createNodeList();
+                }
+
+                if (resultTree == null || resultTree.getRoot().getChildCount() < 3) {
+                    return null;
+                }
+
+                if (resultTree.getExternalNodeCount() != tree.getExternalNodeCount()) {
+                    return null;
+                }
+
+                if (!SprTopologyGuard.isStrictlyValidUnrootedTree(resultTree, tree.getExternalNodeCount())) {
+                    return null;
+                }
+            }
+        } catch (Exception e) {
+            return null;
         }
 
-        if (resultTree != null) {
-            if (resultTree.getRoot().getChildCount() == 2) {
-                resultTree = fastUnrootIfNeeded(resultTree);
-            }
-            if (resultTree instanceof SimpleTree) {
-                TreeUtils.computeParentPointers(resultTree.getRoot());
-                ((SimpleTree) resultTree).createNodeList();
-            }
-
-            if (resultTree == null || resultTree.getRoot().getChildCount() < 3) {
-                return null;
-            }
-
-            if (resultTree.getExternalNodeCount() != tree.getExternalNodeCount()) {
-                return null;
-            }
-
-            if (!SprTopologyGuard.isStrictlyValidUnrootedTree(resultTree, tree.getExternalNodeCount())) {
-                return null;
-            }
-        }
         return resultTree;
     }
 

@@ -15,11 +15,15 @@ import treecmp.heuristics.moves.SprMove;
 public class SprUtils extends TreeNeighborhoodUtils {
 
     public Tree applyPhysicalSprMove(Tree tree, SprMove move) {
-        Node s = move.movingNode;
-        Node v = move.targetNode;
-        Node p = s.getParent();
+        if (tree == null || move == null) return tree;
 
-        if (p == null || v == null || p == v.getParent()) return tree;
+        // POPRAWKA: w SprMove pole to nazywa się sourceNode
+        Node s = move.sourceNode;
+        Node v = move.targetNode;
+        if (s == null || v == null) return tree;
+
+        Node p = s.getParent();
+        if (p == null || p == v.getParent()) return tree;
 
         Node pp = p.getParent();
         Node sibling = getSibling(s);
@@ -239,54 +243,6 @@ public class SprUtils extends TreeNeighborhoodUtils {
         }
         sb.append(")");
         return sb.toString();
-    }
-
-    private static Tree applyQuickNni(Tree t, Node childToSwap, Node sibling) {
-        SimpleTree clone = new SimpleTree(t);
-        clone.createNodeList();
-        pal.tree.TreeUtils.computeParentPointers(clone.getRoot());
-
-        Node vChild = findEquivalentNode(t.getRoot(), childToSwap, clone);
-        Node vSibling = findEquivalentNode(t.getRoot(), sibling, clone);
-
-        if (vChild == null || vSibling == null) return null;
-        Node pChild = vChild.getParent();
-        Node pSibling = vSibling.getParent();
-        if (pChild == null || pSibling == null || pChild == pSibling) return null;
-
-        int idxChild = -1, idxSibling = -1;
-        for (int i = 0; i < pChild.getChildCount(); i++) if (pChild.getChild(i) == vChild) idxChild = i;
-        for (int i = 0; i < pSibling.getChildCount(); i++) if (pSibling.getChild(i) == vSibling) idxSibling = i;
-
-        if (idxChild == -1 || idxSibling == -1) return null;
-
-        pChild.setChild(idxChild, vSibling);
-        vSibling.setParent(pChild);
-        pSibling.setChild(idxSibling, vChild);
-        vChild.setParent(pSibling);
-
-        return clone;
-    }
-
-    private static Node findEquivalentNode(Node origRoot, Node targetOrig, Tree cloneTree) {
-        if (targetOrig == origRoot) return cloneTree.getRoot();
-        List<Integer> path = new ArrayList<>();
-        Node curr = targetOrig;
-        while (curr != origRoot && curr != null) {
-            Node p = curr.getParent();
-            if (p == null) break;
-            for (int i = 0; i < p.getChildCount(); i++) {
-                if (p.getChild(i) == curr) { path.add(i); break; }
-            }
-            curr = p;
-        }
-        Collections.reverse(path);
-        Node res = cloneTree.getRoot();
-        for (int idx : path) {
-            if (idx >= 0 && idx < res.getChildCount()) res = res.getChild(idx);
-            else return null;
-        }
-        return res;
     }
 
     @Override
