@@ -9,7 +9,13 @@ import pal.tree.TreeParseException;
 import pal.tree.TreeTool;
 import treecmp.common.TreeCmpUtils;
 
+import java.io.BufferedReader;
+import java.io.File;
+import java.io.FileReader;
+import java.io.IOException;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 public class TestTreeFactory {
@@ -325,5 +331,54 @@ public class TestTreeFactory {
 
     public static Tree twelveLeavesUnrootedZeroLengths() {
         return parseNewick("(0:0.0000000,(((2:0.0000000,3:0.0000000):0.0000000,((5:0.0000000,6:0.0000000):0.0000000,(1:0.0000000,((7:0.0000000,8:0.0000000):0.0000000,(9:0.0000000,10:0.0000000):0.0000000):0.0000000):0.0000000):0.0000000):0.0000000,4:0.0000000):0.0000000,11:0.0000000);");
+    }
+
+    // ==========================================
+    // ODCZYT DRZEW Z PLIKÓW NEWICK
+    // ==========================================
+
+    public static List<Tree> loadTrees(String filePath) {
+        return loadTrees(filePath, false);
+    }
+
+    public static List<Tree> loadTrees(String filePath, boolean unrootIfNeeded) {
+        List<Tree> trees = new ArrayList<>();
+        File file = new File(filePath);
+        if (!file.exists()) {
+            file = new File("../" + filePath);
+        }
+        if (!file.exists()) {
+            throw new IllegalArgumentException("Nie znaleziono pliku z drzewami: " + filePath +
+                    " (sprawdzono: " + new File(filePath).getAbsolutePath() + " oraz " + file.getAbsolutePath() + ")");
+        }
+
+        try (BufferedReader reader = new BufferedReader(new FileReader(file))) {
+            StringBuilder sb = new StringBuilder();
+            String line;
+            while ((line = reader.readLine()) != null) {
+                line = line.trim();
+                if (line.isEmpty() || line.startsWith("#") || line.startsWith("[")) {
+                    continue;
+                }
+                sb.append(line);
+                if (sb.indexOf(";") != -1) {
+                    String full = sb.toString();
+                    int semiIdx;
+                    while ((semiIdx = full.indexOf(";")) != -1) {
+                        String newick = full.substring(0, semiIdx + 1).trim();
+                        if (!newick.isEmpty()) {
+                            trees.add(parseNewick(newick, unrootIfNeeded));
+                        }
+                        full = full.substring(semiIdx + 1).trim();
+                    }
+                    sb.setLength(0);
+                    sb.append(full);
+                }
+            }
+        } catch (IOException e) {
+            throw new RuntimeException("Błąd I/O podczas odczytu pliku: " + filePath, e);
+        }
+
+        return trees;
     }
 }
