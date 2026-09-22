@@ -362,7 +362,11 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
                         Tree best = hbm.getLastOptimumTree();
                         List<Tree> trajectory = hbm.getLastOptimumTrajectory(startCopy);
                         if (trajectory == null || trajectory.isEmpty()) {
-                            if (best != null) trajectory = Collections.singletonList(best);
+                            if (best != null) {
+                                trajectory = Collections.singletonList(best);
+                            } else if (isSuccess) {
+                                trajectory = Collections.singletonList(new SimpleTree(t2));
+                            }
                         }
                         if (isSuccess && trajectory != null && !trajectory.isEmpty()) {
                             logger.onStep(hbm.getName(), trajectory, 0.0, t2);
@@ -372,7 +376,11 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
                         Tree best = ihbm.getLastOptimumTree();
                         List<Tree> trajectory = ihbm.getLastOptimumTrajectory(startCopy);
                         if (trajectory == null || trajectory.isEmpty()) {
-                            if (best != null) trajectory = Collections.singletonList(best);
+                            if (best != null) {
+                                trajectory = Collections.singletonList(best);
+                            } else if (isSuccess) {
+                                trajectory = Collections.singletonList(new SimpleTree(t2));
+                            }
                         }
                         if (isSuccess && trajectory != null && !trajectory.isEmpty()) {
                             logger.onStep(ihbm.getName(), trajectory, 0.0, t2);
