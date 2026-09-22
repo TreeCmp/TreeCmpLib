@@ -15,7 +15,6 @@ import treecmp.heuristics.tbr.acc.TbrIncrementalHeuristic;
 import treecmp.heuristics.tbr.acc.UtbrIncrementalHeuristic;
 import treecmp.heuristics.vnd.DetailedTrajectoryVndLogger;
 import treecmp.heuristics.vnd.NniVndHeuristic;
-import treecmp.heuristics.vnd.NoOpVndLogger;
 import treecmp.heuristics.vnd.VndStepListener;
 import treecmp.heuristics.vnd.acc.NniVndIncrementalHeuristic;
 import treecmp.heuristics.base.HeuristicBaseMetric;
@@ -34,15 +33,35 @@ import java.util.*;
 
 public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBenchmark {
 
-    // =========================================================================
-    // FLAGI KONTROLNE DIAGNOSTYKI ECR / VND
-    // =========================================================================
     public static boolean ENABLE_DIAGNOSTIC_ASSERTIONS = true;
     public static boolean THROW_ON_DIAGNOSTIC_MISMATCH = false;
     public static boolean ENABLE_LOGGING = false;
 
     private final int maxAllowedClassicVndSize;
     private long globalNniT, globalEcr2T, globalEcr3T, globalSprT, globalTbrT;
+
+    private static final ThreadLocal<DetailedTrajectoryVndLogger> activeLogger = new ThreadLocal<>();
+    private static int currentPairCounter = 0;
+
+    public static final VndStepListener GLOBAL_DYNAMIC_VND_LISTENER = new VndStepListener() {
+        @Override
+        public void onStart(String testName, Tree startTree, double initialDistance) {
+            DetailedTrajectoryVndLogger l = activeLogger.get();
+            if (l != null) l.onStart(testName, startTree, initialDistance);
+        }
+
+        @Override
+        public void onStep(String heuristicName, List<Tree> trajectory, double currentBestValue, Tree targetTree) {
+            DetailedTrajectoryVndLogger l = activeLogger.get();
+            if (l != null) l.onStep(heuristicName, trajectory, currentBestValue, targetTree);
+        }
+
+        @Override
+        public void onFinish(double finalDistance) {
+            DetailedTrajectoryVndLogger l = activeLogger.get();
+            if (l != null) l.onFinish(finalDistance);
+        }
+    };
 
     static class TimeProfiler {
         private static final ThreadLocal<Map<String, Long>> times = ThreadLocal.withInitial(HashMap::new);
@@ -73,7 +92,7 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
     }
 
     public NniVndQualityVsTimeMacroBenchmark() {
-        this.MAX_ALLOC_PER_PAIR_BYTES = 100L * 1024 * 1024 * 1024; // 100 GB
+        this.MAX_ALLOC_PER_PAIR_BYTES = 100L * 1024 * 1024 * 1024;
 
         long maxHeapBytes = Runtime.getRuntime().maxMemory();
         double maxHeapGb = maxHeapBytes / (1024.0 * 1024.0 * 1024.0);
@@ -81,23 +100,24 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
         this.maxAllowedClassicVndSize = determineMaxClassicVndSize(maxHeapGb);
 
         System.out.println("======================================================================");
-        System.out.printf("[MEMORY CONFIG] Detected JVM Max Heap: %.2f GB%n", maxHeapGb);
-        System.out.printf("[MEMORY CONFIG] Max allowed tree size (N) for Classic VND: %d%n", maxAllowedClassicVndSize);
-        System.out.printf("[DIAGNOSTIC CONFIG] Assertions Enabled: %b | Throw on error: %b%n",
+        System.out.printf(Locale.US, "[MEMORY CONFIG] Detected JVM Max Heap: %.2f GB%n", maxHeapGb);
+        System.out.printf(Locale.US, "[MEMORY CONFIG] Max allowed tree size (N) for Classic VND: %d%n", maxAllowedClassicVndSize);
+        System.out.printf(Locale.US, "[DIAGNOSTIC CONFIG] Assertions Enabled: %b | Throw on error: %b%n",
                 ENABLE_DIAGNOSTIC_ASSERTIONS, THROW_ON_DIAGNOSTIC_MISMATCH);
-        System.out.printf("[LOGGING CONFIG] NNI Trajectory Logging (ENABLE_LOGGING): %b%n", ENABLE_LOGGING);
+        System.out.printf(Locale.US, "[LOGGING CONFIG] NNI Trajectory Logging (ENABLE_LOGGING): %b%n", ENABLE_LOGGING);
         if (ENABLE_LOGGING) {
-            System.out.println("  -> [WARNING] Detailed NNI logging is active for ALL heuristics. Timing metrics will reflect I/O and trajectory synthesis overhead!");
+            System.out.println("  -> [PATH FORMAT] logs/{size}/proof_{metric}_{heuristic}_N{size}_pair{pairIndex}_{timestamp}_{hexUid}.txt");
+            System.out.println("  -> [AUTO-CLEANUP] Incomplete runs (D > 0.0) will be automatically deleted from disk.");
         }
         System.out.println("======================================================================");
     }
 
     private int determineMaxClassicVndSize(double maxHeapGb) {
-        if (maxHeapGb >= 110.0) { return 120; }
-        else if (maxHeapGb >= 85.0) { return 80; }
-        else if (maxHeapGb >= 28.0) { return 50; }
-        else if (maxHeapGb >= 14.0) { return 30; }
-        else { return 20; }
+        if (maxHeapGb >= 110.0) return 120;
+        else if (maxHeapGb >= 85.0) return 80;
+        else if (maxHeapGb >= 28.0) return 50;
+        else if (maxHeapGb >= 14.0) return 30;
+        else return 20;
     }
 
     public static void main(String[] args) {
@@ -129,8 +149,6 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
         }
 
         ENABLE_LOGGING = enableLogging;
-        treecmp.heuristics.vnd.acc.NniVndIncrementalHeuristic.ENABLE_LOGGING = enableLogging;
-        treecmp.heuristics.vnd.NniVndHeuristic.ENABLE_LOGGING = enableLogging;
 
         String baseCsvName = enableLogging
                 ? "benchmark_quality_VND_WITH_NNI_LOGS_OVERHEAD"
@@ -154,7 +172,41 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
             return;
         }
 
-        super.evaluateVariant(size, isRooted, metricName, variantName, heuristic, trees, blacklist, history, csvFileName);
+        currentPairCounter = -1;
+
+        boolean isStandaloneNni = variantName.startsWith("1.") || variantName.startsWith("2.");
+        Metric metricToRun = isStandaloneNni
+                ? wrapWithPairTrajectoryLogging(heuristic, size, metricName, variantName)
+                : wrapContextOnly(heuristic, size, metricName, variantName);
+
+        super.evaluateVariant(size, isRooted, metricName, variantName, metricToRun, trees, blacklist, history, csvFileName);
+    }
+
+    private Metric wrapContextOnly(Metric baseMetric, int size, String metricName, String variantName) {
+        return new Metric() {
+            @Override
+            public double getDistance(Tree t1, Tree t2, int... indexes) throws TreeCmpException {
+                int pairIdx = (indexes != null && indexes.length > 0) ? indexes[0] : currentPairCounter;
+                DetailedTrajectoryVndLogger.LogContext.set(metricName, variantName, size, pairIdx);
+                try {
+                    return baseMetric.getDistance(t1, t2, indexes);
+                } finally {
+                    DetailedTrajectoryVndLogger.LogContext.clear();
+                }
+            }
+
+            @Override public String getName() { return baseMetric.getName(); }
+            @Override public String getDescription() { return baseMetric.getDescription(); }
+            @Override public boolean isRooted() { return baseMetric.isRooted(); }
+            @Override public boolean isWeighted() { return baseMetric.isWeighted(); }
+            @Override public boolean isDiffLeafSets() { return baseMetric.isDiffLeafSets(); }
+            @Override public String getCommandLineName() { return baseMetric.getCommandLineName(); }
+            @Override public void setCommandLineName(String cln) { baseMetric.setCommandLineName(cln); }
+            @Override public void setName(String name) { baseMetric.setName(name); }
+            @Override public void setDescription(String d) { baseMetric.setDescription(d); }
+            @Override public void initData() { baseMetric.initData(); }
+            @Override public treecmp.common.AlignInfo getAlignment() { return baseMetric.getAlignment(); }
+        };
     }
 
     private boolean isClassicVndVariant(String variantName) {
@@ -219,7 +271,10 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
     }
 
     @Override
-    protected void onBeforePair() { TimeProfiler.reset(); }
+    protected void onBeforePair() {
+        TimeProfiler.reset();
+        currentPairCounter++;
+    }
 
     @Override
     protected void onAfterPair() {
@@ -263,115 +318,109 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
         return "N/A";
     }
 
-    // =========================================================================
-    // LOGGING WRAPPER DLA POJEDYNCZYCH HEURYSTYK ZEJŚCIA (WARIANTY 1 i 2)
-    // =========================================================================
+    private Metric wrapWithPairTrajectoryLogging(Metric baseMetric, int size, String metricName, String variantName) {
+        Metric evalMetric = getBaseTopologicalMetric(metricName);
 
-    private static Metric wrapWithTrajectoryLogging(HeuristicBaseMetric baseHeuristic, Metric evalMetric, String prefix, String shortName) {
         return new Metric() {
             @Override
             public double getDistance(Tree t1, Tree t2, int... indexes) throws TreeCmpException {
-                Tree currentTree = new SimpleTree(t1);
-                if (currentTree instanceof SimpleTree) {
-                    ((SimpleTree) currentTree).createNodeList();
+                if (!ENABLE_LOGGING) {
+                    return baseMetric.getDistance(t1, t2, indexes);
                 }
-                double initialValue = evalMetric.getDistance(currentTree, t2);
 
-                VndStepListener logger = ENABLE_LOGGING
-                        ? new DetailedTrajectoryVndLogger(prefix, shortName, (a, b) -> {
+                int pairIdx = (indexes != null && indexes.length > 0) ? indexes[0] : currentPairCounter;
+                DetailedTrajectoryVndLogger.LogContext.set(metricName, variantName, size, pairIdx);
+
+                DetailedTrajectoryVndLogger logger = new DetailedTrajectoryVndLogger(variantName, metricName, (a, b) -> {
                     try { return evalMetric.getDistance(a, b); }
                     catch (Exception e) { return Double.POSITIVE_INFINITY; }
-                })
-                        : new NoOpVndLogger();
+                });
 
-                logger.onStart("Descent (" + shortName + ")", currentTree, initialValue);
+                activeLogger.set(logger);
 
-                double dist = baseHeuristic.performLocalDescent(currentTree, t2);
-                Tree bestTree = baseHeuristic.getLastOptimumTree();
-
-                if (dist < initialValue) {
-                    List<Tree> trajectory = baseHeuristic.getLastOptimumTrajectory(currentTree);
-                    if (trajectory == null || trajectory.isEmpty()) {
-                        trajectory = Collections.singletonList(bestTree);
-                    }
-                    logger.onStep(baseHeuristic.getName(), trajectory, dist, t2);
+                Tree startCopy = new SimpleTree(t1);
+                if (startCopy instanceof SimpleTree) {
+                    ((SimpleTree) startCopy).createNodeList();
                 }
 
-                logger.onFinish(dist);
-                return dist == 0.0 ? baseHeuristic.getAccumulatedNniCost() : Double.POSITIVE_INFINITY;
+                double initialDist;
+                try {
+                    initialDist = evalMetric.getDistance(startCopy, t2);
+                } catch (Exception e) {
+                    initialDist = Double.POSITIVE_INFINITY;
+                }
+
+                logger.onStart(variantName + " (" + metricName + ")", startCopy, initialDist);
+
+                double dist;
+                try {
+                    dist = baseMetric.getDistance(t1, t2, indexes);
+                    boolean isSuccess = !Double.isInfinite(dist) && dist < Double.MAX_VALUE / 2.0;
+
+                    if (baseMetric instanceof HeuristicBaseMetric) {
+                        HeuristicBaseMetric hbm = (HeuristicBaseMetric) baseMetric;
+                        Tree best = hbm.getLastOptimumTree();
+                        List<Tree> trajectory = hbm.getLastOptimumTrajectory(startCopy);
+                        if (trajectory == null || trajectory.isEmpty()) {
+                            if (best != null) trajectory = Collections.singletonList(best);
+                        }
+                        if (isSuccess && trajectory != null && !trajectory.isEmpty()) {
+                            logger.onStep(hbm.getName(), trajectory, 0.0, t2);
+                        }
+                    } else if (baseMetric instanceof IncrementalHeuristicBaseMetric) {
+                        IncrementalHeuristicBaseMetric ihbm = (IncrementalHeuristicBaseMetric) baseMetric;
+                        Tree best = ihbm.getLastOptimumTree();
+                        List<Tree> trajectory = ihbm.getLastOptimumTrajectory(startCopy);
+                        if (trajectory == null || trajectory.isEmpty()) {
+                            if (best != null) trajectory = Collections.singletonList(best);
+                        }
+                        if (isSuccess && trajectory != null && !trajectory.isEmpty()) {
+                            logger.onStep(ihbm.getName(), trajectory, 0.0, t2);
+                        }
+                    }
+
+                    logger.onFinish(isSuccess ? 0.0 : 1.0);
+                } finally {
+                    activeLogger.remove();
+                    DetailedTrajectoryVndLogger.LogContext.clear();
+                }
+
+                return dist;
             }
 
-            @Override public String getName() { return baseHeuristic.getName(); }
-            @Override public String getDescription() { return baseHeuristic.getDescription(); }
-            @Override public boolean isRooted() { return baseHeuristic.isRooted(); }
-            @Override public boolean isWeighted() { return baseHeuristic.isWeighted(); }
-            @Override public boolean isDiffLeafSets() { return baseHeuristic.isDiffLeafSets(); }
-            @Override public String getCommandLineName() { return baseHeuristic.getCommandLineName(); }
-            @Override public void setCommandLineName(String cln) { baseHeuristic.setCommandLineName(cln); }
-            @Override public void setName(String name) { baseHeuristic.setName(name); }
-            @Override public void setDescription(String d) { baseHeuristic.setDescription(d); }
-            @Override public void initData() { baseHeuristic.initData(); }
-            @Override public treecmp.common.AlignInfo getAlignment() { return baseHeuristic.getAlignment(); }
+            @Override public String getName() { return baseMetric.getName(); }
+            @Override public String getDescription() { return baseMetric.getDescription(); }
+            @Override public boolean isRooted() { return baseMetric.isRooted(); }
+            @Override public boolean isWeighted() { return baseMetric.isWeighted(); }
+            @Override public boolean isDiffLeafSets() { return baseMetric.isDiffLeafSets(); }
+            @Override public String getCommandLineName() { return baseMetric.getCommandLineName(); }
+            @Override public void setCommandLineName(String cln) { baseMetric.setCommandLineName(cln); }
+            @Override public void setName(String name) { baseMetric.setName(name); }
+            @Override public void setDescription(String d) { baseMetric.setDescription(d); }
+            @Override public void initData() { baseMetric.initData(); }
+            @Override public treecmp.common.AlignInfo getAlignment() { return baseMetric.getAlignment(); }
         };
     }
 
-    private static Metric wrapWithTrajectoryLogging(IncrementalHeuristicBaseMetric baseHeuristic, IncrementalMetric incMetric, Metric evalMetric, String prefix, String shortName) {
-        return new Metric() {
-            @Override
-            public double getDistance(Tree t1, Tree t2, int... indexes) throws TreeCmpException {
-                Tree currentTree = new SimpleTree(t1);
-                if (currentTree instanceof SimpleTree) {
-                    ((SimpleTree) currentTree).createNodeList();
-                }
-                double initialValue = evalMetric.getDistance(currentTree, t2);
-
-                VndStepListener logger = ENABLE_LOGGING
-                        ? new DetailedTrajectoryVndLogger(prefix, shortName, (a, b) -> {
-                    try { return evalMetric.getDistance(a, b); }
-                    catch (Exception e) { return Double.POSITIVE_INFINITY; }
-                })
-                        : new NoOpVndLogger();
-
-                logger.onStart("Descent Inc (" + shortName + ")", currentTree, initialValue);
-
-                double dist = baseHeuristic.performLocalDescent(currentTree, t2);
-                Tree bestTree = baseHeuristic.getLastOptimumTree();
-
-                if (dist < initialValue) {
-                    List<Tree> trajectory = baseHeuristic.getLastOptimumTrajectory(currentTree);
-                    if (trajectory == null || trajectory.isEmpty()) {
-                        trajectory = Collections.singletonList(bestTree);
-                    }
-                    logger.onStep(baseHeuristic.getName(), trajectory, dist, t2);
-                }
-
-                logger.onFinish(dist);
-                return dist == 0.0 ? baseHeuristic.getAccumulatedNniCost() : Double.POSITIVE_INFINITY;
-            }
-
-            @Override public String getName() { return baseHeuristic.getName(); }
-            @Override public String getDescription() { return baseHeuristic.getDescription(); }
-            @Override public boolean isRooted() { return baseHeuristic.isRooted(); }
-            @Override public boolean isWeighted() { return baseHeuristic.isWeighted(); }
-            @Override public boolean isDiffLeafSets() { return baseHeuristic.isDiffLeafSets(); }
-            @Override public String getCommandLineName() { return baseHeuristic.getCommandLineName(); }
-            @Override public void setCommandLineName(String cln) { baseHeuristic.setCommandLineName(cln); }
-            @Override public void setName(String name) { baseHeuristic.setName(name); }
-            @Override public void setDescription(String d) { baseHeuristic.setDescription(d); }
-            @Override public void initData() { baseHeuristic.initData(); }
-            @Override public treecmp.common.AlignInfo getAlignment() { return baseHeuristic.getAlignment(); }
-        };
+    private Metric getBaseTopologicalMetric(String metricName) {
+        switch (metricName) {
+            case "RFCluster": return new RFClusterMetric();
+            case "MC": return new MatchingClusterMetric();
+            case "MP": return new MatchingPairMetric();
+            case "RF": return new RFMetric();
+            case "MS": return new MatchingSplitMetric();
+            case "M3": return new MatchingTripletMetric();
+            default: return new RFMetric();
+        }
     }
-
-    // =========================================================================
-    // METODY FABRYCZNE KROKÓW Z WBUDOWANĄ DIAGNOSTYKĄ ASERCJI
-    // =========================================================================
 
     private static HeuristicBaseMetric createClassicNniStep(Metric m, boolean isRooted, String sn) {
         return new NniClassicHeuristic(m, isRooted, sn) {
             @Override public double performLocalDescent(Tree t1, Tree t2) {
-                long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2);
-                TimeProfiler.add("NNI", System.nanoTime() - s); return r;
+                long s = System.nanoTime();
+                double r = super.performLocalDescent(t1, t2);
+                TimeProfiler.add("NNI", System.nanoTime() - s);
+                return r;
             }
         };
     }
@@ -379,8 +428,10 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
     private static HeuristicBaseMetric createClassicEcr2Step(Metric m, boolean isRooted, String sn) {
         return new Ecr2ClassicHeuristic(m, isRooted, sn) {
             @Override public double performLocalDescent(Tree t1, Tree t2) {
-                long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2);
-                TimeProfiler.add("ECR2", System.nanoTime() - s); return r;
+                long s = System.nanoTime();
+                double r = super.performLocalDescent(t1, t2);
+                TimeProfiler.add("ECR2", System.nanoTime() - s);
+                return r;
             }
         };
     }
@@ -388,8 +439,10 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
     private static HeuristicBaseMetric createClassicEcr3Step(Metric m, boolean isRooted, String sn) {
         return new Ecr3ClassicHeuristic(m, isRooted, sn) {
             @Override public double performLocalDescent(Tree t1, Tree t2) {
-                long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2);
-                TimeProfiler.add("ECR3", System.nanoTime() - s); return r;
+                long s = System.nanoTime();
+                double r = super.performLocalDescent(t1, t2);
+                TimeProfiler.add("ECR3", System.nanoTime() - s);
+                return r;
             }
         };
     }
@@ -398,15 +451,19 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
         if (isRooted) {
             return new SprHeuristicMetric(m, tie, true, sn) {
                 @Override public double performLocalDescent(Tree t1, Tree t2) {
-                    long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2);
-                    TimeProfiler.add("SPR", System.nanoTime() - s); return r;
+                    long s = System.nanoTime();
+                    double r = super.performLocalDescent(t1, t2);
+                    TimeProfiler.add("SPR", System.nanoTime() - s);
+                    return r;
                 }
             };
         } else {
             return new UsprHeuristicMetric(m, tie, sn) {
                 @Override public double performLocalDescent(Tree t1, Tree t2) {
-                    long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2);
-                    TimeProfiler.add("SPR", System.nanoTime() - s); return r;
+                    long s = System.nanoTime();
+                    double r = super.performLocalDescent(t1, t2);
+                    TimeProfiler.add("SPR", System.nanoTime() - s);
+                    return r;
                 }
             };
         }
@@ -419,8 +476,10 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
     private static HeuristicBaseMetric createClassicTbrStep(Metric m, Metric tie, boolean isRooted, String sn) {
         return new TbrHeuristicMetric(m, tie, isRooted, sn) {
             @Override public double performLocalDescent(Tree t1, Tree t2) {
-                long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2);
-                TimeProfiler.add("TBR", System.nanoTime() - s); return r;
+                long s = System.nanoTime();
+                double r = super.performLocalDescent(t1, t2);
+                TimeProfiler.add("TBR", System.nanoTime() - s);
+                return r;
             }
         };
     }
@@ -431,22 +490,6 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
                 long s = System.nanoTime();
                 double r = super.performLocalDescent(t1, t2);
                 TimeProfiler.add("NNI", System.nanoTime() - s);
-
-                if (ENABLE_DIAGNOSTIC_ASSERTIONS && classicMetric != null) {
-                    Tree best = getLastOptimumTree() != null ? getLastOptimumTree() : t1;
-                    double actualClassic = 0;
-                    try {
-                        actualClassic = classicMetric.getDistance(best, t2);
-                    } catch (TreeCmpException e) {
-                        throw new RuntimeException(e);
-                    }
-                    if (Math.abs(r - actualClassic) > 1e-5) {
-                        String msg = String.format("[NNI DESCENT MISMATCH] Metric=%s | Reported=%.4f vs ActualClassic=%.4f",
-                                sn, r, actualClassic);
-                        System.err.println(msg);
-                        if (THROW_ON_DIAGNOSTIC_MISMATCH) throw new AssertionError(msg);
-                    }
-                }
                 return r;
             }
         };
@@ -454,138 +497,22 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
 
     private static IncrementalHeuristicBaseMetric createIncEcr2Step(IncrementalMetric im, Metric classicMetric, String sn) {
         return new Ecr2IncrementalHeuristic(im, sn) {
-            private Tree currentTargetTree;
-
-            @Override
-            public double performLocalDescent(Tree startTree, Tree targetTree) {
-                this.currentTargetTree = targetTree;
+            @Override public double performLocalDescent(Tree startTree, Tree targetTree) {
                 long s = System.nanoTime();
                 double r = super.performLocalDescent(startTree, targetTree);
                 TimeProfiler.add("ECR2", System.nanoTime() - s);
-
-                if (ENABLE_DIAGNOSTIC_ASSERTIONS && classicMetric != null) {
-                    Tree best = getLastOptimumTree() != null ? getLastOptimumTree() : startTree;
-                    double actualClassic = 0;
-                    try {
-                        actualClassic = classicMetric.getDistance(best, targetTree);
-                    } catch (TreeCmpException e) {
-                        throw new RuntimeException(e);
-                    }
-                    if (Math.abs(r - actualClassic) > 1e-5) {
-                        String msg = String.format("[ECR2 DESCENT MISMATCH] Metric=%s | Reported=%.4f vs ActualClassic=%.4f",
-                                sn, r, actualClassic);
-                        System.err.println(msg);
-                        if (THROW_ON_DIAGNOSTIC_MISMATCH) throw new AssertionError(msg);
-                    }
-                }
                 return r;
-            }
-
-            @Override
-            protected void searchNeighborhood(Tree currentTree) {
-                double distBefore = im.getCurrentDistance();
-                super.searchNeighborhood(currentTree);
-                double distAfter = im.getCurrentDistance();
-
-                if (ENABLE_DIAGNOSTIC_ASSERTIONS && Math.abs(distBefore - distAfter) > 1e-5) {
-                    String msg = String.format("[ECR2 ROLLBACK LEAK DETECTED!] Metric=%s | DistBefore=%.4f, DistAfter=%.4f (Leak: %+.4f)",
-                            sn, distBefore, distAfter, (distAfter - distBefore));
-                    System.err.println(msg);
-                    if (THROW_ON_DIAGNOSTIC_MISMATCH) throw new AssertionError(msg);
-                }
-            }
-
-            @Override
-            protected Tree applyPhysicalMove(Tree tree, TreeMove move) {
-                Tree nextTree = super.applyPhysicalMove(tree, move);
-                if (nextTree instanceof pal.tree.SimpleTree) {
-                    ((pal.tree.SimpleTree) nextTree).createNodeList();
-                }
-                if (ENABLE_DIAGNOSTIC_ASSERTIONS && classicMetric != null && nextTree != null && currentTargetTree != null) {
-                    double expectedByMove = this.bestDist;
-                    double actualClassic = 0;
-                    try {
-                        actualClassic = classicMetric.getDistance(nextTree, currentTargetTree);
-                    } catch (TreeCmpException e) {
-                        throw new RuntimeException(e);
-                    }
-                    if (Math.abs(expectedByMove - actualClassic) > 1e-5) {
-                        String msg = String.format("[ECR2 MOVE EVALUATION MISMATCH] Metric=%s | Move=%s | Evaluated=%.4f vs PhysicalClassic=%.4f",
-                                sn, move, expectedByMove, actualClassic);
-                        System.err.println(msg);
-                        if (THROW_ON_DIAGNOSTIC_MISMATCH) throw new AssertionError(msg);
-                    }
-                }
-                return nextTree;
             }
         };
     }
 
     private static IncrementalHeuristicBaseMetric createIncEcr3Step(IncrementalMetric im, Metric classicMetric, String sn) {
         return new Ecr3IncrementalHeuristic(im, sn) {
-            private Tree currentTargetTree;
-
-            @Override
-            public double performLocalDescent(Tree startTree, Tree targetTree) {
-                this.currentTargetTree = targetTree;
+            @Override public double performLocalDescent(Tree startTree, Tree targetTree) {
                 long s = System.nanoTime();
                 double r = super.performLocalDescent(startTree, targetTree);
                 TimeProfiler.add("ECR3", System.nanoTime() - s);
-
-                if (ENABLE_DIAGNOSTIC_ASSERTIONS && classicMetric != null) {
-                    Tree best = getLastOptimumTree() != null ? getLastOptimumTree() : startTree;
-                    double actualClassic = 0;
-                    try {
-                        actualClassic = classicMetric.getDistance(best, targetTree);
-                    } catch (TreeCmpException e) {
-                        throw new RuntimeException(e);
-                    }
-                    if (Math.abs(r - actualClassic) > 1e-5) {
-                        String msg = String.format("[ECR3 DESCENT MISMATCH] Metric=%s | Reported=%.4f vs ActualClassic=%.4f",
-                                sn, r, actualClassic);
-                        System.err.println(msg);
-                        if (THROW_ON_DIAGNOSTIC_MISMATCH) throw new AssertionError(msg);
-                    }
-                }
                 return r;
-            }
-
-            @Override
-            protected void searchNeighborhood(Tree currentTree) {
-                double distBefore = im.getCurrentDistance();
-                super.searchNeighborhood(currentTree);
-                double distAfter = im.getCurrentDistance();
-
-                if (ENABLE_DIAGNOSTIC_ASSERTIONS && Math.abs(distBefore - distAfter) > 1e-5) {
-                    String msg = String.format("[ECR3 ROLLBACK LEAK DETECTED!] Metric=%s | DistBefore=%.4f, DistAfter=%.4f (Leak: %+.4f)",
-                            sn, distBefore, distAfter, (distAfter - distBefore));
-                    System.err.println(msg);
-                    if (THROW_ON_DIAGNOSTIC_MISMATCH) throw new AssertionError(msg);
-                }
-            }
-
-            @Override
-            protected Tree applyPhysicalMove(Tree tree, TreeMove move) {
-                Tree nextTree = super.applyPhysicalMove(tree, move);
-                if (nextTree instanceof pal.tree.SimpleTree) {
-                    ((pal.tree.SimpleTree) nextTree).createNodeList();
-                }
-                if (ENABLE_DIAGNOSTIC_ASSERTIONS && classicMetric != null && nextTree != null && currentTargetTree != null) {
-                    double expectedByMove = this.bestDist;
-                    double actualClassic = 0;
-                    try {
-                        actualClassic = classicMetric.getDistance(nextTree, currentTargetTree);
-                    } catch (TreeCmpException e) {
-                        throw new RuntimeException(e);
-                    }
-                    if (Math.abs(expectedByMove - actualClassic) > 1e-5) {
-                        String msg = String.format("[ECR3 MOVE EVALUATION MISMATCH] Metric=%s | Move=%s | Evaluated=%.4f vs PhysicalClassic=%.4f",
-                                sn, move, expectedByMove, actualClassic);
-                        System.err.println(msg);
-                        if (THROW_ON_DIAGNOSTIC_MISMATCH) throw new AssertionError(msg);
-                    }
-                }
-                return nextTree;
             }
         };
     }
@@ -594,46 +521,18 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
         if (isRooted) {
             return new SprIncrementalHeuristicMetric(im, tie, sn) {
                 @Override public double performLocalDescent(Tree t1, Tree t2) {
-                    long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2);
+                    long s = System.nanoTime();
+                    double r = super.performLocalDescent(t1, t2);
                     TimeProfiler.add("SPR", System.nanoTime() - s);
-                    if (ENABLE_DIAGNOSTIC_ASSERTIONS && classicMetric != null) {
-                        Tree best = getLastOptimumTree() != null ? getLastOptimumTree() : t1;
-                        double actualClassic = 0;
-                        try {
-                            actualClassic = classicMetric.getDistance(best, t2);
-                        } catch (TreeCmpException e) {
-                            throw new RuntimeException(e);
-                        }
-                        if (Math.abs(r - actualClassic) > 1e-5) {
-                            String msg = String.format("[SPR DESCENT MISMATCH] Metric=%s | Reported=%.4f vs ActualClassic=%.4f",
-                                    sn, r, actualClassic);
-                            System.err.println(msg);
-                            if (THROW_ON_DIAGNOSTIC_MISMATCH) throw new AssertionError(msg);
-                        }
-                    }
                     return r;
                 }
             };
         } else {
             return new UsprIncrementalHeuristicMetric(im, tie, sn) {
                 @Override public double performLocalDescent(Tree t1, Tree t2) {
-                    long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2);
+                    long s = System.nanoTime();
+                    double r = super.performLocalDescent(t1, t2);
                     TimeProfiler.add("SPR", System.nanoTime() - s);
-                    if (ENABLE_DIAGNOSTIC_ASSERTIONS && classicMetric != null) {
-                        Tree best = getLastOptimumTree() != null ? getLastOptimumTree() : t1;
-                        double actualClassic = 0;
-                        try {
-                            actualClassic = classicMetric.getDistance(best, t2);
-                        } catch (TreeCmpException e) {
-                            throw new RuntimeException(e);
-                        }
-                        if (Math.abs(r - actualClassic) > 1e-5) {
-                            String msg = String.format("[uSPR DESCENT MISMATCH] Metric=%s | Reported=%.4f vs ActualClassic=%.4f",
-                                    sn, r, actualClassic);
-                            System.err.println(msg);
-                            if (THROW_ON_DIAGNOSTIC_MISMATCH) throw new AssertionError(msg);
-                        }
-                    }
                     return r;
                 }
             };
@@ -644,55 +543,23 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
         if (isRooted) {
             return new TbrIncrementalHeuristic(im, tie, sn) {
                 @Override public double performLocalDescent(Tree t1, Tree t2) {
-                    long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2);
+                    long s = System.nanoTime();
+                    double r = super.performLocalDescent(t1, t2);
                     TimeProfiler.add("TBR", System.nanoTime() - s);
-                    if (ENABLE_DIAGNOSTIC_ASSERTIONS && classicMetric != null) {
-                        Tree best = getLastOptimumTree() != null ? getLastOptimumTree() : t1;
-                        double actualClassic = 0;
-                        try {
-                            actualClassic = classicMetric.getDistance(best, t2);
-                        } catch (TreeCmpException e) {
-                            throw new RuntimeException(e);
-                        }
-                        if (Math.abs(r - actualClassic) > 1e-5) {
-                            String msg = String.format("[rTBR DESCENT MISMATCH] Metric=%s | Reported=%.4f vs ActualClassic=%.4f",
-                                    sn, r, actualClassic);
-                            System.err.println(msg);
-                            if (THROW_ON_DIAGNOSTIC_MISMATCH) throw new AssertionError(msg);
-                        }
-                    }
                     return r;
                 }
             };
         } else {
             return new UtbrIncrementalHeuristic(im, tie, sn) {
                 @Override public double performLocalDescent(Tree t1, Tree t2) {
-                    long s = System.nanoTime(); double r = super.performLocalDescent(t1, t2);
+                    long s = System.nanoTime();
+                    double r = super.performLocalDescent(t1, t2);
                     TimeProfiler.add("TBR", System.nanoTime() - s);
-                    if (ENABLE_DIAGNOSTIC_ASSERTIONS && classicMetric != null) {
-                        Tree best = getLastOptimumTree() != null ? getLastOptimumTree() : t1;
-                        double actualClassic = 0;
-                        try {
-                            actualClassic = classicMetric.getDistance(best, t2);
-                        } catch (TreeCmpException e) {
-                            throw new RuntimeException(e);
-                        }
-                        if (Math.abs(r - actualClassic) > 1e-5) {
-                            String msg = String.format("[uTBR DESCENT MISMATCH] Metric=%s | Reported=%.4f vs ActualClassic=%.4f",
-                                    sn, r, actualClassic);
-                            System.err.println(msg);
-                            if (THROW_ON_DIAGNOSTIC_MISMATCH) throw new AssertionError(msg);
-                        }
-                    }
                     return r;
                 }
             };
         }
     }
-
-    // =========================================================================
-    // BUDOWA ŁAŃCUCHÓW VND (ROZPOZNAWALNE PREFIKSY DLA KAŻDEGO WARIANTU)
-    // =========================================================================
 
     private static Metric buildClassicVndFull(Metric classicMetric, boolean isRooted, String shortName) {
         return new NniVndHeuristic(Arrays.asList(
@@ -828,8 +695,8 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
         IncrementalMetric rfcInc = new RFClusterIncrementalMetric();
 
         list.add(new MetricSetupVnd("RFCluster",
-                wrapWithTrajectoryLogging(createClassicNniStep(rfcClassic, true, "RFC"), rfcClassic, "proof_pair_nni_classic", "RFC"),
-                wrapWithTrajectoryLogging(createIncNniStep(rfcInc, rfcClassic, "RFC"), rfcInc, rfcClassic, "proof_pair_nni_inc", "RFC"),
+                createClassicNniStep(rfcClassic, true, "RFC"),
+                createIncNniStep(rfcInc, rfcClassic, "RFC"),
                 buildClassicVndFull(rfcClassic, true, "RFC"),
                 buildClassicVndShort(rfcClassic, true, "RFC"),
                 buildClassicVndTbr(rfcClassic, true, "RFC"),
@@ -842,8 +709,8 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
         IncrementalMetric mcInc = new MCIncrementalMetric();
 
         list.add(new MetricSetupVnd("MC",
-                wrapWithTrajectoryLogging(createClassicNniStep(mcClassic, true, "MC"), mcClassic, "proof_pair_nni_classic", "MC"),
-                wrapWithTrajectoryLogging(createIncNniStep(mcInc, mcClassic, "MC"), mcInc, mcClassic, "proof_pair_nni_inc", "MC"),
+                createClassicNniStep(mcClassic, true, "MC"),
+                createIncNniStep(mcInc, mcClassic, "MC"),
                 buildClassicVndFull(mcClassic, true, "MC"),
                 buildClassicVndShort(mcClassic, true, "MC"),
                 buildClassicVndTbr(mcClassic, true, "MC"),
@@ -861,8 +728,8 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
         IncrementalMetric mpInc = new MPIncrementalMetric();
 
         list.add(new MetricSetupVnd("MP",
-                wrapWithTrajectoryLogging(createClassicNniStep(mpClassic, true, "MP"), mpClassic, "proof_pair_nni_classic", "MP"),
-                wrapWithTrajectoryLogging(createIncNniStep(mpInc, mpClassic, "MP"), mpInc, mpClassic, "proof_pair_nni_inc", "MP"),
+                createClassicNniStep(mpClassic, true, "MP"),
+                createIncNniStep(mpInc, mpClassic, "MP"),
                 buildClassicVndFull(mpClassic, true, "MP"),
                 buildClassicVndShort(mpClassic, true, "MP"),
                 buildClassicVndTbr(mpClassic, true, "MP"),
@@ -886,8 +753,8 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
         IncrementalMetric rfInc = new RFIncrementalMetric();
 
         list.add(new MetricSetupVnd("RF",
-                wrapWithTrajectoryLogging(createClassicNniStep(rfClassic, false, "RF"), rfClassic, "proof_pair_nni_classic", "RF"),
-                wrapWithTrajectoryLogging(createIncNniStep(rfInc, rfClassic, "RF"), rfInc, rfClassic, "proof_pair_nni_inc", "RF"),
+                createClassicNniStep(rfClassic, false, "RF"),
+                createIncNniStep(rfInc, rfClassic, "RF"),
                 buildClassicVndFull(rfClassic, false, "RF"),
                 buildClassicVndShort(rfClassic, false, "RF"),
                 buildClassicVndTbr(rfClassic, false, "RF"),
@@ -900,8 +767,8 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
         IncrementalMetric msInc = new MSIncrementalMetric();
 
         list.add(new MetricSetupVnd("MS",
-                wrapWithTrajectoryLogging(createClassicNniStep(msClassic, false, "MS"), msClassic, "proof_pair_nni_classic", "MS"),
-                wrapWithTrajectoryLogging(createIncNniStep(msInc, msClassic, "MS"), msInc, msClassic, "proof_pair_nni_inc", "MS"),
+                createClassicNniStep(msClassic, false, "MS"),
+                createIncNniStep(msInc, msClassic, "MS"),
                 buildClassicVndFull(msClassic, false, "MS"),
                 buildClassicVndShort(msClassic, false, "MS"),
                 buildClassicVndTbr(msClassic, false, "MS"),
@@ -919,8 +786,8 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
         IncrementalMetric m3Inc = new M3IncrementalMetric();
 
         list.add(new MetricSetupVnd("M3",
-                wrapWithTrajectoryLogging(createClassicNniStep(m3Classic, false, "M3"), m3Classic, "proof_pair_nni_classic", "M3"),
-                wrapWithTrajectoryLogging(createIncNniStep(m3Inc, m3Classic, "M3"), m3Inc, m3Classic, "proof_pair_nni_inc", "M3"),
+                createClassicNniStep(m3Classic, false, "M3"),
+                createIncNniStep(m3Inc, m3Classic, "M3"),
                 buildClassicVndFull(m3Classic, false, "M3"),
                 buildClassicVndShort(m3Classic, false, "M3"),
                 buildClassicVndTbr(m3Classic, false, "M3"),
