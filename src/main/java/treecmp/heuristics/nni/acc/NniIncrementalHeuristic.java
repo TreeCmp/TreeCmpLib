@@ -10,6 +10,8 @@ import treecmp.heuristics.moves.TreeMove;
 import treecmp.heuristics.nni.NniUtils;
 import treecmp.metrics.IncrementalMetric;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class NniIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
@@ -99,11 +101,23 @@ public class NniIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
 
     @Override
     public double getDistance(Tree tree1, Tree tree2, int... indexes) {
-        Tree currentTree = new SimpleTree(tree1);
+        double remainingDist = performLocalDescent(tree1, tree2);
+        return (remainingDist == 0.0) ? (double) this.accumulatedSteps : Double.POSITIVE_INFINITY;
+    }
+
+    @Override
+    public double performLocalDescent(Tree startTree, Tree targetTree) {
+        Tree currentTree = new SimpleTree(startTree);
         if (currentTree instanceof SimpleTree) {
             ((SimpleTree) currentTree).createNodeList();
         }
         TreeUtils.computeParentPointers(currentTree.getRoot());
+
+        this.improved = false;
+        this.accumulatedSteps = 0;
+        this.accumulatedNniCost = 0.0;
+        this.fullOptimumTrajectory.clear();
+        this.lastOptimumMove = null;
 
         int totalSteps = 0;
         int maxSteps = 1000;
@@ -111,12 +125,17 @@ public class NniIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
         IncrementalMetric activeMetric = primaryMetric != null ? primaryMetric : this.incMetric;
 
         // Inicjalizacja stanów metryk na startowym drzewie
-        activeMetric.initCalculationState(currentTree, tree2);
+        activeMetric.initCalculationState(currentTree, targetTree);
         if (primaryMetric != null) {
-            this.incMetric.initCalculationState(currentTree, tree2);
+            this.incMetric.initCalculationState(currentTree, targetTree);
         }
 
         double currentDist = activeMetric.getCurrentDistance();
+
+        if (currentDist == 0.0) {
+            this.lastOptimumTree = currentTree;
+            return 0.0;
+        }
 
         while (currentDist > 0 && totalSteps < maxSteps) {
             this.improved = false;
@@ -177,86 +196,39 @@ public class NniIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
             }
             TreeUtils.computeParentPointers(currentTree.getRoot());
 
-            currentDist = newDist;
+            // Rejestracja kroku w trajektorii certyfikatu
+            SimpleTree stepCopy = new SimpleTree(currentTree);
+            stepCopy.createNodeList();
+            TreeUtils.computeParentPointers(stepCopy.getRoot());
+            this.fullOptimumTrajectory.add(stepCopy);
+
             totalSteps++;
-            this.improved = true;
-        }
-
-        return (currentDist == 0.0) ? (double) totalSteps : Double.POSITIVE_INFINITY;
-    }
-
-    @Override
-    public double performLocalDescent(Tree startTree, Tree targetTree) {
-        Tree currentTree = new SimpleTree(startTree);
-        if (currentTree instanceof SimpleTree) {
-            ((SimpleTree) currentTree).createNodeList();
-        }
-        TreeUtils.computeParentPointers(currentTree.getRoot());
-
-        this.improved = true;
-        this.accumulatedNniCost = 0.0;
-        this.accumulatedSteps = 0;
-        this.fullOptimumTrajectory.clear();
-
-        IncrementalMetric activeMetric = primaryMetric != null ? primaryMetric : this.incMetric;
-
-        activeMetric.initCalculationState(currentTree, targetTree);
-        double currentDist = activeMetric.getCurrentDistance();
-
-        if (currentDist == 0.0) {
-            this.lastOptimumTree = currentTree;
-            return 0.0;
-        }
-
-        int maxSteps = 1000;
-        int steps = 0;
-
-        while (currentDist > 0 && steps < maxSteps) {
-            this.improved = false;
-            searchNeighborhood(currentTree);
-
-            // BEZPIECZNIK: Wyjście przy braku poprawy
-            if (this.tiedMoves.isEmpty() || this.bestDist >= currentDist - 1e-9) {
-                break;
-            }
-
-            TreeMove bestMove = this.tiedMoves.get(0);
-            if (bestMove == null) {
-                break;
-            }
-
             this.accumulatedSteps++;
-            this.accumulatedNniCost += bestMove.getNniEquivalentCost();
-            this.lastOptimumMove = bestMove;
-
-            try {
-                List<Tree> stepTraj = bestMove.getNniTrajectory(currentTree);
-                if (stepTraj != null && !stepTraj.isEmpty()) {
-                    this.fullOptimumTrajectory.addAll(stepTraj);
-                }
-            } catch (Exception ignored) {
-            }
-
-            currentTree = applyPhysicalMove(currentTree, bestMove);
-            if (currentTree instanceof SimpleTree) {
-                ((SimpleTree) currentTree).createNodeList();
-            }
-            TreeUtils.computeParentPointers(currentTree.getRoot());
-
-            activeMetric.initCalculationState(currentTree, targetTree);
-            double newDist = activeMetric.getCurrentDistance();
-
-            if (newDist >= currentDist - 1e-9) {
-                break;
-            }
+            this.accumulatedNniCost += finalMove.getNniEquivalentCost();
+            this.lastOptimumMove = finalMove;
 
             currentDist = newDist;
             this.improved = true;
-            steps++;
         }
 
         this.lastOptimumTree = currentTree;
         return currentDist;
+    }
+
+    @Override
+    public List<Tree> getLastOptimumTrajectory(Tree startTree) {
+        if (this.fullOptimumTrajectory != null && !this.fullOptimumTrajectory.isEmpty()) {
+            return new ArrayList<>(this.fullOptimumTrajectory);
+        }
+        if (this.lastOptimumTree != null) {
+            return Collections.singletonList(this.lastOptimumTree);
+        }
+        return Collections.emptyList();
+    }
+
+    @Override
+    public Tree getLastOptimumTree() {
+        return this.lastOptimumTree;
     }
 
     @Override
