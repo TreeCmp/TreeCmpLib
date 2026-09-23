@@ -12,6 +12,8 @@ import treecmp.metrics.IncrementalMetric;
 import treecmp.metrics.topological.acc.M3IncrementalMetric;
 import treecmp.metrics.topological.acc.MSIncrementalMetric;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetric {
@@ -25,7 +27,7 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
     private int sprStepsCount = 0;
 
     public UsprIncrementalHeuristicMetric(IncrementalMetric metric, IncrementalMetric primaryMetric, String metricShortName) {
-        super(false, metric); // false dla drzew nieukorzenionych
+        super(false, metric);
         this.primaryMetric = primaryMetric;
         this.metricShortName = metricShortName;
         this.standardWalker = new ClassicUsprWalker();
@@ -43,7 +45,6 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
         this.tiedMoves.clear();
         this.bestMove = null;
         this.improved = false;
-        // Inicjalizacja bieżącym dystansem - interesują nas wyłącznie ruchy <= currentDist
         this.bestDist = activeMetric.getCurrentDistance();
 
         if (activeMetric instanceof MSIncrementalMetric || activeMetric instanceof M3IncrementalMetric) {
@@ -96,7 +97,7 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
         this.accumulatedNniCost = 0.0;
         this.accumulatedSteps = 0;
         this.sprStepsCount = 0;
-        this.fullOptimumTrajectory.clear(); // Wyczyszczenie bufora trajektorii NNI
+        this.fullOptimumTrajectory.clear();
 
         IncrementalMetric activeMetric = primaryMetric != null ? primaryMetric : this.incMetric;
 
@@ -121,7 +122,6 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
             this.improved = false;
             searchNeighborhood(currentTree);
 
-            // BEZPIECZNIK 1: Brak ruchów lub brak poprawy -> natychmiastowe wyjście z minimum lokalnego!
             if (this.tiedMoves.isEmpty() || this.bestDist > currentDist + 1e-9) {
                 break;
             }
@@ -146,11 +146,9 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
                         bestMove = this.tiedMoves.get(0);
                     }
                 } else {
-                    // Plateau w trybie pojedynczej metryki to stan stabilny
                     break;
                 }
             } else {
-                // Tryb z metryką pomocniczą (tie-breaker)
                 if (!isPlateau && this.tiedMoves.size() == 1) {
                     bestMove = this.tiedMoves.get(0);
                 } else {
@@ -191,7 +189,6 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
                 }
             }
 
-            // BEZPIECZNIK 2: Brak ruchu poprawiającego -> wyjście
             if (bestMove == null) {
                 break;
             }
@@ -223,17 +220,23 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
                 nextSecDist = this.incMetric.getCurrentDistance();
             }
 
-            // Rejestracja podkroków 1-NNI dla certyfikatu TrajectoryStep
+            // Dekompozycja ruchu uSPR na sekwencję 1-NNI bez podwójnego zliczania
+            int nniStepsAdded = 0;
             try {
                 List<Tree> stepTraj = bestMove.getNniTrajectory(currentTree);
                 if (stepTraj != null && !stepTraj.isEmpty()) {
                     this.fullOptimumTrajectory.addAll(stepTraj);
+                    nniStepsAdded = stepTraj.size();
                 }
             } catch (Exception ignored) {
             }
 
-            this.accumulatedNniCost += bestMove.getNniEquivalentCost();
-            this.accumulatedSteps++;
+            if (nniStepsAdded == 0) {
+                nniStepsAdded = (int) Math.round(bestMove.getNniEquivalentCost());
+            }
+
+            this.accumulatedNniCost += nniStepsAdded;
+            this.accumulatedSteps += nniStepsAdded;
             this.sprStepsCount++;
 
             this.lastOptimumMove = bestMove;
@@ -251,9 +254,29 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
     }
 
     @Override
+    public List<Tree> getLastOptimumTrajectory(Tree startTree) {
+        if (this.fullOptimumTrajectory != null && !this.fullOptimumTrajectory.isEmpty()) {
+            return new ArrayList<>(this.fullOptimumTrajectory);
+        }
+        if (this.lastOptimumTree != null) {
+            return Collections.singletonList(this.lastOptimumTree);
+        }
+        return Collections.emptyList();
+    }
+
+    @Override
+    public Tree getLastOptimumTree() {
+        return this.lastOptimumTree;
+    }
+
+    @Override
     public double getDistance(Tree tree1, Tree tree2, int... indexes) {
         double dist = performLocalDescent(tree1, tree2);
-        return dist == 0.0 ? (double) this.sprStepsCount : Double.POSITIVE_INFINITY;
+        return dist == 0.0 ? this.accumulatedNniCost : Double.POSITIVE_INFINITY;
+    }
+
+    public int getSprStepsCount() {
+        return this.sprStepsCount;
     }
 
     @Override public boolean isRooted() { return false; }

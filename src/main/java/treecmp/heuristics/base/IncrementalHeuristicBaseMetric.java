@@ -24,9 +24,6 @@ public abstract class IncrementalHeuristicBaseMetric extends BaseMetric {
     protected Tree lastMoveBaseTree;
     protected final List<TreeMove> tiedMoves = new ArrayList<>();
 
-    // =========================================================
-    // PODWÓJNA KSIĘGOWOŚĆ (VND vs Autonomiczna heurystyka)
-    // =========================================================
     protected Tree lastOptimumTree;
     protected double accumulatedNniCost = 0.0;
     protected int accumulatedSteps = 0;
@@ -54,6 +51,7 @@ public abstract class IncrementalHeuristicBaseMetric extends BaseMetric {
         double finalMetricDist = performLocalDescent(tree1, tree2);
 
         if (finalMetricDist == 0.0) {
+            // Kontrakt: liczba wykonanych ruchów natywnej heurystyki (np. SPR)
             return (double) this.accumulatedSteps;
         }
         return Double.POSITIVE_INFINITY;
@@ -117,14 +115,12 @@ public abstract class IncrementalHeuristicBaseMetric extends BaseMetric {
             searchNeighborhood(currentTree);
 
             if (this.improved && this.bestMove != null) {
-                // 1. Sprawdzamy czy fizyczna modyfikacja powiodła się i zmieniła drzewo
                 Tree nextTree = applyPhysicalMove(currentTree, this.bestMove);
                 if (nextTree == null || nextTree == currentTree) {
                     break;
                 }
                 nextTree = ensureIndexedSimpleTree(nextTree);
 
-                // 2. Dekompozycja ruchu makro na ciąg 1-NNI do certyfikacji
                 List<Tree> stepTraj = null;
                 try {
                     stepTraj = this.bestMove.getNniTrajectory(currentTree);
@@ -142,12 +138,12 @@ public abstract class IncrementalHeuristicBaseMetric extends BaseMetric {
                     this.accumulatedNniCost += getMoveNniCost(this.bestMove);
                 }
 
+                // ZAWSZE dokładnie 1 ruch tej heurystyki
                 this.accumulatedSteps++;
                 this.lastOptimumMove = this.bestMove;
                 this.lastMoveBaseTree = currentTree;
                 currentTree = nextTree;
 
-                // 3. Pełna synchronizacja stanu metryki z fizycznym drzewem
                 try {
                     commitMoveToMetric(this.bestMove);
                     this.incMetric.commit();
@@ -157,7 +153,6 @@ public abstract class IncrementalHeuristicBaseMetric extends BaseMetric {
                 this.incMetric.initCalculationState(currentTree, targetTree);
                 double newDist = this.incMetric.getCurrentDistance();
 
-                // 4. BEZPIECZNIK ANTY-ZAPĘTLENIOWY: Dystans musi ściśle maleć!
                 if (newDist >= currentDist) {
                     break;
                 }

@@ -63,6 +63,7 @@ public abstract class HeuristicBaseMetric extends BaseMetric implements Metric {
     public double getDistance(Tree tree1, Tree tree2, int... indexes) {
         double finalMetricDist = performLocalDescent(tree1, tree2);
         if (finalMetricDist == 0.0) {
+            // Kontrakt metryki: zwraca liczbę kroków w przestrzeni tej heurystyki (SPR/TBR/NNI)
             return (double) this.accumulatedSteps;
         }
         return Double.POSITIVE_INFINITY;
@@ -165,10 +166,10 @@ public abstract class HeuristicBaseMetric extends BaseMetric implements Metric {
 
                 currentBestDist = bestDist;
 
-                // 1. ZAWSZE inkrementujemy liczbę kroków natywnej heurystyki o 1 (1 ruch TBR/SPR/NNI)
+                // 1. ZAWSZE dokładnie 1 ruch natywnej heurystyki (dla getDistance)
                 this.accumulatedSteps++;
 
-                // 2. Dekompozycja ruchu makro na 1-NNI do pełnej trajektorii i kosztu NNI
+                // 2. Dekompozycja ruchu makro na 1-NNI (do certyfikatów i VND)
                 TreeMove move = tnu.getMoveForTree(bestTree);
                 List<Tree> stepTraj = null;
 

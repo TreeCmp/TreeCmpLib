@@ -9,6 +9,8 @@ import treecmp.heuristics.moves.TreeMove;
 import treecmp.heuristics.tbr.TbrUtils;
 import treecmp.metrics.IncrementalMetric;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -43,7 +45,6 @@ public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
         this.tiedMoves.clear();
         this.bestMove = null;
         this.improved = false;
-        // Inicjalizacja bieżącym dystansem - interesują nas wyłącznie ruchy <= currentDist
         this.bestDist = activeMetric.getCurrentDistance();
 
         if (activeMetric instanceof RootedTbrMetric) {
@@ -126,7 +127,6 @@ public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
             this.improved = false;
             searchNeighborhood(currentTree);
 
-            // BEZPIECZNIK 1: Brak ruchów lub brak poprawy -> natychmiastowe wyjście z minimum lokalnego!
             if (this.tiedMoves.isEmpty() || this.bestDist > currentDist + 1e-9) {
                 break;
             }
@@ -137,7 +137,6 @@ public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
             boolean isPlateau = Math.abs(this.bestDist - currentDist) <= 1e-9;
 
             if (this.primaryMetric == null) {
-                // TRYB JEDNEJ METRYKI: Wymagamy ścisłego spadku funkcji celu
                 if (this.bestDist < currentDist - 1e-9) {
                     if (this.tiedMoves.size() > 1) {
                         double lowestNniCost = Double.POSITIVE_INFINITY;
@@ -152,11 +151,9 @@ public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
                         bestMove = this.tiedMoves.get(0);
                     }
                 } else {
-                    // Płaskowyż bez metryki pomocniczej to ślepy zaułek -> wyjście!
                     break;
                 }
             } else {
-                // TRYB Z METRYKĄ POMOCNICZĄ (Tie-Breaker)
                 if (!isPlateau && this.tiedMoves.size() == 1) {
                     bestMove = this.tiedMoves.get(0);
                 } else {
@@ -197,7 +194,6 @@ public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
                 }
             }
 
-            // BEZPIECZNIK 2: Brak wybranego ruchu poprawiającego -> natychmiastowe wyjście!
             if (bestMove == null) {
                 break;
             }
@@ -215,7 +211,6 @@ public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
             activeMetric.initCalculationState(nextTree, targetTree);
             double newDist = activeMetric.getCurrentDistance();
 
-            // Bezpiecznik leksykograficzny
             if (newDist > currentDist + 1e-9) {
                 break;
             }
@@ -230,16 +225,23 @@ public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
                 nextSecDist = this.incMetric.getCurrentDistance();
             }
 
+            // Dekompozycja ruchu rTBR na sekwencję 1-NNI
+            int nniStepsAdded = 0;
             try {
                 List<Tree> stepTraj = bestMove.getNniTrajectory(currentTree);
                 if (stepTraj != null && !stepTraj.isEmpty()) {
                     this.fullOptimumTrajectory.addAll(stepTraj);
+                    nniStepsAdded = stepTraj.size();
                 }
             } catch (Exception ignored) {
             }
 
-            this.accumulatedNniCost += bestMove.getNniEquivalentCost();
-            this.accumulatedSteps++;
+            if (nniStepsAdded == 0) {
+                nniStepsAdded = (int) Math.round(bestMove.getNniEquivalentCost());
+            }
+
+            this.accumulatedNniCost += nniStepsAdded;
+            this.accumulatedSteps += nniStepsAdded;
             this.tbrStepsCount++;
 
             this.lastOptimumMove = bestMove;
@@ -261,9 +263,25 @@ public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
     }
 
     @Override
+    public List<Tree> getLastOptimumTrajectory(Tree startTree) {
+        if (this.fullOptimumTrajectory != null && !this.fullOptimumTrajectory.isEmpty()) {
+            return new ArrayList<>(this.fullOptimumTrajectory);
+        }
+        if (this.lastOptimumTree != null) {
+            return Collections.singletonList(this.lastOptimumTree);
+        }
+        return Collections.emptyList();
+    }
+
+    @Override
+    public Tree getLastOptimumTree() {
+        return this.lastOptimumTree;
+    }
+
+    @Override
     public double getDistance(Tree tree1, Tree tree2, int... indexes) {
         double dist = performLocalDescent(tree1, tree2);
-        return dist == 0.0 ? (double) this.tbrStepsCount : Double.POSITIVE_INFINITY;
+        return dist == 0.0 ? this.accumulatedNniCost : Double.POSITIVE_INFINITY;
     }
 
     @Override

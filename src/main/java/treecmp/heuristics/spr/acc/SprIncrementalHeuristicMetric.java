@@ -9,6 +9,8 @@ import treecmp.heuristics.moves.TreeMove;
 import treecmp.heuristics.spr.SprUtils;
 import treecmp.metrics.IncrementalMetric;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetric {
@@ -22,7 +24,7 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
     private int sprStepsCount = 0;
 
     public SprIncrementalHeuristicMetric(IncrementalMetric metric, IncrementalMetric primaryMetric, String metricShortName) {
-        super(true, metric); // true dla drzew ukorzenionych (rb)
+        super(true, metric);
         this.primaryMetric = primaryMetric;
         this.metricShortName = metricShortName;
         this.standardWalker = new ClassicSprWalker();
@@ -40,7 +42,6 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
         this.tiedMoves.clear();
         this.bestMove = null;
         this.improved = false;
-        // Inicjalizacja bieżącym dystansem - interesują nas wyłącznie ruchy <= currentDist
         this.bestDist = activeMetric.getCurrentDistance();
 
         if (activeMetric instanceof IncrementalSprWalker.RootedMetric) {
@@ -101,7 +102,7 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
         this.accumulatedNniCost = 0.0;
         this.accumulatedSteps = 0;
         this.sprStepsCount = 0;
-        this.fullOptimumTrajectory.clear(); // Czyszczenie trajektorii NNI na starcie
+        this.fullOptimumTrajectory.clear();
 
         IncrementalMetric activeMetric = primaryMetric != null ? primaryMetric : this.incMetric;
 
@@ -126,7 +127,6 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
             this.improved = false;
             searchNeighborhood(currentTree);
 
-            // BEZPIECZNIK 1: Brak ruchów lub brak poprawy -> natychmiast wychodzimy z minimum lokalnego!
             if (this.tiedMoves.isEmpty() || this.bestDist > currentDist + 1e-9) {
                 break;
             }
@@ -137,7 +137,6 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
             boolean isPlateau = Math.abs(this.bestDist - currentDist) <= 1e-9;
 
             if (primaryMetric == null) {
-                // TRYB JEDNEJ METRYKI: Wymagamy ścisłego spadku funkcji celu
                 if (this.bestDist < currentDist - 1e-9) {
                     if (this.tiedMoves.size() > 1) {
                         double lowestNniCost = Double.POSITIVE_INFINITY;
@@ -152,11 +151,9 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
                         bestMove = this.tiedMoves.get(0);
                     }
                 } else {
-                    // Płaskowyż bez metryki pomocniczej to ślepy zaułek
                     break;
                 }
             } else {
-                // TRYB Z METRYKĄ POMOCNICZĄ (Tie-Breaker)
                 if (!isPlateau && this.tiedMoves.size() == 1) {
                     bestMove = this.tiedMoves.get(0);
                 } else {
@@ -197,7 +194,6 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
                 }
             }
 
-            // BEZPIECZNIK 2: Brak ruchu poprawiającego -> wyjście
             if (bestMove == null) {
                 break;
             }
@@ -215,7 +211,6 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
             activeMetric.initCalculationState(nextTree, targetTree);
             double newDist = activeMetric.getCurrentDistance();
 
-            // Bezpiecznik leksykograficzny
             if (newDist > currentDist + 1e-9) {
                 break;
             }
@@ -230,16 +225,23 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
                 nextSecDist = this.incMetric.getCurrentDistance();
             }
 
-            // KLUCZOWE: Rejestracja certyfikatu kroków 1-NNI dla trajektorii dowodowej
+            // Dekompozycja ruchu rSPR na sekwencję 1-NNI do certyfikacji
+            int nniStepsAdded = 0;
             try {
                 List<Tree> stepTraj = bestMove.getNniTrajectory(currentTree);
                 if (stepTraj != null && !stepTraj.isEmpty()) {
                     this.fullOptimumTrajectory.addAll(stepTraj);
+                    nniStepsAdded = stepTraj.size();
                 }
             } catch (Exception ignored) {
             }
 
-            this.accumulatedNniCost += bestMove.getNniEquivalentCost();
+            if (nniStepsAdded == 0) {
+                nniStepsAdded = (int) Math.round(bestMove.getNniEquivalentCost());
+            }
+
+            // Niezależna księgowość: NNI vs natywne ruchy SPR
+            this.accumulatedNniCost += nniStepsAdded;
             this.accumulatedSteps++;
             this.sprStepsCount++;
 
@@ -258,9 +260,30 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
     }
 
     @Override
+    public List<Tree> getLastOptimumTrajectory(Tree startTree) {
+        if (this.fullOptimumTrajectory != null && !this.fullOptimumTrajectory.isEmpty()) {
+            return new ArrayList<>(this.fullOptimumTrajectory);
+        }
+        if (this.lastOptimumTree != null) {
+            return Collections.singletonList(this.lastOptimumTree);
+        }
+        return Collections.emptyList();
+    }
+
+    @Override
+    public Tree getLastOptimumTree() {
+        return this.lastOptimumTree;
+    }
+
+    @Override
     public double getDistance(Tree tree1, Tree tree2, int... indexes) {
         double dist = performLocalDescent(tree1, tree2);
-        return dist == 0.0 ? (double) this.sprStepsCount : Double.POSITIVE_INFINITY;
+        // Zwraca liczbę wykonanych kroków rSPR, spójnie z klasycznym SprHeuristicMetric
+        return dist == 0.0 ? (double) this.accumulatedSteps : Double.POSITIVE_INFINITY;
+    }
+
+    public int getSprStepsCount() {
+        return this.sprStepsCount;
     }
 
     @Override public boolean isRooted() { return true; }

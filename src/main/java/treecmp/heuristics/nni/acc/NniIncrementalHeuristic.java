@@ -38,8 +38,9 @@ public class NniIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
         IncrementalMetric activeMetric = primaryMetric != null ? primaryMetric : this.incMetric;
 
         this.tiedMoves.clear();
-        this.bestDist = Double.POSITIVE_INFINITY;
         this.improved = false;
+        // Inicjalizacja bieżącym dystansem - zbieramy wyłącznie ruchy ściśle poprawiające
+        this.bestDist = activeMetric.getCurrentDistance();
 
         exploreNniRecursive(currentTree.getRoot(), activeMetric);
     }
@@ -102,7 +103,7 @@ public class NniIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
     @Override
     public double getDistance(Tree tree1, Tree tree2, int... indexes) {
         double remainingDist = performLocalDescent(tree1, tree2);
-        return (remainingDist == 0.0) ? (double) this.accumulatedSteps : Double.POSITIVE_INFINITY;
+        return (remainingDist == 0.0) ? this.accumulatedNniCost : Double.POSITIVE_INFINITY;
     }
 
     @Override
@@ -206,6 +207,7 @@ public class NniIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
             this.accumulatedSteps++;
             this.accumulatedNniCost += finalMove.getNniEquivalentCost();
             this.lastOptimumMove = finalMove;
+            this.lastMoveBaseTree = currentTree;
 
             currentDist = newDist;
             this.improved = true;

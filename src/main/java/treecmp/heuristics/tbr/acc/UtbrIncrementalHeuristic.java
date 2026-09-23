@@ -9,6 +9,8 @@ import treecmp.heuristics.moves.TreeMove;
 import treecmp.heuristics.tbr.UTbrUtils;
 import treecmp.metrics.IncrementalMetric;
 
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.List;
 
 /**
@@ -41,7 +43,6 @@ public class UtbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
         this.tiedMoves.clear();
         this.bestMove = null;
         this.improved = false;
-        // Inicjalizacja bieżącym dystansem
         this.bestDist = activeMetric.getCurrentDistance();
 
         walker.walk(currentTree, activeMetric, (neighborDist, pruneNode, rerootNode, targetNode) -> {
@@ -114,7 +115,6 @@ public class UtbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
             this.improved = false;
             searchNeighborhood(currentTree);
 
-            // BEZPIECZNIK 1: Brak ruchów lub brak poprawy -> natychmiastowe wyjście z minimum lokalnego!
             if (this.tiedMoves.isEmpty() || this.bestDist > currentDist + 1e-9) {
                 break;
             }
@@ -166,7 +166,7 @@ public class UtbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
                             bestNniCostForTie = moveNniCost;
                             bestCandidateTree = candidateTree;
                         } else if (Math.abs(secDist - bestSecondaryDist) <= 1e-9 && moveNniCost < bestNniCostForTie) {
-                            chosenMove = move; // POPRAWKA: przypisanie do chosenMove zamiast bestMove
+                            chosenMove = move;
                             bestNniCostForTie = moveNniCost;
                             bestCandidateTree = candidateTree;
                         }
@@ -182,7 +182,6 @@ public class UtbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
                 }
             }
 
-            // BEZPIECZNIK GŁÓWNY: Brak wybranego ruchu natychmiast przerywa pętlę!
             if (chosenMove == null) {
                 break;
             }
@@ -214,16 +213,23 @@ public class UtbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
                 nextSecDist = this.incMetric.getCurrentDistance();
             }
 
+            // Dekompozycja ruchu uTBR na sekwencję elementarnych kroków 1-NNI
+            int nniStepsAdded = 0;
             try {
                 List<Tree> stepTraj = chosenMove.getNniTrajectory(currentTree);
                 if (stepTraj != null && !stepTraj.isEmpty()) {
                     this.fullOptimumTrajectory.addAll(stepTraj);
+                    nniStepsAdded = stepTraj.size();
                 }
             } catch (Exception ignored) {
             }
 
-            this.accumulatedNniCost += chosenMove.getNniEquivalentCost();
-            this.accumulatedSteps++;
+            if (nniStepsAdded == 0) {
+                nniStepsAdded = (int) Math.round(chosenMove.getNniEquivalentCost());
+            }
+
+            this.accumulatedNniCost += nniStepsAdded;
+            this.accumulatedSteps += nniStepsAdded;
             this.utbrStepsCount++;
 
             this.lastOptimumMove = chosenMove;
@@ -245,9 +251,25 @@ public class UtbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
     }
 
     @Override
+    public List<Tree> getLastOptimumTrajectory(Tree startTree) {
+        if (this.fullOptimumTrajectory != null && !this.fullOptimumTrajectory.isEmpty()) {
+            return new ArrayList<>(this.fullOptimumTrajectory);
+        }
+        if (this.lastOptimumTree != null) {
+            return Collections.singletonList(this.lastOptimumTree);
+        }
+        return Collections.emptyList();
+    }
+
+    @Override
+    public Tree getLastOptimumTree() {
+        return this.lastOptimumTree;
+    }
+
+    @Override
     public double getDistance(Tree tree1, Tree tree2, int... indexes) {
         double dist = performLocalDescent(tree1, tree2);
-        return dist == 0.0 ? (double) this.utbrStepsCount : Double.POSITIVE_INFINITY;
+        return dist == 0.0 ? this.accumulatedNniCost : Double.POSITIVE_INFINITY;
     }
 
     @Override
