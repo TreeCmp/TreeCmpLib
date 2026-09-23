@@ -4,8 +4,6 @@ import pal.tree.SimpleTree;
 import pal.tree.Tree;
 import treecmp.common.AlignInfo;
 import treecmp.heuristics.base.HeuristicBaseMetric;
-import treecmp.heuristics.ecr.SubtreeEcr3Utils;
-import treecmp.heuristics.spr.SprUtils;
 import treecmp.metrics.Metric;
 
 import java.util.Collections;
@@ -13,7 +11,6 @@ import java.util.List;
 
 public class NniVndHeuristic implements Metric {
 
-    // GLOBALNY PRZEŁĄCZNIK LOGOWANIA (Zmień na false przed testami wydajnościowymi!)
     public static boolean ENABLE_LOGGING = true;
 
     private final List<HeuristicBaseMetric> classicNeighborhoods;
@@ -32,7 +29,6 @@ public class NniVndHeuristic implements Metric {
 
         double initialValue = classicNeighborhoods.get(0).evaluateInitialDistance(currentTree, tree2);
 
-        // Wybór strategii logowania
         VndStepListener logger = ENABLE_LOGGING
                 ? new DetailedTrajectoryVndLogger(
                 "proof_pair_vnd_classic",
@@ -60,33 +56,41 @@ public class NniVndHeuristic implements Metric {
             else if (neighborhoodName.toLowerCase().contains("ecr3")) baseName = "ECR3";
             else if (neighborhoodName.toLowerCase().contains("spr")) baseName = "SPR";
 
-            long stepStartTimeNs = System.nanoTime(); // START
+            long stepStartTimeNs = System.nanoTime();
             double distAfterSearch = currentHeuristic.performLocalDescent(currentBestTree, tree2);
-            long timeSpentNs = System.nanoTime() - stepStartTimeNs; // STOP
+            long timeSpentNs = System.nanoTime() - stepStartTimeNs;
 
             boolean success = (distAfterSearch < currentBestValue);
-            VndTimeProfiler.INSTANCE.get().recordTime(baseName, success, timeSpentNs); // RAPORTOWANIE CLASSIC
+            VndTimeProfiler.INSTANCE.get().recordTime(baseName, success, timeSpentNs);
 
             Tree treeAfterSearch = currentHeuristic.getLastOptimumTree();
-            totalNniCost += currentHeuristic.getAccumulatedNniCost();
 
-            // WARUNEK POPRAWY DYSTANSU
+            // KOSZT NALICZAMY WYŁĄCZNIE WTEDY, GDY RUCH POPRAWIŁ WYNIK
             if (distAfterSearch < currentBestValue) {
                 currentBestValue = distAfterSearch;
                 currentBestTree = treeAfterSearch;
 
-                // 1. Pobieramy domyślną trajektorię z heurystyki
                 List<Tree> trajectory = currentHeuristic.getLastOptimumTrajectory(treeBeforeSearch);
-
                 String name = currentHeuristic.getName();
 
-                // 3. Bezpiecznik na wypadek pustej listy
                 if (trajectory == null || trajectory.isEmpty()) {
                     trajectory = Collections.singletonList(currentBestTree);
                 }
 
-                // 4. Przekazujemy pełną trajektorię do loggera
+                int stepsBefore = (logger instanceof DetailedTrajectoryVndLogger)
+                        ? ((DetailedTrajectoryVndLogger) logger).getStepCount() : 0;
+
                 logger.onStep(name, trajectory, currentBestValue, tree2);
+
+                int stepsAfter = (logger instanceof DetailedTrajectoryVndLogger)
+                        ? ((DetailedTrajectoryVndLogger) logger).getStepCount() : 0;
+
+                // Akumulujemy dokładnie tyle kroków 1-NNI, ile faktycznie zrzucono do certyfikatu
+                if (logger instanceof DetailedTrajectoryVndLogger) {
+                    totalNniCost += (stepsAfter - stepsBefore);
+                } else {
+                    totalNniCost += trajectory.size();
+                }
 
                 k = 0; // Reset VND
             } else {
