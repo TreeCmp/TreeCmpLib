@@ -420,4 +420,8 @@ public class DetailedTrajectoryVndLogger implements VndStepListener {
             return fallbackValue;
         }
     }
+
+    public int getStepCount() {
+        return this.stepCounter;
+    }
 }
