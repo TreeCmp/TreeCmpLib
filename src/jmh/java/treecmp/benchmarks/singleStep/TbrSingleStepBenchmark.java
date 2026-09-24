@@ -1,4 +1,3 @@
-/*
 package treecmp.benchmarks.singleStep;
 
 import org.openjdk.jmh.annotations.*;
@@ -11,6 +10,7 @@ import java.util.concurrent.TimeUnit;
 
 import pal.tree.SimpleTree;
 import pal.tree.Tree;
+import treecmp.common.TreeCmpException;
 import treecmp.heuristics.TreeNeighborhoodUtils;
 import treecmp.heuristics.tbr.TbrUtils;
 import treecmp.heuristics.tbr.UTbrUtils;
@@ -122,12 +122,7 @@ public class TbrSingleStepBenchmark {
         if (treeSize <= classicProtectionLimit) {
             try {
                 long startClassic = System.nanoTime();
-                Tree[] neighbors = classicUtils.generateNeighbours(t1);
-                double bestClassicDist = Double.POSITIVE_INFINITY;
-                for (Tree n : neighbors) {
-                    double d = classicMetric.getDistance(n, t2);
-                    if (d < bestClassicDist) bestClassicDist = d;
-                }
+                double bestClassicDist = evaluateClassicBestDist();
                 long timeClassic = System.nanoTime() - startClassic;
                 System.out.printf("Classic 1-Step %-3s     : %.2f (time: %,d ms)%n", metricName, bestClassicDist, timeClassic / 1_000_000);
 
@@ -137,7 +132,7 @@ public class TbrSingleStepBenchmark {
                     System.out.println("!! STATUS: MISMATCH DETECTED [ERROR!] !!");
                 }
             } catch (Throwable t) {
-                System.out.println("Classic 1-Step         : [CLASSIC IMPLEMENTATION ERROR]");
+                System.out.println("Classic 1-Step         : [CLASSIC IMPLEMENTATION ERROR] - " + t.getMessage());
             }
         } else {
             System.out.printf("Classic 1-Step %-3s     : Skipped (Safety limit N<=%d)%n", metricName, classicProtectionLimit);
@@ -145,17 +140,34 @@ public class TbrSingleStepBenchmark {
         System.out.println("=".repeat(60) + "\n");
     }
 
+    private double evaluateClassicBestDist() {
+        final double[] bestDist = {Double.POSITIVE_INFINITY};
+
+        if (classicUtils != null) {
+            classicUtils.forEachNeighbour(t1, neighbor -> {
+                double d = 0;
+                try {
+                    if (neighbor instanceof SimpleTree) {
+                        ((SimpleTree) neighbor).createNodeList();
+                    }
+                    d = classicMetric.getDistance(neighbor, t2);
+                } catch (TreeCmpException e) {
+                    throw new RuntimeException(e);
+                }
+                if (d < bestDist[0]) {
+                    bestDist[0] = d;
+                }
+            });
+        }
+
+        return bestDist[0];
+    }
+
     @Benchmark
     public double benchmarkClassicSingleStep() {
         if (treeSize > classicProtectionLimit) return Double.NaN;
         try {
-            Tree[] neighbors = classicUtils.generateNeighbours(t1);
-            double bestDist = Double.POSITIVE_INFINITY;
-            for (Tree n : neighbors) {
-                double d = classicMetric.getDistance(n, t2);
-                if (d < bestDist) bestDist = d;
-            }
-            return bestDist;
+            return evaluateClassicBestDist();
         } catch (Throwable t) {
             return Double.NaN;
         }
@@ -163,6 +175,11 @@ public class TbrSingleStepBenchmark {
 
     @Benchmark
     public double benchmarkIncrementalSingleStep() {
+        // Dla metryk nieposiadających dedykowanego 2D-DFS (MS, M3) limitujemy rozmiar,
+        // zapobiegając lawinowym alokacjom O(N^3) drzew w pamięci.
+        if (("MS".equals(metricName) || "M3".equals(metricName)) && treeSize > classicProtectionLimit) {
+            return Double.NaN;
+        }
         return incrementalMetric.evaluateSingleStep(t1ForIncr, t2);
     }
 
@@ -174,4 +191,4 @@ public class TbrSingleStepBenchmark {
                 .build();
         new Runner(opt).run();
     }
-}*/
+}
