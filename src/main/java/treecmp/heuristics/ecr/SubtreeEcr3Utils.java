@@ -129,7 +129,7 @@ public class SubtreeEcr3Utils extends TreeNeighborhoodUtils {
                 ((SimpleTree) newTree).createNodeList();
             }
 
-            return refreshTreeInPlace(newTree);
+            return newTree;
         } catch (Exception e) {
             return null;
         }

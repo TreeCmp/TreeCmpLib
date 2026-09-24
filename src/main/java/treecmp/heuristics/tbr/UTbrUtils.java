@@ -7,7 +7,6 @@ import pal.tree.Tree;
 import pal.tree.TreeUtils;
 import treecmp.heuristics.TreeNeighborhoodUtils;
 import treecmp.heuristics.moves.TbrMove;
-import treecmp.heuristics.spr.SprTopologyGuard;
 import treecmp.heuristics.spr.UsprUtils;
 
 import java.util.*;
@@ -60,37 +59,30 @@ public class UTbrUtils extends TreeNeighborhoodUtils {
             return null;
         }
 
-        Tree resultTree = null;
         try {
-            // Bezpiecznie używamy createTbrTree z precyzyjnym findNodeEquivalent dla wszystkich ruchów
-            resultTree = createTbrTree(tree, pruneNode, rerootNode, targetNode);
+            // Bezpieczne i szybkie tworzenie TBR w pamięci operacyjnej
+            Tree resultTree = createTbrTree(tree, pruneNode, rerootNode, targetNode);
 
             if (resultTree != null) {
                 if (resultTree.getRoot().getChildCount() == 2) {
                     resultTree = fastUnrootIfNeeded(resultTree);
-                }
-                if (resultTree instanceof SimpleTree) {
-                    TreeUtils.computeParentPointers(resultTree.getRoot());
-                    ((SimpleTree) resultTree).createNodeList();
                 }
 
                 if (resultTree == null || resultTree.getRoot().getChildCount() < 3) {
                     return null;
                 }
 
-                if (resultTree.getExternalNodeCount() != tree.getExternalNodeCount()) {
+                // Czysto obiektowa walidacja struktury (zero parsowania tekstu Newick)
+                if (!isStrictlyValidUnrootedTreeFast(resultTree, tree.getExternalNodeCount())) {
                     return null;
                 }
-
-                if (!SprTopologyGuard.isStrictlyValidUnrootedTree(resultTree, tree.getExternalNodeCount())) {
-                    return null;
-                }
+                return resultTree;
             }
         } catch (Exception e) {
             return null;
         }
 
-        return resultTree;
+        return null;
     }
 
     @Override
