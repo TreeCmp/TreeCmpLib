@@ -21,13 +21,22 @@ public class NniVndIncrementalHeuristic implements Metric {
     private final List<IncrementalHeuristicBaseMetric> incrementalNeighborhoods;
     private final Metric classicFallbackTbr;
     private final String metricName;
+    private final VndStepListener customListener;
 
     public NniVndIncrementalHeuristic(List<IncrementalHeuristicBaseMetric> incrementalNeighborhoods,
                                       Metric classicFallbackTbr,
                                       String metricName) {
+        this(incrementalNeighborhoods, classicFallbackTbr, metricName, null);
+    }
+
+    public NniVndIncrementalHeuristic(List<IncrementalHeuristicBaseMetric> incrementalNeighborhoods,
+                                      Metric classicFallbackTbr,
+                                      String metricName,
+                                      VndStepListener customListener) {
         this.incrementalNeighborhoods = incrementalNeighborhoods;
         this.classicFallbackTbr = classicFallbackTbr;
         this.metricName = metricName;
+        this.customListener = customListener;
     }
 
     public double getDistance(Tree tree1, Tree tree2) {
@@ -38,13 +47,18 @@ public class NniVndIncrementalHeuristic implements Metric {
 
         double initialValue = incrementalNeighborhoods.get(0).evaluateInitialDistance(currentTree, tree2);
 
-        VndStepListener logger = ENABLE_LOGGING
-                ? new DetailedTrajectoryVndLogger(
-                "proof_pair_nni_vnd_inc",
-                metricName,
-                incrementalNeighborhoods.get(0)::evaluateInitialDistance
-        )
-                : new NoOpVndLogger();
+        VndStepListener logger;
+        if (this.customListener != null) {
+            logger = this.customListener;
+        } else if (ENABLE_LOGGING) {
+            logger = new DetailedTrajectoryVndLogger(
+                    "proof_pair_nni_vnd_inc",
+                    metricName,
+                    incrementalNeighborhoods.get(0)::evaluateInitialDistance
+            );
+        } else {
+            logger = new NoOpVndLogger();
+        }
 
         double currentBestValue = initialValue;
         Tree currentBestTree = currentTree;
@@ -123,7 +137,6 @@ public class NniVndIncrementalHeuristic implements Metric {
                 int stepsAfter = (logger instanceof DetailedTrajectoryVndLogger)
                         ? ((DetailedTrajectoryVndLogger) logger).getStepCount() : 0;
 
-                // Akumulujemy dokładnie tyle kroków 1-NNI, ile faktycznie zrzucono do certyfikatu
                 if (logger instanceof DetailedTrajectoryVndLogger) {
                     totalNniCost += (stepsAfter - stepsBefore);
                 } else {

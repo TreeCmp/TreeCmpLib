@@ -15,10 +15,16 @@ public class NniVndHeuristic implements Metric {
 
     private final List<HeuristicBaseMetric> classicNeighborhoods;
     private final String metricName;
+    private final VndStepListener customListener;
 
     public NniVndHeuristic(List<HeuristicBaseMetric> classicNeighborhoods, String metricName) {
+        this(classicNeighborhoods, metricName, null);
+    }
+
+    public NniVndHeuristic(List<HeuristicBaseMetric> classicNeighborhoods, String metricName, VndStepListener customListener) {
         this.classicNeighborhoods = classicNeighborhoods;
         this.metricName = metricName;
+        this.customListener = customListener;
     }
 
     public double getDistance(Tree tree1, Tree tree2) {
@@ -29,13 +35,19 @@ public class NniVndHeuristic implements Metric {
 
         double initialValue = classicNeighborhoods.get(0).evaluateInitialDistance(currentTree, tree2);
 
-        VndStepListener logger = ENABLE_LOGGING
-                ? new DetailedTrajectoryVndLogger(
-                "proof_pair_vnd_classic",
-                metricName,
-                classicNeighborhoods.get(0)::evaluateInitialDistance
-        )
-                : new NoOpVndLogger();
+        // Używamy customListenera, jeśli został przekazany (np. w testach in-JVM)
+        VndStepListener logger;
+        if (this.customListener != null) {
+            logger = this.customListener;
+        } else if (ENABLE_LOGGING) {
+            logger = new DetailedTrajectoryVndLogger(
+                    "proof_pair_vnd_classic",
+                    metricName,
+                    classicNeighborhoods.get(0)::evaluateInitialDistance
+            );
+        } else {
+            logger = new NoOpVndLogger();
+        }
 
         logger.onStart("VND Classic (" + metricName + ")", currentTree, initialValue);
 
@@ -65,7 +77,7 @@ public class NniVndHeuristic implements Metric {
 
             Tree treeAfterSearch = currentHeuristic.getLastOptimumTree();
 
-            // KOSZT NALICZAMY WYŁĄCZNIE WTEDY, GDY RUCH POPRAWIŁ WYNIK
+            // Koszt naliczamy wyłącznie wtedy, gdy ruch poprawił wynik
             if (distAfterSearch < currentBestValue) {
                 currentBestValue = distAfterSearch;
                 currentBestTree = treeAfterSearch;
@@ -85,7 +97,6 @@ public class NniVndHeuristic implements Metric {
                 int stepsAfter = (logger instanceof DetailedTrajectoryVndLogger)
                         ? ((DetailedTrajectoryVndLogger) logger).getStepCount() : 0;
 
-                // Akumulujemy dokładnie tyle kroków 1-NNI, ile faktycznie zrzucono do certyfikatu
                 if (logger instanceof DetailedTrajectoryVndLogger) {
                     totalNniCost += (stepsAfter - stepsBefore);
                 } else {
