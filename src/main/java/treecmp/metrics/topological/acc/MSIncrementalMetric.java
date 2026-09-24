@@ -65,10 +65,6 @@ public class MSIncrementalMetric implements IncrementalMetric, RootedTbrMetric {
         return getSplitBits(n);
     }
 
-    // =========================================================================
-    // ŚCISŁA I DOKŁADNA EWALUACJA uTBR DLA MS (100% ZGODNOŚCI Z WYROCZNIĄ)
-    // =========================================================================
-
     public double evaluateExactUTbrDistance(Node pruneNode, Node rerootNode, Node targetNode, BitSet movingBits) {
         if (pruneNode == null || targetNode == null || this.targetTree == null) {
             return Double.POSITIVE_INFINITY;
@@ -226,6 +222,8 @@ public class MSIncrementalMetric implements IncrementalMetric, RootedTbrMetric {
     }
 
     private void updateRowSafelyAndSave(Map<Integer, BitSet> rowUpdates) {
+        if (rowUpdates == null || rowUpdates.isEmpty()) return;
+
         int[] rows = new int[rowUpdates.size()];
         short[][] oldRows = new short[rows.length][dim];
         Map<Node, BitSet> oldSplits = new IdentityHashMap<>();
