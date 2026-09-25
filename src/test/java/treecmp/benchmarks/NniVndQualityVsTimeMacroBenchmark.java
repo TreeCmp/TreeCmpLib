@@ -305,53 +305,53 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
 
         if (totalSteps > 0) {
             if (isVndFull) {
-                return String.format("[NNI:%2d%% ecr2:%2d%% ecr3:%2d%% SPR:%2d%% TBR:%2d%%]",
-                        Math.round(globalNniSteps * 100.0 / totalSteps),
-                        Math.round(globalEcr2Steps * 100.0 / totalSteps),
-                        Math.round(globalEcr3Steps * 100.0 / totalSteps),
-                        Math.round(globalSprSteps * 100.0 / totalSteps),
-                        Math.round(globalTbrSteps * 100.0 / totalSteps));
+                return String.format(Locale.US, "[NNI:%5.2f%% ecr2:%5.2f%% ecr3:%5.2f%% SPR:%5.2f%% TBR:%5.2f%%]",
+                        (globalNniSteps * 100.0 / totalSteps),
+                        (globalEcr2Steps * 100.0 / totalSteps),
+                        (globalEcr3Steps * 100.0 / totalSteps),
+                        (globalSprSteps * 100.0 / totalSteps),
+                        (globalTbrSteps * 100.0 / totalSteps));
             } else if (isVndShort) {
                 long shortTotal = globalNniSteps + globalSprSteps + globalTbrSteps;
                 if (shortTotal > 0) {
-                    return String.format("[NNI:%2d%% SPR:%2d%% TBR:%2d%%]",
-                            Math.round(globalNniSteps * 100.0 / shortTotal),
-                            Math.round(globalSprSteps * 100.0 / shortTotal),
-                            Math.round(globalTbrSteps * 100.0 / shortTotal));
+                    return String.format(Locale.US, "[NNI:%5.2f%% SPR:%5.2f%% TBR:%5.2f%%]",
+                            (globalNniSteps * 100.0 / shortTotal),
+                            (globalSprSteps * 100.0 / shortTotal),
+                            (globalTbrSteps * 100.0 / shortTotal));
                 }
             } else if (isVndTbr) {
                 long tbrTotal = globalNniSteps + globalTbrSteps;
                 if (tbrTotal > 0) {
-                    return String.format("[NNI:%2d%% TBR:%2d%%]",
-                            Math.round(globalNniSteps * 100.0 / tbrTotal),
-                            Math.round(globalTbrSteps * 100.0 / tbrTotal));
+                    return String.format(Locale.US, "[NNI:%5.2f%% TBR:%5.2f%%]",
+                            (globalNniSteps * 100.0 / tbrTotal),
+                            (globalTbrSteps * 100.0 / tbrTotal));
                 }
             }
         }
 
-        // Fallback do czasów, jeśli dla danego przebiegu nie zarejestrowano kroków
+        // Fallback do czasów
         long totalPhases = globalNniT + globalEcr2T + globalEcr3T + globalSprT + globalTbrT;
         if (isVndFull && totalPhases > 0) {
-            return String.format("[NNI:%2d%% ecr2:%2d%% ecr3:%2d%% SPR:%2d%% TBR:%2d%%]",
-                    Math.round(globalNniT * 100.0 / totalPhases),
-                    Math.round(globalEcr2T * 100.0 / totalPhases),
-                    Math.round(globalEcr3T * 100.0 / totalPhases),
-                    Math.round(globalSprT * 100.0 / totalPhases),
-                    Math.round(globalTbrT * 100.0 / totalPhases));
+            return String.format(Locale.US, "[NNI:%5.2f%% ecr2:%5.2f%% ecr3:%5.2f%% SPR:%5.2f%% TBR:%5.2f%%]",
+                    (globalNniT * 100.0 / totalPhases),
+                    (globalEcr2T * 100.0 / totalPhases),
+                    (globalEcr3T * 100.0 / totalPhases),
+                    (globalSprT * 100.0 / totalPhases),
+                    (globalTbrT * 100.0 / totalPhases));
         } else if (isVndShort) {
             long shortTotal = globalNniT + globalSprT + globalTbrT;
             if (shortTotal > 0) {
-                return String.format("[NNI:%2d%% SPR:%2d%% TBR:%2d%%]",
-                        Math.round(globalNniT * 100.0 / shortTotal),
-                        Math.round(globalSprT * 100.0 / shortTotal),
-                        Math.round(globalTbrT * 100.0 / shortTotal));
+                return String.format(Locale.US, "[NNI:%5.2f%% SPR:%5.2f%% TBR:%5.2f%%]",
+                        (globalNniT * 100.0 / shortTotal),
+                        (globalSprT * 100.0 / shortTotal),
+                        (globalTbrT * 100.0 / shortTotal));
             }
         } else if (isVndTbr) {
             long tbrTotal = globalNniT + globalTbrT;
             if (tbrTotal > 0) {
-                return String.format("[NNI:%2d%% TBR:%2d%%]",
-                        Math.round(globalNniT * 100.0 / tbrTotal),
-                        Math.round(globalTbrT * 100.0 / tbrTotal));
+                return String.format(Locale.US, "[NNI:%5.2f%% TBR:%5.2f%%]",
+                        (globalNniT * 100.0 / tbrTotal),
+                        (globalTbrT * 100.0 / tbrTotal));
             }
         }
         return "N/A";
