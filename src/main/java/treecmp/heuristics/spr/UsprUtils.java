@@ -10,14 +10,13 @@ import treecmp.heuristics.moves.SprMove;
 import java.util.function.Consumer;
 import java.util.List;
 import java.util.ArrayList;
-import java.util.BitSet;
-import java.util.Collections;
 import java.util.HashSet;
 import java.util.Set;
 
 public class UsprUtils extends TreeNeighborhoodUtils {
 
     public Tree[] generateNeighboursOBSOLETE(Tree tree) {
+        clearCosts();
         int extNum = tree.getExternalNodeCount();
         int intNum = tree.getInternalNodeCount();
         IdGroup idGroup = TreeUtils.getLeafIdGroup(tree);
@@ -52,7 +51,7 @@ public class UsprUtils extends TreeNeighborhoodUtils {
                         SprMove move = new SprMove(s, t);
                         registerTreeCost(resultTree, move.getNniEquivalentCost());
                         registerTreeMove(resultTree, move);
-                        try { usprTreeSet.add(new TreeUnrootedHolder(resultTree, idGroup)); } catch (Exception e) {}
+                        try { usprTreeSet.add(new TreeUnrootedHolder(resultTree, idGroup)); } catch (Exception ignored) {}
                     }
                 }
             }
@@ -102,7 +101,6 @@ public class UsprUtils extends TreeNeighborhoodUtils {
     public TreeValuePair findBestNeighbour(Tree tree, BestTreeChooser btc, double neighSizeFrac, double inputTreeValue) throws TreeCmpException {
         int extNum = tree.getExternalNodeCount();
         int intNum = tree.getInternalNodeCount();
-        int neighSize = calcUsprNeighbours(tree);
         int estimatedMax = (extNum + intNum) * (extNum + intNum);
         int analyzedTreeNum = 0;
         double frac;
@@ -177,7 +175,8 @@ public class UsprUtils extends TreeNeighborhoodUtils {
                     if (resultTree != null) {
                         analyzedTreeNum++;
                         resultValue = btc.getValueForTree(resultTree);
-                        if (resultValue < bestValue && inputTreeValue > bestValue) { bestTree = resultTree; bestValue = resultValue; }
+                        if (resultValue < bestValue && inputTreeValue > bestValue) {
+                            bestTree = resultTree; bestValue = resultValue; }
                         frac = (double) analyzedTreeNum / (double) estimatedMax;
                         if (frac > neighSizeFrac) {
                             TreeValuePair tvPair = new TreeValuePair(); tvPair.setTree(bestTree); tvPair.setValue(bestValue); return tvPair;
@@ -347,7 +346,7 @@ public class UsprUtils extends TreeNeighborhoodUtils {
             ((pal.tree.SimpleTree) resultTree).createNodeList();
         }
 
-        if (!SprTopologyGuard.isStrictlyValidUnrootedTree(resultTree, baseTree.getExternalNodeCount())) {
+        if (!isStrictlyValidUnrootedTreeFast(resultTree, baseTree.getExternalNodeCount())) {
             return null;
         }
 
@@ -378,7 +377,6 @@ public class UsprUtils extends TreeNeighborhoodUtils {
             return null;
         }
 
-        // Zastąpiono powolne getCopy() szybkim klonowaniem w pamięci
         Tree resultTree = fastTreeClone(baseTree);
         Node source = findNodeEquivalent(resultTree, s);
         Node target = findNodeEquivalent(resultTree, t);
@@ -459,7 +457,7 @@ public class UsprUtils extends TreeNeighborhoodUtils {
                 ((SimpleTree) resultTree).createNodeList();
             }
 
-            if (!SprTopologyGuard.isStrictlyValidUnrootedTree(resultTree, baseTree.getExternalNodeCount())) {
+            if (!isStrictlyValidUnrootedTreeFast(resultTree, baseTree.getExternalNodeCount())) {
                 return null;
             }
 
@@ -543,7 +541,7 @@ public class UsprUtils extends TreeNeighborhoodUtils {
             ((SimpleTree) resultTree).createNodeList();
         }
 
-        if (!SprTopologyGuard.isStrictlyValidUnrootedTree(resultTree, baseTree.getExternalNodeCount())) {
+        if (!isStrictlyValidUnrootedTreeFast(resultTree, baseTree.getExternalNodeCount())) {
             return null;
         }
 
@@ -552,10 +550,12 @@ public class UsprUtils extends TreeNeighborhoodUtils {
 
     @Override
     public void forEachNeighbour(Tree tree, Consumer<Tree> action) {
+        clearCosts();
         forEachUsprTree(tree, action);
     }
 
     public void forEachUsprTree(Tree tree, Consumer<Tree> action) {
+        clearCosts();
         Tree workingTree = tree;
         if (workingTree.getRoot().getChildCount() == 2) {
             workingTree = fastUnrootIfNeeded(fastTreeClone(workingTree));

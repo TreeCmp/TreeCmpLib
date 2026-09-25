@@ -3,9 +3,6 @@ package treecmp.heuristics.spr;
 import java.util.HashSet;
 import java.util.Set;
 import java.util.function.Consumer;
-import java.util.List;
-import java.util.ArrayList;
-import java.util.Collections;
 
 import pal.misc.IdGroup;
 import pal.tree.*;
@@ -71,10 +68,6 @@ public class SprUtils extends TreeNeighborhoodUtils {
         return -1;
     }
 
-    /**
-     * Bezpieczne tworzenie drzewa SPR w pamięci operacyjnej z wykorzystaniem
-     * sprawdzonego mechanizmu createTbrTree (dla s == r).
-     */
     public Tree createAndFixSprTree(Tree baseTree, Node pruneNode, Node targetNode) {
         if (baseTree == null || pruneNode == null || targetNode == null) return null;
         return createTbrTree(baseTree, pruneNode, pruneNode, targetNode);
@@ -84,7 +77,9 @@ public class SprUtils extends TreeNeighborhoodUtils {
         int extNum = tree.getExternalNodeCount();
         int intNum = tree.getInternalNodeCount();
 
-        Set<String> seenTopologies = new HashSet<>();
+        IdGroup idGroup = TreeUtils.getLeafIdGroup(tree);
+        Set<CanonicalTopologyKey> seenTopologies = new HashSet<>();
+        seenTopologies.add(buildCanonicalKey(tree, idGroup, extNum));
 
         Node s, t;
 
@@ -92,7 +87,7 @@ public class SprUtils extends TreeNeighborhoodUtils {
             s = tree.getExternalNode(i);
             for (int j = 0; j < extNum; j++) {
                 t = tree.getExternalNode(j);
-                processAndYield(tree, s, t, seenTopologies, action);
+                processAndYield(tree, s, t, idGroup, extNum, seenTopologies, action);
             }
         }
         for (int i = 0; i < intNum; i++) {
@@ -100,14 +95,14 @@ public class SprUtils extends TreeNeighborhoodUtils {
             if (s.isRoot()) continue;
             for (int j = 0; j < extNum; j++) {
                 t = tree.getExternalNode(j);
-                processAndYield(tree, s, t, seenTopologies, action);
+                processAndYield(tree, s, t, idGroup, extNum, seenTopologies, action);
             }
         }
         for (int i = 0; i < extNum; i++) {
             s = tree.getExternalNode(i);
             for (int j = 0; j < intNum; j++) {
                 t = tree.getInternalNode(j);
-                processAndYield(tree, s, t, seenTopologies, action);
+                processAndYield(tree, s, t, idGroup, extNum, seenTopologies, action);
             }
         }
         for (int i = 0; i < intNum; i++) {
@@ -115,18 +110,17 @@ public class SprUtils extends TreeNeighborhoodUtils {
             if (s.isRoot()) continue;
             for (int j = 0; j < intNum; j++) {
                 t = tree.getInternalNode(j);
-                processAndYield(tree, s, t, seenTopologies, action);
+                processAndYield(tree, s, t, idGroup, extNum, seenTopologies, action);
             }
         }
     }
 
-    private void processAndYield(Tree baseTree, Node s, Node t, Set<String> seen, Consumer<Tree> action) {
+    private void processAndYield(Tree baseTree, Node s, Node t, IdGroup idGroup, int numLeaves, Set<CanonicalTopologyKey> seen, Consumer<Tree> action) {
         if (isValidSprMove(s, t)) {
             Tree resultTree = createAndFixSprTree(baseTree, s, t);
             if (resultTree != null) {
-                String topologyHash = getCanonicalTopology(resultTree.getRoot());
-
-                if (seen.add(topologyHash)) {
+                CanonicalTopologyKey key = buildCanonicalKey(resultTree, idGroup, numLeaves);
+                if (seen.add(key)) {
                     SprMove move = new SprMove(s, t);
                     registerTreeCost(resultTree, move.getNniEquivalentCost());
                     registerTreeMove(resultTree, move);
@@ -135,26 +129,6 @@ public class SprUtils extends TreeNeighborhoodUtils {
                 }
             }
         }
-    }
-
-    private String getCanonicalTopology(Node node) {
-        if (node.isLeaf()) {
-            return node.getIdentifier().getName();
-        }
-        List<String> childStrings = new ArrayList<>();
-        for (int i = 0; i < node.getChildCount(); i++) {
-            childStrings.add(getCanonicalTopology(node.getChild(i)));
-        }
-
-        Collections.sort(childStrings);
-
-        StringBuilder sb = new StringBuilder("(");
-        for (int i = 0; i < childStrings.size(); i++) {
-            sb.append(childStrings.get(i));
-            if (i < childStrings.size() - 1) sb.append(",");
-        }
-        sb.append(")");
-        return sb.toString();
     }
 
     @Override
