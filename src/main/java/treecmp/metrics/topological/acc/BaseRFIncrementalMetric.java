@@ -79,14 +79,19 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
     }
 
     public double applyNniStep(Node nodeToUpdate, BitSet bitsOut, BitSet bitsIn) {
+        if (nodeToUpdate == null) return this.currentDistance;
+
+        BitSet oldBSInVirtual = activeVirtualSplits.get(nodeToUpdate);
+        BitSet currentBS = (oldBSInVirtual != null) ? oldBSInVirtual : nodeBitSets.get(nodeToUpdate);
+        if (currentBS == null) {
+            return this.currentDistance;
+        }
+
         sharedSplitsHistory.push(sharedSplitsCount);
         movingNodeHistory.push(nodeToUpdate);
         operationNodeCountHistory.push(1);
-
-        BitSet oldBSInVirtual = activeVirtualSplits.get(nodeToUpdate);
         activeSplitHistory.push(oldBSInVirtual);
 
-        BitSet currentBS = (oldBSInVirtual != null) ? oldBSInVirtual : nodeBitSets.get(nodeToUpdate);
         if (isShared(currentBS)) sharedSplitsCount--;
 
         BitSet newBS = (BitSet) currentBS.clone();
@@ -121,7 +126,13 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
 
     @Override
     public double applyNni(NniMove move) {
+        if (move == null || move.movingSubtree == null || move.swapPartner == null) {
+            return this.currentDistance;
+        }
         Node nodeToUpdate = move.movingSubtree.getParent();
+        if (nodeToUpdate == null) {
+            return this.currentDistance;
+        }
         BitSet bitsOut = getCluster(move.movingSubtree);
         BitSet bitsIn = getCluster(move.swapPartner);
         return applyNniStep(nodeToUpdate, bitsOut, bitsIn);
@@ -133,14 +144,19 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
     }
 
     public double applyUpdate(Node node, BitSet bitsToApply, boolean add) {
+        if (node == null) return this.currentDistance;
+
+        BitSet oldBSInVirtual = activeVirtualSplits.get(node);
+        BitSet currentBS = (oldBSInVirtual != null) ? oldBSInVirtual : nodeBitSets.get(node);
+        if (currentBS == null) {
+            return this.currentDistance;
+        }
+
         sharedSplitsHistory.push(sharedSplitsCount);
         movingNodeHistory.push(node);
         operationNodeCountHistory.push(1);
-
-        BitSet oldBSInVirtual = activeVirtualSplits.get(node);
         activeSplitHistory.push(oldBSInVirtual);
 
-        BitSet currentBS = (oldBSInVirtual != null) ? oldBSInVirtual : nodeBitSets.get(node);
         if (isShared(currentBS)) sharedSplitsCount--;
 
         BitSet newBS = (BitSet) currentBS.clone();
@@ -174,6 +190,7 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
     }
 
     public BitSet getCluster(Node node) {
+        if (node == null) return null;
         return activeVirtualSplits.getOrDefault(node, nodeBitSets.get(node));
     }
 
@@ -271,6 +288,10 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
 
     @Override
     public void applySprPrune(Node pruneNode) {
+        if (pruneNode == null) {
+            sprPruneDepths.push(0);
+            return;
+        }
         BitSet movingBits = getCluster(pruneNode);
         Node oldParent = pruneNode.getParent();
 
@@ -311,6 +332,15 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
         undoNniStep();
     }
 
+    private boolean isDescendantOrSelf(Node descendant, Node ancestor) {
+        Node curr = descendant;
+        while (curr != null) {
+            if (curr == ancestor) return true;
+            curr = curr.getParent();
+        }
+        return false;
+    }
+
     // ==========================================
     // IMPLEMENTACJA 2-sECR
     // ==========================================
@@ -324,8 +354,19 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
 
     @Override
     public double commit2sEcrMove(Node top, Node m1, Node m2, Node[] boundarySubtrees, treecmp.heuristics.ecr.SubtreeEcr2Utils.TopologyTemplate2sECR newTopology) {
+        BitSet topCluster = getCluster(top);
         BitSet[] sBits = new BitSet[4];
-        for (int i = 0; i < 4; i++) sBits[i] = getCluster(boundarySubtrees[i]);
+        for (int i = 0; i < 4; i++) {
+            Node s = boundarySubtrees[i];
+            if (s != null && isDescendantOrSelf(s, top)) {
+                sBits[i] = getCluster(s);
+            } else {
+                BitSet outside = (BitSet) allLeavesMask.clone();
+                if (topCluster != null) outside.andNot(topCluster);
+                sBits[i] = outside;
+            }
+            if (sBits[i] == null) sBits[i] = new BitSet(allLeavesMask.size());
+        }
 
         BitSet newM1 = new BitSet();
         BitSet newM2 = new BitSet();
@@ -382,8 +423,20 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
 
     @Override
     public double commit3sEcrMove(List<Node> cluster, Node[] boundarySubtrees, treecmp.heuristics.ecr.SubtreeEcr3Utils.TopologyTemplate3sECR newTopology) {
+        Node top = cluster.get(0);
+        BitSet topCluster = getCluster(top);
         BitSet[] sBits = new BitSet[5];
-        for (int i = 0; i < 5; i++) sBits[i] = getCluster(boundarySubtrees[i]);
+        for (int i = 0; i < 5; i++) {
+            Node s = boundarySubtrees[i];
+            if (s != null && isDescendantOrSelf(s, top)) {
+                sBits[i] = getCluster(s);
+            } else {
+                BitSet outside = (BitSet) allLeavesMask.clone();
+                if (topCluster != null) outside.andNot(topCluster);
+                sBits[i] = outside;
+            }
+            if (sBits[i] == null) sBits[i] = new BitSet(allLeavesMask.size());
+        }
 
         Node[] available = cluster.toArray(new Node[0]);
         int[] idxArr = {1};
