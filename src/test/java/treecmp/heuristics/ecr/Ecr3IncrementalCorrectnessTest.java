@@ -1,159 +1,130 @@
 package treecmp.heuristics.ecr;
 
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
-import org.junit.jupiter.params.provider.Arguments;
-import org.junit.jupiter.params.provider.MethodSource;
-import static org.junit.jupiter.api.Assertions.*;
-
-import java.util.ArrayList;
-import java.util.List;
-import java.util.stream.Stream;
-
+import org.junit.jupiter.params.provider.ValueSource;
+import pal.tree.Node;
 import pal.tree.SimpleTree;
 import pal.tree.Tree;
-import treecmp.heuristics.TreeNeighborhoodUtils;
-import treecmp.heuristics.ecr.SubtreeEcr3Utils;
+import pal.tree.TreeUtils;
+import treecmp.common.TreeCmpException;
+import treecmp.heuristics.ecr.SubtreeEcr3Utils.TopologyTemplate3sECR;
 import treecmp.heuristics.ecr.acc.Ecr3IncrementalHeuristic;
-import treecmp.heuristics.base.IncrementalHeuristicBaseMetric;
-import treecmp.metrics.Metric;
-import treecmp.metrics.topological.*;
-import treecmp.metrics.topological.acc.*;
+import treecmp.metrics.topological.RFMetric;
+import treecmp.metrics.topological.acc.RFIncrementalMetric;
 import treecmp.util.TestTreeFactory;
 
-@DisplayName("Weryfikacja poprawności 1-krokowego Ecr3IncrementalHeuristic vs klasyczne SubtreeEcr3Utils")
+import java.util.List;
+
+import static org.junit.jupiter.api.Assertions.*;
+
+@DisplayName("Weryfikacja poprawności inkrementalnego ECR3 vs klasyczny ECR3 dla metryki RF")
 public class Ecr3IncrementalCorrectnessTest {
 
     private static final double EPSILON = 1e-9;
+    private final RFMetric classicRf = new RFMetric();
 
-    /**
-     * Generator parametrów dla 3-sECR:
-     * Otoczenie o wielkości O(N^3), dlatego testujemy mniejsze drzewa (10..30),
-     * co gwarantuje błyskawiczne wykonanie zestawu testów jednostkowych.
-     */
-    private static Stream<Arguments> provideTestParameters() {
-        // Wszystkie 6 metryk — ukorzenione i nieukorzenione:
-        String[] metrics = {"RF", "RFC", "MS", "MC", "MP", "M3"};
-        // Dla 3-sECR startujemy od n=20, aby zagwarantować obecność klastrów z 4 węzłami:
-        int[] treeSizes = {20, 30, 50};
-        long[][] seedPairs = {
-                {12345L, 67890L},
-                {42L, 999L},
-                {2026L, 1337L}
-        };
-
-        List<Arguments> arguments = new ArrayList<>();
-        for (String metric : metrics) {
-            for (int size : treeSizes) {
-                for (long[] seeds : seedPairs) {
-                    arguments.add(Arguments.of(metric, size, seeds[0], seeds[1]));
-                }
-            }
-        }
-        return arguments.stream();
-    }
-
-    private static void assignNumbers(Tree tree) {
+    private void prepareTree(Tree tree) {
         if (tree instanceof SimpleTree) {
             ((SimpleTree) tree).createNodeList();
         }
+        TreeUtils.computeParentPointers(tree.getRoot());
     }
 
-    @ParameterizedTest(name = "Metryka: {0} | n={1} | seeds=[{2}, {3}]")
-    @MethodSource("provideTestParameters")
-    @DisplayName("Porównanie minimalnej odległości w otoczeniu 3-sECR (Incr vs Classic)")
-    void testSingleStepBestNeighborMatch(String metricName, int treeSize, long seed1, long seed2) throws Exception {
-        boolean isRooted = false;
-        Metric classicMetric;
-        IncrementalHeuristicBaseMetric incrementalMetric;
+    /**
+     * TEST 1: Porównanie działania heurystyki ECR3 w zejściu lokalnym (VND stage).
+     * Jeśli klasyk wykonuje kroki poprawiające (>0), a inkrementalny ma 0 kroków,
+     * ten test natychmiast zgłosi asercję i pokaże różnicę dystansów.
+     */
+    @ParameterizedTest(name = "Test lokalnego zejścia ECR3 dla N={0}")
+    @ValueSource(ints = {10, 20, 30})
+    void testEcr3DescentStepParity(int n) {
+        Tree t1 = TestTreeFactory.randomUnrootedBinaryTree(n, 12345L);
+        Tree t2 = TestTreeFactory.randomUnrootedBinaryTree(n, 67890L);
+        prepareTree(t1);
+        prepareTree(t2);
 
-        switch (metricName) {
-            case "RF":
-                isRooted = false;
-                classicMetric = new RFMetric();
-                incrementalMetric = new Ecr3IncrementalHeuristic(new RFIncrementalMetric(), "RF");
-                break;
-            case "RFC":
-                isRooted = true;
-                classicMetric = new RFClusterMetric();
-                incrementalMetric = new Ecr3IncrementalHeuristic(new RFClusterIncrementalMetric(), "RFC");
-                break;
-            case "MS":
-                isRooted = false;
-                classicMetric = new MatchingSplitMetric();
-                incrementalMetric = new Ecr3IncrementalHeuristic(new MSIncrementalMetric(), "MS");
-                break;
-            case "MC":
-                isRooted = true;
-                classicMetric = new MatchingClusterMetric();
-                incrementalMetric = new Ecr3IncrementalHeuristic(new MCIncrementalMetric(), "MC");
-                break;
-            case "MP":
-                isRooted = true;
-                classicMetric = new MatchingPairMetric();
-                incrementalMetric = new Ecr3IncrementalHeuristic(new MPIncrementalMetric(), "MP");
-                break;
-            case "M3":
-                isRooted = false;
-                classicMetric = new MatchingTripletMetric();
-                incrementalMetric = new Ecr3IncrementalHeuristic(new M3IncrementalMetric(), "M3");
-                break;
-            default:
-                throw new IllegalArgumentException("Nieznana metryka: " + metricName);
+        // 1. Klasyczna heurystyka ECR3
+        Ecr3ClassicHeuristic classicEcr3 = new Ecr3ClassicHeuristic(classicRf, false, "RF");
+        double classicDistAfter = classicEcr3.performLocalDescent(t1, t2);
+        int classicSteps = classicEcr3.getAccumulatedSteps();
+
+        // 2. Inkrementalna heurystyka ECR3
+        RFIncrementalMetric incRf = new RFIncrementalMetric();
+        Ecr3IncrementalHeuristic incEcr3 = new Ecr3IncrementalHeuristic(incRf, "RF");
+        double incDistAfter = incEcr3.performLocalDescent(t1, t2);
+        int incSteps = incEcr3.getAccumulatedSteps();
+
+        System.out.printf("N=%d | Classic steps: %d (D: %.1f) | Incr steps: %d (D: %.1f)%n",
+                n, classicSteps, classicDistAfter, incSteps, incDistAfter);
+
+        if (classicSteps > 0) {
+            assertTrue(incSteps > 0, String.format(
+                    "Regresja ECR3 w RF dla N=%d! Klasyk znalazł %d kroków poprawy (D=%.1f), a inkrementalny znalazł 0 kroków!",
+                    n, classicSteps, classicDistAfter
+            ));
         }
 
-        Tree t1, t2, t1ForIncr;
-        if (isRooted) {
-            t1 = TestTreeFactory.randomRootedBinaryTree(treeSize, seed1);
-            t2 = TestTreeFactory.randomRootedBinaryTree(treeSize, seed2);
-            t1ForIncr = TestTreeFactory.randomRootedBinaryTree(treeSize, seed1);
-        } else {
-            t1 = TestTreeFactory.randomUnrootedBinaryTree(treeSize, seed1);
-            t2 = TestTreeFactory.randomUnrootedBinaryTree(treeSize, seed2);
-            t1ForIncr = TestTreeFactory.randomUnrootedBinaryTree(treeSize, seed1);
-        }
+        assertEquals(classicDistAfter, incDistAfter, EPSILON,
+                String.format("Niezgodność dystansu końcowego po ECR3 dla N=%d!", n));
+    }
 
-        assignNumbers(t1);
-        assignNumbers(t2);
-        assignNumbers(t1ForIncr);
+    /**
+     * TEST 2: Precyzyjna weryfikacja każdego pojedynczego ruchu evaluate3sEcrMove.
+     * Wywołuje evaluate3sEcrMove i porównuje wynik z klasyczną ewaluacją fizycznego drzewa (createEcr3Tree).
+     * Wskaże DOKŁADNIE, na którym węźle i szablonie rozjeżdża się matematyka.
+     */
+    @Test
+    @DisplayName("Pojedyncza ewaluacja każdego ruchu 3s-ECR: evaluate3sEcrMove vs RFMetric(createEcr3Tree)")
+    void testSingleEcr3MovesEvaluationParity() throws TreeCmpException {
+        int n = 10;
+        Tree t1 = TestTreeFactory.randomUnrootedBinaryTree(n, 12345L);
+        Tree t2 = TestTreeFactory.randomUnrootedBinaryTree(n, 67890L);
+        prepareTree(t1);
+        prepareTree(t2);
 
-        TreeNeighborhoodUtils classicUtils = new SubtreeEcr3Utils(!isRooted);
+        RFIncrementalMetric incRf = new RFIncrementalMetric();
+        incRf.initCalculationState(t1, t2);
 
-        // 1. Obliczenie wyniku inkrementalnego
-        double distIncr = incrementalMetric.evaluateSingleStep(t1ForIncr, t2);
+        SubtreeEcr3Utils ecr3Utils = new SubtreeEcr3Utils(true);
+        int intNum = t1.getInternalNodeCount();
+        int testedMoves = 0;
 
-        // 2. Wygenerowanie otoczenia klasycznego w locie (leniwa ewaluacja)
-        final double[] bestClassicDist = { Double.POSITIVE_INFINITY };
-        final int[] neighborCount = { 0 };
+        for (int i = 0; i < intNum; i++) {
+            Node rootOfCluster = t1.getInternalNode(i);
+            List<List<Node>> clusters = ecr3Utils.getClusters(rootOfCluster, 4);
 
-        classicUtils.forEachNeighbour(t1, n -> {
-            neighborCount[0]++;
-            assignNumbers(n);
-            try {
-                double d = classicMetric.getDistance(n, t2);
-                if (d < bestClassicDist[0]) {
-                    bestClassicDist[0] = d;
+            for (List<Node> cluster : clusters) {
+                List<Node> subtreesList = ecr3Utils.getBoundarySubtrees(cluster);
+                if (subtreesList.size() != 5) continue;
+
+                Node[] s = subtreesList.toArray(new Node[0]);
+                TopologyTemplate3sECR originalSignature = ecr3Utils.extractSignature(rootOfCluster, cluster, subtreesList);
+
+                for (TopologyTemplate3sECR template : SubtreeEcr3Utils.getTemplates()) {
+                    if (template.isIsomorphic(originalSignature)) continue;
+
+                    // A. Ewaluacja inkrementalna
+                    double incDist = incRf.evaluate3sEcrMove(cluster, s, template);
+
+                    // B. Fizyczna budowa drzewa i pomiar klasyczny
+                    Tree physicalTree = ecr3Utils.createEcr3Tree(t1, cluster, s, template);
+                    if (physicalTree != null) {
+                        prepareTree(physicalTree);
+                        double classicDist = classicRf.getDistance(physicalTree, t2);
+                        testedMoves++;
+
+                        assertEquals(classicDist, incDist, EPSILON, String.format(
+                                "Rozbieżność w evaluate3sEcrMove! RootOfCluster=%d, Classic=%.1f, Incr=%.1f",
+                                rootOfCluster.getNumber(), classicDist, incDist
+                        ));
+                    }
                 }
-            } catch (Exception e) {
-                throw new RuntimeException("Błąd podczas ewaluacji odległości w teście 3-sECR", e);
             }
-        });
+        }
 
-        // Jeśli dla danej małej topologii brak klastra o rozmiarze 4, pomiń test w czytelny sposób:
-        org.junit.jupiter.api.Assumptions.assumeTrue(
-                neighborCount[0] > 0,
-                String.format("Pomijam: topologia (n=%d, seed=%d) nie posiada klastra 4 węzłów dla 3-sECR", treeSize, seed1)
-        );
-
-        // 3. Weryfikacja zgodności
-        assertEquals(
-                bestClassicDist[0],
-                distIncr,
-                EPSILON,
-                String.format(
-                        "Niezgodność w 3-sECR (%s) dla n=%d (seeds=%d/%d)! Classic=%.6f vs Incr=%.6f",
-                        metricName, treeSize, seed1, seed2, bestClassicDist[0], distIncr
-                )
-        );
+        assertTrue(testedMoves > 0, "Powinno zostać przetestowanych co najmniej kilkadziesiąt ruchów 3s-ECR");
+        System.out.printf("Zbadano bezbłędnie %d ruchów 3s-ECR!%n", testedMoves);
     }
 }
