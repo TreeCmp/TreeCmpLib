@@ -14,7 +14,6 @@ import java.lang.reflect.Method;
  * Zoptymalizowany, strukturalny Walker dla otoczenia TBR.
  * Gwarantuje 100% pokrycia matematycznego otoczenia dla drzew ukorzenionych.
  */
-
 public class TbrNeighborhoodWalker {
 
     public interface TbrVisitor {
@@ -23,8 +22,9 @@ public class TbrNeighborhoodWalker {
 
     private final TbrUtils tbrUtils = new TbrUtils();
 
-    // Cache dla mechanizmu refleksji (akcelerator dla metryk RF/RFC)
-    private Method evalMethod = null;
+    // Cache dla mechanizmu refleksji (akcelerator dla metryk RF/RFC/MC/MP)
+    private Method evalMethod4 = null;
+    private Method evalMethod3 = null;
     private Method getClusterMethod = null;
     private boolean reflectionInitialized = false;
 
@@ -32,22 +32,19 @@ public class TbrNeighborhoodWalker {
         List<Node> allNodes = getAllNodes(baseTree);
 
         for (Node pruneNode : allNodes) {
-            // W TBR nie odcinamy korzenia
             if (pruneNode.isRoot() || pruneNode.getParent() == null) continue;
 
-            // 1. Zbieramy wszystkie potencjalne nowe korzenie dla odciętego poddrzewa
+            // 1. Wszystkie potencjalne nowe korzenie dla odciętego poddrzewa
             List<Node> rerootNodes = new ArrayList<>();
             collectSubtreeNodes(pruneNode, rerootNodes);
 
-            // 2. Zbieramy wszystkie potencjalne miejsca wpięcia w głównym drzewie
+            // 2. Wszystkie potencjalne miejsca wpięcia w głównym drzewie
             List<Node> targetNodes = new ArrayList<>();
             collectOutsideNodes(baseTree.getRoot(), pruneNode, targetNodes);
 
-            // 3. Weryfikujemy i ewaluujemy każdą kombinację
+            // 3. Weryfikacja i ewaluacja każdej kombinacji
             for (Node rerootNode : rerootNodes) {
                 for (Node targetNode : targetNodes) {
-
-                    // KLUCZOWA POPRAWKA: Pomijamy ruch tożsamościowy (drzewo zostaje bez zmian)
                     if (rerootNode == pruneNode && targetNode == pruneNode.getParent()) continue;
 
                     if (tbrUtils.isValidTbrMove(pruneNode, rerootNode, targetNode)) {
@@ -67,18 +64,31 @@ public class TbrNeighborhoodWalker {
         if (!reflectionInitialized) {
             try {
                 getClusterMethod = metric.getClass().getMethod("getCluster", Node.class);
-                evalMethod = metric.getClass().getMethod("evaluateExactTbrDistance", Node.class, Node.class, Node.class, BitSet.class);
+            } catch (Exception ignored) {
+            }
+            try {
+                evalMethod4 = metric.getClass().getMethod("evaluateExactTbrDistance", Node.class, Node.class, Node.class, BitSet.class);
+            } catch (Exception ignored) {
+            }
+            try {
+                evalMethod3 = metric.getClass().getMethod("evaluateExactTbrDistance", Node.class, Node.class, Node.class);
             } catch (Exception ignored) {
             }
             reflectionInitialized = true;
         }
 
-        if (evalMethod != null && getClusterMethod != null) {
+        if (evalMethod4 != null && getClusterMethod != null) {
             try {
                 BitSet movingBits = (BitSet) getClusterMethod.invoke(metric, reroot);
-                return (Double) evalMethod.invoke(metric, prune, reroot, target, movingBits);
-            } catch (Exception e) {
-                return metric.getCurrentDistance();
+                return (Double) evalMethod4.invoke(metric, prune, reroot, target, movingBits);
+            } catch (Exception ignored) {
+            }
+        }
+
+        if (evalMethod3 != null) {
+            try {
+                return (Double) evalMethod3.invoke(metric, prune, reroot, target);
+            } catch (Exception ignored) {
             }
         }
 
