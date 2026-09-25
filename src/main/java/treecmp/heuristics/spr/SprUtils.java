@@ -17,7 +17,6 @@ public class SprUtils extends TreeNeighborhoodUtils {
     public Tree applyPhysicalSprMove(Tree tree, SprMove move) {
         if (tree == null || move == null) return tree;
 
-        // POPRAWKA: w SprMove pole to nazywa się sourceNode
         Node s = move.sourceNode;
         Node v = move.targetNode;
         if (s == null || v == null) return tree;
@@ -52,8 +51,11 @@ public class SprUtils extends TreeNeighborhoodUtils {
         if (v != null) v.setParent(p);
 
         pal.tree.TreeUtils.computeParentPointers(tree.getRoot());
+        if (tree instanceof SimpleTree) {
+            ((SimpleTree) tree).createNodeList();
+        }
 
-        return refreshTreeInPlace(tree);
+        return tree;
     }
 
     public Node getSibling(Node node) {
@@ -69,107 +71,19 @@ public class SprUtils extends TreeNeighborhoodUtils {
         return -1;
     }
 
+    /**
+     * Bezpieczne tworzenie drzewa SPR w pamięci operacyjnej z wykorzystaniem
+     * sprawdzonego mechanizmu createTbrTree (dla s == r).
+     */
     public Tree createAndFixSprTree(Tree baseTree, Node pruneNode, Node targetNode) {
-        Tree resultTree;
-        try {
-            resultTree = buildPerfectRootedSprTree(baseTree, pruneNode, targetNode);
-        } catch (Exception e) {
-            resultTree = createSprTree(baseTree, pruneNode, targetNode);
-            if (resultTree instanceof SimpleTree) {
-                ((SimpleTree) resultTree).createNodeList();
-            }
-            if (resultTree != null) {
-                pal.tree.TreeUtils.computeParentPointers(resultTree.getRoot());
-                pal.misc.IdGroup idGroup = pal.tree.TreeUtils.getLeafIdGroup(baseTree);
-                pal.tree.TreeUtils.mapExternalIdentifiers(idGroup, resultTree);
-            }
-        }
-
-        // OSTATECZNA TARCZA TOPOLOGICZNA:
-        // Wyklucza obcięte drzewa (np. błąd z 5 liściami w 163903.txt) przed zwrotem z heurystyki!
-        if (!SprTopologyGuard.isStrictlyValidUnrootedTree(resultTree, baseTree.getExternalNodeCount())) {
-            return null;
-        }
-
-        return resultTree;
-    }
-
-    private Tree buildPerfectRootedSprTree(Tree baseTree, Node pruneNode, Node targetNode) {
-        SimpleTree copyTree = new SimpleTree(baseTree);
-        copyTree.createNodeList();
-        pal.tree.TreeUtils.computeParentPointers(copyTree.getRoot());
-
-        Node s = findByPath(baseTree.getRoot(), copyTree.getRoot(), pruneNode);
-        Node v = findByPath(baseTree.getRoot(), copyTree.getRoot(), targetNode);
-
-        if (s == null || v == null) return null;
-        Node p = s.getParent();
-        if (p == null || p == v || p == v.getParent() || isDescendant(v, s)) return null;
-
-        Node pp = p.getParent();
-        Node sibling = (p.getChild(0) == s) ? p.getChild(1) : p.getChild(0);
-
-        Node newRoot = copyTree.getRoot();
-
-        if (pp != null) {
-            int pIdx = findChildPos(p, pp);
-            pp.setChild(pIdx, sibling);
-            sibling.setParent(pp);
-        } else {
-            newRoot = sibling;
-            sibling.setParent(null);
-        }
-
-        Node q = v.getParent();
-        if (q != null) {
-            int vIdx = findChildPos(v, q);
-            q.setChild(vIdx, p);
-            p.setParent(q);
-        } else {
-            newRoot = p;
-            p.setParent(null);
-        }
-
-        p.setChild(0, s);
-        s.setParent(p);
-        p.setChild(1, v);
-        v.setParent(p);
-
-        SimpleTree finalTree = new SimpleTree(newRoot);
-        finalTree.createNodeList();
-        pal.tree.TreeUtils.computeParentPointers(finalTree.getRoot());
-
-        pal.misc.IdGroup idGroup = pal.tree.TreeUtils.getLeafIdGroup(baseTree);
-        pal.tree.TreeUtils.mapExternalIdentifiers(idGroup, finalTree);
-
-        return finalTree;
-    }
-
-    private Node findByPath(Node baseRoot, Node copyRoot, Node target) {
-        if (baseRoot == target) return copyRoot;
-        if (!baseRoot.isLeaf()) {
-            for (int i = 0; i < baseRoot.getChildCount(); i++) {
-                Node res = findByPath(baseRoot.getChild(i), copyRoot.getChild(i), target);
-                if (res != null) return res;
-            }
-        }
-        return null;
-    }
-
-    private boolean isDescendant(Node child, Node ancestor) {
-        Node curr = child;
-        while (curr != null) {
-            if (curr == ancestor) return true;
-            curr = curr.getParent();
-        }
-        return false;
+        if (baseTree == null || pruneNode == null || targetNode == null) return null;
+        return createTbrTree(baseTree, pruneNode, pruneNode, targetNode);
     }
 
     public void forEachSprTree(Tree tree, Consumer<Tree> action) {
         int extNum = tree.getExternalNodeCount();
         int intNum = tree.getInternalNodeCount();
 
-        // Zamieniamy Set<TreeHolder> na Set<String>, aby odciążyć Garbage Collector
         Set<String> seenTopologies = new HashSet<>();
 
         Node s, t;
@@ -210,10 +124,8 @@ public class SprUtils extends TreeNeighborhoodUtils {
         if (isValidSprMove(s, t)) {
             Tree resultTree = createAndFixSprTree(baseTree, s, t);
             if (resultTree != null) {
-                // Generujemy lekki łańcuch znaków zamiast trzymać cały obiekt
                 String topologyHash = getCanonicalTopology(resultTree.getRoot());
 
-                // Dodajemy hash do zbioru - jeśli go tam nie było, akceptujemy drzewo
                 if (seen.add(topologyHash)) {
                     SprMove move = new SprMove(s, t);
                     registerTreeCost(resultTree, move.getNniEquivalentCost());
@@ -247,6 +159,7 @@ public class SprUtils extends TreeNeighborhoodUtils {
 
     @Override
     public void forEachNeighbour(Tree tree, java.util.function.Consumer<Tree> action) {
+        clearCosts();
         forEachSprTree(tree, action);
     }
 }

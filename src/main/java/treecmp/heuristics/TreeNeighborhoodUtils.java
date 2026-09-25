@@ -21,6 +21,7 @@ public abstract class TreeNeighborhoodUtils {
     public int num = 0;
 
     private final Map<Tree, TreeMove> treeMoves = new IdentityHashMap<>();
+    protected final IdentityHashMap<Tree, Double> treeCosts = new IdentityHashMap<>();
 
     public void registerTreeMove(Tree tree, TreeMove move) {
         if (tree != null && move != null) {
@@ -41,10 +42,6 @@ public abstract class TreeNeighborhoodUtils {
         }
         return tree;
     }
-
-    // ==========================================
-    // METODY WSPÓŁDZIELONE DLA TBR i uTBR
-    // ==========================================
 
     public boolean isValidTbrMove(Node pruneNode, Node rerootNode, Node targetNode) {
         if (targetNode == null || pruneNode == null || rerootNode == null) return false;
@@ -165,10 +162,7 @@ public abstract class TreeNeighborhoodUtils {
             return null;
         }
 
-        TreeMove move = (s == r) ? new SprMove(s, t) : new TbrMove(s, r, t);
-        registerTreeMove(resTree, move);
-        registerTreeCost(resTree, move.getNniEquivalentCost());
-
+        // USUNIĘTO registerTreeMove i registerTreeCost - zapobiega uwięzieniu milionów drzew w pamięci!
         return resTree;
     }
 
@@ -203,6 +197,41 @@ public abstract class TreeNeighborhoodUtils {
             return false;
         }
         return counts[0] == expectedLeaves;
+    }
+
+    public static boolean isStrictlyValidRootedTreeFast(Tree tree, int expectedLeaves) {
+        if (tree == null) return false;
+        Node root = tree.getRoot();
+        if (root == null || root.getChildCount() < 2) return false;
+        if (tree.getExternalNodeCount() != expectedLeaves) return false;
+
+        int maxAllowed = 4 * expectedLeaves + 10;
+        int[] counts = new int[2]; // [0] = leaves, [1] = internals
+        if (!validateRootedNodeDfs(root, counts, maxAllowed)) {
+            return false;
+        }
+        return counts[0] == expectedLeaves;
+    }
+
+    private static boolean validateRootedNodeDfs(Node node, int[] counts, int maxAllowed) {
+        if (node == null) return false;
+        if (counts[0] + counts[1] > maxAllowed) return false;
+
+        if (node.isLeaf()) {
+            counts[0]++;
+            return true;
+        }
+
+        counts[1]++;
+        int chCount = node.getChildCount();
+        if (chCount < 2) return false;
+
+        for (int i = 0; i < chCount; i++) {
+            Node ch = node.getChild(i);
+            if (ch == null || ch.getParent() != node) return false;
+            if (!validateRootedNodeDfs(ch, counts, maxAllowed)) return false;
+        }
+        return true;
     }
 
     private static boolean validateNodeDfs(Node node, boolean isRoot, int[] counts, int maxAllowed) {
@@ -703,10 +732,7 @@ public abstract class TreeNeighborhoodUtils {
             ((pal.tree.SimpleTree) resultTree).createNodeList();
         }
 
-        SprMove move = new SprMove(s, t);
-        registerTreeMove(resultTree, move);
-        registerTreeCost(resultTree, move.getNniEquivalentCost());
-
+        // USUNIĘTO registerTreeMove i registerTreeCost - zapobiega wyciekom pamięci!
         return resultTree;
     }
 
@@ -740,10 +766,6 @@ public abstract class TreeNeighborhoodUtils {
         }
         return null;
     }
-
-    // =================================================================================
-    // WSPÓLNE METODY OPTYMALIZACYJNE (FAST CLONE & BITWISE DEDUPLICATION)
-    // =================================================================================
 
     public static pal.tree.SimpleTree fastTreeClone(pal.tree.Tree original) {
         pal.tree.SimpleNode rootClone = fastNodeClone(original.getRoot());
@@ -939,13 +961,11 @@ public abstract class TreeNeighborhoodUtils {
         return tree;
     }
 
-    protected java.util.IdentityHashMap<pal.tree.Tree, Double> treeCosts = new java.util.IdentityHashMap<>();
-
     public double getTreeCost(pal.tree.Tree t) {
         return treeCosts.getOrDefault(t, 1.0);
     }
 
-    protected void registerTreeCost(pal.tree.Tree t, double cost) {
+    public void registerTreeCost(pal.tree.Tree t, double cost) {
         if (t != null) {
             treeCosts.put(t, cost);
         }
