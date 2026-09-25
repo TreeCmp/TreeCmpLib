@@ -83,10 +83,18 @@ public class NniVndIncrementalHeuristic implements Metric {
                 neighborhoodName = currentHeuristic.getName();
 
                 String baseName = "Unknown";
-                if (neighborhoodName.toLowerCase().contains("nni")) baseName = "NNI";
-                else if (neighborhoodName.toLowerCase().contains("ecr2")) baseName = "ECR2";
-                else if (neighborhoodName.toLowerCase().contains("ecr3")) baseName = "ECR3";
-                else if (neighborhoodName.toLowerCase().contains("spr")) baseName = "SPR";
+                String lowerName = neighborhoodName.toLowerCase();
+                if (lowerName.contains("nni")) {
+                    baseName = "NNI";
+                } else if (lowerName.contains("ecr2") || lowerName.contains("2secr")) {
+                    baseName = "ecr2";
+                } else if (lowerName.contains("ecr3") || lowerName.contains("3secr")) {
+                    baseName = "ecr3";
+                } else if (lowerName.contains("spr")) {
+                    baseName = "SPR";
+                } else if (lowerName.contains("tbr")) {
+                    baseName = "TBR";
+                }
 
                 distAfterSearch = currentHeuristic.performLocalDescent(currentBestTree, tree2);
                 treeAfterSearch = currentHeuristic.getLastOptimumTree();
