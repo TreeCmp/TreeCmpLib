@@ -386,6 +386,7 @@ public class UsprUtils extends TreeNeighborhoodUtils {
         if (isInnerMove(s, t)) {
             Node sParent = source.getParent();
             Node tParent = target.getParent();
+            if (sParent == null || tParent == null) return null;
 
             int sPos = findChildPos(source, sParent);
             if (sPos != -1) sParent.removeChild(sPos);
@@ -393,9 +394,16 @@ public class UsprUtils extends TreeNeighborhoodUtils {
 
             List<Node> path = new ArrayList<>();
             Node curr = tParent;
-            while (curr != null && curr != source) {
+            int maxDepth = 2 * baseTree.getExternalNodeCount() + 5;
+
+            while (curr != null && curr != source && path.size() < maxDepth) {
                 path.add(curr);
                 curr = curr.getParent();
+            }
+
+            // OCHRONA PRZED ZAWIESZENIEM: Jeśli ścieżka została przerwana, przerwij ruch
+            if (curr != source) {
+                return null;
             }
             path.add(source);
 
