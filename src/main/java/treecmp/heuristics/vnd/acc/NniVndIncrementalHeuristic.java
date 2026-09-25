@@ -107,6 +107,7 @@ public class NniVndIncrementalHeuristic implements Metric {
                 trajectory = currentHeuristic.getLastOptimumTrajectory(treeBeforeSearch);
             } else {
                 neighborhoodName = "Classic_TBR_Fallback";
+                String baseName = "TBR";
                 double tbrDist = 0;
                 try {
                     tbrDist = classicFallbackTbr.getDistance(currentBestTree, tree2);
@@ -114,7 +115,11 @@ public class NniVndIncrementalHeuristic implements Metric {
                     throw new RuntimeException(e);
                 }
 
-                if (tbrDist != Double.POSITIVE_INFINITY && tbrDist < currentBestValue) {
+                long timeSpentNs = System.nanoTime() - stepStartTimeNs;
+                boolean success = (tbrDist != Double.POSITIVE_INFINITY && tbrDist < currentBestValue);
+                VndTimeProfiler.INSTANCE.get().recordTime(baseName, success, timeSpentNs);
+
+                if (success) {
                     distAfterSearch = 0;
                     if (classicFallbackTbr instanceof HeuristicBaseMetric) {
                         HeuristicBaseMetric hbm = (HeuristicBaseMetric) classicFallbackTbr;
@@ -143,11 +148,18 @@ public class NniVndIncrementalHeuristic implements Metric {
                 int stepsAfter = (logger instanceof DetailedTrajectoryVndLogger)
                         ? ((DetailedTrajectoryVndLogger) logger).getStepCount() : 0;
 
+                int stepNniCost;
                 if (logger instanceof DetailedTrajectoryVndLogger) {
-                    totalNniCost += (stepsAfter - stepsBefore);
+                    stepNniCost = (stepsAfter - stepsBefore);
                 } else {
-                    totalNniCost += trajectory.size();
+                    stepNniCost = (trajectory != null && !trajectory.isEmpty()) ? trajectory.size() : 1;
                 }
+
+                totalNniCost += stepNniCost;
+
+                // REJESTRACJA WYPRACOWANYCH KROKÓW NNI:
+                String opKey = (k < incrementalNeighborhoods.size()) ? neighborhoodName : "TBR";
+                VndTimeProfiler.INSTANCE.get().recordNniCost(opKey, stepNniCost);
 
                 k = 0; // Reset VND
             } else {

@@ -97,11 +97,17 @@ public class NniVndHeuristic implements Metric {
                 int stepsAfter = (logger instanceof DetailedTrajectoryVndLogger)
                         ? ((DetailedTrajectoryVndLogger) logger).getStepCount() : 0;
 
+                int stepNniCost;
                 if (logger instanceof DetailedTrajectoryVndLogger) {
-                    totalNniCost += (stepsAfter - stepsBefore);
+                    stepNniCost = (stepsAfter - stepsBefore);
                 } else {
-                    totalNniCost += trajectory.size();
+                    stepNniCost = (trajectory != null && !trajectory.isEmpty()) ? trajectory.size() : 1;
                 }
+
+                totalNniCost += stepNniCost;
+
+                // REJESTRACJA WYPRACOWANYCH KROKÓW NNI:
+                VndTimeProfiler.INSTANCE.get().recordNniCost(baseName, stepNniCost);
 
                 k = 0; // Reset VND
             } else {
