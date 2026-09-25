@@ -45,9 +45,7 @@ public class NniVndIncrementalHeuristic implements Metric {
             ((SimpleTree) currentTree).createNodeList();
         }
 
-        double initialValue = incrementalNeighborhoods.get(0).evaluateInitialDistance(currentTree, tree2);
-
-        VndStepListener logger;
+        double initialValue = incrementalNeighborhoods.get(0).evaluateInitialDistance(currentTree, tree2);VndStepListener logger;
         if (this.customListener != null) {
             logger = this.customListener;
         } else if (ENABLE_LOGGING) {

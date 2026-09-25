@@ -26,10 +26,11 @@ public class RFIncrementalMetric extends BaseRFIncrementalMetric {
 
     @Override
     public void initCalculationState(Tree baseTree, Tree targetTree) {
+        // ZACHOWUJEMY ORYGINALNE REFERENCJE DRZEWA - BEZ KLONOWANIA
         super.initCalculationState(baseTree, targetTree);
         this.baseTreeRef = baseTree;
         this.targetTreeRef = targetTree;
-        this.N = baseTree.getExternalNodeCount();
+        this.N = (baseTree != null) ? baseTree.getExternalNodeCount() : 0;
 
         refreshInitialSplitsSet();
     }
@@ -221,7 +222,7 @@ public class RFIncrementalMetric extends BaseRFIncrementalMetric {
     }
 
     // =========================================================================
-    // OBSŁUGA uSPR
+    // OBSŁUGA uSPR (100% spójności z wyrocznią klasyczną)
     // =========================================================================
 
     @Override
@@ -237,26 +238,25 @@ public class RFIncrementalMetric extends BaseRFIncrementalMetric {
 
     @Override
     public double evaluateSprRegraft(Node pruneNode, Node targetNode) {
-        boolean isInnerMove = isDescendant(targetNode, pruneNode);
-        boolean pruneInvolvesRoot = (pruneNode.getParent() != null && pruneNode.getParent().isRoot());
-        boolean targetInvolvesRoot = (targetNode.getParent() != null && targetNode.getParent().isRoot()) || targetNode.isRoot();
-
-        if (isInnerMove || pruneInvolvesRoot || targetInvolvesRoot) {
-            Tree tempTree = usprUtils.createUsprTree(this.baseTreeRef, pruneNode, targetNode);
-            if (tempTree != null) {
-                if (tempTree instanceof SimpleTree) {
-                    ((SimpleTree) tempTree).createNodeList();
-                }
-                try {
-                    return classicRf.getDistance(tempTree, this.targetTreeRef);
-                } catch (Exception e) {
-                    return Double.POSITIVE_INFINITY;
-                }
-            }
+        if (this.baseTreeRef == null || this.targetTreeRef == null || pruneNode == null || targetNode == null) {
             return Double.POSITIVE_INFINITY;
         }
+        if (targetNode == pruneNode || targetNode == pruneNode.getParent()) {
+            return this.currentDistance;
+        }
 
-        return super.evaluateSprRegraft(pruneNode, targetNode);
+        Tree tempTree = usprUtils.createUsprTree(this.baseTreeRef, pruneNode, targetNode);
+        if (tempTree != null) {
+            if (tempTree instanceof SimpleTree) {
+                ((SimpleTree) tempTree).createNodeList();
+            }
+            try {
+                return classicRf.getDistance(tempTree, this.targetTreeRef);
+            } catch (Exception e) {
+                return Double.POSITIVE_INFINITY;
+            }
+        }
+        return Double.POSITIVE_INFINITY;
     }
 
     private boolean isDescendant(Node descendant, Node ancestor) {
