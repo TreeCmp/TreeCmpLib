@@ -39,6 +39,7 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
 
     private final int maxAllowedClassicVndSize;
     private long globalNniT, globalEcr2T, globalEcr3T, globalSprT, globalTbrT;
+    private long globalNniSteps, globalEcr2Steps, globalEcr3Steps, globalSprSteps, globalTbrSteps;
 
     private static final ThreadLocal<DetailedTrajectoryVndLogger> activeLogger = new ThreadLocal<>();
     private static int currentPairCounter = 0;
@@ -263,16 +264,18 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
     }
 
     @Override
-    protected String getExtraTableHeaderInfo() { return "Time Breakdown"; }
+    protected String getExtraTableHeaderInfo() { return "Step Breakdown (NNI %)"; }
 
     @Override
     protected void resetCustomStats() {
         globalNniT = 0; globalEcr2T = 0; globalEcr3T = 0; globalSprT = 0; globalTbrT = 0;
+        globalNniSteps = 0; globalEcr2Steps = 0; globalEcr3Steps = 0; globalSprSteps = 0; globalTbrSteps = 0;
     }
 
     @Override
     protected void onBeforePair() {
         TimeProfiler.reset();
+        treecmp.heuristics.vnd.VndTimeProfiler.INSTANCE.get().clear();
         currentPairCounter++;
     }
 
@@ -283,6 +286,13 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
         globalEcr3T += TimeProfiler.get("ECR3");
         globalSprT += TimeProfiler.get("SPR");
         globalTbrT += TimeProfiler.get("TBR");
+
+        Map<String, Long> stepStats = treecmp.heuristics.vnd.VndTimeProfiler.INSTANCE.get().getNniCostStats();
+        globalNniSteps += stepStats.getOrDefault("NNI_Success", stepStats.getOrDefault("NNI", 0L));
+        globalEcr2Steps += stepStats.getOrDefault("ecr2_Success", stepStats.getOrDefault("ecr2", 0L));
+        globalEcr3Steps += stepStats.getOrDefault("ecr3_Success", stepStats.getOrDefault("ecr3", 0L));
+        globalSprSteps += stepStats.getOrDefault("SPR_Success", stepStats.getOrDefault("SPR", 0L));
+        globalTbrSteps += stepStats.getOrDefault("TBR_Success", stepStats.getOrDefault("TBR", 0L));
     }
 
     @Override
@@ -290,8 +300,37 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
         boolean isVndFull = variantName.contains("NNI->ECR->SPR->TBR");
         boolean isVndShort = variantName.contains("NNI->SPR->TBR");
         boolean isVndTbr = variantName.contains("NNI->TBR");
-        long totalPhases = globalNniT + globalEcr2T + globalEcr3T + globalSprT + globalTbrT;
 
+        long totalSteps = globalNniSteps + globalEcr2Steps + globalEcr3Steps + globalSprSteps + globalTbrSteps;
+
+        if (totalSteps > 0) {
+            if (isVndFull) {
+                return String.format("[NNI:%2d%% ecr2:%2d%% ecr3:%2d%% SPR:%2d%% TBR:%2d%%]",
+                        Math.round(globalNniSteps * 100.0 / totalSteps),
+                        Math.round(globalEcr2Steps * 100.0 / totalSteps),
+                        Math.round(globalEcr3Steps * 100.0 / totalSteps),
+                        Math.round(globalSprSteps * 100.0 / totalSteps),
+                        Math.round(globalTbrSteps * 100.0 / totalSteps));
+            } else if (isVndShort) {
+                long shortTotal = globalNniSteps + globalSprSteps + globalTbrSteps;
+                if (shortTotal > 0) {
+                    return String.format("[NNI:%2d%% SPR:%2d%% TBR:%2d%%]",
+                            Math.round(globalNniSteps * 100.0 / shortTotal),
+                            Math.round(globalSprSteps * 100.0 / shortTotal),
+                            Math.round(globalTbrSteps * 100.0 / shortTotal));
+                }
+            } else if (isVndTbr) {
+                long tbrTotal = globalNniSteps + globalTbrSteps;
+                if (tbrTotal > 0) {
+                    return String.format("[NNI:%2d%% TBR:%2d%%]",
+                            Math.round(globalNniSteps * 100.0 / tbrTotal),
+                            Math.round(globalTbrSteps * 100.0 / tbrTotal));
+                }
+            }
+        }
+
+        // Fallback do czasów, jeśli dla danego przebiegu nie zarejestrowano kroków
+        long totalPhases = globalNniT + globalEcr2T + globalEcr3T + globalSprT + globalTbrT;
         if (isVndFull && totalPhases > 0) {
             return String.format("[NNI:%2d%% ecr2:%2d%% ecr3:%2d%% SPR:%2d%% TBR:%2d%%]",
                     Math.round(globalNniT * 100.0 / totalPhases),
