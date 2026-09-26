@@ -5,6 +5,8 @@ import pal.tree.SimpleTree;
 import pal.tree.Tree;
 import pal.tree.TreeUtils;
 import treecmp.common.TreeCmpUtils;
+import treecmp.heuristics.spr.SprUtils;
+import treecmp.heuristics.spr.UsprUtils;
 import treecmp.heuristics.tbr.TbrUtils;
 import treecmp.heuristics.tbr.UTbrUtils;
 import treecmp.metrics.topological.RFClusterMetric;
@@ -72,9 +74,14 @@ public class SprMove implements TreeMove {
             }
         }
 
-        if (rawSteps.isEmpty()) {
-            Tree finalTree = createIntermediateSprTree(startTree, localPrune, localTarget, isUnrooted, expectedLeaves);
-            if (finalTree != null) rawSteps.add(finalTree);
+        // Zawsze upewniamy się, że docelowe drzewo znajduje się na końcu surowych kroków
+        Tree finalTree = createIntermediateSprTree(startTree, localPrune, localTarget, isUnrooted, expectedLeaves);
+        if (finalTree != null) {
+            rawSteps.add(finalTree);
+        }
+
+        if (rawSteps.isEmpty() && finalTree != null) {
+            rawSteps.add(finalTree);
         }
 
         return sanitizeToStrict1NniSequence(startTree, rawSteps, isUnrooted);
@@ -101,48 +108,82 @@ public class SprMove implements TreeMove {
                         strictTrajectory.add(subTree);
                         last = subTree;
                     }
-                } else {
-                    strictTrajectory.add(next);
-                    last = next;
                 }
             }
         }
         return strictTrajectory;
     }
 
+    /**
+     * Inteligentne uzupełnianie brakujących kroków 1-NNI za pomocą algorytmu Best-First Search
+     * kierowanego minimalizacją dystansu RF do drzewa docelowego.
+     */
     public List<Tree> bridgeGap(Tree start, Tree goal, boolean isUnrooted) {
-        Queue<List<Tree>> queue = new ArrayDeque<>();
+        if (getEffectiveRf(start, goal, isUnrooted) == 0) {
+            return Collections.emptyList();
+        }
+
+        List<Tree> path = new ArrayList<>();
+        Tree cur = start;
         Set<String> visited = new HashSet<>();
+        visited.add(toCanonicalKey(cur.getRoot()));
 
-        String startK = toCanonicalKey(start.getRoot());
-        visited.add(startK);
-
-        List<Tree> startPath = new ArrayList<>();
-        startPath.add(start);
-        queue.add(startPath);
-
-        while (!queue.isEmpty()) {
-            List<Tree> path = queue.poll();
-            Tree cur = path.get(path.size() - 1);
-
-            if (getEffectiveRf(cur, goal, isUnrooted) == 0) {
-                return path.subList(1, path.size());
+        int maxSteps = 30; // Zabezpieczenie przed nieskończoną pętlą
+        while (path.size() < maxSteps) {
+            int currentRf = getEffectiveRf(cur, goal, isUnrooted);
+            if (currentRf == 0) {
+                return path;
             }
 
-            if (path.size() > 5) continue;
+            Tree bestNeighbor = null;
+            int bestRf = currentRf;
+            List<Tree> neighbors = generate1NniNeighbors(cur);
 
-            for (Tree neighbor : generate1NniNeighbors(cur)) {
-                if (getEffectiveRf(cur, neighbor, isUnrooted) != 2) continue;
-                if (getUnrootedRf(cur, neighbor) == 0) continue;
-
-                String nK = toCanonicalKey(neighbor.getRoot());
-                if (visited.add(nK)) {
-                    List<Tree> newPath = new ArrayList<>(path);
-                    newPath.add(neighbor);
-                    queue.add(newPath);
+            // 1. Przeszukiwanie zachłanne: znajdź sąsiada ściśle zbliżającego nas do celu
+            for (Tree n : neighbors) {
+                int rf = getEffectiveRf(n, goal, isUnrooted);
+                if (rf < bestRf) {
+                    String k = toCanonicalKey(n.getRoot());
+                    if (!visited.contains(k)) {
+                        bestRf = rf;
+                        bestNeighbor = n;
+                        if (bestRf == 0) break;
+                    }
                 }
             }
+
+            // 2. Lookahead o 1 krok, jeśli trafiliśmy na lokalne plateau
+            if (bestNeighbor == null) {
+                for (Tree n : neighbors) {
+                    int rf = getEffectiveRf(n, goal, isUnrooted);
+                    if (rf <= currentRf) {
+                        String k = toCanonicalKey(n.getRoot());
+                        if (!visited.contains(k)) {
+                            for (Tree n2 : generate1NniNeighbors(n)) {
+                                if (getEffectiveRf(n2, goal, isUnrooted) < currentRf) {
+                                    bestNeighbor = n;
+                                    break;
+                                }
+                            }
+                            if (bestNeighbor != null) break;
+                        }
+                    }
+                }
+            }
+
+            if (bestNeighbor != null) {
+                visited.add(toCanonicalKey(bestNeighbor.getRoot()));
+                path.add(bestNeighbor);
+                cur = bestNeighbor;
+            } else {
+                break;
+            }
         }
+
+        if (getEffectiveRf(cur, goal, isUnrooted) == 0) {
+            return path;
+        }
+
         return null;
     }
 
@@ -164,15 +205,59 @@ public class SprMove implements TreeMove {
         return rfU;
     }
 
+    /**
+     * Niezmiennicze topologicznie wyszukiwanie węzła na podstawie zbioru liści (bipartycji).
+     */
     private Node findMatchingNode(Tree tree, Node target) {
+        if (target == null || tree == null) return null;
         if (target.isLeaf()) {
             return TreeUtils.getNodeByName(tree, target.getIdentifier().getName());
         }
+
+        Set<String> targetLeaves = new HashSet<>();
+        collectLeafNames(target, targetLeaves);
+
+        int totalLeaves = tree.getExternalNodeCount();
+        Node bestBipartitionMatch = null;
+
+        for (int i = 0; i < tree.getInternalNodeCount(); i++) {
+            Node candidate = tree.getInternalNode(i);
+            Set<String> candLeaves = new HashSet<>();
+            collectLeafNames(candidate, candLeaves);
+
+            if (candLeaves.equals(targetLeaves)) {
+                return candidate;
+            }
+
+            // Obsługa dopełnienia bipartycji w drzewach nieukorzenionych
+            if (candLeaves.size() == totalLeaves - targetLeaves.size()) {
+                Set<String> intersection = new HashSet<>(candLeaves);
+                intersection.retainAll(targetLeaves);
+                if (intersection.isEmpty()) {
+                    bestBipartitionMatch = candidate;
+                }
+            }
+        }
+
+        if (bestBipartitionMatch != null) {
+            return bestBipartitionMatch;
+        }
+
         int num = target.getNumber();
         if (num >= 0 && num < tree.getInternalNodeCount()) {
             return tree.getInternalNode(num);
         }
         return null;
+    }
+
+    private void collectLeafNames(Node node, Set<String> names) {
+        if (node.isLeaf()) {
+            names.add(node.getIdentifier().getName());
+            return;
+        }
+        for (int i = 0; i < node.getChildCount(); i++) {
+            collectLeafNames(node.getChild(i), names);
+        }
     }
 
     private List<Tree> generate1NniNeighbors(Tree tree) {
@@ -343,14 +428,23 @@ public class SprMove implements TreeMove {
 
     private Tree createIntermediateSprTree(Tree baseTree, Node prune, Node target, boolean isUnrooted, int expectedLeaves) {
         try {
-            Tree res;
+            Tree res = null;
             if (isUnrooted) {
-                UTbrUtils uUtils = new UTbrUtils();
-                res = uUtils.createUtbrTree(baseTree, prune, prune, target);
+                UsprUtils uspr = new UsprUtils();
+                res = uspr.createUsprTree(baseTree, prune, target);
+                if (res == null) {
+                    UTbrUtils utbr = new UTbrUtils();
+                    res = utbr.createUtbrTree(baseTree, prune, prune, target);
+                }
             } else {
-                TbrUtils tUtils = new TbrUtils();
-                res = tUtils.createSprTree(baseTree, prune, target);
+                SprUtils spr = new SprUtils();
+                res = spr.createSprTree(baseTree, prune, target);
+                if (res == null) {
+                    TbrUtils tbr = new TbrUtils();
+                    res = tbr.createSprTree(baseTree, prune, target);
+                }
             }
+
             if (res != null && res.getExternalNodeCount() == expectedLeaves) {
                 if (res instanceof SimpleTree) {
                     ((SimpleTree) res).createNodeList();
