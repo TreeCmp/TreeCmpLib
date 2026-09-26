@@ -243,7 +243,12 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
 
     @Override
     protected String getCsvHeader() {
-        String columns = "Size,IsRooted,Metric,Variant,PairIndex,Success,Distance,TotalTimeMs,NniTimeNs,Ecr2TimeNs,Ecr3TimeNs,SprTimeNs,TbrTimeNs,AllocBytes,PeakRamBytes";
+        String columns = "Size,IsRooted,Metric,Variant,PairIndex,Success,Distance,TotalTimeMs,"
+                + "NniSteps,Ecr2Steps,Ecr3Steps,SprSteps,TbrSteps,"
+                + "NniTotalTimeNs,Ecr2TotalTimeNs,Ecr3TotalTimeNs,SprTotalTimeNs,TbrTotalTimeNs,"
+                + "NniSuccessTimeNs,Ecr2SuccessTimeNs,Ecr3SuccessTimeNs,SprSuccessTimeNs,TbrSuccessTimeNs,"
+                + "AllocBytes,PeakRamBytes";
+
         if (ENABLE_LOGGING) {
             return "# WARNING: NNI trajectory logging (ENABLE_LOGGING=true) was active during this benchmark run.\n"
                     + "# Disk I/O, Newick serialization, and intermediate trajectory synthesis overhead significantly inflate TotalTimeMs and phase times!\n"
@@ -253,16 +258,68 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
     }
 
     @Override
-    protected void writeCsvRow(PrintWriter csvWriter, int size, boolean isRooted, String metricName, String variantName, int pairIndex, boolean isSuccess, double dist, double pairTimeMs, long pairAllocatedBytes, long currentPeak) {
-        long ptNni = TimeProfiler.get("NNI");
-        long ptEcr2 = TimeProfiler.get("ECR2");
-        long ptEcr3 = TimeProfiler.get("ECR3");
-        long ptSpr = TimeProfiler.get("SPR");
-        long ptTbr = TimeProfiler.get("TBR");
-        csvWriter.printf(Locale.US, "%d,%b,%s,\"%s\",%d,%b,%.4f,%.4f,%d,%d,%d,%d,%d,%d,%d%n",
-                size, isRooted, metricName, variantName, pairIndex, isSuccess, dist, pairTimeMs, ptNni, ptEcr2, ptEcr3, ptSpr, ptTbr, pairAllocatedBytes, currentPeak);
-    }
+    protected void writeCsvRow(PrintWriter csvWriter, int size, boolean isRooted, String metricName, String variantName,
+                               int pairIndex, boolean isSuccess, double dist, double pairTimeMs,
+                               long pairAllocatedBytes, long currentPeak) {
 
+        treecmp.heuristics.vnd.VndTimeProfiler profiler = treecmp.heuristics.vnd.VndTimeProfiler.INSTANCE.get();
+        Map<String, Long> stepStats = profiler.getNniCostStats();
+        Map<String, Long> timeStats = profiler.getTimeStats();
+
+        // 1. Liczba wypracowanych kroków NNI (skuteczność)
+        long stepsNni = stepStats.getOrDefault("NNI_Success", stepStats.getOrDefault("NNI", 0L));
+        long stepsEcr2 = stepStats.getOrDefault("ecr2_Success", stepStats.getOrDefault("ecr2", 0L));
+        long stepsEcr3 = stepStats.getOrDefault("ecr3_Success", stepStats.getOrDefault("ecr3", 0L));
+        long stepsSpr = stepStats.getOrDefault("SPR_Success", stepStats.getOrDefault("SPR", 0L));
+        long stepsTbr = stepStats.getOrDefault("TBR_Success", stepStats.getOrDefault("TBR", 0L));
+
+        // 2. Czas obliczeń zakończonych sukcesem (ns)
+        long succNni = timeStats.getOrDefault("NNI_Success", 0L);
+        long succEcr2 = timeStats.getOrDefault("ecr2_Success", 0L);
+        long succEcr3 = timeStats.getOrDefault("ecr3_Success", 0L);
+        long succSpr = timeStats.getOrDefault("SPR_Success", 0L);
+        long succTbr = timeStats.getOrDefault("TBR_Success", 0L);
+
+        // 3. Czas całkowity fazy (ns): sukcesy + porażki (z fallbackiem dla wariantów standalone)
+        long failNni = timeStats.getOrDefault("NNI_Failure", 0L);
+        long failEcr2 = timeStats.getOrDefault("ecr2_Failure", 0L);
+        long failEcr3 = timeStats.getOrDefault("ecr3_Failure", 0L);
+        long failSpr = timeStats.getOrDefault("SPR_Failure", 0L);
+        long failTbr = timeStats.getOrDefault("TBR_Failure", 0L);
+
+        long totNni = succNni + failNni;
+        if (totNni == 0) totNni = TimeProfiler.get("NNI");
+        if (succNni == 0 && isSuccess && totNni > 0 && (variantName.startsWith("1.") || variantName.startsWith("2."))) {
+            succNni = totNni;
+        }
+        if (stepsNni == 0 && isSuccess && (variantName.startsWith("1.") || variantName.startsWith("2."))) {
+            stepsNni = (long) dist;
+        }
+
+        long totEcr2 = succEcr2 + failEcr2;
+        if (totEcr2 == 0) totEcr2 = TimeProfiler.get("ECR2");
+
+        long totEcr3 = succEcr3 + failEcr3;
+        if (totEcr3 == 0) totEcr3 = TimeProfiler.get("ECR3");
+
+        long totSpr = succSpr + failSpr;
+        if (totSpr == 0) totSpr = TimeProfiler.get("SPR");
+
+        long totTbr = succTbr + failTbr;
+        if (totTbr == 0) totTbr = TimeProfiler.get("TBR");
+
+        csvWriter.printf(Locale.US,
+                "%d,%b,%s,\"%s\",%d,%b,%.4f,%.4f,"
+                        + "%d,%d,%d,%d,%d,"
+                        + "%d,%d,%d,%d,%d,"
+                        + "%d,%d,%d,%d,%d,"
+                        + "%d,%d%n",
+                size, isRooted, metricName, variantName, pairIndex, isSuccess, dist, pairTimeMs,
+                stepsNni, stepsEcr2, stepsEcr3, stepsSpr, stepsTbr,
+                totNni, totEcr2, totEcr3, totSpr, totTbr,
+                succNni, succEcr2, succEcr3, succSpr, succTbr,
+                pairAllocatedBytes, currentPeak);
+    }
     @Override
     protected String getExtraTableHeaderInfo() { return "Step Breakdown (NNI %)"; }
 
