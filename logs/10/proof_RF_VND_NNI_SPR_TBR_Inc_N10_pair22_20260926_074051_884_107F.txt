@@ -1,0 +1,45 @@
+========================================================
+HEURISTIC TRAJECTORY: VND Incremental (RF)
+========================================================
+STEP 0 [START] - Distance: 7.0000
+(8,(2,6),(4,((5,(10,(9,3))),(7,1))));
+
+STEP 1 [Heur. uSPR RF -> NNI_Substep_1] - Distance: 7.0000
+(8,(2,6),(((7,1),4),(5,(10,(9,3)))));
+
+STEP 2 [Heur. uSPR RF -> NNI_Substep_2] - Distance: 6.0000
+(8,(2,6),(((7,4),1),(5,(10,(9,3)))));
+
+STEP 3 [Heur. uSPR RF -> NNI_Substep_3] - Distance: 6.0000
+(2,6,(((5,(10,(9,3))),8),((7,4),1)));
+
+STEP 4 [Heur. uSPR RF -> NNI_Substep_4] - Distance: 6.0000
+(2,6,((5,((10,(9,3)),8)),((7,4),1)));
+
+STEP 5 [Heur. uSPR RF -> NNI_Substep_5] - Distance: 5.0000
+(2,6,((5,((10,8),(9,3))),((7,4),1)));
+
+STEP 6 [Heur. uSPR RF -> NNI_Substep_6] - Distance: 4.0000
+(2,6,((5,(((10,8),9),3)),((7,4),1)));
+
+STEP 7 [Heur. uSPR RF -> NNI_Substep_7] - Distance: 4.0000
+((5,(((10,8),9),3)),(((7,4),1),2),6);
+
+STEP 8 [Heur. uSPR RF -> NNI_Substep_8] - Distance: 3.0000
+((5,(((10,8),9),3)),((7,4),(1,2)),6);
+
+STEP 9 [Heur. uSPR RF -> NNI_Substep_9] - Distance: 2.0000
+(((5,(((10,8),9),3)),(1,2)),(7,4),6);
+
+STEP 10 [Heur. uSPR RF -> NNI_Substep_10] - Distance: 2.0000
+((5,((((10,8),9),3),(1,2))),(7,4),6);
+
+STEP 11 [Heur. uSPR RF -> NNI_Substep_11] - Distance: 1.0000
+((5,(((10,8),9),(3,(1,2)))),(7,4),6);
+
+STEP 12 [Heur. uSPR RF -> NNI_Substep_12] - Distance: 0.0000
+(((5,(3,(1,2))),((10,8),9)),(7,4),6);
+
+========================================================
+[FINAL] Total Steps: 12 | Final Distance: 0.0000
+========================================================

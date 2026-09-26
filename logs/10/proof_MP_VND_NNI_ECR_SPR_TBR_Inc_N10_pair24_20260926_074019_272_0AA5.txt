@@ -1,0 +1,57 @@
+========================================================
+HEURISTIC TRAJECTORY: VND Incremental (MP)
+========================================================
+STEP 0 [START] - Distance: 29.0000
+((4,5),((9,1),((8,(6,(10,2))),(7,3))));
+
+STEP 1 [NNI_IncrementalHeuristic_MP] - Distance: 27.0000
+((4,5),((8,(6,(10,2))),((9,1),(7,3))));
+
+STEP 2 [2sECR_IncrementalHeuristic_MP -> NNI_Substep_1] - Distance: 25.0000
+(5,((8,(6,(10,2))),(4,((9,1),(7,3)))));
+
+STEP 3 [2sECR_IncrementalHeuristic_MP -> NNI_Substep_2] - Distance: 24.0000
+(5,((8,(6,(10,2))),((7,3),(4,(9,1)))));
+
+STEP 4 [2sECR_IncrementalHeuristic_MP -> NNI_Substep_3] - Distance: 23.0000
+(5,((8,(6,(10,2))),((7,3),(1,(4,9)))));
+
+STEP 5 [2sECR_IncrementalHeuristic_MP -> NNI_Substep_4] - Distance: 25.0000
+(5,((7,3),((8,(6,(10,2))),(1,(4,9)))));
+
+STEP 6 [2sECR_IncrementalHeuristic_MP -> NNI_Substep_5] - Distance: 21.0000
+((3,(5,7)),((8,(6,(10,2))),(1,(4,9))));
+
+STEP 7 [2sECR_IncrementalHeuristic_MP -> NNI_Substep_6] - Distance: 19.0000
+((5,7),((8,((1,(4,9)),(6,(10,2)))),3));
+
+STEP 8 [2sECR_IncrementalHeuristic_MP -> NNI_Substep_7] - Distance: 18.0000
+((5,7),((3,((1,(4,9)),(6,(10,2)))),8));
+
+STEP 9 [2sECR_IncrementalHeuristic_MP -> NNI_Substep_8] - Distance: 15.0000
+((5,7),(((1,(4,9)),(3,(6,(10,2)))),8));
+
+STEP 10 [3sECR_IncrementalHeuristic_MP -> NNI_Substep_1] - Distance: 15.0000
+((5,7),(((1,(4,9)),(3,((6,2),10))),8));
+
+STEP 11 [3sECR_IncrementalHeuristic_MP -> NNI_Substep_2] - Distance: 15.0000
+((5,7),(((1,(4,9)),((3,10),(6,2))),8));
+
+STEP 12 [3sECR_IncrementalHeuristic_MP -> NNI_Substep_3] - Distance: 14.0000
+((5,7),((((1,(4,9)),(3,10)),(6,2)),8));
+
+STEP 13 [3sECR_IncrementalHeuristic_MP -> NNI_Substep_4] - Distance: 14.0000
+((5,7),(8,((((1,(4,9)),(3,10)),6),2)));
+
+STEP 14 [3sECR_IncrementalHeuristic_MP -> NNI_Substep_5] - Distance: 9.0000
+((5,7),((8,2),(((1,(4,9)),(3,10)),6)));
+
+STEP 15 [3sECR_IncrementalHeuristic_MP -> NNI_Substep_6] - Distance: 9.0000
+((5,7),(((8,2),((1,(4,9)),(3,10))),6));
+
+STEP 16 [3sECR_IncrementalHeuristic_MP -> NNI_Substep_7] - Distance: 0.0000
+(((6,5),7),((8,2),((1,(4,9)),(3,10))));
+
+========================================================
+[FINAL] Total Steps: 16 | Final Distance: 0.0000
+========================================================

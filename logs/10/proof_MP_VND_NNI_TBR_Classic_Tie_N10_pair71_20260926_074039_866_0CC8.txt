@@ -1,0 +1,45 @@
+========================================================
+HEURISTIC TRAJECTORY: VND Classic (MP_RF)
+========================================================
+STEP 0 [START] - Distance: 25.0000
+((((2,9),(6,5)),(1,8)),((10,4),(7,3)));
+
+STEP 1 [NNI_ClassicHeuristic_MP_RF -> NNI_Substep_1] - Distance: 24.0000
+((1,(((2,9),(6,5)),8)),((10,4),(7,3)));
+
+STEP 2 [NNI_ClassicHeuristic_MP_RF -> NNI_Substep_2] - Distance: 22.0000
+((1,((8,(6,5)),(2,9))),((10,4),(7,3)));
+
+STEP 3 [TBR_ClassicHeuristic_MP_RF -> NNI_Substep_1] - Distance: 22.0000
+((1,(((8,6),5),(2,9))),((10,4),(7,3)));
+
+STEP 4 [TBR_ClassicHeuristic_MP_RF -> NNI_Substep_2] - Distance: 21.0000
+((1,(((8,6),(2,9)),5)),((10,4),(7,3)));
+
+STEP 5 [TBR_ClassicHeuristic_MP_RF -> NNI_Substep_3] - Distance: 21.0000
+(((1,((8,6),(2,9))),5),((10,4),(7,3)));
+
+STEP 6 [TBR_ClassicHeuristic_MP_RF -> NNI_Substep_4] - Distance: 23.0000
+((1,((8,6),(2,9))),(((10,4),5),(7,3)));
+
+STEP 7 [TBR_ClassicHeuristic_MP_RF -> NNI_Substep_5] - Distance: 23.0000
+((1,((8,6),(2,9))),(((10,5),4),(7,3)));
+
+STEP 8 [TBR_ClassicHeuristic_MP_RF -> NNI_Substep_6] - Distance: 23.0000
+((1,((8,6),(2,9))),((((10,5),4),7),3));
+
+STEP 9 [TBR_ClassicHeuristic_MP_RF -> NNI_Substep_7] - Distance: 18.0000
+((1,(((8,6),(2,9)),3)),(((10,5),4),7));
+
+STEP 10 [TBR_ClassicHeuristic_MP_RF -> NNI_Substep_8] - Distance: 16.0000
+((1,(((8,6),3),(2,9))),(((10,5),4),7));
+
+STEP 11 [TBR_ClassicHeuristic_MP_RF -> NNI_Substep_9] - Distance: 16.0000
+((1,(((8,6),3),(2,9))),((4,7),(10,5)));
+
+STEP 12 [TBR_ClassicHeuristic_MP_RF -> NNI_Substep_10] - Distance: 0.0000
+(((1,(10,5)),(((8,6),3),(2,9))),(4,7));
+
+========================================================
+[FINAL] Total Steps: 12 | Final Distance: 0.0000
+========================================================

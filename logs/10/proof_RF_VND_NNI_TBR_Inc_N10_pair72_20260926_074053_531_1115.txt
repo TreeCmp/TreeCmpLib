@@ -1,0 +1,51 @@
+========================================================
+HEURISTIC TRAJECTORY: VND Incremental (RF)
+========================================================
+STEP 0 [START] - Distance: 7.0000
+(6,5,(((2,10),(8,(1,9))),(4,(7,3))));
+
+STEP 1 [uTBR_IncrementalHeuristic_RF -> NNI_Substep_1] - Distance: 7.0000
+(((2,10),(8,(1,9))),((4,(7,3)),6),5);
+
+STEP 2 [uTBR_IncrementalHeuristic_RF -> NNI_Substep_2] - Distance: 7.0000
+(((2,10),(8,(1,9))),(4,((7,3),6)),5);
+
+STEP 3 [uTBR_IncrementalHeuristic_RF -> NNI_Substep_3] - Distance: 6.0000
+(((2,10),(8,(1,9))),(4,((7,6),3)),5);
+
+STEP 4 [uTBR_IncrementalHeuristic_RF -> NNI_Substep_4] - Distance: 6.0000
+((((2,10),(1,9)),8),(4,((7,6),3)),5);
+
+STEP 5 [uTBR_IncrementalHeuristic_RF -> NNI_Substep_5] - Distance: 5.0000
+(((2,10),(1,9)),(4,((7,6),3)),(5,8));
+
+STEP 6 [uTBR_IncrementalHeuristic_RF -> NNI_Substep_6] - Distance: 5.0000
+(((2,10),(1,9)),((4,(7,6)),3),(5,8));
+
+STEP 7 [uTBR_IncrementalHeuristic_RF -> NNI_Substep_7] - Distance: 4.0000
+((((2,10),(1,9)),3),(4,(7,6)),(5,8));
+
+STEP 8 [uTBR_IncrementalHeuristic_RF -> NNI_Substep_8] - Distance: 4.0000
+(((2,10),((1,9),3)),(4,(7,6)),(5,8));
+
+STEP 9 [uTBR_IncrementalHeuristic_RF -> NNI_Substep_9] - Distance: 3.0000
+(((2,10),((1,3),9)),(4,(7,6)),(5,8));
+
+STEP 10 [uTBR_IncrementalHeuristic_RF -> NNI_Substep_10] - Distance: 2.0000
+((4,((2,10),((1,3),9))),(7,6),(5,8));
+
+STEP 11 [uTBR_IncrementalHeuristic_RF -> NNI_Substep_11] - Distance: 2.0000
+((4,((10,((1,3),9)),2)),(7,6),(5,8));
+
+STEP 12 [uTBR_IncrementalHeuristic_RF -> NNI_Substep_12] - Distance: 2.0000
+((4,((((1,3),9),2),10)),(7,6),(5,8));
+
+STEP 13 [uTBR_IncrementalHeuristic_RF -> NNI_Substep_13] - Distance: 1.0000
+((4,((((1,3),2),9),10)),(7,6),(5,8));
+
+STEP 14 [uTBR_IncrementalHeuristic_RF -> NNI_Substep_14] - Distance: 0.0000
+((4,((10,9),((1,3),2))),(7,6),(5,8));
+
+========================================================
+[FINAL] Total Steps: 14 | Final Distance: 0.0000
+========================================================

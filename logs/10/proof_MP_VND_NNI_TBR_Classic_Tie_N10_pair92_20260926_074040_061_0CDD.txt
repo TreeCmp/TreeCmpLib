@@ -1,0 +1,51 @@
+========================================================
+HEURISTIC TRAJECTORY: VND Classic (MP_RF)
+========================================================
+STEP 0 [START] - Distance: 28.0000
+((5,((3,1),(7,(8,6)))),(10,(4,(2,9))));
+
+STEP 1 [NNI_ClassicHeuristic_MP_RF -> NNI_Substep_1] - Distance: 27.0000
+((5,(((7,(8,6)),1),3)),(10,(4,(2,9))));
+
+STEP 2 [NNI_ClassicHeuristic_MP_RF -> NNI_Substep_2] - Distance: 24.0000
+(10,(4,((5,(((7,(8,6)),1),3)),(2,9))));
+
+STEP 3 [NNI_ClassicHeuristic_MP_RF -> NNI_Substep_3] - Distance: 23.0000
+(10,(4,(9,(2,(5,(((7,(8,6)),1),3))))));
+
+STEP 4 [NNI_ClassicHeuristic_MP_RF -> NNI_Substep_4] - Distance: 17.0000
+(4,((2,(5,(((7,(8,6)),1),3))),(9,10)));
+
+STEP 5 [TBR_ClassicHeuristic_MP_RF -> NNI_Substep_1] - Distance: 17.0000
+(4,((2,(5,(((7,(8,6)),3),1))),(9,10)));
+
+STEP 6 [TBR_ClassicHeuristic_MP_RF -> NNI_Substep_2] - Distance: 17.0000
+(4,((2,((5,((7,(8,6)),3)),1)),(9,10)));
+
+STEP 7 [TBR_ClassicHeuristic_MP_RF -> NNI_Substep_3] - Distance: 17.0000
+(4,(((2,(5,((7,(8,6)),3))),1),(9,10)));
+
+STEP 8 [TBR_ClassicHeuristic_MP_RF -> NNI_Substep_4] - Distance: 17.0000
+(4,(((2,(5,((7,(8,6)),3))),(9,10)),1));
+
+STEP 9 [TBR_ClassicHeuristic_MP_RF -> NNI_Substep_5] - Distance: 10.0000
+((4,1),((2,(5,(((7,6),8),3))),(9,10)));
+
+STEP 10 [TBR_ClassicHeuristic_MP_RF -> NNI_Substep_6] - Distance: 10.0000
+((4,1),((2,(5,(((7,6),3),8))),(9,10)));
+
+STEP 11 [TBR_ClassicHeuristic_MP_RF -> NNI_Substep_7] - Distance: 10.0000
+((4,1),((2,((5,((7,6),3)),8)),(9,10)));
+
+STEP 12 [TBR_ClassicHeuristic_MP_RF -> NNI_Substep_8] - Distance: 10.0000
+((4,1),(((2,(5,((7,6),3))),8),(9,10)));
+
+STEP 13 [TBR_ClassicHeuristic_MP_RF -> NNI_Substep_9] - Distance: 10.0000
+((4,1),(((2,(5,((7,6),3))),(9,10)),8));
+
+STEP 14 [TBR_ClassicHeuristic_MP_RF -> NNI_Substep_10] - Distance: 0.0000
+(((4,1),8),((2,(5,(7,(6,3)))),(9,10)));
+
+========================================================
+[FINAL] Total Steps: 14 | Final Distance: 0.0000
+========================================================

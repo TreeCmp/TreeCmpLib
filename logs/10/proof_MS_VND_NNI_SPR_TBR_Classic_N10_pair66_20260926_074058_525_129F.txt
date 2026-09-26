@@ -1,0 +1,57 @@
+========================================================
+HEURISTIC TRAJECTORY: VND Classic (MS)
+========================================================
+STEP 0 [START] - Distance: 18.0000
+(10,(8,(1,6)),((4,(3,9)),(5,(2,7))));
+
+STEP 1 [NNI_ClassicHeuristic_MS -> NNI_Substep_1] - Distance: 16.0000
+((4,(3,9)),(8,(1,6)),(10,(5,(2,7))));
+
+STEP 2 [NNI_ClassicHeuristic_MS -> NNI_Substep_2] - Distance: 15.0000
+((4,(3,9)),(8,(1,6)),((2,7),(5,10)));
+
+STEP 3 [uSPR_ClassicHeuristic_MS -> NNI_Substep_1] - Distance: 16.0000
+((4,(3,9)),(8,(1,6)),((7,(5,10)),2));
+
+STEP 4 [uSPR_ClassicHeuristic_MS -> NNI_Substep_2] - Distance: 14.0000
+((4,(3,9)),((8,(1,6)),2),(7,(5,10)));
+
+STEP 5 [uSPR_ClassicHeuristic_MS -> NNI_Substep_3] - Distance: 11.0000
+((4,(3,9)),((8,2),(1,6)),(7,(5,10)));
+
+STEP 6 [uSPR_ClassicHeuristic_MS -> NNI_Substep_4] - Distance: 11.0000
+((4,(3,9)),((8,2),(1,6)),((7,10),5));
+
+STEP 7 [uSPR_ClassicHeuristic_MS -> NNI_Substep_5] - Distance: 11.0000
+((4,(3,9)),(((8,2),(1,6)),5),(7,10));
+
+STEP 8 [uSPR_ClassicHeuristic_MS -> NNI_Substep_6] - Distance: 8.0000
+((4,(3,9)),((8,2),((1,6),5)),(7,10));
+
+STEP 9 [uSPR_ClassicHeuristic_MS -> NNI_Substep_7] - Distance: 8.0000
+((4,(3,9)),((8,2),((6,5),1)),(7,10));
+
+STEP 10 [uSPR_ClassicHeuristic_MS -> NNI_Substep_8] - Distance: 9.0000
+((4,(3,9)),(((8,2),(6,5)),1),(7,10));
+
+STEP 11 [uSPR_ClassicHeuristic_MS -> NNI_Substep_9] - Distance: 6.0000
+(((4,(3,9)),1),((8,2),(6,5)),(7,10));
+
+STEP 12 [uSPR_ClassicHeuristic_MS -> NNI_Substep_10] - Distance: 5.0000
+(((4,1),(3,9)),((8,2),(6,5)),(7,10));
+
+STEP 13 [uSPR_ClassicHeuristic_MS -> NNI_Substep_11] - Distance: 6.0000
+(((1,(3,9)),4),((8,2),(6,5)),(7,10));
+
+STEP 14 [uSPR_ClassicHeuristic_MS -> NNI_Substep_12] - Distance: 5.0000
+((1,(3,9)),(((8,2),(6,5)),4),(7,10));
+
+STEP 15 [uSPR_ClassicHeuristic_MS -> NNI_Substep_13] - Distance: 2.0000
+((1,(3,9)),((8,2),((6,5),4)),(7,10));
+
+STEP 16 [uSPR_ClassicHeuristic_MS -> NNI_Substep_14] - Distance: 0.0000
+((1,(3,9)),((8,2),((6,4),5)),(7,10));
+
+========================================================
+[FINAL] Total Steps: 16 | Final Distance: 0.0000
+========================================================

@@ -1,0 +1,45 @@
+========================================================
+HEURISTIC TRAJECTORY: VND Incremental (RFC)
+========================================================
+STEP 0 [START] - Distance: 7.0000
+((8,(6,(4,(9,(10,7))))),(3,(2,(5,1))));
+
+STEP 1 [Heur. rSPR RFC -> NNI_Substep_1] - Distance: 7.0000
+((6,(4,(9,(10,7)))),(3,((2,(5,1)),8)));
+
+STEP 2 [Heur. rSPR RFC -> NNI_Substep_2] - Distance: 6.0000
+((6,(4,(9,(10,7)))),(3,((2,8),(5,1))));
+
+STEP 3 [Heur. rSPR RFC -> NNI_Substep_3] - Distance: 6.0000
+((4,(9,(10,7))),(3,(((2,8),(5,1)),6)));
+
+STEP 4 [Heur. rSPR RFC -> NNI_Substep_4] - Distance: 6.0000
+((4,(9,(10,7))),(3,((2,8),((5,1),6))));
+
+STEP 5 [Heur. rSPR RFC -> NNI_Substep_5] - Distance: 5.0000
+((4,(9,(10,7))),(3,((2,8),(5,(1,6)))));
+
+STEP 6 [Heur. rSPR RFC -> NNI_Substep_6] - Distance: 5.0000
+(((4,9),(10,7)),(3,((2,8),(5,(1,6)))));
+
+STEP 7 [Heur. rSPR RFC -> NNI_Substep_7] - Distance: 4.0000
+((4,9),((3,(10,7)),((2,8),(5,(1,6)))));
+
+STEP 8 [Heur. rSPR RFC -> NNI_Substep_8] - Distance: 4.0000
+(9,((3,(10,7)),(((2,8),(5,(1,6))),4)));
+
+STEP 9 [Heur. rSPR RFC -> NNI_Substep_9] - Distance: 4.0000
+(9,((3,(10,7)),((2,8),((5,(1,6)),4))));
+
+STEP 10 [Heur. rSPR RFC -> NNI_Substep_10] - Distance: 3.0000
+(9,((3,(10,7)),((2,8),(5,((1,6),4)))));
+
+STEP 11 [Heur. rSPR RFC -> NNI_Substep_11] - Distance: 2.0000
+(9,((3,(10,7)),(((2,8),((1,6),4)),5)));
+
+STEP 12 [Heur. rSPR RFC -> NNI_Substep_12] - Distance: 0.0000
+(9,(((3,(10,7)),((2,8),((1,6),4))),5));
+
+========================================================
+[FINAL] Total Steps: 12 | Final Distance: 0.0000
+========================================================

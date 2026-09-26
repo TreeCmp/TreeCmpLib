@@ -1,0 +1,60 @@
+========================================================
+HEURISTIC TRAJECTORY: VND Classic (MS)
+========================================================
+STEP 0 [START] - Distance: 19.0000
+(10,(2,8),(3,((6,(7,4)),(1,(9,5)))));
+
+STEP 1 [NNI_ClassicHeuristic_MS -> NNI_Substep_1] - Distance: 17.0000
+(8,(2,10),(3,((6,(7,4)),(1,(9,5)))));
+
+STEP 2 [NNI_ClassicHeuristic_MS -> NNI_Substep_2] - Distance: 16.0000
+(8,(2,10),(3,((6,(1,(9,5))),(7,4))));
+
+STEP 3 [NNI_ClassicHeuristic_MS -> NNI_Substep_3] - Distance: 15.0000
+(8,(2,10),(3,(((9,5),(1,6)),(7,4))));
+
+STEP 4 [uTBR_ClassicHeuristic_MS -> NNI_Substep_1] - Distance: 15.0000
+(2,10,(3,((((9,5),(1,6)),(7,4)),8)));
+
+STEP 5 [uTBR_ClassicHeuristic_MS -> NNI_Substep_2] - Distance: 14.0000
+(2,10,(3,((((9,5),(1,6)),8),(7,4))));
+
+STEP 6 [uTBR_ClassicHeuristic_MS -> NNI_Substep_3] - Distance: 13.0000
+(2,10,(3,((((9,5),8),(1,6)),(7,4))));
+
+STEP 7 [uTBR_ClassicHeuristic_MS -> NNI_Substep_4] - Distance: 11.0000
+(2,10,(3,((((9,8),5),(1,6)),(7,4))));
+
+STEP 8 [uTBR_ClassicHeuristic_MS -> NNI_Substep_5] - Distance: 10.0000
+(2,10,(3,((((9,8),(1,6)),5),(7,4))));
+
+STEP 9 [uTBR_ClassicHeuristic_MS -> NNI_Substep_6] - Distance: 9.0000
+(2,10,(3,((((9,8),(1,6)),(7,4)),5)));
+
+STEP 10 [uTBR_ClassicHeuristic_MS -> NNI_Substep_7] - Distance: 7.0000
+(2,10,((3,(((9,8),(1,6)),(7,4))),5));
+
+STEP 11 [uTBR_ClassicHeuristic_MS -> NNI_Substep_8] - Distance: 8.0000
+(2,10,((3,((((9,8),(1,6)),7),4)),5));
+
+STEP 12 [uTBR_ClassicHeuristic_MS -> NNI_Substep_9] - Distance: 6.0000
+(2,10,(((3,(((9,8),(1,6)),7)),4),5));
+
+STEP 13 [uTBR_ClassicHeuristic_MS -> NNI_Substep_10] - Distance: 6.0000
+(2,10,(((3,(((9,8),(1,6)),7)),5),4));
+
+STEP 14 [uTBR_ClassicHeuristic_MS -> NNI_Substep_11] - Distance: 3.0000
+(2,10,((3,(((9,8),(1,6)),7)),(5,4)));
+
+STEP 15 [uTBR_ClassicHeuristic_MS -> NNI_Substep_12] - Distance: 4.0000
+(2,10,((3,((((9,8),6),1),7)),(5,4)));
+
+STEP 16 [uTBR_ClassicHeuristic_MS -> NNI_Substep_13] - Distance: 4.0000
+(2,10,((3,((((9,8),6),7),1)),(5,4)));
+
+STEP 17 [uTBR_ClassicHeuristic_MS -> NNI_Substep_14] - Distance: 0.0000
+(2,10,((3,(((9,8),6),(7,1))),(5,4)));
+
+========================================================
+[FINAL] Total Steps: 17 | Final Distance: 0.0000
+========================================================

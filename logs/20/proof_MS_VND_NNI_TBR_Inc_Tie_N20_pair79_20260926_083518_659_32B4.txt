@@ -1,0 +1,159 @@
+========================================================
+HEURISTIC TRAJECTORY: VND Incremental (MS_RF)
+========================================================
+STEP 0 [START] - Distance: 70.0000
+(5,(11,4),(((3,6),((16,((17,9),(20,7))),(15,19))),((2,12),(10,((1,18),(8,(14,13)))))));
+
+STEP 1 [NNI_IncrementalHeuristic_MS_RF -> NNI_Substep_1] - Distance: 66.0000
+(5,(11,4),(((3,6),((16,(15,19)),((17,9),(20,7)))),((2,12),(10,((1,18),(8,(14,13)))))));
+
+STEP 2 [NNI_IncrementalHeuristic_MS_RF -> NNI_Substep_2] - Distance: 63.0000
+(5,(11,4),(((3,6),((16,(15,19)),((17,9),(20,7)))),(((1,18),(8,(14,13))),(10,(2,12)))));
+
+STEP 3 [NNI_IncrementalHeuristic_MS_RF -> NNI_Substep_3] - Distance: 61.0000
+(5,(11,4),((((17,9),(20,7)),((16,(15,19)),(3,6))),(((1,18),(8,(14,13))),(10,(2,12)))));
+
+STEP 4 [NNI_IncrementalHeuristic_MS_RF -> NNI_Substep_4] - Distance: 59.0000
+(5,(11,4),((10,(2,12)),(((1,18),(8,(14,13))),(((17,9),(20,7)),((16,(15,19)),(3,6))))));
+
+STEP 5 [NNI_IncrementalHeuristic_MS_RF -> NNI_Substep_5] - Distance: 56.0000
+(5,(11,4),((10,(2,12)),(((17,9),(20,7)),(((1,18),(8,(14,13))),((16,(15,19)),(3,6))))));
+
+STEP 6 [NNI_IncrementalHeuristic_MS_RF -> NNI_Substep_6] - Distance: 53.0000
+(5,(11,4),((10,(2,12)),(((17,9),(20,7)),((((16,(15,19)),(3,6)),(8,(14,13))),(1,18)))));
+
+STEP 7 [NNI_IncrementalHeuristic_MS_RF -> NNI_Substep_7] - Distance: 51.0000
+(5,(11,4),((2,(10,12)),(((17,9),(20,7)),((((16,(15,19)),(3,6)),(8,(14,13))),(1,18)))));
+
+STEP 8 [NNI_IncrementalHeuristic_MS_RF -> NNI_Substep_8] - Distance: 49.0000
+(5,(11,4),((2,(10,12)),(((17,9),(20,7)),((((16,(15,19)),(3,6)),(13,(14,8))),(1,18)))));
+
+STEP 9 [NNI_IncrementalHeuristic_MS_RF -> NNI_Substep_9] - Distance: 48.0000
+(5,(11,4),(((((16,(15,19)),(3,6)),(13,(14,8))),(1,18)),(((17,9),(20,7)),(2,(10,12)))));
+
+STEP 10 [NNI_IncrementalHeuristic_MS_RF -> NNI_Substep_10] - Distance: 47.0000
+(5,(11,4),(((((17,9),(20,7)),(2,(10,12))),(1,18)),(((16,(15,19)),(3,6)),(13,(14,8)))));
+
+STEP 11 [NNI_IncrementalHeuristic_MS_RF -> NNI_Substep_11] - Distance: 46.0000
+(5,(11,4),(((((2,(10,12)),(20,7)),(17,9)),(1,18)),(((16,(15,19)),(3,6)),(13,(14,8)))));
+
+STEP 12 [NNI_IncrementalHeuristic_MS_RF -> NNI_Substep_12] - Distance: 44.0000
+(5,(11,4),(((((2,(10,12)),(20,7)),(1,18)),(17,9)),(((16,(15,19)),(3,6)),(13,(14,8)))));
+
+STEP 13 [NNI_IncrementalHeuristic_MS_RF -> NNI_Substep_13] - Distance: 43.0000
+(5,(11,4),(((((16,(15,19)),(3,6)),(13,(14,8))),(17,9)),(((2,(10,12)),(20,7)),(1,18))));
+
+STEP 14 [uTBR_IncrementalHeuristic_MS_RF -> NNI_Substep_1] - Distance: 43.0000
+(5,4,((((((16,(15,19)),(3,6)),(13,(14,8))),(17,9)),(((2,(10,12)),(20,7)),(1,18))),11));
+
+STEP 15 [uTBR_IncrementalHeuristic_MS_RF -> NNI_Substep_2] - Distance: 46.0000
+(5,4,(((((16,(15,19)),(3,6)),(13,(14,8))),(17,9)),((((2,(10,12)),(20,7)),(1,18)),11)));
+
+STEP 16 [uTBR_IncrementalHeuristic_MS_RF -> NNI_Substep_3] - Distance: 43.0000
+(5,4,(((((16,(15,19)),(3,6)),(13,(14,8))),(17,9)),((((2,(10,12)),(20,7)),11),(1,18))));
+
+STEP 17 [uTBR_IncrementalHeuristic_MS_RF -> NNI_Substep_4] - Distance: 39.0000
+(5,4,(((((16,(15,19)),(3,6)),(13,(14,8))),(17,9)),(((2,(10,12)),((20,7),11)),(1,18))));
+
+STEP 18 [uTBR_IncrementalHeuristic_MS_RF -> NNI_Substep_5] - Distance: 37.0000
+(5,4,(((((16,(15,19)),(3,6)),(13,(14,8))),(17,9)),(((2,(10,12)),(20,(7,11))),(1,18))));
+
+STEP 19 [uTBR_IncrementalHeuristic_MS_RF -> NNI_Substep_6] - Distance: 37.0000
+(5,4,((((((16,15),19),(3,6)),(13,(14,8))),(17,9)),(((2,(10,12)),(20,(7,11))),(1,18))));
+
+STEP 20 [uTBR_IncrementalHeuristic_MS_RF -> NNI_Substep_7] - Distance: 38.0000
+(5,4,((((((16,15),(3,6)),19),(13,(14,8))),(17,9)),(((2,(10,12)),(20,(7,11))),(1,18))));
+
+STEP 21 [uTBR_IncrementalHeuristic_MS_RF -> NNI_Substep_8] - Distance: 40.0000
+(5,4,((((((16,15),(3,6)),(13,(14,8))),19),(17,9)),(((2,(10,12)),(20,(7,11))),(1,18))));
+
+STEP 22 [uTBR_IncrementalHeuristic_MS_RF -> NNI_Substep_9] - Distance: 41.0000
+(5,4,((((((16,15),(3,6)),(13,(14,8))),(17,9)),19),(((2,(10,12)),(20,(7,11))),(1,18))));
+
+STEP 23 [uTBR_IncrementalHeuristic_MS_RF -> NNI_Substep_10] - Distance: 35.0000
+(5,4,(((((16,15),(3,6)),(13,(14,8))),((17,9),19)),(((2,(10,12)),(20,(7,11))),(1,18))));
+
+STEP 24 [uTBR_IncrementalHeuristic_MS_RF -> NNI_Substep_11] - Distance: 33.0000
+(5,4,(((((16,15),(3,6)),(13,(14,8))),((17,19),9)),(((2,(10,12)),(20,(7,11))),(1,18))));
+
+STEP 25 [uTBR_IncrementalHeuristic_MS_RF -> NNI_Substep_12] - Distance: 40.0000
+(5,4,((((((16,15),(3,6)),(13,(14,8))),9),(17,19)),(((2,(10,12)),(20,(7,11))),(1,18))));
+
+STEP 26 [uTBR_IncrementalHeuristic_MS_RF -> NNI_Substep_13] - Distance: 37.0000
+(5,4,((((((16,15),(3,6)),(13,(14,8))),(17,19)),9),(((2,(10,12)),(20,(7,11))),(1,18))));
+
+STEP 27 [uTBR_IncrementalHeuristic_MS_RF -> NNI_Substep_14] - Distance: 31.0000
+(5,4,(((((13,(14,8)),(17,19)),((16,15),(3,6))),9),(((2,(10,12)),(20,(7,11))),(1,18))));
+
+STEP 28 [uTBR_IncrementalHeuristic_MS_RF -> NNI_Substep_15] - Distance: 28.0000
+(5,4,(((((16,15),(3,6)),(13,((14,8),(17,19)))),9),(((2,(10,12)),(20,(7,11))),(1,18))));
+
+STEP 29 [uTBR_IncrementalHeuristic_MS_RF -> NNI_Substep_16] - Distance: 25.0000
+(5,4,(((((16,15),(3,6)),(13,(14,(8,(17,19))))),9),(((2,(10,12)),(20,(7,11))),(1,18))));
+
+STEP 30 [uTBR_IncrementalHeuristic_MS_RF -> NNI_Substep_17] - Distance: 26.0000
+(5,4,((((((16,15),6),3),(13,(14,(8,(17,19))))),9),(((2,(10,12)),(20,(7,11))),(1,18))));
+
+STEP 31 [uTBR_IncrementalHeuristic_MS_RF -> NNI_Substep_18] - Distance: 26.0000
+(5,4,((((((16,15),6),(13,(14,(8,(17,19))))),3),9),(((2,(10,12)),(20,(7,11))),(1,18))));
+
+STEP 32 [uTBR_IncrementalHeuristic_MS_RF -> NNI_Substep_19] - Distance: 26.0000
+(5,4,((((((16,15),6),(13,(14,(8,(17,19))))),9),3),(((2,(10,12)),(20,(7,11))),(1,18))));
+
+STEP 33 [uTBR_IncrementalHeuristic_MS_RF -> NNI_Substep_20] - Distance: 23.0000
+(5,4,((((((16,15),6),(13,(14,(8,(17,19))))),9),(((2,(10,12)),(20,(7,11))),(1,18))),3));
+
+STEP 34 [uTBR_IncrementalHeuristic_MS_RF -> NNI_Substep_21] - Distance: 23.0000
+(5,4,(((((16,15),6),(13,(14,(8,(17,19))))),9),((((2,(10,12)),(20,(7,11))),(1,18)),3)));
+
+STEP 35 [uTBR_IncrementalHeuristic_MS_RF -> NNI_Substep_22] - Distance: 20.0000
+(5,4,(((((16,15),6),(13,(14,(8,(17,19))))),9),((((2,(10,12)),(20,(7,11))),3),(1,18))));
+
+STEP 36 [uTBR_IncrementalHeuristic_MS_RF -> NNI_Substep_23] - Distance: 16.0000
+(5,4,(((((16,15),6),(13,(14,(8,(17,19))))),9),(((2,(10,12)),((20,(7,11)),3)),(1,18))));
+
+STEP 37 [uTBR_IncrementalHeuristic_MS_RF -> NNI_Substep_24] - Distance: 18.0000
+(5,4,(((((16,15),6),(13,(14,(8,(17,19))))),9),(((2,((20,(7,11)),3)),(10,12)),(1,18))));
+
+STEP 38 [uTBR_IncrementalHeuristic_MS_RF -> NNI_Substep_25] - Distance: 20.0000
+(5,4,(((((16,15),6),(13,(14,(8,(17,19))))),9),(((2,((20,(7,11)),3)),(1,18)),(10,12))));
+
+STEP 39 [uTBR_IncrementalHeuristic_MS_RF -> NNI_Substep_26] - Distance: 13.0000
+(5,4,(((((16,15),6),(13,(14,(8,(17,19))))),9),((2,((20,(7,11)),3)),((1,18),(10,12)))));
+
+STEP 40 [uTBR_IncrementalHeuristic_MS_RF -> NNI_Substep_27] - Distance: 14.0000
+(5,4,(((((16,15),6),(13,(14,(8,(17,19))))),9),((2,((20,(7,11)),3)),((1,(10,12)),18))));
+
+STEP 41 [uTBR_IncrementalHeuristic_MS_RF -> NNI_Substep_28] - Distance: 18.0000
+(5,4,(((((16,15),6),(13,(14,(8,(17,19))))),9),(((2,((20,(7,11)),3)),(1,(10,12))),18)));
+
+STEP 42 [uTBR_IncrementalHeuristic_MS_RF -> NNI_Substep_29] - Distance: 12.0000
+(5,4,((((((16,15),6),(13,(14,(8,(17,19))))),9),((2,((20,(7,11)),3)),(1,(10,12)))),18));
+
+STEP 43 [uTBR_IncrementalHeuristic_MS_RF -> NNI_Substep_30] - Distance: 17.0000
+(5,4,((((((16,15),6),(13,(14,(8,(17,19))))),9),18),((2,((20,(7,11)),3)),(1,(10,12)))));
+
+STEP 44 [uTBR_IncrementalHeuristic_MS_RF -> NNI_Substep_31] - Distance: 10.0000
+(5,4,(((((16,15),6),(13,(14,(8,(17,19))))),(9,18)),((2,((20,(7,11)),3)),(1,(10,12)))));
+
+STEP 45 [uTBR_IncrementalHeuristic_MS_RF -> NNI_Substep_32] - Distance: 15.0000
+((((((16,15),6),(13,(14,(8,(17,19))))),(9,18)),4),((2,((20,(7,11)),3)),(1,(10,12))),5);
+
+STEP 46 [uTBR_IncrementalHeuristic_MS_RF -> NNI_Substep_33] - Distance: 14.0000
+((((((16,15),6),(13,(14,(8,(17,19))))),4),(9,18)),((2,((20,(7,11)),3)),(1,(10,12))),5);
+
+STEP 47 [uTBR_IncrementalHeuristic_MS_RF -> NNI_Substep_34] - Distance: 10.0000
+((((((16,15),6),4),(13,(14,(8,(17,19))))),(9,18)),((2,((20,(7,11)),3)),(1,(10,12))),5);
+
+STEP 48 [uTBR_IncrementalHeuristic_MS_RF -> NNI_Substep_35] - Distance: 10.0000
+((((((16,15),4),6),(13,(14,(8,(17,19))))),(9,18)),((2,((20,(7,11)),3)),(1,(10,12))),5);
+
+STEP 49 [uTBR_IncrementalHeuristic_MS_RF -> NNI_Substep_36] - Distance: 10.0000
+(((9,18),(6,(((16,15),4),(13,(14,(8,(17,19))))))),((2,((20,(7,11)),3)),(1,(10,12))),5);
+
+STEP 50 [uTBR_IncrementalHeuristic_MS_RF -> NNI_Substep_37] - Distance: 0.0000
+((9,18),(((2,((20,(7,11)),3)),(1,(10,12))),(6,(((16,15),4),(13,(14,(8,(17,19))))))),5);
+
+========================================================
+[FINAL] Total Steps: 50 | Final Distance: 0.0000
+========================================================
