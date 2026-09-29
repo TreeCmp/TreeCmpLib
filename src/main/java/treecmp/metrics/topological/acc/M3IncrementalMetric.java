@@ -1062,8 +1062,12 @@ public class M3IncrementalMetric implements IncrementalMetric, RootedTbrMetric {
     }
 
     private void computeRowCost(int row, BitSet[] sets) {
+        // Poprawka 1: Prawidłowe wygaszenie wiersza dla usuniętej/zapadniętej krawędzi
         if (sets == null || sets.length == 0) {
             currentT1TripletCount[row] = 0;
+            for (int c = 0; c < dim; c++) {
+                assigncost[row][c] = (c < intT2Num) ? t2IntTripletCount[c] : 0;
+            }
             return;
         }
 
@@ -1175,12 +1179,23 @@ public class M3IncrementalMetric implements IncrementalMetric, RootedTbrMetric {
         Integer r_floating = getRowForNode(pruneNode.getParent());
         if (r_floating != null) {
             Node root = baseTree.getRoot();
-            BitSet left = (BitSet) getSplitForNode(root.getChild(0)).clone();
-            left.andNot(P);
-            BitSet right = (BitSet) getSplitForNode(root.getChild(1)).clone();
-            right.andNot(P);
+            Node chosenChild = root.getChild(0);
+            BitSet childLeaves = (BitSet) getSplitForNode(chosenChild).clone();
+            childLeaves.andNot(P);
 
-            updates.put(r_floating, new BitSet[]{P, left, right});
+            // Poprawka 2: Dynamiczne wyznaczenie podziału bez gubienia poddrzew w PAL
+            for (int i = 1; i < root.getChildCount() && childLeaves.isEmpty(); i++) {
+                chosenChild = root.getChild(i);
+                childLeaves = (BitSet) getSplitForNode(chosenChild).clone();
+                childLeaves.andNot(P);
+            }
+
+            BitSet rest = new BitSet(N);
+            rest.set(0, N);
+            rest.andNot(P);
+            rest.andNot(childLeaves);
+
+            updates.put(r_floating, new BitSet[]{P, childLeaves, rest});
         }
         updateRowsSafelyAndSave(updates);
     }
