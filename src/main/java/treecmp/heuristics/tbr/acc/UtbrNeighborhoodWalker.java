@@ -11,9 +11,6 @@ import treecmp.metrics.topological.acc.RFIncrementalMetric;
 import java.util.ArrayList;
 import java.util.List;
 
-/**
- * Zoptymalizowany Walker dla otoczenia uTBR (Unrooted TBR).
- */
 public class UtbrNeighborhoodWalker {
 
     public interface UtbrVisitor {
@@ -21,14 +18,12 @@ public class UtbrNeighborhoodWalker {
     }
 
     private final UTbrUtils utbrUtils = new UTbrUtils();
-
     private final List<Node> allNodesBuf = new ArrayList<>();
     private final List<Node> rerootNodesBuf = new ArrayList<>();
     private final List<Node> targetNodesBuf = new ArrayList<>();
 
     public void walk(Tree baseTree, IncrementalMetric metric, UtbrVisitor visitor) {
-        // Tylko metryki z pełną i ścisłą implementacją uTBR 2D-DFS korzystają z szybkiej ścieżki.
-        // MSIncrementalMetric oraz M3IncrementalMetric korzystają ze ścisłej ścieżki fallback.
+        // MS i M3 w drzewach nieukorzenionych korzystają z dedykowanej ścieżki fallback
         if (metric instanceof RootedTbrMetric
                 && !(metric instanceof M3IncrementalMetric)
                 && !(metric instanceof MSIncrementalMetric)) {
@@ -61,7 +56,6 @@ public class UtbrNeighborhoodWalker {
 
     private void dfsReroot(Node currentReroot, Node pruneNode, Node wanderingSource, Node root,
                            RootedTbrMetric metric, UtbrVisitor visitor) {
-
         dfsTarget(root, pruneNode, currentReroot, wanderingSource, metric, visitor);
 
         if (!currentReroot.isLeaf()) {
@@ -76,7 +70,6 @@ public class UtbrNeighborhoodWalker {
 
     private void dfsTarget(Node currentTarget, Node pruneNode, Node currentReroot, Node wanderingSource,
                            RootedTbrMetric metric, UtbrVisitor visitor) {
-
         if (!(currentReroot == pruneNode && currentTarget == pruneNode.getParent())) {
             if (utbrUtils.isValidUtbrMove(pruneNode, currentReroot, currentTarget)) {
                 visitor.visit(metric.getCurrentDistance(), pruneNode, currentReroot, currentTarget);
