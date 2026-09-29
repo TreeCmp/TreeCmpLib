@@ -16,13 +16,7 @@ import treecmp.heuristics.tbr.acc.RootedTbrMetric;
 import treecmp.metrics.IncrementalMetric;
 import treecmp.metrics.topological.MatchingSplitMetric;
 
-import java.util.Arrays;
-import java.util.BitSet;
-import java.util.HashMap;
-import java.util.IdentityHashMap;
-import java.util.List;
-import java.util.Map;
-import java.util.Stack;
+import java.util.*;
 
 public class MSIncrementalMetric implements IncrementalMetric, RootedTbrMetric {
 
@@ -66,17 +60,11 @@ public class MSIncrementalMetric implements IncrementalMetric, RootedTbrMetric {
     }
 
     public double evaluateExactUTbrDistance(Node pruneNode, Node rerootNode, Node targetNode, BitSet movingBits) {
-        if (pruneNode == null || targetNode == null || this.targetTree == null) {
+        if (pruneNode == null || rerootNode == null || targetNode == null || this.targetTree == null || this.baseTree == null) {
             return Double.POSITIVE_INFINITY;
         }
         try {
-            Tree tree = this.baseTree;
-            if (tree == null) {
-                Node root = pruneNode;
-                while (root.getParent() != null) root = root.getParent();
-                tree = new pal.tree.SimpleTree(root);
-            }
-            Tree tempTree = utbrUtils.createUtbrTree(tree, pruneNode, rerootNode, targetNode);
+            Tree tempTree = utbrUtils.createUtbrTree(this.baseTree, pruneNode, rerootNode, targetNode);
             if (tempTree != null) {
                 if (tempTree instanceof pal.tree.SimpleTree) {
                     pal.tree.TreeUtils.computeParentPointers(tempTree.getRoot());
@@ -269,7 +257,7 @@ public class MSIncrementalMetric implements IncrementalMetric, RootedTbrMetric {
         }
 
         if (dim > 0 && rows.length > 0) {
-            this.currentDistance = LapSolver.lapShort(dim, assigncost, rowsol, colsol, u, v);
+            this.currentDistance = LapSolver.lapShortUpdate(dim, assigncost, rowsol, colsol, u, v, rows);
         }
     }
 
@@ -368,31 +356,49 @@ public class MSIncrementalMetric implements IncrementalMetric, RootedTbrMetric {
     }
 
     // =========================================================================
-    // IMPLEMENTACJA ROOTED / UNROOTED TBR METRIC DLA MS
+    // METODY KONTRAKTU RootedTbrMetric
     // =========================================================================
 
+    private Integer findFloatingRow(Node pruneNode, Node wanderingSource) {
+        if (wanderingSource == null) return null;
+
+        if (!wanderingSource.isRoot()) {
+            return nodeToRow.get(wanderingSource);
+        }
+
+        Node root = baseTree.getRoot();
+        for (int i = 0; i < root.getChildCount(); i++) {
+            Node child = root.getChild(i);
+            if (child != pruneNode && !child.isLeaf()) {
+                return nodeToRow.get(child);
+            }
+        }
+        return null;
+    }
+
+    @Override
     public void setPrunedState(Node pruneNode, Node wanderingSource) {
         this.currentPrunedLeaves = (BitSet) getSplitBits(pruneNode).clone();
         BitSet P = this.currentPrunedLeaves;
         Map<Integer, BitSet> updates = new HashMap<>();
 
-        Node curr = pruneNode.getParent().getParent();
+        Node curr = (pruneNode.getParent() != null) ? pruneNode.getParent().getParent() : null;
         while (curr != null) {
             Integer r = nodeToRow.get(curr);
             if (r != null) {
                 BitSet bs = (BitSet) currentSplits.get(curr).clone();
                 bs.andNot(P);
-                if (bs.cardinality() == N) bs.clear();
+                if (bs.cardinality() == N || bs.cardinality() == 0) bs.clear();
                 updates.put(r, bs);
             }
             curr = curr.getParent();
         }
 
-        Integer r_p = nodeToRow.get(resolveWandering(wanderingSource, pruneNode));
-        if (r_p != null) {
-            BitSet empty = new BitSet();
-            updates.put(r_p, empty);
+        Integer rFloating = findFloatingRow(pruneNode, wanderingSource);
+        if (rFloating != null) {
+            updates.put(rFloating, new BitSet(N));
         }
+
         updateRowSafelyAndSave(updates);
     }
 
@@ -400,49 +406,14 @@ public class MSIncrementalMetric implements IncrementalMetric, RootedTbrMetric {
         BitSet P = (this.currentPrunedLeaves != null) ? this.currentPrunedLeaves : getSplitBits(pruneNode);
         Map<Integer, BitSet> updates = new HashMap<>();
 
-        Integer r_p = nodeToRow.get(resolveWandering(wanderingSource, pruneNode));
-        if (r_p != null) {
-            BitSet newRp = (BitSet) getSplitBits(baseTree.getRoot()).clone();
-            newRp.andNot(P);
-            if (newRp.cardinality() == N) newRp.clear();
-            updates.put(r_p, newRp);
-        }
-        updateRowSafelyAndSave(updates);
-    }
-
-    public void moveTargetDown(Node parentTarget, Node childTarget, Node pruneNode, Node wanderingSource) {
-        BitSet P = (this.currentPrunedLeaves != null) ? this.currentPrunedLeaves : getSplitBits(pruneNode);
-        Map<Integer, BitSet> updates = new HashMap<>();
-
-        Node resolvedWandering = resolveWandering(wanderingSource, pruneNode);
-        Integer r_p = nodeToRow.get(resolvedWandering);
-        if (r_p != null) {
-            BitSet childSplit = currentSplits.containsKey(childTarget) ? currentSplits.get(childTarget) : getSplitBits(childTarget);
-            BitSet newRp = (BitSet) childSplit.clone();
-            newRp.or(P);
-            if (newRp.cardinality() == N) newRp.clear();
-            updates.put(r_p, newRp);
-        }
-
-        Integer r_parent = nodeToRow.get(parentTarget);
-        if (r_parent != null && parentTarget != wanderingSource && parentTarget != resolvedWandering) {
-            BitSet parentSplit = currentSplits.get(parentTarget);
-            BitSet newParent = (BitSet) parentSplit.clone();
-            newParent.or(P);
-            if (newParent.cardinality() == N) newParent.clear();
-            updates.put(r_parent, newParent);
+        Integer rFloating = findFloatingRow(pruneNode, wanderingSource);
+        if (rFloating != null) {
+            BitSet newSplit = new BitSet(N);
+            newSplit.or(P);
+            updates.put(rFloating, newSplit);
         }
 
         updateRowSafelyAndSave(updates);
-    }
-
-    public void moveTargetUp(Node parentTarget, Node childTarget, Node pruneNode, Node wanderingSource) {
-        undoDeltaStack();
-    }
-
-    public void revertPrunedState(Node pruneNode, Node wanderingSource) {
-        undoDeltaStack();
-        undoDeltaStack();
     }
 
     @Override
@@ -450,14 +421,51 @@ public class MSIncrementalMetric implements IncrementalMetric, RootedTbrMetric {
         setTargetRoot(pruneNode, wanderingSource);
     }
 
+    public void moveTargetDown(Node parentTarget, Node childTarget, Node pruneNode, Node wanderingSource) {
+        BitSet P = (this.currentPrunedLeaves != null) ? this.currentPrunedLeaves : getSplitBits(pruneNode);
+        Map<Integer, BitSet> updates = new HashMap<>();
+
+        Integer rFloating = findFloatingRow(pruneNode, wanderingSource);
+        if (rFloating != null) {
+            BitSet childSplit = getSplitBits(childTarget);
+            BitSet newSplit = (BitSet) childSplit.clone();
+            newSplit.or(P);
+            if (newSplit.cardinality() == N) newSplit.clear();
+            updates.put(rFloating, newSplit);
+        }
+
+        Integer rParent = nodeToRow.get(parentTarget);
+        if (rParent != null && !rParent.equals(rFloating)) {
+            BitSet parentSplit = currentSplits.get(parentTarget);
+            if (parentSplit != null) {
+                BitSet newParent = (BitSet) parentSplit.clone();
+                newParent.or(P);
+                if (newParent.cardinality() == N) newParent.clear();
+                updates.put(rParent, newParent);
+            }
+        }
+
+        updateRowSafelyAndSave(updates);
+    }
+
     @Override
     public void moveTargetDown(Node parentTarget, Node childTarget, Node pruneNode, Node rerootNode, Node wanderingSource) {
         moveTargetDown(parentTarget, childTarget, pruneNode, wanderingSource);
     }
 
+    public void moveTargetUp(Node parentTarget, Node childTarget, Node pruneNode, Node wanderingSource) {
+        undoDeltaStack();
+    }
+
     @Override
     public void moveTargetUp(Node parentTarget, Node childTarget, Node pruneNode, Node rerootNode, Node wanderingSource) {
-        moveTargetUp(parentTarget, childTarget, pruneNode, wanderingSource);
+        undoDeltaStack();
+    }
+
+    @Override
+    public void revertPrunedState(Node pruneNode, Node wanderingSource) {
+        undoDeltaStack();
+        undoDeltaStack();
     }
 
     @Override
