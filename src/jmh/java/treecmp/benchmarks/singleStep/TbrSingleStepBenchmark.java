@@ -33,8 +33,7 @@ public class TbrSingleStepBenchmark {
     @Param({"RF", "RFC", "MS", "MC", "MP", "M3"})
     public String metricName;
 
-    // Zakres rozmiarów dostosowany do skali O(N^3)
-    @Param({"10", "20", "30", "50", "70", "100", "150", "200", "300", "500"})
+    @Param({"10", "20", "30", "50", "80", "120", "200", "300", "500"})
     public int treeSize;
 
     private Tree t1;
