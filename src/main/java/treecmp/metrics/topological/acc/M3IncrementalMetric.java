@@ -86,6 +86,20 @@ public class M3IncrementalMetric implements IncrementalMetric, RootedTbrMetric {
     private final UTbrUtils utbrUtils = new UTbrUtils();
     private final UsprUtils usprUtils = new UsprUtils();
 
+    // Słownik mapujący trójpartycje (Signature) bazowego drzewa na indeksy wierszy macierzy kosztów
+    private Map<Signature, Integer> baseSigToRow;
+
+    // Prealokowane bufory robocze dla evaluateExactUTbrDistance (Zero-Allocation w pętli TBR)
+    private int[][] scratchSavedRows;
+    private int[] scratchSavedTripletCounts;
+    private int[] scratchChangedRows;
+    private Signature[] scratchNewSignatures;
+    private boolean[] scratchOldRowUsed;
+    private int[] scratchSavedU;
+    private int[] scratchSavedV;
+    private int[] scratchSavedRowsol;
+    private int[] scratchSavedColsol;
+
     public BitSet getSplit(Node n) {
         return getSplitForNode(n);
     }
@@ -266,6 +280,24 @@ public class M3IncrementalMetric implements IncrementalMetric, RootedTbrMetric {
 
             int rawMetric = LapSolver.lap(dim, lapCost, rowsol, colsol, this.u, this.v);
             this.currentDistance = 0.5 * rawMetric;
+
+            // Inicjalizacja prealokowanych struktur do szybkiej ewaluacji uTBR
+            this.baseSigToRow = new HashMap<>((intT1Num * 4) / 3 + 1);
+            for (int r = 0; r < intT1Num; r++) {
+                Node n = this.baseTree.getInternalNode(r);
+                this.baseSigToRow.put(new Signature(n, N, baseIdGroup), r);
+            }
+
+            this.scratchSavedRows = new int[dim][dim];
+            this.scratchSavedTripletCounts = new int[dim];
+            this.scratchChangedRows = new int[dim];
+            this.scratchNewSignatures = new Signature[dim];
+            this.scratchOldRowUsed = new boolean[dim];
+            this.scratchSavedU = new int[dim];
+            this.scratchSavedV = new int[dim];
+            this.scratchSavedRowsol = new int[dim];
+            this.scratchSavedColsol = new int[dim];
+
         } else {
             this.currentDistance = 0;
         }
@@ -537,31 +569,119 @@ public class M3IncrementalMetric implements IncrementalMetric, RootedTbrMetric {
     }
 
     // =========================================================================
-    // ŚCISŁA EWALUACJA uTBR DLA M3 (100% ZGODNOŚCI Z WYROCZNIĄ)
+    // PRZYROSTOWA EWALUACJA uTBR DLA M3 Z CIEPŁYM STARTEM LAP (O(k * N^2))
     // =========================================================================
 
     public double evaluateExactUTbrDistance(Node pruneNode, Node rerootNode, Node targetNode, BitSet movingBits) {
         if (pruneNode == null || rerootNode == null || targetNode == null || this.targetTree == null) {
             return Double.POSITIVE_INFINITY;
         }
-        try {
-            Tree tree = this.originalBaseTree;
-            if (tree == null) {
-                Node root = pruneNode;
-                while (root.getParent() != null) root = root.getParent();
-                tree = new SimpleTree(root);
+
+        Tree tree = this.baseTree;
+        if (pruneNode.getParent() != null) {
+            Node r = pruneNode;
+            while (r.getParent() != null) r = r.getParent();
+            if (this.originalBaseTree != null && r == this.originalBaseTree.getRoot()) {
+                tree = this.originalBaseTree;
+            } else if (this.baseTree != null && r == this.baseTree.getRoot()) {
+                tree = this.baseTree;
+            } else {
+                tree = new SimpleTree(r);
             }
-            Tree tempTree = utbrUtils.createUtbrTree(tree, pruneNode, rerootNode, targetNode);
-            if (tempTree != null) {
-                if (tempTree instanceof SimpleTree) {
-                    pal.tree.TreeUtils.computeParentPointers(tempTree.getRoot());
-                    ((SimpleTree) tempTree).createNodeList();
-                }
-                return mtMetricFull.getDistance(tempTree, this.targetTree);
-            }
-        } catch (Exception ignored) {
         }
-        return Double.POSITIVE_INFINITY;
+
+        Tree tempTree;
+        try {
+            tempTree = utbrUtils.createUtbrTree(tree, pruneNode, rerootNode, targetNode);
+        } catch (Exception e) {
+            return Double.POSITIVE_INFINITY;
+        }
+        if (tempTree == null) {
+            return Double.POSITIVE_INFINITY;
+        }
+
+        if (tempTree instanceof SimpleTree) {
+            ((SimpleTree) tempTree).createNodeList();
+            pal.tree.TreeUtils.computeParentPointers(tempTree.getRoot());
+        }
+
+        int tempIntCount = tempTree.getInternalNodeCount();
+        if (tempIntCount != this.intT1Num) {
+            try {
+                return mtMetricFull.getDistance(tempTree, this.targetTree);
+            } catch (Exception ignored) {
+                return Double.POSITIVE_INFINITY;
+            }
+        }
+
+        Arrays.fill(scratchOldRowUsed, 0, dim, false);
+        int newSigCount = 0;
+
+        // 1. Identyfikacja, które wierzchołki nie uległy zmianie, a które są nowe
+        for (int i = 0; i < tempIntCount; i++) {
+            Node n = tempTree.getInternalNode(i);
+            Signature sig = new Signature(n, N, baseIdGroup);
+            Integer r = baseSigToRow.get(sig);
+            if (r != null && !scratchOldRowUsed[r]) {
+                scratchOldRowUsed[r] = true;
+            } else {
+                scratchNewSignatures[newSigCount++] = sig;
+            }
+        }
+
+        // Drzewo jest izomorficzne (brak zmian topologicznych)
+        if (newSigCount == 0) {
+            return this.currentDistance;
+        }
+
+        int k = newSigCount;
+        int idx = 0;
+        for (int r = 0; r < intT1Num; r++) {
+            if (!scratchOldRowUsed[r]) {
+                scratchChangedRows[idx++] = r;
+            }
+        }
+
+        if (idx != k) {
+            try {
+                return mtMetricFull.getDistance(tempTree, this.targetTree);
+            } catch (Exception ignored) {
+                return Double.POSITIVE_INFINITY;
+            }
+        }
+
+        // 2. Kopia zapasowa potencjałów podwójnych i skojarzenia (bez alokacji obiektów)
+        System.arraycopy(u, 0, scratchSavedU, 0, dim);
+        System.arraycopy(v, 0, scratchSavedV, 0, dim);
+        System.arraycopy(rowsol, 0, scratchSavedRowsol, 0, dim);
+        System.arraycopy(colsol, 0, scratchSavedColsol, 0, dim);
+
+        // 3. Przeliczenie wyłącznie zmienionych k wierszy za pomocą szybkiego O(N) DP
+        for (int i = 0; i < k; i++) {
+            int r = scratchChangedRows[i];
+            System.arraycopy(assigncost[r], 0, scratchSavedRows[i], 0, dim);
+            scratchSavedTripletCounts[i] = currentT1TripletCount[r];
+            computeRowCostFast(r, scratchNewSignatures[i].canonicalParts);
+        }
+
+        int[] changedRowsParam = (k == scratchChangedRows.length) ? scratchChangedRows : Arrays.copyOf(scratchChangedRows, k);
+
+        // 4. Ciepły start solvera LAP
+        int rawMetric = LapSolver.lapUpdate(dim, assigncost, rowsol, colsol, u, v, changedRowsParam);
+        double dist = 0.5 * rawMetric;
+
+        // 5. Przywrócenie stanu pierwotnego (brak efektów ubocznych w strukturach)
+        for (int i = 0; i < k; i++) {
+            int r = scratchChangedRows[i];
+            System.arraycopy(scratchSavedRows[i], 0, assigncost[r], 0, dim);
+            currentT1TripletCount[r] = scratchSavedTripletCounts[i];
+        }
+        System.arraycopy(scratchSavedU, 0, u, 0, dim);
+        System.arraycopy(scratchSavedV, 0, v, 0, dim);
+        System.arraycopy(scratchSavedRowsol, 0, rowsol, 0, dim);
+        System.arraycopy(scratchSavedColsol, 0, colsol, 0, dim);
+
+        return dist;
     }
 
     public double evaluateExactUtbrDistance(Node pruneNode, Node rerootNode, Node targetNode, BitSet movingBits) {
