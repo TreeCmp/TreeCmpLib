@@ -56,7 +56,12 @@ public class MSIncrementalMetric implements IncrementalMetric, RootedTbrMetric {
     private final Stack<Integer> nniPushCountHistory = new Stack<>();
 
     // PREALOKOWANE BUFORY I STRUKTURY DLA SZYBKIEGO uTBR (Zero-Allocation)
+    private final Set<BitSet> removedSplitsBuf = new HashSet<>();
+    private final Set<BitSet> addedSplitsBuf = new HashSet<>();
     private final Map<BitSet, Integer> splitToRow = new HashMap<>();
+
+    private final List<BitSet> toRemove = new ArrayList<>(16);
+    private final List<BitSet> toAdd = new ArrayList<>(16);
 
     private int numWords;
     private long[][] targetSplitWords;
@@ -70,13 +75,6 @@ public class MSIncrementalMetric implements IncrementalMetric, RootedTbrMetric {
     private int[] scratchChangedRows;
     private int[][] cachedKArrays;
 
-    private BitSet[] bitSetPool;
-    private int poolIdx = 0;
-    private final List<BitSet> removedList = new ArrayList<>(32);
-    private final List<BitSet> addedList = new ArrayList<>(32);
-    private final List<BitSet> toRemove = new ArrayList<>(16);
-    private final List<BitSet> toAdd = new ArrayList<>(16);
-
     public BitSet getSplit(Node n) {
         return getSplitBits(n);
     }
@@ -87,7 +85,7 @@ public class MSIncrementalMetric implements IncrementalMetric, RootedTbrMetric {
         int dB = getNodeDepth(b);
 
         while (dA > dB && a != null) { a = a.getParent(); dA--; }
-        while (dB > dA && b != null) { b = b.getParent(); dB--; }
+        while (dB > dB && b != null) { b = b.getParent(); dB--; }
 
         while (a != b && a != null && b != null) {
             a = a.getParent();
@@ -115,37 +113,14 @@ public class MSIncrementalMetric implements IncrementalMetric, RootedTbrMetric {
         return clone;
     }
 
-    private void canonicalizeInto(BitSet src, BitSet dest) {
-        dest.clear();
-        dest.or(src);
-        if (dest.get(0)) {
-            dest.flip(0, N);
-        }
-    }
-
     private boolean isNonTrivialSplit(BitSet bs) {
         if (bs == null) return false;
         int card = bs.cardinality();
         return card > 1 && card < N - 1;
     }
 
-    private BitSet getScratchBitSet() {
-        if (poolIdx >= bitSetPool.length) {
-            int newCap = bitSetPool.length * 2;
-            BitSet[] newPool = new BitSet[newCap];
-            System.arraycopy(bitSetPool, 0, newPool, 0, bitSetPool.length);
-            for (int i = bitSetPool.length; i < newCap; i++) {
-                newPool[i] = new BitSet(N);
-            }
-            bitSetPool = newPool;
-        }
-        BitSet bs = bitSetPool[poolIdx++];
-        bs.clear();
-        return bs;
-    }
-
     // =========================================================================
-    // PRZYROSTOWA EWALUACJA uTBR DLA MS (BEZALOKACYJNA Z CIEPŁYM STARTEM)
+    // PRZYROSTOWA EWALUACJA uTBR DLA MS (BEZALOKACYJNA Z BEZPIECZNYM FALLBACKIEM)
     // =========================================================================
 
     public double evaluateExactUTbrDistance(Node pruneNode, Node rerootNode, Node targetNode, BitSet movingBits) {
@@ -160,20 +135,13 @@ public class MSIncrementalMetric implements IncrementalMetric, RootedTbrMetric {
         BitSet LP = getSplitBits(pruneNode);
         if (LP == null) return Double.POSITIVE_INFINITY;
 
-        poolIdx = 0;
-        removedList.clear();
-        addedList.clear();
-        toRemove.clear();
-        toAdd.clear();
+        removedSplitsBuf.clear();
+        addedSplitsBuf.clear();
 
         // 1. Zmiany w komponencie T2
         if (pParent != root) {
             BitSet bsParent = getSplitBits(pParent);
-            if (bsParent != null) {
-                BitSet bs = getScratchBitSet();
-                canonicalizeInto(bsParent, bs);
-                removedList.add(bs);
-            }
+            if (bsParent != null) removedSplitsBuf.add(canonicalizeSplit(bsParent));
         }
 
         Node lca = findLca(pParent, targetNode);
@@ -183,15 +151,10 @@ public class MSIncrementalMetric implements IncrementalMetric, RootedTbrMetric {
             while (curr != null && curr != lca) {
                 BitSet oldC = getSplitBits(curr);
                 if (oldC != null) {
-                    BitSet rem = getScratchBitSet();
-                    canonicalizeInto(oldC, rem);
-                    removedList.add(rem);
-
-                    BitSet add = getScratchBitSet();
-                    add.or(oldC);
-                    add.andNot(LP);
-                    if (add.get(0)) add.flip(0, N);
-                    addedList.add(add);
+                    removedSplitsBuf.add(canonicalizeSplit(oldC));
+                    BitSet newC = (BitSet) oldC.clone();
+                    newC.andNot(LP);
+                    addedSplitsBuf.add(canonicalizeSplit(newC));
                 }
                 curr = curr.getParent();
             }
@@ -202,15 +165,10 @@ public class MSIncrementalMetric implements IncrementalMetric, RootedTbrMetric {
             while (currT != null && currT != lca) {
                 BitSet oldC = getSplitBits(currT);
                 if (oldC != null) {
-                    BitSet rem = getScratchBitSet();
-                    canonicalizeInto(oldC, rem);
-                    removedList.add(rem);
-
-                    BitSet add = getScratchBitSet();
-                    add.or(oldC);
-                    add.or(LP);
-                    if (add.get(0)) add.flip(0, N);
-                    addedList.add(add);
+                    removedSplitsBuf.add(canonicalizeSplit(oldC));
+                    BitSet newC = (BitSet) oldC.clone();
+                    newC.or(LP);
+                    addedSplitsBuf.add(canonicalizeSplit(newC));
                 }
                 currT = currT.getParent();
             }
@@ -219,100 +177,54 @@ public class MSIncrementalMetric implements IncrementalMetric, RootedTbrMetric {
         if (targetNode == lca && targetNode != root) {
             BitSet oldC = getSplitBits(targetNode);
             if (oldC != null) {
-                BitSet rem = getScratchBitSet();
-                canonicalizeInto(oldC, rem);
-                removedList.add(rem);
-
-                BitSet add = getScratchBitSet();
-                add.or(oldC);
-                add.andNot(LP);
-                if (add.get(0)) add.flip(0, N);
-                addedList.add(add);
+                removedSplitsBuf.add(canonicalizeSplit(oldC));
+                BitSet newC = (BitSet) oldC.clone();
+                newC.andNot(LP);
+                addedSplitsBuf.add(canonicalizeSplit(newC));
             }
         }
 
         BitSet targetBs = getSplitBits(targetNode);
         if (targetBs != null) {
-            BitSet add = getScratchBitSet();
-            add.or(targetBs);
-            add.or(LP);
-            if (add.get(0)) add.flip(0, N);
-            addedList.add(add);
+            BitSet newW = (BitSet) targetBs.clone();
+            newW.or(LP);
+            addedSplitsBuf.add(canonicalizeSplit(newW));
         }
 
         // 2. Przekorzenienie w komponencie T1
         if (rerootNode != pruneNode) {
             BitSet rCluster = getSplitBits(rerootNode);
             if (rCluster != null) {
-                BitSet add = getScratchBitSet();
-                add.or(LP);
-                add.andNot(rCluster);
-                if (add.get(0)) add.flip(0, N);
-                addedList.add(add);
+                BitSet newR = (BitSet) LP.clone();
+                newR.andNot(rCluster);
+                addedSplitsBuf.add(canonicalizeSplit(newR));
             }
 
             Node currOnPath = rerootNode.getParent();
             while (currOnPath != null && currOnPath != pruneNode) {
                 BitSet oldC = getSplitBits(currOnPath);
                 if (oldC != null) {
-                    BitSet rem = getScratchBitSet();
-                    canonicalizeInto(oldC, rem);
-                    removedList.add(rem);
-
-                    BitSet add = getScratchBitSet();
-                    add.or(LP);
-                    add.andNot(oldC);
-                    if (add.get(0)) add.flip(0, N);
-                    addedList.add(add);
+                    removedSplitsBuf.add(canonicalizeSplit(oldC));
+                    BitSet newC = (BitSet) LP.clone();
+                    newC.andNot(oldC);
+                    addedSplitsBuf.add(canonicalizeSplit(newC));
                 }
                 currOnPath = currOnPath.getParent();
             }
         }
 
-        // 3. Wyodrębnienie wyłącznie nietrywialnych zmian (bez alokacji Set/Iteratorów)
-        for (int i = 0; i < removedList.size(); i++) {
-            BitSet bs = removedList.get(i);
-            if (isNonTrivialSplit(bs)) {
-                boolean inAdded = false;
-                for (int j = 0; j < addedList.size(); j++) {
-                    if (bs.equals(addedList.get(j))) {
-                        inAdded = true;
-                        break;
-                    }
-                }
-                if (!inAdded) {
-                    boolean alreadyIn = false;
-                    for (int j = 0; j < toRemove.size(); j++) {
-                        if (bs.equals(toRemove.get(j))) {
-                            alreadyIn = true;
-                            break;
-                        }
-                    }
-                    if (!alreadyIn) toRemove.add(bs);
-                }
+        // 3. Wyodrębnienie wyłącznie nietrywialnych zmian
+        toRemove.clear();
+        for (BitSet bs : removedSplitsBuf) {
+            if (isNonTrivialSplit(bs) && !addedSplitsBuf.contains(bs)) {
+                toRemove.add(bs);
             }
         }
 
-        for (int i = 0; i < addedList.size(); i++) {
-            BitSet bs = addedList.get(i);
-            if (isNonTrivialSplit(bs)) {
-                boolean inRemoved = false;
-                for (int j = 0; j < removedList.size(); j++) {
-                    if (bs.equals(removedList.get(j))) {
-                        inRemoved = true;
-                        break;
-                    }
-                }
-                if (!inRemoved) {
-                    boolean alreadyIn = false;
-                    for (int j = 0; j < toAdd.size(); j++) {
-                        if (bs.equals(toAdd.get(j))) {
-                            alreadyIn = true;
-                            break;
-                        }
-                    }
-                    if (!alreadyIn) toAdd.add(bs);
-                }
+        toAdd.clear();
+        for (BitSet bs : addedSplitsBuf) {
+            if (isNonTrivialSplit(bs) && !removedSplitsBuf.contains(bs)) {
+                toAdd.add(bs);
             }
         }
 
@@ -320,7 +232,7 @@ public class MSIncrementalMetric implements IncrementalMetric, RootedTbrMetric {
             return this.currentDistance;
         }
 
-        // 4. Bezpieczna weryfikacja parzystości zmian
+        // 4. Bezpieczna weryfikacja parzystości zmian (Fallback klasyczny dla nietypowych cięć)
         if (toRemove.size() != toAdd.size() || toRemove.isEmpty()) {
             try {
                 Tree tempTree = utbrUtils.createUtbrTree(this.baseTree, pruneNode, rerootNode, targetNode);
@@ -445,7 +357,6 @@ public class MSIncrementalMetric implements IncrementalMetric, RootedTbrMetric {
             this.u = new int[dim];
             this.v = new int[dim];
 
-            // Inicjalizacja buforów przyspieszających bitwise XOR i warm-start
             this.numWords = (N + 63) >>> 6;
             this.scratchAddWords = new long[numWords];
             this.targetSplitWords = new long[dim][numWords];
@@ -461,14 +372,6 @@ public class MSIncrementalMetric implements IncrementalMetric, RootedTbrMetric {
             this.scratchSavedRowsol = new int[dim];
             this.scratchSavedColsol = new int[dim];
             this.scratchChangedRows = new int[dim];
-
-            int maxPoolSize = Math.max(128, N * 4);
-            if (this.bitSetPool == null || this.bitSetPool.length < maxPoolSize || (this.bitSetPool[0] != null && this.bitSetPool[0].size() < N)) {
-                this.bitSetPool = new BitSet[maxPoolSize];
-                for (int i = 0; i < maxPoolSize; i++) {
-                    this.bitSetPool[i] = new BitSet(N);
-                }
-            }
 
             this.baseSplits = new IdentityHashMap<>();
             this.currentSplits = new IdentityHashMap<>();
@@ -505,7 +408,6 @@ public class MSIncrementalMetric implements IncrementalMetric, RootedTbrMetric {
                 }
             }
 
-            // Prekalkulacja słów bipartycji drzewa docelowego
             for (int j = 0; j < dim; j++) {
                 Node n2 = colToNode[j];
                 if (n2 != null) {
