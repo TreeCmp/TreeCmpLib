@@ -50,6 +50,20 @@ public class M3IncrementalMetric implements IncrementalMetric, RootedTbrMetric {
     private int[] currentT1TripletCount;
     private int[] t2IntTripletCount;
 
+    // Struktury do szybkiego przejścia O(N) po T2 (Tree DP indeksowane pozycją post-order)
+    private int postOrderT2Count;
+    private int[] t2PostOrderChild0;
+    private int[] t2PostOrderChild1;
+    private int[] t2PostOrderChild2;
+    private int[] t2PostOrderLeafId;
+    private boolean[] t2PostOrderIsRoot;
+    private int[] t2PostOrderCol;
+
+    // Pule liczników przecięć (Zero-Allocation w gorących pętlach)
+    private int[] t2CountA;
+    private int[] t2CountB;
+    private int[] t2CountC;
+
     private int[] scratchOldRow;
     private int[] scratchOldU;
     private int[] scratchOldV;
@@ -183,73 +197,65 @@ public class M3IncrementalMetric implements IncrementalMetric, RootedTbrMetric {
                 }
             }
 
-            int[][] lcaMatrix1 = TreeCmpUtils.calcLcaMatrix(this.baseTree, this.baseIdGroup);
-            this.targetLcaMatrix = TreeCmpUtils.calcLcaMatrix(this.targetTree, this.baseIdGroup);
+            // Inicjalizacja topologii T2 indeksowanej post-order (bez kolizji numeracji PAL)
+            Node[] postOrder = TreeCmpUtils.getNodesInPostOrder(this.targetTree);
+            this.postOrderT2Count = postOrder.length;
 
-            short[] cSize2 = new short[maxNodesT2];
-            Node[] postOrderT2 = TreeCmpUtils.getNodesInPostOrder(this.targetTree);
-            TreeCmpUtils.calcCladeSizes(this.targetTree, postOrderT2, cSize2);
+            this.t2PostOrderChild0 = new int[postOrderT2Count];
+            this.t2PostOrderChild1 = new int[postOrderT2Count];
+            this.t2PostOrderChild2 = new int[postOrderT2Count];
+            this.t2PostOrderLeafId = new int[postOrderT2Count];
+            this.t2PostOrderIsRoot = new boolean[postOrderT2Count];
+            this.t2PostOrderCol = new int[postOrderT2Count];
 
-            this.t2IntTripletCount = new int[dim];
-            for (int i = 0; i < intT2Num; i++) {
-                this.t2IntTripletCount[i] = coutTriplets(this.targetTree.getInternalNode(i), cSize2);
+            this.t2CountA = new int[postOrderT2Count];
+            this.t2CountB = new int[postOrderT2Count];
+            this.t2CountC = new int[postOrderT2Count];
+
+            Map<Node, Integer> nodeToPostOrder = new IdentityHashMap<>(postOrderT2Count * 2);
+            for (int i = 0; i < postOrderT2Count; i++) {
+                nodeToPostOrder.put(postOrder[i], i);
             }
 
-            short[] cSize1 = new short[maxNodesT1];
-            Node[] postOrderT1 = TreeCmpUtils.getNodesInPostOrder(this.baseTree);
-            TreeCmpUtils.calcCladeSizes(this.baseTree, postOrderT1, cSize1);
+            for (int i = 0; i < postOrderT2Count; i++) {
+                Node n = postOrder[i];
+                t2PostOrderIsRoot[i] = n.isRoot();
 
-            this.currentT1TripletCount = new int[dim];
-            for (int i = 0; i < intT1Num; i++) {
-                this.currentT1TripletCount[i] = coutTriplets(this.baseTree.getInternalNode(i), cSize1);
-            }
-
-            int[][] initialIntersection = new int[dim][dim];
-            for (int i = 0; i < N; i++) {
-                int[] lcaRow1I = lcaMatrix1[i];
-                int[] lcaRowTargetI = this.targetLcaMatrix[i];
-                for (int j = i + 1; j < N; j++) {
-                    int i_j_1 = lcaRow1I[j];
-                    int i_j_target = lcaRowTargetI[j];
-                    int[] lcaRow1J = lcaMatrix1[j];
-                    int[] lcaRowTargetJ = this.targetLcaMatrix[j];
-                    for (int k = j + 1; k < N; k++) {
-                        int i_k_1 = lcaRow1I[k];
-                        int j_k_1 = lcaRow1J[k];
-                        int ind1;
-                        if (i_j_1 == i_k_1) ind1 = j_k_1;
-                        else if (i_j_1 == j_k_1) ind1 = i_k_1;
-                        else ind1 = i_j_1;
-
-                        int i_k_target = lcaRowTargetI[k];
-                        int j_k_target = lcaRowTargetJ[k];
-                        int ind2;
-                        if (i_j_target == i_k_target) ind2 = j_k_target;
-                        else if (i_j_target == j_k_target) ind2 = i_k_target;
-                        else ind2 = i_j_target;
-
-                        if (ind1 >= 0 && ind1 < baseIdToRow.length && ind2 >= 0 && ind2 < this.targetIdToCol.length) {
-                            int r = baseIdToRow[ind1];
-                            int col = this.targetIdToCol[ind2];
-                            if (r >= 0 && col >= 0) {
-                                initialIntersection[r][col]++;
-                            }
-                        }
-                    }
+                if (n.isLeaf()) {
+                    t2PostOrderLeafId[i] = baseIdGroup.whichIdNumber(n.getIdentifier().getName());
+                    t2PostOrderCol[i] = -1;
+                    t2PostOrderChild0[i] = -1;
+                    t2PostOrderChild1[i] = -1;
+                    t2PostOrderChild2[i] = -1;
+                } else {
+                    t2PostOrderLeafId[i] = -1;
+                    t2PostOrderCol[i] = targetIdToCol[n.getNumber()];
+                    int chCount = n.getChildCount();
+                    t2PostOrderChild0[i] = (chCount > 0) ? nodeToPostOrder.get(n.getChild(0)) : -1;
+                    t2PostOrderChild1[i] = (chCount > 1) ? nodeToPostOrder.get(n.getChild(1)) : -1;
+                    t2PostOrderChild2[i] = (chCount > 2) ? nodeToPostOrder.get(n.getChild(2)) : -1;
                 }
             }
 
-            for (int r = 0; r < dim; r++) {
+            short[] cSize2 = new short[maxNodesT2];
+            TreeCmpUtils.calcCladeSizes(this.targetTree, postOrder, cSize2);
+            this.t2IntTripletCount = new int[dim];
+            for (int i = 0; i < intT2Num; i++) {
+                this.t2IntTripletCount[i] = countTriplets(this.targetTree.getInternalNode(i), cSize2);
+            }
+
+            this.currentT1TripletCount = new int[dim];
+            this.targetLcaMatrix = TreeCmpUtils.calcLcaMatrix(this.targetTree, this.baseIdGroup);
+
+            // Inicjalizacja macierzy kosztów w czasie O(N^2)
+            for (int r = 0; r < intT1Num; r++) {
+                Node nBase = this.baseTree.getInternalNode(r);
+                computeRowCostFast(r, getPartitionsForNode(nBase));
+            }
+
+            for (int r = intT1Num; r < dim; r++) {
                 for (int c = 0; c < dim; c++) {
-                    if (r < intT1Num && c < intT2Num) {
-                        assigncost[r][c] = this.currentT1TripletCount[r] + t2IntTripletCount[c] - (initialIntersection[r][c] << 1);
-                    } else if (r >= intT1Num && c < intT2Num) {
-                        assigncost[r][c] = t2IntTripletCount[c];
-                    } else if (r < intT1Num && c >= intT2Num) {
-                        assigncost[r][c] = this.currentT1TripletCount[r];
-                    } else {
-                        assigncost[r][c] = 0;
-                    }
+                    assigncost[r][c] = (c < intT2Num) ? t2IntTripletCount[c] : 0;
                 }
             }
 
@@ -318,7 +324,7 @@ public class M3IncrementalMetric implements IncrementalMetric, RootedTbrMetric {
         ));
 
         for (Map.Entry<Integer, BitSet[]> entry : rowUpdates.entrySet()) {
-            computeRowCost(entry.getKey(), entry.getValue());
+            computeRowCostFast(entry.getKey(), entry.getValue());
         }
 
         if (rows.length > 0) {
@@ -349,7 +355,189 @@ public class M3IncrementalMetric implements IncrementalMetric, RootedTbrMetric {
     }
 
     // =========================================================================
-    // ŚCISŁA I DOKŁADNA EWALUACJA uTBR DLA M3 (100% ZGODNOŚCI Z WYROCZNIĄ)
+    // AKCELERATOR KOSZTU WIERSZA O(N) POPRZEZ DRZEWNE DP I PERMANENT 3x3
+    // =========================================================================
+
+    private void computeRowCostFast(int row, BitSet[] sets) {
+        if (sets == null || sets.length < 3) {
+            currentT1TripletCount[row] = 0;
+            int[] costRow = assigncost[row];
+            for (int c = 0; c < intT2Num; c++) {
+                costRow[c] = t2IntTripletCount[c];
+            }
+            for (int c = intT2Num; c < dim; c++) {
+                costRow[c] = 0;
+            }
+            return;
+        }
+
+        if (sets.length == 3) {
+            BitSet sA = sets[0];
+            BitSet sB = sets[1];
+            BitSet sC = sets[2];
+
+            if (sA == null || sB == null || sC == null || sA.isEmpty() || sB.isEmpty() || sC.isEmpty()) {
+                currentT1TripletCount[row] = 0;
+                int[] costRow = assigncost[row];
+                for (int c = 0; c < intT2Num; c++) {
+                    costRow[c] = t2IntTripletCount[c];
+                }
+                for (int c = intT2Num; c < dim; c++) {
+                    costRow[c] = 0;
+                }
+                return;
+            }
+
+            int totalA = sA.cardinality();
+            int totalB = sB.cardinality();
+            int totalC = sC.cardinality();
+
+            int tripletCount = totalA * totalB * totalC;
+            currentT1TripletCount[row] = tripletCount;
+            int[] costRow = assigncost[row];
+
+            for (int i = 0; i < postOrderT2Count; i++) {
+                int leafId = t2PostOrderLeafId[i];
+
+                if (leafId >= 0) {
+                    t2CountA[i] = sA.get(leafId) ? 1 : 0;
+                    t2CountB[i] = sB.get(leafId) ? 1 : 0;
+                    t2CountC[i] = sC.get(leafId) ? 1 : 0;
+                } else {
+                    int c0 = t2PostOrderChild0[i];
+                    int c1 = t2PostOrderChild1[i];
+                    int c2 = t2PostOrderChild2[i];
+
+                    int a1 = t2CountA[c0];
+                    int b1 = t2CountB[c0];
+                    int c1Count = t2CountC[c0];
+
+                    int a2 = t2CountA[c1];
+                    int b2 = t2CountB[c1];
+                    int c2Count = t2CountC[c1];
+
+                    int a3, b3, c3Count;
+                    if (t2PostOrderIsRoot[i]) {
+                        if (c2 >= 0) {
+                            a3 = t2CountA[c2];
+                            b3 = t2CountB[c2];
+                            c3Count = t2CountC[c2];
+                        } else {
+                            a3 = b3 = c3Count = 0;
+                        }
+                        t2CountA[i] = a1 + a2 + a3;
+                        t2CountB[i] = b1 + b2 + b3;
+                        t2CountC[i] = c1Count + c2Count + c3Count;
+                    } else {
+                        int myA = a1 + a2;
+                        int myB = b1 + b2;
+                        int myC = c1Count + c2Count;
+                        t2CountA[i] = myA;
+                        t2CountB[i] = myB;
+                        t2CountC[i] = myC;
+                        a3 = totalA - myA;
+                        b3 = totalB - myB;
+                        c3Count = totalC - myC;
+                    }
+
+                    int col = t2PostOrderCol[i];
+                    if (col >= 0) {
+                        int inter = a1 * (b2 * c3Count + b3 * c2Count)
+                                + a2 * (b1 * c3Count + b3 * c1Count)
+                                + a3 * (b1 * c2Count + b2 * c1Count);
+                        costRow[col] = tripletCount + t2IntTripletCount[col] - (inter << 1);
+                    }
+                }
+            }
+
+            for (int c = intT2Num; c < dim; c++) {
+                costRow[c] = tripletCount;
+            }
+            return;
+        }
+
+        computeRowCostMultiSets(row, sets);
+    }
+
+    private void computeRowCostMultiSets(int row, BitSet[] sets) {
+        Arrays.fill(scratchIntersections, 0);
+        int totalTriplets = 0;
+
+        for (int i = 0; i < sets.length; i++) {
+            BitSet sA = sets[i];
+            if (sA == null || sA.isEmpty()) continue;
+            int cardA = sA.cardinality();
+
+            for (int j = i + 1; j < sets.length; j++) {
+                BitSet sB = sets[j];
+                if (sB == null || sB.isEmpty()) continue;
+                int cardB = sB.cardinality();
+
+                for (int k = j + 1; k < sets.length; k++) {
+                    BitSet sC = sets[k];
+                    if (sC == null || sC.isEmpty()) continue;
+                    int cardC = sC.cardinality();
+
+                    totalTriplets += cardA * cardB * cardC;
+                    accumulateTripletPermanent(sA, sB, sC, cardA, cardB, cardC);
+                }
+            }
+        }
+
+        currentT1TripletCount[row] = totalTriplets;
+        int[] costRow = assigncost[row];
+        for (int c = 0; c < intT2Num; c++) {
+            costRow[c] = totalTriplets + t2IntTripletCount[c] - (scratchIntersections[c] << 1);
+        }
+        for (int c = intT2Num; c < dim; c++) {
+            costRow[c] = totalTriplets;
+        }
+    }
+
+    private void accumulateTripletPermanent(BitSet sA, BitSet sB, BitSet sC, int totalA, int totalB, int totalC) {
+        for (int i = 0; i < postOrderT2Count; i++) {
+            int leafId = t2PostOrderLeafId[i];
+
+            if (leafId >= 0) {
+                t2CountA[i] = sA.get(leafId) ? 1 : 0;
+                t2CountB[i] = sB.get(leafId) ? 1 : 0;
+                t2CountC[i] = sC.get(leafId) ? 1 : 0;
+            } else {
+                int c0 = t2PostOrderChild0[i];
+                int c1 = t2PostOrderChild1[i];
+                int c2 = t2PostOrderChild2[i];
+
+                int a1 = t2CountA[c0]; int b1 = t2CountB[c0]; int c1Count = t2CountC[c0];
+                int a2 = t2CountA[c1]; int b2 = t2CountB[c1]; int c2Count = t2CountC[c1];
+
+                int a3, b3, c3Count;
+                if (t2PostOrderIsRoot[i]) {
+                    if (c2 >= 0) {
+                        a3 = t2CountA[c2]; b3 = t2CountB[c2]; c3Count = t2CountC[c2];
+                    } else {
+                        a3 = b3 = c3Count = 0;
+                    }
+                    t2CountA[i] = a1 + a2 + a3;
+                    t2CountB[i] = b1 + b2 + b3;
+                    t2CountC[i] = c1Count + c2Count + c3Count;
+                } else {
+                    int myA = a1 + a2; int myB = b1 + b2; int myC = c1Count + c2Count;
+                    t2CountA[i] = myA; t2CountB[i] = myB; t2CountC[i] = myC;
+                    a3 = totalA - myA; b3 = totalB - myB; c3Count = totalC - myC;
+                }
+
+                int col = t2PostOrderCol[i];
+                if (col >= 0) {
+                    scratchIntersections[col] += a1 * (b2 * c3Count + b3 * c2Count)
+                            + a2 * (b1 * c3Count + b3 * c1Count)
+                            + a3 * (b1 * c2Count + b2 * c1Count);
+                }
+            }
+        }
+    }
+
+    // =========================================================================
+    // ŚCISŁA EWALUACJA uTBR DLA M3 (100% ZGODNOŚCI Z WYROCZNIĄ)
     // =========================================================================
 
     public double evaluateExactUTbrDistance(Node pruneNode, Node rerootNode, Node targetNode, BitSet movingBits) {
@@ -382,6 +570,198 @@ public class M3IncrementalMetric implements IncrementalMetric, RootedTbrMetric {
 
     public double evaluateExactTbrDistance(Node pruneNode, Node rerootNode, Node targetNode, BitSet movingBits) {
         return evaluateExactUTbrDistance(pruneNode, rerootNode, targetNode, movingBits);
+    }
+
+    // =========================================================================
+    // KONTRAKT RootedTbrMetric DLA TBR WALKER
+    // =========================================================================
+
+    @Override
+    public void setPrunedState(Node pruneNode, Node wanderingSource) {
+        this.currentPrunedLeaves = (BitSet) getSplitForNode(pruneNode).clone();
+        BitSet P = this.currentPrunedLeaves;
+        Map<Integer, BitSet[]> updates = new HashMap<>();
+
+        Node curr = pruneNode.getParent().getParent();
+        while (curr != null) {
+            Integer r = getRowForNode(curr);
+            if (r != null) {
+                int chCount = curr.getChildCount();
+                int numNeighbors = (curr.getParent() == null) ? chCount : chCount + 1;
+                BitSet[] cSets = new BitSet[numNeighbors];
+                BitSet childrenUnion = new BitSet(N);
+
+                for (int i = 0; i < chCount; i++) {
+                    cSets[i] = (BitSet) getSplitForNode(curr.getChild(i)).clone();
+                    cSets[i].andNot(P);
+                    childrenUnion.or(cSets[i]);
+                }
+                if (curr.getParent() != null) {
+                    BitSet pSet = new BitSet(N);
+                    pSet.set(0, N);
+                    pSet.andNot(P);
+                    pSet.andNot(childrenUnion);
+                    cSets[chCount] = pSet;
+                }
+                updates.put(r, cSets);
+            }
+            curr = curr.getParent();
+        }
+
+        Integer r_floating = getRowForNode(pruneNode.getParent());
+        if (r_floating != null) {
+            updates.put(r_floating, new BitSet[0]);
+        }
+
+        updateRowsSafelyAndSave(updates);
+    }
+
+    public void setTargetRoot(Node pruneNode, Node wanderingSource) {
+        BitSet P = (this.currentPrunedLeaves != null) ? this.currentPrunedLeaves : getSplitForNode(pruneNode);
+        Map<Integer, BitSet[]> updates = new HashMap<>();
+
+        Integer r_floating = getRowForNode(pruneNode.getParent());
+        if (r_floating != null) {
+            Node root = baseTree.getRoot();
+            Node chosenChild = root.getChild(0);
+            BitSet childLeaves = (BitSet) getSplitForNode(chosenChild).clone();
+            childLeaves.andNot(P);
+
+            for (int i = 1; i < root.getChildCount() && childLeaves.isEmpty(); i++) {
+                chosenChild = root.getChild(i);
+                childLeaves = (BitSet) getSplitForNode(chosenChild).clone();
+                childLeaves.andNot(P);
+            }
+
+            BitSet rest = new BitSet(N);
+            rest.set(0, N);
+            rest.andNot(P);
+            rest.andNot(childLeaves);
+
+            updates.put(r_floating, new BitSet[]{P, childLeaves, rest});
+        }
+        updateRowsSafelyAndSave(updates);
+    }
+
+    @Override
+    public void setTargetRoot(Node pruneNode, Node rerootNode, Node wanderingSource) {
+        setTargetRoot(pruneNode, wanderingSource);
+    }
+
+    public void moveTargetDown(Node parentTarget, Node childTarget, Node pruneNode, Node wanderingSource) {
+        BitSet P = (this.currentPrunedLeaves != null) ? this.currentPrunedLeaves : getSplitForNode(pruneNode);
+        Map<Integer, BitSet[]> updates = new HashMap<>();
+
+        Integer r_floating = getRowForNode(pruneNode.getParent());
+        if (r_floating != null) {
+            BitSet childLeaves = (BitSet) getSplitForNode(childTarget).clone();
+            childLeaves.andNot(P);
+
+            BitSet rest = new BitSet(N);
+            rest.set(0, N);
+            rest.andNot(P);
+            rest.andNot(childLeaves);
+
+            updates.put(r_floating, new BitSet[]{P, childLeaves, rest});
+        }
+
+        Integer r_p = getRowForNode(parentTarget);
+        if (r_p != null && !r_p.equals(r_floating)) {
+            int chCount = parentTarget.getChildCount();
+            int numNeighbors = (parentTarget.getParent() == null) ? chCount : chCount + 1;
+            BitSet[] cSets = new BitSet[numNeighbors];
+            BitSet targetLeaves = getSplitForNode(childTarget);
+            BitSet childrenUnion = new BitSet(N);
+
+            for (int i = 0; i < chCount; i++) {
+                cSets[i] = (BitSet) getSplitForNode(parentTarget.getChild(i)).clone();
+                cSets[i].andNot(P);
+                if (cSets[i].intersects(targetLeaves)) {
+                    cSets[i].or(P);
+                }
+                childrenUnion.or(cSets[i]);
+            }
+
+            if (parentTarget.getParent() != null) {
+                BitSet pSet = new BitSet(N);
+                pSet.set(0, N);
+                pSet.andNot(childrenUnion);
+                cSets[chCount] = pSet;
+            }
+
+            updates.put(r_p, cSets);
+        }
+
+        updateRowsSafelyAndSave(updates);
+    }
+
+    @Override
+    public void moveTargetDown(Node parentTarget, Node childTarget, Node pruneNode, Node rerootNode, Node wanderingSource) {
+        moveTargetDown(parentTarget, childTarget, pruneNode, wanderingSource);
+    }
+
+    @Override
+    public void moveTargetUp(Node parentTarget, Node childTarget, Node pruneNode, Node rerootNode, Node wanderingSource) {
+        undoDeltaStack();
+    }
+
+    public void moveTargetUp(Node parentTarget, Node childTarget, Node pruneNode, Node wanderingSource) {
+        undoDeltaStack();
+    }
+
+    @Override
+    public void revertPrunedState(Node pruneNode, Node wanderingSource) {
+        undoDeltaStack();
+        undoDeltaStack();
+    }
+
+    @Override
+    public void moveRerootDown(Node parentReroot, Node childReroot, Node pruneNode) {
+        Map<Integer, BitSet[]> updates = new HashMap<>();
+
+        if (currentPrunedLeaves != null) {
+            BitSet outsideP = new BitSet(N);
+            outsideP.set(0, N);
+            outsideP.andNot(currentPrunedLeaves);
+
+            Integer rChild = getRowForNode(childReroot);
+            Integer rParent = getRowForNode(parentReroot);
+
+            if (rChild != null) {
+                int chCount = childReroot.getChildCount();
+                BitSet[] cSets = new BitSet[chCount + 1];
+                BitSet union = new BitSet(N);
+
+                for (int i = 0; i < chCount; i++) {
+                    cSets[i] = (BitSet) getSplitForNode(childReroot.getChild(i)).clone();
+                    union.or(cSets[i]);
+                }
+                BitSet restInP = (BitSet) currentPrunedLeaves.clone();
+                restInP.andNot(union);
+
+                updates.put(rChild, new BitSet[]{union, restInP, outsideP});
+            }
+
+            if (rParent != null && parentReroot != childReroot) {
+                BitSet[] pSets = getPartitionsForNode(parentReroot);
+                if (pSets.length >= 3) {
+                    updates.put(rParent, pSets);
+                }
+            }
+        }
+
+        if (!updates.isEmpty()) {
+            updateRowsSafelyAndSave(updates);
+        } else {
+            deltaStack.push(new LapStateDelta(new int[0], new int[0][0], new int[0],
+                    Arrays.copyOf(u, dim), Arrays.copyOf(v, dim),
+                    Arrays.copyOf(rowsol, dim), Arrays.copyOf(colsol, dim), currentDistance, new IdentityHashMap<>()));
+        }
+    }
+
+    @Override
+    public void moveRerootUp(Node parentReroot, Node childReroot, Node pruneNode) {
+        undoDeltaStack();
     }
 
     // =========================================================================
@@ -423,8 +803,8 @@ public class M3IncrementalMetric implements IncrementalMetric, RootedTbrMetric {
 
         currentSplits.put(vNode, newSplitV);
 
-        if (rVIndex != null) computeRowCost(rVIndex, getPartitionsForNode(vNode));
-        if (rUIndex != null && !rUIndex.equals(rVIndex)) computeRowCost(rUIndex, getPartitionsForNode(uNode));
+        if (rVIndex != null) computeRowCostFast(rVIndex, getPartitionsForNode(vNode));
+        if (rUIndex != null && !rUIndex.equals(rVIndex)) computeRowCostFast(rUIndex, getPartitionsForNode(uNode));
 
         if (rows.length > 0) {
             int rawMetric = LapSolver.lapUpdate(dim, assigncost, rowsol, colsol, this.u, this.v, rows);
@@ -463,7 +843,7 @@ public class M3IncrementalMetric implements IncrementalMetric, RootedTbrMetric {
         System.arraycopy(colsol, 0, scratchOldColsol, 0, dim);
         int oldTripletCount = currentT1TripletCount[r_w];
 
-        computeRowCost(r_w, scratchSets);
+        computeRowCostFast(r_w, scratchSets);
 
         scratchChangedRow[0] = r_w;
         int rawMetric = LapSolver.lapUpdate(dim, assigncost, rowsol, colsol, u, v, scratchChangedRow);
@@ -513,11 +893,11 @@ public class M3IncrementalMetric implements IncrementalMetric, RootedTbrMetric {
 
         List<Integer> changedList = new ArrayList<>(2);
         if (r1 != null) {
-            computeRowCost(r1, getPartitionsForNode(p1));
+            computeRowCostFast(r1, getPartitionsForNode(p1));
             changedList.add(r1);
         }
         if (r2 != null && !r2.equals(r1)) {
-            computeRowCost(r2, getPartitionsForNode(p2));
+            computeRowCostFast(r2, getPartitionsForNode(p2));
             changedList.add(r2);
         }
 
@@ -572,7 +952,7 @@ public class M3IncrementalMetric implements IncrementalMetric, RootedTbrMetric {
     }
 
     // =========================================================================
-    // PEŁNA IMPLEMENTACJA ECR
+    // IMPLEMENTACJA ECR
     // =========================================================================
 
     @Override
@@ -770,7 +1150,7 @@ public class M3IncrementalMetric implements IncrementalMetric, RootedTbrMetric {
 
         int[] newT1TripletCount = new int[dim];
         for (int r_new = 0; r_new < intT1Num; r_new++) {
-            newT1TripletCount[r_new] = coutTriplets(tPerfect.getInternalNode(r_new), cSizeNew);
+            newT1TripletCount[r_new] = countTriplets(tPerfect.getInternalNode(r_new), cSizeNew);
         }
 
         int[][] tempAssigncost = new int[dim][dim];
@@ -1005,7 +1385,7 @@ public class M3IncrementalMetric implements IncrementalMetric, RootedTbrMetric {
         return maxId + 1;
     }
 
-    private int coutTriplets(Node n, short[] clustSizeTab) {
+    private int countTriplets(Node n, short[] clustSizeTab) {
         int chCount = n.getChildCount();
         int[] chSize = new int[chCount + 1];
 
@@ -1059,270 +1439,6 @@ public class M3IncrementalMetric implements IncrementalMetric, RootedTbrMetric {
         }
 
         return cSets;
-    }
-
-    private void computeRowCost(int row, BitSet[] sets) {
-        // Poprawka 1: Prawidłowe wygaszenie wiersza dla usuniętej/zapadniętej krawędzi
-        if (sets == null || sets.length == 0) {
-            currentT1TripletCount[row] = 0;
-            for (int c = 0; c < dim; c++) {
-                assigncost[row][c] = (c < intT2Num) ? t2IntTripletCount[c] : 0;
-            }
-            return;
-        }
-
-        Arrays.fill(scratchIntersections, 0);
-        int tripletCount = 0;
-
-        for (int i = 0; i < sets.length; i++) {
-            BitSet sA = sets[i];
-            if (sA == null || sA.isEmpty()) continue;
-            int cardA = sA.cardinality();
-
-            for (int j = i + 1; j < sets.length; j++) {
-                BitSet sB = sets[j];
-                if (sB == null || sB.isEmpty()) continue;
-                int cardB = sB.cardinality();
-
-                for (int k = j + 1; k < sets.length; k++) {
-                    BitSet sC = sets[k];
-                    if (sC == null || sC.isEmpty()) continue;
-                    int cardC = sC.cardinality();
-
-                    tripletCount += cardA * cardB * cardC;
-
-                    for (int l1 = sA.nextSetBit(0); l1 >= 0; l1 = sA.nextSetBit(l1 + 1)) {
-                        int[] lcaRow1 = targetLcaMatrix[l1];
-                        for (int l2 = sB.nextSetBit(0); l2 >= 0; l2 = sB.nextSetBit(l2 + 1)) {
-                            int lca12 = lcaRow1[l2];
-                            int[] lcaRow2 = targetLcaMatrix[l2];
-
-                            for (int l3 = sC.nextSetBit(0); l3 >= 0; l3 = sC.nextSetBit(l3 + 1)) {
-                                int lca13 = lcaRow1[l3];
-                                int lca23 = lcaRow2[l3];
-
-                                int ind2;
-                                if (lca12 == lca13) ind2 = lca23;
-                                else if (lca12 == lca23) ind2 = lca13;
-                                else ind2 = lca12;
-
-                                if (ind2 >= 0) {
-                                    int col = targetIdToCol[ind2];
-                                    if (col >= 0) scratchIntersections[col]++;
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        currentT1TripletCount[row] = tripletCount;
-
-        for (int c = 0; c < dim; c++) {
-            if (c < intT2Num) {
-                assigncost[row][c] = tripletCount + t2IntTripletCount[c] - (scratchIntersections[c] << 1);
-            } else if (c >= intT2Num) {
-                assigncost[row][c] = tripletCount;
-            }
-        }
-    }
-
-    // =========================================================================
-    // IMPLEMENTACJA KONTRAKTU RootedTbrMetric
-    // =========================================================================
-
-    @Override
-    public void setPrunedState(Node pruneNode, Node wanderingSource) {
-        this.currentPrunedLeaves = (BitSet) getSplitForNode(pruneNode).clone();
-        BitSet P = this.currentPrunedLeaves;
-        Map<Integer, BitSet[]> updates = new HashMap<>();
-
-        Node curr = pruneNode.getParent().getParent();
-        while (curr != null) {
-            Integer r = getRowForNode(curr);
-            if (r != null) {
-                int chCount = curr.getChildCount();
-                int numNeighbors = (curr.getParent() == null) ? chCount : chCount + 1;
-                BitSet[] cSets = new BitSet[numNeighbors];
-                BitSet childrenUnion = new BitSet(N);
-
-                for (int i = 0; i < chCount; i++) {
-                    cSets[i] = (BitSet) getSplitForNode(curr.getChild(i)).clone();
-                    cSets[i].andNot(P);
-                    childrenUnion.or(cSets[i]);
-                }
-                if (curr.getParent() != null) {
-                    BitSet pSet = new BitSet(N);
-                    pSet.set(0, N);
-                    pSet.andNot(P);
-                    pSet.andNot(childrenUnion);
-                    cSets[chCount] = pSet;
-                }
-                updates.put(r, cSets);
-            }
-            curr = curr.getParent();
-        }
-
-        Integer r_floating = getRowForNode(pruneNode.getParent());
-        if (r_floating != null) {
-            updates.put(r_floating, new BitSet[0]);
-        }
-
-        updateRowsSafelyAndSave(updates);
-    }
-
-    public void setTargetRoot(Node pruneNode, Node wanderingSource) {
-        BitSet P = (this.currentPrunedLeaves != null) ? this.currentPrunedLeaves : getSplitForNode(pruneNode);
-        Map<Integer, BitSet[]> updates = new HashMap<>();
-
-        Integer r_floating = getRowForNode(pruneNode.getParent());
-        if (r_floating != null) {
-            Node root = baseTree.getRoot();
-            Node chosenChild = root.getChild(0);
-            BitSet childLeaves = (BitSet) getSplitForNode(chosenChild).clone();
-            childLeaves.andNot(P);
-
-            // Poprawka 2: Dynamiczne wyznaczenie podziału bez gubienia poddrzew w PAL
-            for (int i = 1; i < root.getChildCount() && childLeaves.isEmpty(); i++) {
-                chosenChild = root.getChild(i);
-                childLeaves = (BitSet) getSplitForNode(chosenChild).clone();
-                childLeaves.andNot(P);
-            }
-
-            BitSet rest = new BitSet(N);
-            rest.set(0, N);
-            rest.andNot(P);
-            rest.andNot(childLeaves);
-
-            updates.put(r_floating, new BitSet[]{P, childLeaves, rest});
-        }
-        updateRowsSafelyAndSave(updates);
-    }
-
-    @Override
-    public void setTargetRoot(Node pruneNode, Node rerootNode, Node wanderingSource) {
-        setTargetRoot(pruneNode, wanderingSource);
-    }
-
-    public void moveTargetDown(Node parentTarget, Node childTarget, Node pruneNode, Node wanderingSource) {
-        BitSet P = (this.currentPrunedLeaves != null) ? this.currentPrunedLeaves : getSplitForNode(pruneNode);
-        Map<Integer, BitSet[]> updates = new HashMap<>();
-
-        Integer r_floating = getRowForNode(pruneNode.getParent());
-        if (r_floating != null) {
-            BitSet childLeaves = (BitSet) getSplitForNode(childTarget).clone();
-            childLeaves.andNot(P);
-
-            BitSet rest = new BitSet(N);
-            rest.set(0, N);
-            rest.andNot(P);
-            rest.andNot(childLeaves);
-
-            updates.put(r_floating, new BitSet[]{P, childLeaves, rest});
-        }
-
-        Integer r_p = getRowForNode(parentTarget);
-        if (r_p != null && !r_p.equals(r_floating)) {
-            int chCount = parentTarget.getChildCount();
-            int numNeighbors = (parentTarget.getParent() == null) ? chCount : chCount + 1;
-            BitSet[] cSets = new BitSet[numNeighbors];
-            BitSet targetLeaves = getSplitForNode(childTarget);
-            BitSet childrenUnion = new BitSet(N);
-
-            for (int i = 0; i < chCount; i++) {
-                cSets[i] = (BitSet) getSplitForNode(parentTarget.getChild(i)).clone();
-                cSets[i].andNot(P);
-                if (cSets[i].intersects(targetLeaves)) {
-                    cSets[i].or(P);
-                }
-                childrenUnion.or(cSets[i]);
-            }
-
-            if (parentTarget.getParent() != null) {
-                BitSet pSet = new BitSet(N);
-                pSet.set(0, N);
-                pSet.andNot(childrenUnion);
-                cSets[chCount] = pSet;
-            }
-
-            updates.put(r_p, cSets);
-        }
-
-        updateRowsSafelyAndSave(updates);
-    }
-
-    @Override
-    public void moveTargetDown(Node parentTarget, Node childTarget, Node pruneNode, Node rerootNode, Node wanderingSource) {
-        moveTargetDown(parentTarget, childTarget, pruneNode, wanderingSource);
-    }
-
-    @Override
-    public void moveTargetUp(Node parentTarget, Node childTarget, Node pruneNode, Node rerootNode, Node wanderingSource) {
-        undoDeltaStack();
-    }
-
-    public void moveTargetUp(Node parentTarget, Node childTarget, Node pruneNode, Node wanderingSource) {
-        undoDeltaStack();
-    }
-
-    @Override
-    public void revertPrunedState(Node pruneNode, Node wanderingSource) {
-        undoDeltaStack();
-        undoDeltaStack();
-    }
-
-    @Override
-    public void moveRerootDown(Node parentReroot, Node childReroot, Node pruneNode) {
-        Map<Integer, BitSet[]> updates = new HashMap<>();
-
-        if (currentPrunedLeaves != null) {
-            BitSet outsideP = new BitSet(N);
-            outsideP.set(0, N);
-            outsideP.andNot(currentPrunedLeaves);
-
-            Integer rChild = getRowForNode(childReroot);
-            Integer rParent = getRowForNode(parentReroot);
-
-            if (rChild != null) {
-                int chCount = childReroot.getChildCount();
-                BitSet[] cSets = new BitSet[chCount + 1];
-                BitSet union = new BitSet(N);
-
-                for (int i = 0; i < chCount; i++) {
-                    cSets[i] = (BitSet) getSplitForNode(childReroot.getChild(i)).clone();
-                    union.or(cSets[i]);
-                }
-                BitSet restInP = (BitSet) currentPrunedLeaves.clone();
-                restInP.andNot(union);
-
-                updates.put(rChild, new BitSet[]{union, restInP, outsideP});
-            }
-
-            if (rParent != null && parentReroot != childReroot) {
-                BitSet childLeaves = getSplitForNode(childReroot);
-                BitSet pMinusChild = (BitSet) currentPrunedLeaves.clone();
-                pMinusChild.andNot(childLeaves);
-
-                BitSet[] pSets = getPartitionsForNode(parentReroot);
-                if (pSets.length >= 3) {
-                    updates.put(rParent, pSets);
-                }
-            }
-        }
-
-        if (!updates.isEmpty()) {
-            updateRowsSafelyAndSave(updates);
-        } else {
-            deltaStack.push(new LapStateDelta(new int[0], new int[0][0], new int[0],
-                    Arrays.copyOf(u, dim), Arrays.copyOf(v, dim),
-                    Arrays.copyOf(rowsol, dim), Arrays.copyOf(colsol, dim), currentDistance, new IdentityHashMap<>()));
-        }
-    }
-
-    @Override
-    public void moveRerootUp(Node parentReroot, Node childReroot, Node pruneNode) {
-        undoDeltaStack();
     }
 
     @Override public void applySprPrune(Node pruneNode) { this.activePruneNode = pruneNode; }
