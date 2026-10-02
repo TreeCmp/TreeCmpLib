@@ -229,9 +229,9 @@ public class Ecr3SingleStepBenchmark {
             } else if (size <= 200) {
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
             } else if (size <= 300) {
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
             } else if (size <= 2000) {
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
             } else {
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
             }
