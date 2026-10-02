@@ -28,7 +28,7 @@ public abstract class AbstractSingleStepBenchmark {
                 .include(includeRegex)
                 .param("treeSize", sizeStr)
                 .param("metricName", metrics)
-                .jvmArgs("-Xms4g", "-Xmx16g")
+                //.jvmArgs("-Xms4g", "-Xmx16g")
                 .addProfiler("gc")
                 //.addProfiler("jfr")
                 ;
