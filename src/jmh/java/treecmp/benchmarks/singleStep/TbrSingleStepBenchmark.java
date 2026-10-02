@@ -33,7 +33,8 @@ public class TbrSingleStepBenchmark {
     @Param({"RF", "RFC", "MS", "MC", "MP", "M3"})
     public String metricName;
 
-    @Param({"10", "20", "30", "50", "80", "120", "200", "300", "500"})
+    // Rozszerzona lista rozmiarów
+    @Param({"10", "20", "30", "50", "80", "120", "200", "300", "500", "800", "1200"})
     public int treeSize;
 
     private Tree t1;
@@ -229,38 +230,34 @@ public class TbrSingleStepBenchmark {
         for (String sizeStr : treeSizes) {
             int size = Integer.parseInt(sizeStr);
 
-            // DRABINKA LIMITÓW SPECYFICZNA DLA TBR (sąsiedztwo O(N^3)):
             if (size <= 20) {
-                // Dla N <= 20 mierzymy wszystko (klasyczne i inkrementalne)
+                // Pełny przekrój Classic + Incremental dla małych drzew
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"}, className, quickEstimate));
             } else if (size <= 30) {
-                // M3 klasyczne odpada (złożoność O(N^6)-O(N^7)); MS, MC, MP klasyczne jeszcze mieszczą się w budżecie
+                // Classic dla prostszych metryk, M3 tylko Incremental
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP"}, className, quickEstimate));
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"M3"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
             } else if (size <= 50) {
-                // Klasyczne metryki Matchingowe odpadają (O(N^6) = zbyt długi czas).
-                // MS i M3 inkrementalne bez 2D-DFS odpadają z powodu lawinowych alokacji O(N^3).
+                // Klasyki odpadają (złożoność O(N^6)). Wszystkie metryki inkrementalne odblokowane!
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC"}, className, quickEstimate));
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"MC", "MP"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
-            } else if (size <= 70) {
-                // Ostatni próg dla klasycznego RF (O(N^4))
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF"}, className, quickEstimate));
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RFC", "MC", "MP"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
-            } else if (size <= 150) {
-                // Tylko inkrementalne z dedykowanymi algorytmami 2D-DFS
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MC", "MP"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
-            } else if (size <= 300) {
-                // Tylko najszybsze metryki inkrementalne RF i RFC
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"MS", "MC", "MP", "M3"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+            } else if (size <= 80) {
+                // RF Classic odpada; MS, MC, MP, M3 inkrementalne w zasięgu minutowym
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+            } else if (size <= 120) {
+                // Bez M3 (dla N=120 M3 przekroczy budżet); MS, MC, MP oraz RF/RFC stabilne
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+            } else if (size <= 200) {
+                // Ekstremalny test dopasowań MS, MC, MP oraz szybkie RF, RFC
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+            } else if (size <= 1000) {
+                // Skrajne rozmiary dla metryk bitowych O(N^3)
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
-            } else if (size <= 500) {
-                // Wyłącznie RFC inkrementalne
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RFC"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
             } else {
-                System.out.println("Pomijam rozmiar " + size + " dla TBR (zbyt duży narzut O(N^3)).");
+                System.out.println("Pomijam rozmiar " + size + " dla TBR.");
             }
         }
 
-        // Zapis zagregowanych wyników do dedykowanego pliku CSV
         AbstractSingleStepBenchmark.exportToCsv("benchmark_single_step_TBR.csv", allResults, "TBR");
     }
 }
