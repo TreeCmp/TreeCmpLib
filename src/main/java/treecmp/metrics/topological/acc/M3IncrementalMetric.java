@@ -89,7 +89,7 @@ public class M3IncrementalMetric implements IncrementalMetric, RootedTbrMetric {
     // Słownik mapujący trójpartycje (Signature) bazowego drzewa na indeksy wierszy macierzy kosztów
     private Map<Signature, Integer> baseSigToRow;
 
-    // Prealokowane bufory robocze dla evaluateExactUTbrDistance (Zero-Allocation w pętli TBR)
+    // Prealokowane bufory robocze dla Zero-Allocation w pętli TBR / SPR
     private int[][] scratchSavedRows;
     private int[] scratchSavedTripletCounts;
     private int[] scratchChangedRows;
@@ -99,6 +99,7 @@ public class M3IncrementalMetric implements IncrementalMetric, RootedTbrMetric {
     private int[] scratchSavedV;
     private int[] scratchSavedRowsol;
     private int[] scratchSavedColsol;
+    private int[][] cachedKArrays;
 
     public BitSet getSplit(Node n) {
         return getSplitForNode(n);
@@ -281,7 +282,7 @@ public class M3IncrementalMetric implements IncrementalMetric, RootedTbrMetric {
             int rawMetric = LapSolver.lap(dim, lapCost, rowsol, colsol, this.u, this.v);
             this.currentDistance = 0.5 * rawMetric;
 
-            // Inicjalizacja prealokowanych struktur do szybkiej ewaluacji uTBR
+            // Inicjalizacja prealokowanych struktur do szybkiej ewaluacji uTBR i uSPR
             this.baseSigToRow = new HashMap<>((intT1Num * 4) / 3 + 1);
             for (int r = 0; r < intT1Num; r++) {
                 Node n = this.baseTree.getInternalNode(r);
@@ -297,6 +298,12 @@ public class M3IncrementalMetric implements IncrementalMetric, RootedTbrMetric {
             this.scratchSavedV = new int[dim];
             this.scratchSavedRowsol = new int[dim];
             this.scratchSavedColsol = new int[dim];
+
+            int maxK = Math.max(64, dim + 1);
+            this.cachedKArrays = new int[maxK][];
+            for (int i = 0; i < maxK; i++) {
+                this.cachedKArrays[i] = new int[i];
+            }
 
         } else {
             this.currentDistance = 0;
@@ -569,37 +576,10 @@ public class M3IncrementalMetric implements IncrementalMetric, RootedTbrMetric {
     }
 
     // =========================================================================
-    // PRZYROSTOWA EWALUACJA uTBR DLA M3 Z CIEPŁYM STARTEM LAP (O(k * N^2))
+    // SZYBKA EWALUACJA DRZEWA SĄSIEDNIEGO (ZERO-ALLOCATION, WARM-START LAP)
     // =========================================================================
 
-    public double evaluateExactUTbrDistance(Node pruneNode, Node rerootNode, Node targetNode, BitSet movingBits) {
-        if (pruneNode == null || rerootNode == null || targetNode == null || this.targetTree == null) {
-            return Double.POSITIVE_INFINITY;
-        }
-
-        Tree tree = this.baseTree;
-        if (pruneNode.getParent() != null) {
-            Node r = pruneNode;
-            while (r.getParent() != null) r = r.getParent();
-            if (this.originalBaseTree != null && r == this.originalBaseTree.getRoot()) {
-                tree = this.originalBaseTree;
-            } else if (this.baseTree != null && r == this.baseTree.getRoot()) {
-                tree = this.baseTree;
-            } else {
-                tree = new SimpleTree(r);
-            }
-        }
-
-        Tree tempTree;
-        try {
-            tempTree = utbrUtils.createUtbrTree(tree, pruneNode, rerootNode, targetNode);
-        } catch (Exception e) {
-            return Double.POSITIVE_INFINITY;
-        }
-        if (tempTree == null) {
-            return Double.POSITIVE_INFINITY;
-        }
-
+    private double evaluateTempTreeDistance(Tree tempTree) {
         if (tempTree instanceof SimpleTree) {
             ((SimpleTree) tempTree).createNodeList();
             pal.tree.TreeUtils.computeParentPointers(tempTree.getRoot());
@@ -664,7 +644,8 @@ public class M3IncrementalMetric implements IncrementalMetric, RootedTbrMetric {
             computeRowCostFast(r, scratchNewSignatures[i].canonicalParts);
         }
 
-        int[] changedRowsParam = (k == scratchChangedRows.length) ? scratchChangedRows : Arrays.copyOf(scratchChangedRows, k);
+        int[] changedRowsParam = (k < cachedKArrays.length) ? cachedKArrays[k] : new int[k];
+        System.arraycopy(scratchChangedRows, 0, changedRowsParam, 0, k);
 
         // 4. Ciepły start solvera LAP
         int rawMetric = LapSolver.lapUpdate(dim, assigncost, rowsol, colsol, u, v, changedRowsParam);
@@ -684,12 +665,86 @@ public class M3IncrementalMetric implements IncrementalMetric, RootedTbrMetric {
         return dist;
     }
 
+    // =========================================================================
+    // PRZYROSTOWA EWALUACJA uTBR I uSPR
+    // =========================================================================
+
+    public double evaluateExactUTbrDistance(Node pruneNode, Node rerootNode, Node targetNode, BitSet movingBits) {
+        if (pruneNode == null || rerootNode == null || targetNode == null || this.targetTree == null) {
+            return Double.POSITIVE_INFINITY;
+        }
+
+        Tree tree = this.baseTree;
+        if (pruneNode.getParent() != null) {
+            Node r = pruneNode;
+            while (r.getParent() != null) r = r.getParent();
+            if (this.originalBaseTree != null && r == this.originalBaseTree.getRoot()) {
+                tree = this.originalBaseTree;
+            } else if (this.baseTree != null && r == this.baseTree.getRoot()) {
+                tree = this.baseTree;
+            } else {
+                tree = new SimpleTree(r);
+            }
+        }
+
+        Tree tempTree;
+        try {
+            tempTree = utbrUtils.createUtbrTree(tree, pruneNode, rerootNode, targetNode);
+        } catch (Exception e) {
+            return Double.POSITIVE_INFINITY;
+        }
+        if (tempTree == null) {
+            return Double.POSITIVE_INFINITY;
+        }
+
+        return evaluateTempTreeDistance(tempTree);
+    }
+
     public double evaluateExactUtbrDistance(Node pruneNode, Node rerootNode, Node targetNode, BitSet movingBits) {
         return evaluateExactUTbrDistance(pruneNode, rerootNode, targetNode, movingBits);
     }
 
     public double evaluateExactTbrDistance(Node pruneNode, Node rerootNode, Node targetNode, BitSet movingBits) {
         return evaluateExactUTbrDistance(pruneNode, rerootNode, targetNode, movingBits);
+    }
+
+    @Override
+    public double evaluateSprRegraft(Node pruneNode, Node targetNode) {
+        if (pruneNode == null || targetNode == null || this.targetTree == null) {
+            return Double.POSITIVE_INFINITY;
+        }
+
+        Tree tree = this.baseTree;
+        if (pruneNode.getParent() != null) {
+            Node r = pruneNode;
+            while (r.getParent() != null) r = r.getParent();
+            if (this.originalBaseTree != null && r == this.originalBaseTree.getRoot()) {
+                tree = this.originalBaseTree;
+            } else if (this.baseTree != null && r == this.baseTree.getRoot()) {
+                tree = this.baseTree;
+            } else {
+                tree = new SimpleTree(r);
+            }
+        }
+
+        Tree tempTree = null;
+        try {
+            tempTree = usprUtils.createUsprTree(tree, pruneNode, targetNode);
+        } catch (Exception ignored) {
+        }
+
+        if (tempTree == null) {
+            try {
+                tempTree = utbrUtils.createUtbrTree(tree, pruneNode, pruneNode, targetNode);
+            } catch (Exception ignored) {
+            }
+        }
+
+        if (tempTree == null) {
+            return Double.POSITIVE_INFINITY;
+        }
+
+        return evaluateTempTreeDistance(tempTree);
     }
 
     // =========================================================================
@@ -1565,15 +1620,6 @@ public class M3IncrementalMetric implements IncrementalMetric, RootedTbrMetric {
     @Override public void undoSprPrune(Node pruneNode) { this.activePruneNode = null; }
     @Override public void applySprRegraftStep(Node pruneNode, Node currentNode) { throw new UnsupportedOperationException(); }
     @Override public void undoSprRegraftStep() { throw new UnsupportedOperationException(); }
-
-    @Override
-    public double evaluateSprRegraft(Node pruneNode, Node targetNode) {
-        Tree tempTree = usprUtils.createUsprTree(this.baseTree, pruneNode, targetNode);
-        if (tempTree != null) {
-            return mtMetricFull.getDistance(tempTree, this.targetTree);
-        }
-        return Double.POSITIVE_INFINITY;
-    }
 
     @Override public double getCurrentDistance() { return this.currentDistance; }
     @Override public void commit() { history.clear(); deltaStack.clear(); }
