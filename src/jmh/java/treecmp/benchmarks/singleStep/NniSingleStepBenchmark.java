@@ -210,13 +210,13 @@ public class NniSingleStepBenchmark {
     public static void main(String[] args) throws Exception {
         boolean quickEstimate = true;
 
-        String[] treeSizes = Ecr2SingleStepBenchmark.class
+        String[] treeSizes = NniSingleStepBenchmark.class
                 .getField("treeSize")
                 .getAnnotation(Param.class)
                 .value();
 
         List<org.openjdk.jmh.results.RunResult> allResults = new ArrayList<>();
-        String className = Ecr2SingleStepBenchmark.class.getSimpleName();
+        String className = NniSingleStepBenchmark.class.getSimpleName();
 
         for (String sizeStr : treeSizes) {
             int size = Integer.parseInt(sizeStr);
@@ -233,50 +233,13 @@ public class NniSingleStepBenchmark {
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF"}, className, quickEstimate));
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RFC", "MS", "MC", "MP"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
             } else if (size <= 3000) {
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+                // Dodano MP obok MS i MC
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
             } else {
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
             }
         }
 
-        // Zrzut jednym wywołaniem na sam koniec!
-        AbstractSingleStepBenchmark.exportToCsv("benchmark_single_step_ECR2.csv", allResults, "ECR2");
-    }
-
-    // Usunięta funkcja runJmh! Wszystko jest dziedziczone statycznie z AbstractSingleStepBenchmark!
-
-    // Nasz nowy, dedykowany eksporter wyników do formatu VND
-    private static void exportToCsv(String filename, List<RunResult> results, String neighborhood) throws Exception {
-        try (PrintWriter pw = new PrintWriter(new FileWriter(filename))) {
-            // Generujemy piękny nagłówek
-            pw.println("Neighborhood,Size,IsRooted,Metric,Variant,TimeUs,AllocBytesPerOp");
-
-            for (RunResult r : results) {
-                String metric = r.getParams().getParam("metricName");
-                String size = r.getParams().getParam("treeSize");
-                String benchmark = r.getParams().getBenchmark();
-
-                // Dedukcja typu drzewa i wariantu algorytmu
-                String variant = benchmark.contains("Incremental") ? "2. Incremental" : "1. Classic";
-                boolean isRooted = metric.equals("RFC") || metric.equals("MC") || metric.equals("MP");
-
-                // Główny wynik: Średni czas operacji (w Mikrosekundach)
-                double timeUs = r.getPrimaryResult().getScore();
-
-                // Wynik dodatkowy: Alokacja pamięci pobrana bezpośrednio z GC Profilera
-                double allocBytes = Double.NaN;
-                for (Result sec : r.getSecondaryResults().values()) {
-                    if (sec.getLabel().equals("gc.alloc.rate.norm")) {
-                        allocBytes = sec.getScore(); // Zwraca zużycie w Bajtach per Operacja
-                        break;
-                    }
-                }
-
-                // Zapisujemy wiersz do pliku, zabezpieczając kropki ułamków Locale.US
-                pw.printf(Locale.US, "%s,%s,%b,%s,%s,%.4f,%.2f%n",
-                        neighborhood, size, isRooted, metric, variant, timeUs, allocBytes);
-            }
-            System.out.println("Zapisano wyniki Single-Step do pliku: " + filename);
-        }
+        AbstractSingleStepBenchmark.exportToCsv("benchmark_single_step_NNI.csv", allResults, "NNI");
     }
 }
