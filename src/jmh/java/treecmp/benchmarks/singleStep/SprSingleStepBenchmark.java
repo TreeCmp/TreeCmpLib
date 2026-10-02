@@ -243,7 +243,6 @@ public class SprSingleStepBenchmark {
         for (String sizeStr : treeSizes) {
             int size = Integer.parseInt(sizeStr);
 
-            // ZREKONSTRUOWANE LIMITY SPECYFICZNE DLA SPR (sąsiedztwo O(N^2)):
             if (size <= 50) {
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"}, className, quickEstimate));
             } else if (size <= 80) {
@@ -251,20 +250,17 @@ public class SprSingleStepBenchmark {
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"M3"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
             } else if (size <= 120) {
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC"}, className, quickEstimate));
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"MS", "MC", "MP"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"MS", "MC", "MP", "M3"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
             } else if (size <= 200) {
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF"}, className, quickEstimate));
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RFC", "MS", "MC", "MP"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
-            } else if (size <= 300) {
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RFC", "MS", "MC", "MP", "M3"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
             } else if (size <= 500) {
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+                // Dodano MP obok MS i MC
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
             } else if (size <= 1200) {
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
             } else if (size <= 12000) {
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RFC"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
-            } else {
-                System.out.println("Pomijam rozmiar " + size + " dla SPR (OOM limit / zbyt długi czas iteracji).");
             }
         }
 
