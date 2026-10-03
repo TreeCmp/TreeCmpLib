@@ -1,6 +1,8 @@
 package treecmp.util;
 
 import pal.misc.IdGroup;
+import pal.tree.Node;
+import pal.tree.Tree;
 import pal.tree.TreeUtils;
 import treecmp.common.AlignInfo;
 import treecmp.common.TreeCmpException;
@@ -9,18 +11,22 @@ import treecmp.heuristics.TreeRootedHolder;
 import treecmp.heuristics.TreeUnrootedHolder;
 import treecmp.heuristics.ecr.SubtreeEcr2Utils;
 import treecmp.heuristics.ecr.SubtreeEcr3Utils;
+import treecmp.heuristics.ecr.acc.Ecr2IncrementalMetric;
+import treecmp.heuristics.ecr.acc.Ecr3IncrementalMetric;
+import treecmp.heuristics.moves.NniMove;
+import treecmp.heuristics.nni.acc.NniIncrementalMetric;
 import treecmp.heuristics.spr.SprUtils;
 import treecmp.heuristics.spr.UsprUtils;
 import treecmp.metrics.IncrementalMetric;
-import treecmp.heuristics.moves.NniMove;
-import pal.tree.Node;
-import pal.tree.Tree;
 
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 
-public class CoverageMockMetric implements IncrementalMetric {
+public class CoverageMockMetric implements IncrementalMetric,
+        NniIncrementalMetric,
+        Ecr2IncrementalMetric,
+        Ecr3IncrementalMetric {
 
     private final Set<TreeHolder> visitedTopologies = new HashSet<>();
     private int evaluationCount = 0;
@@ -47,11 +53,10 @@ public class CoverageMockMetric implements IncrementalMetric {
         this.idGroup = TreeUtils.getLeafIdGroup(baseTree);
     }
 
-    @Override
     public double evaluateSprRegraft(Node pruneNode, Node targetNode) {
         evaluationCount++;
 
-        // Zależnie od trybu pakujemy w odpowiedniego Holdera za pomocą odpowiedniego Utils!
+        // Zależnie od trybu pakujemy w odpowiedniego Holdera za pomocą odpowiedniego Utils
         if (isRooted) {
             Tree physicalNeighborTree = mockSprUtils.createSprTree(baseTree, pruneNode, targetNode);
             visitedTopologies.add(new TreeRootedHolder(physicalNeighborTree, idGroup));
@@ -63,10 +68,10 @@ public class CoverageMockMetric implements IncrementalMetric {
         return 1.0;
     }
 
-    @Override public void applySprPrune(Node pruneNode) { }
-    @Override public void undoSprPrune(Node pruneNode) { }
-    @Override public void applySprRegraftStep(Node pruneNode, Node currentNode) { }
-    @Override public void undoSprRegraftStep() { }
+    public void applySprPrune(Node pruneNode) { }
+    public void undoSprPrune(Node pruneNode) { }
+    public void applySprRegraftStep(Node pruneNode, Node currentNode) { }
+    public void undoSprRegraftStep() { }
 
     @Override
     public double evaluate2sEcrMove(Node top, Node m1, Node m2, Node[] boundarySubtrees, SubtreeEcr2Utils.TopologyTemplate2sECR newTopology) {
@@ -88,13 +93,24 @@ public class CoverageMockMetric implements IncrementalMetric {
         return 0;
     }
 
-    @Override public double applyNni(NniMove move) { return 1.0; }
-    @Override public void undoNni(NniMove move) { }
-    @Override public double getCurrentDistance() { return 1.0; }
-    @Override public void commit() { }
+    @Override
+    public double applyNni(NniMove move) {
+        return 1.0;
+    }
+
+    @Override
+    public void undoNni(NniMove move) { }
+
+    @Override
+    public double getCurrentDistance() {
+        return 1.0;
+    }
+
+    @Override
+    public void commit() { }
 
     // ==========================================
-    // METODY BAZOWE INTERFEJSU METRIC (ZAŚLEPKI DLA KOMPILATORA)
+    // METODY BAZOWE INTERFEJSU METRIC
     // ==========================================
 
     @Override

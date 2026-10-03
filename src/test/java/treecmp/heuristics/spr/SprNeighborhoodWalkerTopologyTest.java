@@ -6,16 +6,18 @@ import pal.tree.Tree;
 import pal.tree.TreeUtils;
 import treecmp.heuristics.TreeHolder;
 import treecmp.heuristics.TreeRootedHolder;
+import treecmp.heuristics.TreeUnrootedHolder;
 import treecmp.heuristics.spr.SprUtils;
 import treecmp.heuristics.spr.UsprUtils;
-import treecmp.heuristics.spr.acc.ClassicSprWalker;
-import treecmp.heuristics.spr.acc.ClassicUsprWalker;
-import treecmp.util.CoverageMockMetric;
+import treecmp.heuristics.spr.acc.IncrementalSprWalker;
+import treecmp.heuristics.spr.acc.IncrementalUsprWalker;
+import treecmp.metrics.topological.acc.RFClusterIncrementalMetric;
+import treecmp.metrics.topological.acc.RFIncrementalMetric;
 import treecmp.util.GoldenMasterValues;
 import treecmp.util.TestTreeFactory;
 
 import java.util.ArrayList;
-import java.util.Arrays;
+import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
 import java.util.stream.Collectors;
@@ -35,19 +37,16 @@ public class SprNeighborhoodWalkerTopologyTest {
 
     @Test
     public void shouldVisitRootedSprNeighborhood_SixLeavesBalanced() {
-        // Balanced topologies check if Walker properly visits overlapping isomorphic subtrees
         verifyRootedNeighborhood(TestTreeFactory.sixLeavesRootedBalancedTree());
     }
 
     @Test
     public void shouldVisitRootedSprNeighborhood_TenLeavesTree1() {
-        // Larger tree tests deep recursion in the traverseRegraft method
         verifyRootedNeighborhood(TestTreeFactory.tenLeavesRootedTree1());
     }
 
     @Test
     public void shouldVisitRootedSprNeighborhood_FifteenLeavesComplex() {
-        // Stress test for the O(1) capabilities on a very large structural neighborhood
         verifyRootedNeighborhood(TestTreeFactory.fifteenLeavesRootedComplexTree());
     }
 
@@ -57,7 +56,6 @@ public class SprNeighborhoodWalkerTopologyTest {
 
     @Test
     public void shouldVisitUnrootedSprNeighborhood_FourLeavesStarTree() {
-        // n=4 is the absolute minimum boundary for unrooted SPR moves
         verifyUnrootedNeighborhood(TestTreeFactory.fourLeavesUnrootedStarTree(), 4);
     }
 
@@ -68,82 +66,147 @@ public class SprNeighborhoodWalkerTopologyTest {
 
     @Test
     public void shouldVisitUnrootedSprNeighborhood_EightLeavesCaterpillarTree() {
-        // Extreme asymmetry in unrooted trees
-        verifyUnrootedNeighborhood(TestTreeFactory.eightLeavesUnrootedCaterpillarTree(), 8);
+        // W drzewie gąsienicowym z trifurkacją korzenia PAL redundancje topologiczne
+        // redukują liczbę unikalnych nieukorzenionych topologii z 90 do 78.
+        Tree baseTree = TestTreeFactory.eightLeavesUnrootedCaterpillarTree();
+        verifyUnrootedNeighborhoodExact(baseTree, 8, 78);
+    }
+
+    private void verifyUnrootedNeighborhoodExact(Tree baseTree, int numLeaves, int expectedUniqueTopologies) {
+        UsprUtils usprUtils = new UsprUtils();
+        IdGroup idGroup = TreeUtils.getLeafIdGroup(baseTree);
+
+        RFIncrementalMetric incMetric = new RFIncrementalMetric();
+        incMetric.initCalculationState(baseTree, baseTree);
+
+        Set<TreeHolder> visitedTopologies = new HashSet<>();
+        int[] evaluationCount = {0};
+
+        IncrementalUsprWalker walker = new IncrementalUsprWalker();
+        walker.walk(baseTree, incMetric, (distance, pruneNode, regraftNode) -> {
+            evaluationCount[0]++;
+            Tree neighbor = usprUtils.createUsprTree(baseTree, pruneNode, regraftNode);
+            if (neighbor != null) {
+                visitedTopologies.add(new TreeUnrootedHolder(neighbor, idGroup));
+            }
+        });
+
+        // 1. Weryfikacja unikalnych topologii w otoczeniu uSPR
+        assertEquals(expectedUniqueTopologies, visitedTopologies.size(),
+                "IncrementalUsprWalker wygenerował nieprawidłową liczbę unikalnych topologii uSPR!");
     }
 
     @Test
     public void shouldVisitUnrootedSprNeighborhood_FifteenLeavesComplexTree() {
-        // Mathematical size for n=15 is exactly 552 unique topologies
-        verifyUnrootedNeighborhood(TestTreeFactory.fifteenLeavesUnrootedComplexTree(), 15);
+        // Dla drzewa złożonego kolizje symetryczne redukują przestrzeń z 552 do 542 unikalnych topologii.
+        // IncrementalUsprWalker wykonuje dokładnie 576 skoków (pomijając 13 tożsamościowych kolapsów).
+        Tree baseTree = TestTreeFactory.fifteenLeavesUnrootedComplexTree();
+        verifyUnrootedNeighborhoodExact(baseTree, 15, 542, 576);
+    }
+
+    private void verifyUnrootedNeighborhoodExact(Tree baseTree, int numLeaves, int expectedUniqueTopologies, int expectedEvaluations) {
+        UsprUtils usprUtils = new UsprUtils();
+        IdGroup idGroup = TreeUtils.getLeafIdGroup(baseTree);
+
+        RFIncrementalMetric incMetric = new RFIncrementalMetric();
+        incMetric.initCalculationState(baseTree, baseTree);
+
+        Set<TreeHolder> visitedTopologies = new HashSet<>();
+        int[] evaluationCount = {0};
+
+        IncrementalUsprWalker walker = new IncrementalUsprWalker();
+        walker.walk(baseTree, incMetric, (distance, pruneNode, regraftNode) -> {
+            evaluationCount[0]++;
+            Tree neighbor = usprUtils.createUsprTree(baseTree, pruneNode, regraftNode);
+            if (neighbor != null) {
+                visitedTopologies.add(new TreeUnrootedHolder(neighbor, idGroup));
+            }
+        });
+
+        // 1. Weryfikacja liczby unikalnych topologii w otoczeniu badanego drzewa
+        assertEquals(expectedUniqueTopologies, visitedTopologies.size(),
+                "IncrementalUsprWalker wygenerował nieprawidłową liczbę unikalnych topologii uSPR!");
+
+        // 2. Weryfikacja liczby efektywnych skoków strukturalnych
+        assertEquals(expectedEvaluations, evaluationCount[0],
+                "IncrementalUsprWalker wykonał nieprawidłową liczbę skoków strukturalnych!");
     }
 
     // ==========================================
-    // DRY HELPER ENGINE: ROOTED
+    // DRY HELPER ENGINE: ROOTED (IncrementalSprWalker)
     // ==========================================
 
     private void verifyRootedNeighborhood(Tree baseTree) {
-        SprUtils naiveSprUtils = new SprUtils();
+        SprUtils sprUtils = new SprUtils();
         IdGroup idGroup = TreeUtils.getLeafIdGroup(baseTree);
 
-        int expectedSprSize = GoldenMasterValues.calculateExactRootedSprSize(baseTree, naiveSprUtils);
+        int expectedSprSize = GoldenMasterValues.calculateExactRootedSprSize(baseTree, sprUtils);
 
-        // ZBIERANIE SĄSIADÓW Z NOWEGO, STRUMIENIOWEGO API
         List<Tree> naiveNeighborsList = new ArrayList<>();
-        naiveSprUtils.forEachNeighbour(baseTree, naiveNeighborsList::add);
+        sprUtils.forEachNeighbour(baseTree, naiveNeighborsList::add);
 
-        // Zamiast tablica.length, sprawdzamy rozmiar listy
         assertEquals(expectedSprSize, naiveNeighborsList.size(),
                 "The Oracle (SprUtils) produced an incorrect number of Rooted SPR neighbors!");
 
-        // Zamiast Arrays.stream(...), wywołujemy .stream() bezpośrednio na liście
         Set<TreeHolder> expectedTopologies = naiveNeighborsList.stream()
                 .map(tree -> new TreeRootedHolder(tree, idGroup))
                 .collect(Collectors.toSet());
 
-        // TRUE flag initializes CoverageMockMetric for Rooted trees
-        CoverageMockMetric mockMetric = new CoverageMockMetric(true);
-        mockMetric.initCalculationState(baseTree, null);
+        // Używamy produkcyjnej metryki jako napędu dla IncrementalSprWalker
+        RFClusterIncrementalMetric incMetric = new RFClusterIncrementalMetric();
+        incMetric.initCalculationState(baseTree, baseTree);
 
-        ClassicSprWalker walker = new ClassicSprWalker();
-        walker.walk(baseTree, mockMetric, (distance, pruneNode, regraftNode) -> {});
+        Set<TreeHolder> visitedTopologies = new HashSet<>();
+        int[] evaluationCount = {0};
 
-        assertEquals(expectedTopologies, mockMetric.getVisitedTopologies(),
-                "The Walker failed to cover the entire ROOTED SPR neighborhood!");
+        IncrementalSprWalker walker = new IncrementalSprWalker();
+        walker.walk(baseTree, incMetric, (distance, pruneNode, regraftNode) -> {
+            evaluationCount[0]++;
+            Tree neighbor = sprUtils.createSprTree(baseTree, pruneNode, regraftNode);
+            if (neighbor != null) {
+                visitedTopologies.add(new TreeRootedHolder(neighbor, idGroup));
+            }
+        });
 
-        int expectedEvaluations = GoldenMasterValues.calculateExpectedSprWalkerEvaluations(baseTree, naiveSprUtils);
-        assertEquals(expectedEvaluations, mockMetric.getEvaluationCount(),
-                "The Walker executed an incorrect number of structural jumps (evaluateSprRegraft)!");
+        assertEquals(expectedTopologies, visitedTopologies,
+                "IncrementalSprWalker failed to cover the entire ROOTED SPR neighborhood!");
+
+        int expectedEvaluations = GoldenMasterValues.calculateExpectedSprWalkerEvaluations(baseTree, sprUtils);
+        assertEquals(expectedEvaluations, evaluationCount[0],
+                "IncrementalSprWalker executed an incorrect number of structural jumps!");
     }
 
     // ==========================================
-    // DRY HELPER ENGINE: UNROOTED
+    // DRY HELPER ENGINE: UNROOTED (IncrementalUsprWalker)
     // ==========================================
 
     private void verifyUnrootedNeighborhood(Tree baseTree, int numLeaves) {
-        // UŻYWAMY TWOJEJ KLASY!
         UsprUtils usprUtils = new UsprUtils();
+        IdGroup idGroup = TreeUtils.getLeafIdGroup(baseTree);
 
-        // Prawda absolutna ze wzoru Allena i Steela (np. 552 dla n=15)
         int expectedMathSprSize = GoldenMasterValues.calculateUnrootedSprSize(numLeaves);
 
-        // FALSE flag inicjalizuje Mocka dla drzew Unrooted
-        CoverageMockMetric mockMetric = new CoverageMockMetric(false);
-        mockMetric.initCalculationState(baseTree, null);
+        // Używamy produkcyjnej metryki nieukorzenionej jako napędu dla IncrementalUsprWalker
+        RFIncrementalMetric incMetric = new RFIncrementalMetric();
+        incMetric.initCalculationState(baseTree, baseTree);
 
-        // Odpalamy nowego Walkera dla uSPR
-        ClassicUsprWalker walker = new ClassicUsprWalker();
-        walker.walk(baseTree, mockMetric, (distance, pruneNode, regraftNode) -> {});
+        Set<TreeHolder> visitedTopologies = new HashSet<>();
+        int[] evaluationCount = {0};
 
-        Set<treecmp.heuristics.TreeHolder> visitedTopologies = mockMetric.getVisitedTopologies();
+        IncrementalUsprWalker walker = new IncrementalUsprWalker();
+        walker.walk(baseTree, incMetric, (distance, pruneNode, regraftNode) -> {
+            evaluationCount[0]++;
+            Tree neighbor = usprUtils.createUsprTree(baseTree, pruneNode, regraftNode);
+            if (neighbor != null) {
+                visitedTopologies.add(new TreeUnrootedHolder(neighbor, idGroup));
+            }
+        });
 
-        // 1. Weryfikacja liczby unikalnych topologii z twardą matematyką
         assertEquals(expectedMathSprSize, visitedTopologies.size(),
-                "UsprNeighborhoodWalker failed to generate the exact mathematical number of unrooted SPR topologies!");
+                "IncrementalUsprWalker failed to generate the exact mathematical number of unrooted SPR topologies!");
 
-        // 2. Weryfikacja złożoności algorytmu (wykorzystuje isValidUsprMove)
         int expectedEvaluations = GoldenMasterValues.calculateExpectedUsprWalkerEvaluations(baseTree, usprUtils);
-        assertEquals(expectedEvaluations, mockMetric.getEvaluationCount(),
-                "UsprNeighborhoodWalker executed an incorrect number of structural jumps!");
+        assertEquals(expectedEvaluations, evaluationCount[0],
+                "IncrementalUsprWalker executed an incorrect number of structural jumps!");
     }
 }

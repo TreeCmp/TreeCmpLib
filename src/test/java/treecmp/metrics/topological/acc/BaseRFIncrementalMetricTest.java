@@ -7,26 +7,24 @@ import static org.junit.jupiter.api.Assertions.*;
 import pal.tree.Node;
 import pal.tree.Tree;
 import pal.tree.TreeUtils;
-import treecmp.metrics.IncrementalMetric;
 import treecmp.util.TestTreeFactory;
 import treecmp.heuristics.moves.NniMove;
 
 // 1. Klasa jest ABSTRACT - JUnit nie uruchomi jej bezpośrednio
 public abstract class BaseRFIncrementalMetricTest {
 
-    // 2. Zmieniamy typ na klasę bazową Twoich metryk
-    protected IncrementalMetric metric;
+    // 2. Typem pola jest klasa bazowa metryk RF (posiadająca applyNni / undoNni)
+    protected BaseRFIncrementalMetric metric;
     protected static final double DELTA = 0.000001;
 
     protected Tree t1;
     protected Tree t2;
 
-    // 3. Wymuszamy na klasach potomnych dostarczenie konkretnej implementacji
-    protected abstract IncrementalMetric createMetricInstance();
+    // 3. Klasy potomne dostarczają instancję rozszerzającą BaseRFIncrementalMetric
+    protected abstract BaseRFIncrementalMetric createMetricInstance();
 
     @BeforeEach
     void setUp() {
-        // Zamiast "new RFCluster...", wywołujemy metodę abstrakcyjną
         metric = createMetricInstance();
 
         t1 = TestTreeFactory.fiveLeavesRootedCaterpillarTree();
@@ -92,33 +90,25 @@ public abstract class BaseRFIncrementalMetricTest {
         metric.initCalculationState(t1, t2);
         double initialDist = metric.getCurrentDistance();
 
-        // Znajdujemy węzły do wykonania serii ruchów na drzewie bazowym
         Node node2 = TreeUtils.getNodeByName(t1, "2");
         Node node3 = TreeUtils.getNodeByName(t1, "3");
         Node node4 = TreeUtils.getNodeByName(t1, "4");
 
-        // Definiujemy dwa kolejne ruchy (trajektoria)
-        // Ruch 1: zamiana 2 i 3 (zmienia klastry głęboko w drzewie)
         NniMove move1 = new NniMove(node2, node3);
-        // Ruch 2: zamiana 3 i 4 (zmienia klastry wyżej w drzewie)
         NniMove move2 = new NniMove(node3, node4);
 
-        // Act - KROK W PRZÓD (wykonujemy sekwencję)
+        // Act - KROK W PRZÓD
         double distAfterMove1 = metric.applyNni(move1);
         double distAfterMove2 = metric.applyNni(move2);
 
-        // Sprawdzamy, czy trajektoria w ogóle zmieniła dystans, żeby test miał sens
         assertEquals(1.0, distAfterMove2, DELTA,
                 "Po drugim ruchu dystans powinien wzrosnąć z powrotem do 1.0");
 
-        // Act & Assert - KROK W TYŁ (cofamy w odwrotnej kolejności - LIFO!)
-
-        // 1. Cofamy drugi ruch
+        // Act & Assert - KROK W TYŁ (LIFO)
         metric.undoNni(move2);
         assertEquals(distAfterMove1, metric.getCurrentDistance(), DELTA,
                 "Po cofnięciu drugiego ruchu, dystans musi wrócić dokładnie do stanu po pierwszym ruchu");
 
-        // 2. Cofamy pierwszy ruch
         metric.undoNni(move1);
         assertEquals(initialDist, metric.getCurrentDistance(), DELTA,
                 "Po cofnięciu wszystkich ruchów, dystans i stosy muszą wrócić do idealnego stanu początkowego");
@@ -130,46 +120,34 @@ public abstract class BaseRFIncrementalMetricTest {
         metric.initCalculationState(t1, t2);
         double initialDist = metric.getCurrentDistance();
 
-        // Pobieramy wszystkie liście, żeby zrobić prawdziwy chaos w klastrach
         Node n1 = TreeUtils.getNodeByName(t1, "1");
         Node n2 = TreeUtils.getNodeByName(t1, "2");
         Node n3 = TreeUtils.getNodeByName(t1, "3");
         Node n4 = TreeUtils.getNodeByName(t1, "4");
         Node n5 = TreeUtils.getNodeByName(t1, "5");
 
-        // Definiujemy zestaw ruchów (niektóre blisko siebie, inne w różnych częściach drzewa)
-        NniMove move1 = new NniMove(n2, n3); // Ten naprawia drzewo (dystans spada do 0.0)
-        NniMove move2 = new NniMove(n4, n5); // Psuje górną część
-        NniMove move3 = new NniMove(n1, n2); // Ślepa uliczka, którą zaraz cofniemy
+        NniMove move1 = new NniMove(n2, n3);
+        NniMove move2 = new NniMove(n4, n5);
+        NniMove move3 = new NniMove(n1, n2);
 
-        NniMove move4 = new NniMove(n1, n4); // Nowa ścieżka zamiast move3
-        NniMove move5 = new NniMove(n3, n5); // Kolejny krok w nowej ścieżce
+        NniMove move4 = new NniMove(n1, n4);
+        NniMove move5 = new NniMove(n3, n5);
 
-        // ==========================================================
-        // ETAP 1: Idziemy głęboko w las (3 ruchy w przód)
-        // ==========================================================
+        // ETAP 1
         double dist1 = metric.applyNni(move1);
         double dist2 = metric.applyNni(move2);
-        double dist3 = metric.applyNni(move3); // To jest koniec naszej pierwszej gałęzi
+        double dist3 = metric.applyNni(move3);
 
-        // ==========================================================
-        // ETAP 2: Cofamy się o 1 krok (odrzucamy ślepą uliczkę)
-        // ==========================================================
+        // ETAP 2
         metric.undoNni(move3);
         assertEquals(dist2, metric.getCurrentDistance(), DELTA,
-                "Po wycofaniu move3 (ślepej uliczki) dystans musi wrócic idealnie do stanu po move2");
+                "Po wycofaniu move3 (ślepej uliczki) dystans musi wrócić idealnie do stanu po move2");
 
-        // ==========================================================
-        // ETAP 3: Zmieniamy zdanie i wchodzimy w nową gałąź (2 nowe ruchy)
-        // ==========================================================
+        // ETAP 3
         double dist4 = metric.applyNni(move4);
         double dist5 = metric.applyNni(move5);
 
-        // ==========================================================
-        // ETAP 4: Wielki powrót do bazy (Cofamy 4 pozostałe ruchy na stosie)
-        // ==========================================================
-        // Zasada LIFO: cofamy od najnowszego do najstarszego
-
+        // ETAP 4 - Powrót LIFO
         metric.undoNni(move5);
         assertEquals(dist4, metric.getCurrentDistance(), DELTA,
                 "Po cofnięciu move5, wracamy do stanu po move4");

@@ -1,13 +1,14 @@
 package treecmp.heuristics.spr;
 
 import org.junit.jupiter.api.Test;
-import pal.tree.SimpleTree;
 import pal.tree.Tree;
 import treecmp.common.TreeCmpException;
 import treecmp.heuristics.spr.SprUtils;
-import treecmp.heuristics.spr.UsprUtils;
 import treecmp.heuristics.spr.SprVisitor;
-import treecmp.heuristics.spr.acc.*;
+import treecmp.heuristics.spr.UsprUtils;
+import treecmp.heuristics.spr.acc.IncrementalSprWalker;
+import treecmp.heuristics.spr.acc.IncrementalUsprWalker;
+import treecmp.heuristics.spr.acc.RootedSprIncrementalMetric;
 import treecmp.metrics.IncrementalMetric;
 import treecmp.metrics.Metric;
 import treecmp.metrics.topological.MatchingClusterMetric;
@@ -21,15 +22,14 @@ import treecmp.util.TestTreeFactory;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 
 /**
- * Test Ostatecznej Zgodności Matematycznej dla Wędrowców SPR.
- * Weryfikuje, czy optymalizacje pamięciowe (Delta Stos) we wszystkich 4 Walkerach
+ * Test Zgodności Matematycznej dla Wędrowców SPR.
+ * Weryfikuje, czy optymalizacje pamięciowe (Delta Stos) w walkerach produkcyjnych
  * utrzymują 100% spójność macierzy względem pełnej ewaluacji w każdym węźle sąsiedztwa.
  */
 public class SprWalkerDistanceConsistencyTest {
 
-    // Tolerancja błędu zmiennoprzecinkowego dla algorytmu węgierskiego
     private static final double EPSILON = 1e-9;
-    private static final int TREE_SIZE = 4; // Rozmiar wystarczający do wywołania głębokich nawrotów (backtracking) DFS
+    private static final int TREE_SIZE = 4;
 
     // ==========================================
     // ROOTED WALKERS (MC, MP)
@@ -42,12 +42,7 @@ public class SprWalkerDistanceConsistencyTest {
 
     @Test
     public void testIncrementalSprWalker_MP_Consistency() {
-        //verifyRootedWalkerConsistency(new IncrementalSprWalker(), new MPIncrementalMetric(), new MatchingPairMetric());
-    }
-
-    @Test
-    public void testClassicSprWalker_MC_Consistency() {
-        verifyRootedWalkerConsistency(new ClassicSprWalker(), new MCIncrementalMetric(), new MatchingClusterMetric());
+        // verifyRootedWalkerConsistency(new IncrementalSprWalker(), new MPIncrementalMetric(), new MatchingPairMetric());
     }
 
     // ==========================================
@@ -59,16 +54,11 @@ public class SprWalkerDistanceConsistencyTest {
         verifyUnrootedWalkerConsistency(new IncrementalUsprWalker(), new MSIncrementalMetric(), new MatchingSplitMetric());
     }
 
-    @Test
-    public void testClassicUsprWalker_MS_Consistency() {
-        verifyUnrootedWalkerConsistency(new ClassicUsprWalker(), new MSIncrementalMetric(), new MatchingSplitMetric());
-    }
-
     // ==========================================
     // SILNIKI WERYFIKUJĄCE (ENGINES)
     // ==========================================
 
-    private void verifyRootedWalkerConsistency(Object walker, IncrementalMetric incMetric, Metric classicMetric) {
+    private void verifyRootedWalkerConsistency(IncrementalSprWalker walker, IncrementalMetric incMetric, Metric classicMetric) {
         Tree t1 = TestTreeFactory.randomRootedBinaryTree(TREE_SIZE, 123L);
         Tree t2 = TestTreeFactory.randomRootedBinaryTree(TREE_SIZE, 456L);
         assignNumbers(t1);
@@ -77,12 +67,11 @@ public class SprWalkerDistanceConsistencyTest {
         incMetric.initCalculationState(t1, t2);
         SprUtils sprUtils = new SprUtils();
 
-        // Nasz audytor: Na każdym kroku Walkera buduje prawdziwe drzewo i sprawdza matematykę
         SprVisitor strictAuditor = (incrementalDistance, pruneNode, targetNode) -> {
             Tree physicalTree = sprUtils.createSprTree(t1, pruneNode, targetNode);
             if (physicalTree != null) {
                 assignNumbers(physicalTree);
-                double classicDistance = 0;
+                double classicDistance;
                 try {
                     classicDistance = classicMetric.getDistance(physicalTree, t2);
                 } catch (TreeCmpException e) {
@@ -95,34 +84,36 @@ public class SprWalkerDistanceConsistencyTest {
             }
         };
 
-        // Uruchamiamy testowanego Walkera
-        if (walker instanceof IncrementalSprWalker) {
-            ((IncrementalSprWalker) walker).walk(t1, (IncrementalSprWalker.RootedMetric) incMetric, strictAuditor);
-        } else if (walker instanceof ClassicSprWalker) {
-            ((ClassicSprWalker) walker).walk(t1, incMetric, strictAuditor);
-        } else {
-            throw new IllegalArgumentException("Nieobsługiwany Walker Ukorzeniony w teście.");
-        }
+        walker.walk(t1, (RootedSprIncrementalMetric) incMetric, strictAuditor);
     }
-    private void verifyUnrootedWalkerConsistency(Object walker, IncrementalMetric incMetric, Metric classicMetric) {
+
+    private void verifyUnrootedWalkerConsistency(IncrementalUsprWalker walker, IncrementalMetric incMetric, Metric classicMetric) {
         Tree t1 = TestTreeFactory.randomUnrootedBinaryTree(TREE_SIZE, 123L);
         Tree t2 = TestTreeFactory.randomUnrootedBinaryTree(TREE_SIZE, 456L);
-        assignNumbers(t1); assignNumbers(t2);
+        assignNumbers(t1);
+        assignNumbers(t2);
 
         incMetric.initCalculationState(t1, t2);
+        UsprUtils usprUtils = new UsprUtils();
 
-        SprVisitor visitor = (actualDist, pruneNode, targetNode) -> {
-            double expectedDist = incMetric.evaluateSprRegraft(pruneNode, targetNode);
-            assertEquals(expectedDist, actualDist, "BŁĄD ZGODNOŚCI w " + walker.getClass().getSimpleName() + "! Ruch " + pruneNode.getNumber() + " -> " + targetNode.getNumber() + " zepsuł macierz.");
+        SprVisitor strictAuditor = (incrementalDistance, pruneNode, targetNode) -> {
+            Tree physicalTree = usprUtils.createUsprTree(t1, pruneNode, targetNode);
+            if (physicalTree != null) {
+                assignNumbers(physicalTree);
+                double classicDistance;
+                try {
+                    classicDistance = classicMetric.getDistance(physicalTree, t2);
+                } catch (TreeCmpException e) {
+                    throw new RuntimeException(e);
+                }
+
+                assertEquals(classicDistance, incrementalDistance, EPSILON,
+                        String.format("BŁĄD ZGODNOŚCI w %s! Ruch %s -> %s zepsuł macierz.",
+                                walker.getClass().getSimpleName(), pruneNode.getNumber(), targetNode.getNumber()));
+            }
         };
 
-        if (walker instanceof IncrementalUsprWalker) {
-            ((IncrementalUsprWalker) walker).walk(t1, incMetric, visitor);
-        } else if (walker instanceof ClassicUsprWalker) {
-            ((ClassicUsprWalker) walker).walk(t1, incMetric, visitor);
-        } else {
-            throw new IllegalArgumentException("Nieobsługiwany Walker Nieukorzeniony w teście.");
-        }
+        walker.walk(t1, incMetric, strictAuditor);
     }
 
     private void assignNumbers(Tree tree) {
@@ -130,5 +121,4 @@ public class SprWalkerDistanceConsistencyTest {
             ((pal.tree.SimpleTree) tree).createNodeList();
         }
     }
-
 }

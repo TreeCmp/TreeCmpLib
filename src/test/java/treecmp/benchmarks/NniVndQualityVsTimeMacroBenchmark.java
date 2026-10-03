@@ -3,9 +3,11 @@ package treecmp.benchmarks;
 import pal.tree.SimpleTree;
 import pal.tree.Tree;
 import treecmp.common.TreeCmpException;
-import treecmp.heuristics.moves.TreeMove;
+import treecmp.heuristics.ecr.acc.Ecr2IncrementalMetric;
+import treecmp.heuristics.ecr.acc.Ecr3IncrementalMetric;
 import treecmp.heuristics.nni.NniClassicHeuristic;
 import treecmp.heuristics.nni.acc.NniIncrementalHeuristic;
+import treecmp.heuristics.nni.acc.NniIncrementalMetric;
 import treecmp.heuristics.spr.SprHeuristicMetric;
 import treecmp.heuristics.spr.UsprHeuristicMetric;
 import treecmp.heuristics.spr.acc.SprIncrementalHeuristicMetric;
@@ -585,7 +587,7 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
     }
 
     private static IncrementalHeuristicBaseMetric createIncNniStep(IncrementalMetric im, Metric classicMetric, String sn) {
-        return new NniIncrementalHeuristic(im, sn) {
+        return new NniIncrementalHeuristic((NniIncrementalMetric) im, sn) {
             @Override public double performLocalDescent(Tree t1, Tree t2) {
                 long s = System.nanoTime();
                 double r = super.performLocalDescent(t1, t2);
@@ -596,7 +598,7 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
     }
 
     private static IncrementalHeuristicBaseMetric createIncEcr2Step(IncrementalMetric im, Metric classicMetric, String sn) {
-        return new Ecr2IncrementalHeuristic(im, sn) {
+        return new Ecr2IncrementalHeuristic((Ecr2IncrementalMetric) im, sn) {
             @Override public double performLocalDescent(Tree startTree, Tree targetTree) {
                 long s = System.nanoTime();
                 double r = super.performLocalDescent(startTree, targetTree);
@@ -607,7 +609,7 @@ public class NniVndQualityVsTimeMacroBenchmark extends AbstractQualityMacroBench
     }
 
     private static IncrementalHeuristicBaseMetric createIncEcr3Step(IncrementalMetric im, Metric classicMetric, String sn) {
-        return new Ecr3IncrementalHeuristic(im, sn) {
+        return new Ecr3IncrementalHeuristic((Ecr3IncrementalMetric) im, sn) {
             @Override public double performLocalDescent(Tree startTree, Tree targetTree) {
                 long s = System.nanoTime();
                 double r = super.performLocalDescent(startTree, targetTree);
