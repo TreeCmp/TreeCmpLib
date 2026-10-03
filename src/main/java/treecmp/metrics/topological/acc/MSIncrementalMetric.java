@@ -9,7 +9,10 @@ import treecmp.common.AlignInfo;
 import treecmp.common.LapSolver;
 import treecmp.heuristics.ecr.SubtreeEcr2Utils;
 import treecmp.heuristics.ecr.SubtreeEcr3Utils;
+import treecmp.heuristics.ecr.acc.Ecr2IncrementalMetric;
+import treecmp.heuristics.ecr.acc.Ecr3IncrementalMetric;
 import treecmp.heuristics.moves.NniMove;
+import treecmp.heuristics.nni.acc.NniIncrementalMetric;
 import treecmp.heuristics.spr.UsprUtils;
 import treecmp.heuristics.tbr.UTbrUtils;
 import treecmp.heuristics.tbr.acc.RootedTbrMetric;
@@ -18,7 +21,11 @@ import treecmp.metrics.topological.MatchingSplitMetric;
 
 import java.util.*;
 
-public class MSIncrementalMetric implements IncrementalMetric, RootedTbrMetric {
+public class MSIncrementalMetric implements IncrementalMetric,
+        NniIncrementalMetric,
+        Ecr2IncrementalMetric,
+        Ecr3IncrementalMetric,
+        RootedTbrMetric {
 
     private Tree baseTree;
     private Tree targetTree;
@@ -237,7 +244,7 @@ public class MSIncrementalMetric implements IncrementalMetric, RootedTbrMetric {
             }
         }
 
-        // 2. ZMIANY W KOMPONENCIE T2 (ZWŁASZCZA TRIFURKACJA KORZENIA PAL)
+        // 2. ZMIANY W KOMPONENCIE T2
         Node remCollapsed;
         if (pParent != root) {
             remCollapsed = pParent;
@@ -245,8 +252,6 @@ public class MSIncrementalMetric implements IncrementalMetric, RootedTbrMetric {
             remCollapsed = findRootChildLeadingTo(root, pruneNode, targetNode);
         }
 
-        // Eliminacja asymetrii: operacja regraftu na rodzeństwie trifurkacji PAL zachowuje topologię T2,
-        // dzięki czemu zmiany w komponencie T2 całkowicie się znoszą.
         boolean cancelRoot = (pParent == root && (targetNode.getParent() == root || remCollapsed == targetNode));
 
         if (!cancelRoot) {
@@ -369,14 +374,13 @@ public class MSIncrementalMetric implements IncrementalMetric, RootedTbrMetric {
             return this.currentDistance;
         }
 
-        // 4. BEZPIECZNA WERYFIKACJA PARZYSTOŚCI (BEZPOŚREDNI FALLBACK GDYBY ZASZŁA ANOMALIA)
+        // 4. BEZPIECZNA WERYFIKACJA PARZYSTOŚCI
         if (toRemove.size() != toAdd.size() || toRemove.isEmpty()) {
             return evaluateViaTempTree(pruneNode, rerootNode, targetNode);
         }
 
         int k = toRemove.size();
 
-        // FAZA 1: Weryfikacja mapowania wierszy
         for (int i = 0; i < k; i++) {
             BitSet rem = toRemove.get(i);
             Integer r = splitToRow.get(rem);
@@ -386,13 +390,11 @@ public class MSIncrementalMetric implements IncrementalMetric, RootedTbrMetric {
             scratchChangedRows[i] = r;
         }
 
-        // FAZA 2: Kopia zapasowa bez alokacji na stercie
         System.arraycopy(u, 0, scratchSavedU, 0, dim);
         System.arraycopy(v, 0, scratchSavedV, 0, dim);
         System.arraycopy(rowsol, 0, scratchSavedRowsol, 0, dim);
         System.arraycopy(colsol, 0, scratchSavedColsol, 0, dim);
 
-        // FAZA 3: Przeliczenie tylko zmienionych wierszy macierzy
         for (int i = 0; i < k; i++) {
             int r = scratchChangedRows[i];
             System.arraycopy(assigncost[r], 0, scratchSavedOldRows[i], 0, dim);
@@ -416,10 +418,8 @@ public class MSIncrementalMetric implements IncrementalMetric, RootedTbrMetric {
         int[] changedRowsParam = (k < cachedKArrays.length) ? cachedKArrays[k] : new int[k];
         System.arraycopy(scratchChangedRows, 0, changedRowsParam, 0, k);
 
-        // FAZA 4: Ciepły start solvera LAP
         double newDistance = LapSolver.lapShortUpdate(dim, assigncost, rowsol, colsol, u, v, changedRowsParam);
 
-        // FAZA 5: Przywrócenie stanu pierwotnego
         for (int i = 0; i < k; i++) {
             System.arraycopy(scratchSavedOldRows[i], 0, assigncost[scratchChangedRows[i]], 0, dim);
         }
@@ -432,7 +432,7 @@ public class MSIncrementalMetric implements IncrementalMetric, RootedTbrMetric {
     }
 
     // =========================================================================
-    // BEZPIECZNY FALLBACK: UŻYWANY TYLKO W WYJĄTKOWYCH PRZYPADKACH
+    // BEZPIECZNY FALLBACK
     // =========================================================================
 
     private double evaluateViaTempTree(Node pruneNode, Node rerootNode, Node targetNode) {
@@ -653,7 +653,6 @@ public class MSIncrementalMetric implements IncrementalMetric, RootedTbrMetric {
             this.scratchSavedColsol = new int[dim];
             this.scratchChangedRows = new int[dim];
 
-            // Inicjalizacja prealokowanego stosu delty (Zero-Allocation)
             int depth = Math.max(128, N * 4);
             this.deltaMaxDepth = depth;
             this.deltaPointer = 0;
@@ -1193,10 +1192,10 @@ public class MSIncrementalMetric implements IncrementalMetric, RootedTbrMetric {
         }
     }
 
-    @Override public void applySprPrune(Node pruneNode) { saveCurrentStateToHistory(); }
-    @Override public void undoSprPrune(Node pruneNode) { undoSprRegraftStep(); }
-    @Override public void applySprRegraftStep(Node pruneNode, Node currentNode) { saveCurrentStateToHistory(); }
-    @Override public void undoSprRegraftStep() {
+    public void applySprPrune(Node pruneNode) { saveCurrentStateToHistory(); }
+    public void undoSprPrune(Node pruneNode) { undoSprRegraftStep(); }
+    public void applySprRegraftStep(Node pruneNode, Node currentNode) { saveCurrentStateToHistory(); }
+    public void undoSprRegraftStep() {
         if (!distanceHistory.isEmpty()) {
             this.assigncost = costHistory.pop();
             this.rowsol = rowsolHistory.pop();
@@ -1208,7 +1207,6 @@ public class MSIncrementalMetric implements IncrementalMetric, RootedTbrMetric {
         }
     }
 
-    @Override
     public double evaluateSprRegraft(Node pruneNode, Node targetNode) {
         UsprUtils utils = new UsprUtils();
         Tree neighbor = utils.createUsprTree(baseTree, pruneNode, targetNode);

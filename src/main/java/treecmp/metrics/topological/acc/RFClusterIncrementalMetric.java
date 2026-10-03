@@ -1,24 +1,28 @@
 package treecmp.metrics.topological.acc;
 
+import pal.misc.IdGroup;
 import pal.tree.Node;
+import pal.tree.SimpleTree;
 import pal.tree.Tree;
+import pal.tree.TreeUtils;
+import treecmp.heuristics.spr.SprUtils;
+import treecmp.heuristics.spr.acc.RootedSprIncrementalMetric;
 import treecmp.heuristics.tbr.TbrUtils;
 import treecmp.heuristics.tbr.acc.RootedTbrMetric;
 import treecmp.metrics.topological.RFClusterMetric;
 
-import java.util.*;
+import java.util.BitSet;
 
-public class RFClusterIncrementalMetric extends BaseRFIncrementalMetric
-        implements RootedTbrMetric {
+public class RFClusterIncrementalMetric extends BaseRFIncrementalMetric implements
+        RootedSprIncrementalMetric,
+        RootedTbrMetric {
 
+    private Tree baseTreeRef;
+    private Tree targetTreeRef;
     private int N;
-    private final Set<BitSet> initialClustersSet = new HashSet<>();
-    private final Set<BitSet> finalClusters = new HashSet<>();
-    private final Set<BitSet> removedClusters = new HashSet<>();
-    private final Set<BitSet> addedClusters = new HashSet<>();
-    private final BitSet leavesT2 = new BitSet();
 
     private final TbrUtils tbrUtils = new TbrUtils();
+    private final SprUtils sprUtils = new SprUtils();
     private final RFClusterMetric classicRfc = new RFClusterMetric();
 
     private Node currentPruneNode;
@@ -26,24 +30,44 @@ public class RFClusterIncrementalMetric extends BaseRFIncrementalMetric
     private Node currentTargetNode;
 
     @Override
+    public boolean isRooted() {
+        return true;
+    }
+
+    @Override
+    protected boolean isNonTrivial(int card, int total) {
+        return card > 1 && card < total;
+    }
+
+    @Override
     public void initCalculationState(Tree baseTree, Tree targetTree) {
         super.initCalculationState(baseTree, targetTree);
-        this.N = baseTree.getExternalNodeCount();
-        refreshInitialClustersSet();
+        this.baseTreeRef = baseTree;
+        this.targetTreeRef = targetTree;
+        this.currentPruneNode = null;
+        this.currentRerootNode = null;
+        this.currentTargetNode = null;
+
+        if (baseTree != null && targetTree != null) {
+            this.N = baseTree.getExternalNodeCount();
+            try {
+                this.currentDistance = classicRfc.getDistance(baseTree, targetTree);
+            } catch (Exception e) {
+                this.currentDistance = 0.0;
+            }
+        } else {
+            this.currentDistance = 0.0;
+        }
     }
 
     @Override
     public void commit() {
         super.commit();
-        refreshInitialClustersSet();
-    }
-
-    private void refreshInitialClustersSet() {
-        this.initialClustersSet.clear();
-        for (Map.Entry<Node, BitSet> e : nodeBitSets.entrySet()) {
-            BitSet bs = (BitSet) e.getValue().clone();
-            if (isNonTrivial(bs.cardinality(), N)) {
-                this.initialClustersSet.add(bs);
+        if (this.baseTreeRef != null && this.targetTreeRef != null) {
+            try {
+                this.currentDistance = classicRfc.getDistance(this.baseTreeRef, this.targetTreeRef);
+            } catch (Exception e) {
+                this.currentDistance = 0.0;
             }
         }
     }
@@ -53,44 +77,35 @@ public class RFClusterIncrementalMetric extends BaseRFIncrementalMetric
         return rawSplit;
     }
 
-    private boolean isClusterShared(BitSet bs) {
-        if (bs == null) return false;
-        int card = bs.cardinality();
-        if (card <= 1 || card >= N) return false;
-        return targetSplits.contains(bs);
-    }
-
-    private Node findLca(Node a, Node b) {
-        if (a == null || b == null) return null;
-        int dA = getDepth(a);
-        int dB = getDepth(b);
-
-        while (dA > dB && a != null) { a = a.getParent(); dA--; }
-        while (dB > dA && b != null) { b = b.getParent(); dB--; }
-
-        while (a != b && a != null && b != null) {
-            a = a.getParent();
-            b = b.getParent();
+    public BitSet getCluster(Node n) {
+        if (n == null) return null;
+        BitSet bs = nodeBitSets.get(n);
+        if (bs != null) return bs;
+        if (n.isLeaf()) {
+            BitSet leafBs = new BitSet(N);
+            IdGroup idGroup = TreeUtils.getLeafIdGroup(this.baseTreeRef);
+            if (idGroup != null) {
+                int id = idGroup.whichIdNumber(n.getIdentifier().getName());
+                if (id >= 0) leafBs.set(id);
+            }
+            return leafBs;
         }
-        return a;
-    }
-
-    private int getDepth(Node n) {
-        int d = 0;
-        Node curr = n;
-        while (curr != null) {
-            d++;
-            curr = curr.getParent();
-        }
-        return d;
+        return null;
     }
 
     // =========================================================================
-    // KONTRAKT RootedTbrMetric
+    // KONTRAKT RootedSprIncrementalMetric
     // =========================================================================
 
     @Override
     public void setPrunedState(Node pruneNode, Node wanderingSource) {
+        this.currentPruneNode = pruneNode;
+        this.currentRerootNode = pruneNode;
+        this.currentTargetNode = null;
+    }
+
+    @Override
+    public void setTargetRoot(Node pruneNode, Node wanderingSource) {
         this.currentPruneNode = pruneNode;
         this.currentRerootNode = pruneNode;
         this.currentTargetNode = (baseTreeRef != null) ? baseTreeRef.getRoot() : null;
@@ -104,10 +119,22 @@ public class RFClusterIncrementalMetric extends BaseRFIncrementalMetric
     }
 
     @Override
+    public void moveTargetDown(Node parentTarget, Node childTarget, Node pruneNode, Node wanderingSource) {
+        this.currentPruneNode = pruneNode;
+        this.currentRerootNode = pruneNode;
+        this.currentTargetNode = childTarget;
+    }
+
+    @Override
     public void moveTargetDown(Node parentTarget, Node childTarget, Node pruneNode, Node rerootNode, Node wanderingSource) {
         this.currentPruneNode = pruneNode;
         this.currentRerootNode = rerootNode;
         this.currentTargetNode = childTarget;
+    }
+
+    @Override
+    public void moveTargetUp(Node parentTarget, Node childTarget, Node pruneNode, Node wanderingSource) {
+        this.currentTargetNode = parentTarget;
     }
 
     @Override
@@ -134,140 +161,54 @@ public class RFClusterIncrementalMetric extends BaseRFIncrementalMetric
 
     @Override
     public double getCurrentDistance() {
-        if (currentPruneNode == null || currentRerootNode == null || currentTargetNode == null) {
+        if (currentPruneNode == null || currentTargetNode == null) {
             return this.currentDistance;
         }
         return evaluateExactTbrDistance(currentPruneNode, currentRerootNode, currentTargetNode, null);
     }
 
+    public double evaluateSprRegraft(Node pruneNode, Node targetNode) {
+        return evaluateExactTbrDistance(pruneNode, pruneNode, targetNode, null);
+    }
+
+    public double evaluateExactTbrDistance(Node pruneNode, Node rerootNode, Node targetNode) {
+        return evaluateExactTbrDistance(pruneNode, rerootNode, targetNode, null);
+    }
+
     // =========================================================================
-    // DOKŁADNA BITOWA DELTA KLASTROW W CZASIE O(depth) BEZ ALOKACJI PAMIĘCI
+    // EWALUACJA SPR / TBR W OPARCIU O PEŁNĄ WYROCZNIĘ RFC
     // =========================================================================
 
     public double evaluateExactTbrDistance(Node pruneNode, Node rerootNode, Node targetNode, BitSet movingBits) {
-        if (this.baseTreeRef == null || this.targetTreeRef == null) {
-            return this.currentDistance;
+        if (this.baseTreeRef == null || this.targetTreeRef == null || pruneNode == null || targetNode == null) {
+            return Double.POSITIVE_INFINITY;
+        }
+        if (targetNode == pruneNode || targetNode == pruneNode.getParent()) {
+            return Double.POSITIVE_INFINITY;
         }
 
-        Node root = this.baseTreeRef.getRoot();
-        Node pParent = pruneNode.getParent();
-        if (pParent == null) return Double.POSITIVE_INFINITY;
-
-        BitSet LP = getCluster(pruneNode);
-        if (LP == null) return Double.POSITIVE_INFINITY;
-
-        removedClusters.clear();
-        addedClusters.clear();
-
-        // --- A. DRZEWO T2 ---
-        if (pParent != root) {
-            BitSet bsParent = getCluster(pParent);
-            if (bsParent != null) removedClusters.add(bsParent);
+        Tree tempTree;
+        try {
+            if (rerootNode == null || rerootNode == pruneNode) {
+                tempTree = sprUtils.createSprTree(this.baseTreeRef, pruneNode, targetNode);
+            } else {
+                tempTree = tbrUtils.createTbrTree(this.baseTreeRef, pruneNode, rerootNode, targetNode);
+            }
+        } catch (Exception e) {
+            return Double.POSITIVE_INFINITY;
         }
 
-        Node lca = findLca(pParent, targetNode);
-
-        if (pParent != lca) {
-            Node curr = pParent.getParent();
-            while (curr != null && curr != lca) {
-                BitSet oldC = getCluster(curr);
-                if (oldC != null) {
-                    removedClusters.add(oldC);
-                    BitSet newC = (BitSet) oldC.clone();
-                    newC.andNot(LP);
-                    if (isNonTrivial(newC.cardinality(), N)) {
-                        addedClusters.add(newC);
-                    }
-                }
-                curr = curr.getParent();
+        if (tempTree != null) {
+            if (tempTree instanceof SimpleTree) {
+                ((SimpleTree) tempTree).createNodeList();
+                TreeUtils.computeParentPointers(tempTree.getRoot());
+            }
+            try {
+                return classicRfc.getDistance(tempTree, this.targetTreeRef);
+            } catch (Exception e) {
+                return Double.POSITIVE_INFINITY;
             }
         }
-
-        if (targetNode != lca) {
-            Node currT = targetNode.getParent();
-            while (currT != null && currT != lca) {
-                BitSet oldC = getCluster(currT);
-                if (oldC != null) {
-                    removedClusters.add(oldC);
-                    BitSet newC = (BitSet) oldC.clone();
-                    newC.or(LP);
-                    if (isNonTrivial(newC.cardinality(), N)) {
-                        addedClusters.add(newC);
-                    }
-                }
-                currT = currT.getParent();
-            }
-        }
-
-        if (targetNode == lca) {
-            BitSet oldC = getCluster(targetNode);
-            if (oldC != null) {
-                removedClusters.add(oldC);
-                BitSet newC = (BitSet) oldC.clone();
-                newC.andNot(LP);
-                if (isNonTrivial(newC.cardinality(), N)) {
-                    addedClusters.add(newC);
-                }
-            }
-        }
-
-        // Węzeł wpięcia W w T2
-        if (targetNode == root) {
-            leavesT2.clear();
-            leavesT2.set(0, N);
-            leavesT2.andNot(LP);
-            if (isNonTrivial(leavesT2.cardinality(), N)) {
-                addedClusters.add((BitSet) leavesT2.clone());
-            }
-        } else {
-            BitSet targetBs = getCluster(targetNode);
-            if (targetBs != null) {
-                BitSet newW = (BitSet) targetBs.clone();
-                newW.or(LP);
-                if (isNonTrivial(newW.cardinality(), N)) {
-                    addedClusters.add(newW);
-                }
-            }
-        }
-
-        // --- B. DRZEWO T1 (Przekorzenienie na krawędź powyżej R) ---
-        if (rerootNode != pruneNode) {
-            Node childOnPath = rerootNode;
-            Node currOnPath = rerootNode.getParent();
-
-            while (currOnPath != null && currOnPath != pruneNode) {
-                BitSet oldC = getCluster(currOnPath);
-                if (oldC != null) {
-                    removedClusters.add(oldC);
-                }
-
-                BitSet childC = getCluster(childOnPath);
-                if (childC != null) {
-                    BitSet newC = (BitSet) LP.clone();
-                    newC.andNot(childC);
-                    if (isNonTrivial(newC.cardinality(), N)) {
-                        addedClusters.add(newC);
-                    }
-                }
-
-                childOnPath = currOnPath;
-                currOnPath = currOnPath.getParent();
-            }
-        }
-
-        // --- C. BEZPOŚREDNIA REKONSTRUKCJA ZBIORU KLASTRÓW ---
-        finalClusters.clear();
-        finalClusters.addAll(initialClustersSet);
-        finalClusters.removeAll(removedClusters);
-        finalClusters.addAll(addedClusters);
-
-        int shared = 0;
-        for (BitSet bs : finalClusters) {
-            if (isClusterShared(bs)) {
-                shared++;
-            }
-        }
-
-        return (finalClusters.size() + targetSplits.size() - 2.0 * shared) / 2.0;
+        return Double.POSITIVE_INFINITY;
     }
 }

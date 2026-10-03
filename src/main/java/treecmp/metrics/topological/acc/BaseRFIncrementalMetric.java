@@ -2,15 +2,24 @@ package treecmp.metrics.topological.acc;
 
 import pal.tree.Node;
 import pal.tree.Tree;
+import treecmp.heuristics.ecr.SubtreeEcr2Utils.TopologyTemplate2sECR;
+import treecmp.heuristics.ecr.SubtreeEcr3Utils.TopologyTemplate3sECR;
+import treecmp.heuristics.ecr.acc.Ecr2IncrementalMetric;
+import treecmp.heuristics.ecr.acc.Ecr3IncrementalMetric;
 import treecmp.heuristics.moves.NniMove;
+import treecmp.heuristics.nni.acc.NniIncrementalMetric;
 import treecmp.metrics.BaseMetric;
 import treecmp.metrics.IncrementalMetric;
 
 import java.util.*;
 
-public abstract class BaseRFIncrementalMetric extends BaseMetric implements IncrementalMetric {
+public abstract class BaseRFIncrementalMetric extends BaseMetric implements
+        IncrementalMetric,
+        NniIncrementalMetric,
+        Ecr2IncrementalMetric,
+        Ecr3IncrementalMetric {
 
-    // Struktury statyczne (zbudowane raz)
+    // Struktury statyczne (zbudowane raz na starcie)
     protected final Set<BitSet> targetSplits = new HashSet<>();
     protected final Map<Node, BitSet> nodeBitSets = new IdentityHashMap<>();
     protected BitSet allLeavesMask;
@@ -18,7 +27,7 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
     // Śledzi aktualny wirtualny split węzła w trakcie przeszukiwania otoczenia
     protected final Map<Node, BitSet> activeVirtualSplits = new HashMap<>();
 
-    // Stosy pamiętające dokładny stan sprzed każdego ruchu (zsynchronizowane atomowo)
+    // Stosy pamiętające stan sprzed każdego ruchu
     protected final Stack<Integer> sharedSplitsHistory = new Stack<>();
     protected final Stack<Node> movingNodeHistory = new Stack<>();
     protected final Stack<BitSet> activeSplitHistory = new Stack<>();
@@ -28,7 +37,7 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
     protected int totalInternalSplits;
     protected double currentDistance;
 
-    // Śledzi głębokość odcięcia, by poprawnie cofnąć applySprPrune
+    // Śledzi głębokość odcięcia dla przejścia uSPR
     protected final Stack<Integer> sprPruneDepths = new Stack<>();
 
     protected abstract BitSet normalizeSplit(BitSet rawSplit);
@@ -37,16 +46,8 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
         return card > 1 && card < total;
     }
 
-    protected Tree baseTreeRef;
-    protected Tree targetTreeRef;
-    private final treecmp.heuristics.tbr.TbrUtils tbrUtilsHelper = new treecmp.heuristics.tbr.TbrUtils();
-    private final treecmp.metrics.topological.RFClusterMetric classicRfcHelper = new treecmp.metrics.topological.RFClusterMetric();
-
     @Override
     public void initCalculationState(Tree baseTree, Tree targetTree) {
-        this.baseTreeRef = baseTree;
-        this.targetTreeRef = targetTree;
-
         targetSplits.clear();
         nodeBitSets.clear();
         activeVirtualSplits.clear();
@@ -77,6 +78,10 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
         this.totalInternalSplits = baseSplits.size();
         updateCurrentDistance();
     }
+
+    // =========================================================================
+    // NNI / KROK PRZYROSTOWY O(1)
+    // =========================================================================
 
     public double applyNniStep(Node nodeToUpdate, BitSet bitsOut, BitSet bitsIn) {
         if (nodeToUpdate == null) return this.currentDistance;
@@ -143,36 +148,6 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
         undoNniStep();
     }
 
-    public double applyUpdate(Node node, BitSet bitsToApply, boolean add) {
-        if (node == null) return this.currentDistance;
-
-        BitSet oldBSInVirtual = activeVirtualSplits.get(node);
-        BitSet currentBS = (oldBSInVirtual != null) ? oldBSInVirtual : nodeBitSets.get(node);
-        if (currentBS == null) {
-            return this.currentDistance;
-        }
-
-        sharedSplitsHistory.push(sharedSplitsCount);
-        movingNodeHistory.push(node);
-        operationNodeCountHistory.push(1);
-        activeSplitHistory.push(oldBSInVirtual);
-
-        if (isShared(currentBS)) sharedSplitsCount--;
-
-        BitSet newBS = (BitSet) currentBS.clone();
-        if (add) newBS.or(bitsToApply); else newBS.andNot(bitsToApply);
-
-        activeVirtualSplits.put(node, newBS);
-        if (isShared(newBS)) sharedSplitsCount++;
-
-        updateCurrentDistance();
-        return currentDistance;
-    }
-
-    public void undoUpdate() {
-        undoNniStep();
-    }
-
     @Override
     public void commit() {
         nodeBitSets.putAll(activeVirtualSplits);
@@ -192,25 +167,6 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
     public BitSet getCluster(Node node) {
         if (node == null) return null;
         return activeVirtualSplits.getOrDefault(node, nodeBitSets.get(node));
-    }
-
-    public double evaluateExactSprDistance(Node pruneNode, Node targetNode, BitSet movingBits) {
-        int virtualShared = this.sharedSplitsCount;
-
-        Node oldParent = pruneNode.getParent();
-        if (oldParent != null) {
-            BitSet oldParentBits = getCluster(oldParent);
-            if (isShared(oldParentBits)) virtualShared--;
-        }
-
-        BitSet targetBits = getCluster(targetNode);
-        if (targetBits != null) {
-            BitSet newNodeBits = (BitSet) targetBits.clone();
-            newNodeBits.or(movingBits);
-            if (isShared(newNodeBits)) virtualShared++;
-        }
-
-        return (totalInternalSplits + targetSplits.size() - 2.0 * virtualShared) / 2.0;
     }
 
     public boolean isShared(BitSet bs) {
@@ -282,11 +238,10 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
         return bs;
     }
 
-    // ==========================================
-    // IMPLEMENTACJA INTERFEJSU SPR
-    // ==========================================
+    // =========================================================================
+    // METODY PRZEJŚCIA DLA WĘDROWCA uSPR
+    // =========================================================================
 
-    @Override
     public void applySprPrune(Node pruneNode) {
         if (pruneNode == null) {
             sprPruneDepths.push(0);
@@ -306,7 +261,6 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
         sprPruneDepths.push(pruneDepth);
     }
 
-    @Override
     public void undoSprPrune(Node pruneNode) {
         if (sprPruneDepths.isEmpty()) return;
         int depth = sprPruneDepths.pop();
@@ -315,21 +269,24 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
         }
     }
 
-    @Override
     public double evaluateSprRegraft(Node pruneNode, Node targetNode) {
         BitSet movingBits = getCluster(pruneNode);
-        return evaluateExactSprDistance(pruneNode, targetNode, movingBits);
-    }
+        int virtualShared = this.sharedSplitsCount;
 
-    @Override
-    public void applySprRegraftStep(Node pruneNode, Node currentNode) {
-        BitSet movingBits = getCluster(pruneNode);
-        applyNniStep(currentNode, null, movingBits);
-    }
+        Node oldParent = pruneNode.getParent();
+        if (oldParent != null) {
+            BitSet oldParentBits = getCluster(oldParent);
+            if (isShared(oldParentBits)) virtualShared--;
+        }
 
-    @Override
-    public void undoSprRegraftStep() {
-        undoNniStep();
+        BitSet targetBits = getCluster(targetNode);
+        if (targetBits != null) {
+            BitSet newNodeBits = (BitSet) targetBits.clone();
+            newNodeBits.or(movingBits);
+            if (isShared(newNodeBits)) virtualShared++;
+        }
+
+        return (totalInternalSplits + targetSplits.size() - 2.0 * virtualShared) / 2.0;
     }
 
     private boolean isDescendantOrSelf(Node descendant, Node ancestor) {
@@ -341,19 +298,19 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
         return false;
     }
 
-    // ==========================================
-    // IMPLEMENTACJA 2-sECR
-    // ==========================================
+    // =========================================================================
+    // 2-sECR O(1)
+    // =========================================================================
 
     @Override
-    public double evaluate2sEcrMove(Node top, Node m1, Node m2, Node[] boundarySubtrees, treecmp.heuristics.ecr.SubtreeEcr2Utils.TopologyTemplate2sECR newTopology) {
+    public double evaluate2sEcrMove(Node top, Node m1, Node m2, Node[] boundarySubtrees, TopologyTemplate2sECR newTopology) {
         double evaluatedDistance = commit2sEcrMove(top, m1, m2, boundarySubtrees, newTopology);
         undoNniStep();
         return evaluatedDistance;
     }
 
     @Override
-    public double commit2sEcrMove(Node top, Node m1, Node m2, Node[] boundarySubtrees, treecmp.heuristics.ecr.SubtreeEcr2Utils.TopologyTemplate2sECR newTopology) {
+    public double commit2sEcrMove(Node top, Node m1, Node m2, Node[] boundarySubtrees, TopologyTemplate2sECR newTopology) {
         BitSet topCluster = getCluster(top);
         BitSet[] sBits = new BitSet[4];
         for (int i = 0; i < 4; i++) {
@@ -410,19 +367,19 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
         return this.currentDistance;
     }
 
-    // ==========================================
-    // IMPLEMENTACJA 3-sECR (ŚCISŁY PORZĄDEK DFS ZGODNY Z BIND PHYSICAL)
-    // ==========================================
+    // =========================================================================
+    // 3-sECR O(1)
+    // =========================================================================
 
     @Override
-    public double evaluate3sEcrMove(List<Node> cluster, Node[] boundarySubtrees, treecmp.heuristics.ecr.SubtreeEcr3Utils.TopologyTemplate3sECR newTopology) {
+    public double evaluate3sEcrMove(List<Node> cluster, Node[] boundarySubtrees, TopologyTemplate3sECR newTopology) {
         double evaluatedDistance = commit3sEcrMove(cluster, boundarySubtrees, newTopology);
         undoNniStep();
         return evaluatedDistance;
     }
 
     @Override
-    public double commit3sEcrMove(List<Node> cluster, Node[] boundarySubtrees, treecmp.heuristics.ecr.SubtreeEcr3Utils.TopologyTemplate3sECR newTopology) {
+    public double commit3sEcrMove(List<Node> cluster, Node[] boundarySubtrees, TopologyTemplate3sECR newTopology) {
         Node top = cluster.get(0);
         BitSet topCluster = getCluster(top);
         BitSet[] sBits = new BitSet[5];
@@ -464,7 +421,7 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
         return this.currentDistance;
     }
 
-    private BitSet compute3sEcrTemplateBits(treecmp.heuristics.ecr.SubtreeEcr3Utils.TopologyTemplate3sECR temp,
+    private BitSet compute3sEcrTemplateBits(TopologyTemplate3sECR temp,
                                             Node currentInternal,
                                             Node[] available,
                                             int[] idxArr,
@@ -495,28 +452,5 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements Incr
         }
 
         return myBits;
-    }
-
-    // ==========================================
-    // IMPLEMENTACJA AKCELERATORA TBR
-    // ==========================================
-
-    public double evaluateExactTbrDistance(Node pruneNode, Node rerootNode, Node targetNode, BitSet movingBits) {
-        if (this.baseTreeRef == null || this.targetTreeRef == null) {
-            return getCurrentDistance();
-        }
-
-        Tree physicalTree = tbrUtilsHelper.createTbrTree(this.baseTreeRef, pruneNode, rerootNode, targetNode);
-        if (physicalTree != null) {
-            if (physicalTree instanceof pal.tree.SimpleTree) {
-                ((pal.tree.SimpleTree) physicalTree).createNodeList();
-            }
-            try {
-                return classicRfcHelper.getDistance(physicalTree, this.targetTreeRef);
-            } catch (Exception e) {
-                return Double.POSITIVE_INFINITY;
-            }
-        }
-        return Double.POSITIVE_INFINITY;
     }
 }

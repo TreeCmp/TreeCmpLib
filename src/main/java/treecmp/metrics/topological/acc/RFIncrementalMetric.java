@@ -21,17 +21,27 @@ public class RFIncrementalMetric extends BaseRFIncrementalMetric {
     private final Set<BitSet> removedSplits = new HashSet<>();
     private final Set<BitSet> addedSplits = new HashSet<>();
 
-    private Tree baseTreeRef;
-    private Tree targetTreeRef;
+    protected Tree baseTreeRef;
+    protected Tree targetTreeRef;
 
     @Override
     public void initCalculationState(Tree baseTree, Tree targetTree) {
-        // ZACHOWUJEMY ORYGINALNE REFERENCJE DRZEWA - BEZ KLONOWANIA
-        super.initCalculationState(baseTree, targetTree);
         this.baseTreeRef = baseTree;
         this.targetTreeRef = targetTree;
-        this.N = (baseTree != null) ? baseTree.getExternalNodeCount() : 0;
 
+        targetSplits.clear();
+        nodeBitSets.clear();
+        activeVirtualSplits.clear();
+        sharedSplitsHistory.clear();
+        movingNodeHistory.clear();
+        activeSplitHistory.clear();
+        operationNodeCountHistory.clear();
+        sprPruneDepths.clear();
+
+        Map<String, Integer> leafMapping = createLeafMapping(baseTree);
+        int leafCount = leafMapping.size();
+        super.initCalculationState(baseTree, targetTree);
+        this.N = (baseTree != null) ? baseTree.getExternalNodeCount() : 0;
         refreshInitialSplitsSet();
     }
 
@@ -216,25 +226,13 @@ public class RFIncrementalMetric extends BaseRFIncrementalMetric {
         return evaluateExactUTbrDistance(pruneNode, rerootNode, targetNode, movingBits);
     }
 
-    @Override
     public double evaluateExactTbrDistance(Node pruneNode, Node rerootNode, Node targetNode, BitSet movingBits) {
         return evaluateExactUTbrDistance(pruneNode, rerootNode, targetNode, movingBits);
     }
 
     // =========================================================================
-    // OBSŁUGA uSPR (100% spójności z wyrocznią klasyczną)
+    // OBSŁUGA uSPR
     // =========================================================================
-
-    @Override
-    public void applySprRegraftStep(Node pruneNode, Node currentNode) {
-        if (isDescendant(currentNode, pruneNode)) {
-            sharedSplitsHistory.push(sharedSplitsCount);
-            movingNodeHistory.push(currentNode);
-            activeSplitHistory.push(activeVirtualSplits.get(currentNode));
-        } else {
-            super.applySprRegraftStep(pruneNode, currentNode);
-        }
-    }
 
     @Override
     public double evaluateSprRegraft(Node pruneNode, Node targetNode) {
@@ -257,14 +255,5 @@ public class RFIncrementalMetric extends BaseRFIncrementalMetric {
             }
         }
         return Double.POSITIVE_INFINITY;
-    }
-
-    private boolean isDescendant(Node descendant, Node ancestor) {
-        Node curr = descendant;
-        while (curr != null) {
-            if (curr == ancestor) return true;
-            curr = curr.getParent();
-        }
-        return false;
     }
 }

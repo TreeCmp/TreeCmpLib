@@ -10,9 +10,11 @@ import treecmp.common.LapSolver;
 import treecmp.common.TreeCmpUtils;
 import treecmp.heuristics.ecr.SubtreeEcr2Utils;
 import treecmp.heuristics.ecr.SubtreeEcr3Utils;
+import treecmp.heuristics.ecr.acc.Ecr2IncrementalMetric;
+import treecmp.heuristics.ecr.acc.Ecr3IncrementalMetric;
 import treecmp.heuristics.moves.NniMove;
-import treecmp.heuristics.spr.acc.IncrementalSprWalker;
-import treecmp.heuristics.tbr.acc.IncrementalTbrWalker;
+import treecmp.heuristics.nni.acc.NniIncrementalMetric;
+import treecmp.heuristics.spr.acc.RootedSprIncrementalMetric;
 import treecmp.heuristics.tbr.acc.RootedTbrMetric;
 import treecmp.metrics.IncrementalMetric;
 import treecmp.metrics.BaseMetric;
@@ -21,8 +23,11 @@ import treecmp.metrics.topological.MatchingPairMetric;
 import java.util.*;
 
 public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric,
-        IncrementalSprWalker.RootedMetric,
-        RootedTbrMetric {
+        NniIncrementalMetric,
+        RootedSprIncrementalMetric,
+        RootedTbrMetric,
+        Ecr2IncrementalMetric,
+        Ecr3IncrementalMetric {
 
     private Tree baseTree;
     private Tree targetTree;
@@ -313,7 +318,6 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
         }
     }
 
-
     private void undoDeltaStack() {
         if (deltaStack.isEmpty()) return;
         LapStateDelta delta = deltaStack.pop();
@@ -482,8 +486,8 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
         undoDeltaStack();
     }
 
-    @Override public void applySprPrune(Node pruneNode) { this.activePruneNode = pruneNode; }
-    @Override public void undoSprPrune(Node pruneNode) { this.activePruneNode = null; }
+    public void applySprPrune(Node pruneNode) { this.activePruneNode = pruneNode; }
+    public void undoSprPrune(Node pruneNode) { this.activePruneNode = null; }
 
     public double applyNniStep(Node nodeToUpdate, BitSet bitsOut, BitSet bitsIn) {
         Node v = nodeToUpdate;
@@ -626,7 +630,6 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
         return false;
     }
 
-    @Override
     public double evaluateSprRegraft(Node pruneNode, Node targetNode) {
         SimpleTree tNew = (SimpleTree) createCleanCopy(currentVirtualTree);
         Node P = getMappedNode(tNew, pruneNode);
@@ -672,8 +675,8 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
         return mpMetricFull.getDistance(finalTree, this.targetTree);
     }
 
-    @Override public void applySprRegraftStep(Node pruneNode, Node currentNode) { throw new UnsupportedOperationException(); }
-    @Override public void undoSprRegraftStep() { throw new UnsupportedOperationException(); }
+    public void applySprRegraftStep(Node pruneNode, Node currentNode) { throw new UnsupportedOperationException(); }
+    public void undoSprRegraftStep() { throw new UnsupportedOperationException(); }
 
     private void refreshAllRowsInPlace() {
         int[] countWrap = {0};

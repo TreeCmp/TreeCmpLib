@@ -11,7 +11,10 @@ import treecmp.common.TreeCmpUtils;
 import treecmp.heuristics.TreeNeighborhoodUtils;
 import treecmp.heuristics.ecr.SubtreeEcr2Utils;
 import treecmp.heuristics.ecr.SubtreeEcr3Utils;
+import treecmp.heuristics.ecr.acc.Ecr2IncrementalMetric;
+import treecmp.heuristics.ecr.acc.Ecr3IncrementalMetric;
 import treecmp.heuristics.moves.NniMove;
+import treecmp.heuristics.nni.acc.NniIncrementalMetric;
 import treecmp.heuristics.spr.UsprUtils;
 import treecmp.heuristics.tbr.UTbrUtils;
 import treecmp.heuristics.tbr.acc.RootedTbrMetric;
@@ -20,7 +23,11 @@ import treecmp.metrics.topological.MatchingTripletMetric;
 
 import java.util.*;
 
-public class M3IncrementalMetric implements IncrementalMetric, RootedTbrMetric {
+public class M3IncrementalMetric implements IncrementalMetric,
+        NniIncrementalMetric,
+        Ecr2IncrementalMetric,
+        Ecr3IncrementalMetric,
+        RootedTbrMetric {
 
     private Tree originalBaseTree;
     private Tree baseTree;
@@ -597,7 +604,6 @@ public class M3IncrementalMetric implements IncrementalMetric, RootedTbrMetric {
         Arrays.fill(scratchOldRowUsed, 0, dim, false);
         int newSigCount = 0;
 
-        // 1. Identyfikacja, które wierzchołki nie uległy zmianie, a które są nowe
         for (int i = 0; i < tempIntCount; i++) {
             Node n = tempTree.getInternalNode(i);
             Signature sig = new Signature(n, N, baseIdGroup);
@@ -609,7 +615,6 @@ public class M3IncrementalMetric implements IncrementalMetric, RootedTbrMetric {
             }
         }
 
-        // Drzewo jest izomorficzne (brak zmian topologicznych)
         if (newSigCount == 0) {
             return this.currentDistance;
         }
@@ -630,13 +635,11 @@ public class M3IncrementalMetric implements IncrementalMetric, RootedTbrMetric {
             }
         }
 
-        // 2. Kopia zapasowa potencjałów podwójnych i skojarzenia (bez alokacji obiektów)
         System.arraycopy(u, 0, scratchSavedU, 0, dim);
         System.arraycopy(v, 0, scratchSavedV, 0, dim);
         System.arraycopy(rowsol, 0, scratchSavedRowsol, 0, dim);
         System.arraycopy(colsol, 0, scratchSavedColsol, 0, dim);
 
-        // 3. Przeliczenie wyłącznie zmienionych k wierszy za pomocą szybkiego O(N) DP
         for (int i = 0; i < k; i++) {
             int r = scratchChangedRows[i];
             System.arraycopy(assigncost[r], 0, scratchSavedRows[i], 0, dim);
@@ -647,11 +650,9 @@ public class M3IncrementalMetric implements IncrementalMetric, RootedTbrMetric {
         int[] changedRowsParam = (k < cachedKArrays.length) ? cachedKArrays[k] : new int[k];
         System.arraycopy(scratchChangedRows, 0, changedRowsParam, 0, k);
 
-        // 4. Ciepły start solvera LAP
         int rawMetric = LapSolver.lapUpdate(dim, assigncost, rowsol, colsol, u, v, changedRowsParam);
         double dist = 0.5 * rawMetric;
 
-        // 5. Przywrócenie stanu pierwotnego (brak efektów ubocznych w strukturach)
         for (int i = 0; i < k; i++) {
             int r = scratchChangedRows[i];
             System.arraycopy(scratchSavedRows[i], 0, assigncost[r], 0, dim);
@@ -708,7 +709,7 @@ public class M3IncrementalMetric implements IncrementalMetric, RootedTbrMetric {
         return evaluateExactUTbrDistance(pruneNode, rerootNode, targetNode, movingBits);
     }
 
-    @Override
+    // Metoda pomocnicza dla wędrowców SPR
     public double evaluateSprRegraft(Node pruneNode, Node targetNode) {
         if (pruneNode == null || targetNode == null || this.targetTree == null) {
             return Double.POSITIVE_INFINITY;
@@ -1616,10 +1617,8 @@ public class M3IncrementalMetric implements IncrementalMetric, RootedTbrMetric {
         return cSets;
     }
 
-    @Override public void applySprPrune(Node pruneNode) { this.activePruneNode = pruneNode; }
-    @Override public void undoSprPrune(Node pruneNode) { this.activePruneNode = null; }
-    @Override public void applySprRegraftStep(Node pruneNode, Node currentNode) { throw new UnsupportedOperationException(); }
-    @Override public void undoSprRegraftStep() { throw new UnsupportedOperationException(); }
+    public void applySprPrune(Node pruneNode) { this.activePruneNode = pruneNode; }
+    public void undoSprPrune(Node pruneNode) { this.activePruneNode = null; }
 
     @Override public double getCurrentDistance() { return this.currentDistance; }
     @Override public void commit() { history.clear(); deltaStack.clear(); }
