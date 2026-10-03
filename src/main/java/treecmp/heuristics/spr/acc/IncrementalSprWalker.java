@@ -16,16 +16,7 @@ import java.util.List;
 public class IncrementalSprWalker {
     private final SprUtils sprUtils = new SprUtils();
 
-    public interface RootedMetric {
-        void setPrunedState(Node pruneNode, Node wanderingSource);
-        void setTargetRoot(Node pruneNode, Node wanderingSource);
-        void moveTargetDown(Node parentTarget, Node childTarget, Node pruneNode, Node wanderingSource);
-        void moveTargetUp(Node parentTarget, Node childTarget, Node pruneNode, Node wanderingSource);
-        void revertPrunedState(Node pruneNode, Node wanderingSource);
-        double getCurrentDistance();
-    }
-
-    public void walk(Tree baseTree, RootedMetric metric, SprVisitor visitor) {
+    public void walk(Tree baseTree, RootedSprIncrementalMetric metric, SprVisitor visitor) {
         List<Node> allNodes = getAllNodes(baseTree);
         Node root = baseTree.getRoot();
 
@@ -54,7 +45,7 @@ public class IncrementalSprWalker {
         }
     }
 
-    private void dfsPrunedTree(Node parentTarget, Node targetNode, Node pruneNode, Node wanderingSource, RootedMetric metric, SprVisitor visitor) {
+    private void dfsPrunedTree(Node parentTarget, Node targetNode, Node pruneNode, Node wanderingSource, RootedSprIncrementalMetric metric, SprVisitor visitor) {
         metric.moveTargetDown(parentTarget, targetNode, pruneNode, wanderingSource);
 
         if (sprUtils.isValidSprMove(pruneNode, targetNode)) {

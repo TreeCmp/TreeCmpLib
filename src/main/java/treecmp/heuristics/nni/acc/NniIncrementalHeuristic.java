@@ -8,7 +8,6 @@ import treecmp.heuristics.base.IncrementalHeuristicBaseMetric;
 import treecmp.heuristics.moves.NniMove;
 import treecmp.heuristics.moves.TreeMove;
 import treecmp.heuristics.nni.NniUtils;
-import treecmp.metrics.IncrementalMetric;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -18,16 +17,18 @@ public class NniIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
 
     private final NniUtils nniUtils;
     private final String metricShortName;
-    private final IncrementalMetric primaryMetric; // Opcjonalny filtr (np. RF)
+    protected final NniIncrementalMetric nniMetric;
+    protected final NniIncrementalMetric primaryMetric; // Opcjonalny filtr (np. RF)
 
     // 1. Konstruktor podstawowy (bez filtra)
-    public NniIncrementalHeuristic(IncrementalMetric metric, String metricShortName) {
+    public NniIncrementalHeuristic(NniIncrementalMetric metric, String metricShortName) {
         this(metric, null, metricShortName);
     }
 
     // 2. Konstruktor rozszerzony (z filtrem)
-    public NniIncrementalHeuristic(IncrementalMetric metric, IncrementalMetric primaryMetric, String metricShortName) {
+    public NniIncrementalHeuristic(NniIncrementalMetric metric, NniIncrementalMetric primaryMetric, String metricShortName) {
         super(metric.isRooted(), metric);
+        this.nniMetric = metric;
         this.primaryMetric = primaryMetric;
         this.metricShortName = metricShortName;
         this.nniUtils = new NniUtils(!metric.isRooted());
@@ -35,7 +36,7 @@ public class NniIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
 
     @Override
     protected void searchNeighborhood(Tree currentTree) {
-        IncrementalMetric activeMetric = primaryMetric != null ? primaryMetric : this.incMetric;
+        NniIncrementalMetric activeMetric = primaryMetric != null ? primaryMetric : this.nniMetric;
 
         this.tiedMoves.clear();
         this.improved = false;
@@ -45,7 +46,7 @@ public class NniIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
         exploreNniRecursive(currentTree.getRoot(), activeMetric);
     }
 
-    private void exploreNniRecursive(Node parent, IncrementalMetric activeMetric) {
+    private void exploreNniRecursive(Node parent, NniIncrementalMetric activeMetric) {
         if (parent.isLeaf()) return;
 
         for (int i = 0; i < parent.getChildCount(); i++) {
@@ -77,11 +78,11 @@ public class NniIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
     @Override
     protected double commitMoveToMetric(TreeMove move) {
         if (move instanceof NniMove) {
-            double dist = this.incMetric.applyNni((NniMove) move);
-            this.incMetric.commit();
+            double dist = this.nniMetric.applyNni((NniMove) move);
+            this.nniMetric.commit();
             return dist;
         }
-        return this.incMetric.getCurrentDistance();
+        return this.nniMetric.getCurrentDistance();
     }
 
     @Override
@@ -123,12 +124,12 @@ public class NniIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
         int totalSteps = 0;
         int maxSteps = 1000;
 
-        IncrementalMetric activeMetric = primaryMetric != null ? primaryMetric : this.incMetric;
+        NniIncrementalMetric activeMetric = primaryMetric != null ? primaryMetric : this.nniMetric;
 
         // Inicjalizacja stanów metryk na startowym drzewie
         activeMetric.initCalculationState(currentTree, targetTree);
         if (primaryMetric != null) {
-            this.incMetric.initCalculationState(currentTree, targetTree);
+            this.nniMetric.initCalculationState(currentTree, targetTree);
         }
 
         double currentDist = activeMetric.getCurrentDistance();
@@ -159,12 +160,12 @@ public class NniIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
                 for (TreeMove tm : tiedMoves) {
                     NniMove nniM = (NniMove) tm;
 
-                    double heavyDist = this.incMetric.applyNni(nniM);
+                    double heavyDist = this.nniMetric.applyNni(nniM);
                     if (heavyDist < bestHeavyDist) {
                         bestHeavyDist = heavyDist;
                         bestMove = nniM;
                     }
-                    this.incMetric.undoNni(nniM);
+                    this.nniMetric.undoNni(nniM);
                 }
             }
 
@@ -186,8 +187,8 @@ public class NniIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
 
             // Utrzymanie synchronizacji w ciężkiej metryce przy aktywnym filtrze
             if (primaryMetric != null) {
-                this.incMetric.applyNni(finalMove);
-                this.incMetric.commit();
+                this.nniMetric.applyNni(finalMove);
+                this.nniMetric.commit();
             }
 
             // Fizyczna modyfikacja drzewa pod kolejną iterację

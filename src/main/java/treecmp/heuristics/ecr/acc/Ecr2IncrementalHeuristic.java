@@ -6,32 +6,32 @@ import treecmp.heuristics.moves.Ecr2Move;
 import treecmp.heuristics.moves.TreeMove;
 import treecmp.heuristics.ecr.SubtreeEcr2Utils;
 import treecmp.heuristics.ecr.SubtreeEcr2Utils.TopologyTemplate2sECR;
-import treecmp.metrics.IncrementalMetric;
 
 import java.util.Arrays;
 import java.util.List;
 import java.util.ArrayList;
 
-public class Ecr2IncrementalHeuristic extends EcrIncrementalHeuristic {
+public class Ecr2IncrementalHeuristic extends EcrIncrementalHeuristic<Ecr2IncrementalMetric> {
 
     private final SubtreeEcr2Utils ecr2Utils;
 
-    public Ecr2IncrementalHeuristic(IncrementalMetric metric, String metricShortName) {
+    public Ecr2IncrementalHeuristic(Ecr2IncrementalMetric metric, String metricShortName) {
         this(metric, null, metricShortName);
     }
 
-    public Ecr2IncrementalHeuristic(IncrementalMetric metric, IncrementalMetric primaryMetric, String metricShortName) {
+    // ZMIANA: Ecr2IncrementalMetric primaryMetric zamiast IncrementalMetric
+    public Ecr2IncrementalHeuristic(Ecr2IncrementalMetric metric, Ecr2IncrementalMetric primaryMetric, String metricShortName) {
         super(metric, primaryMetric, metricShortName);
         this.ecr2Utils = new SubtreeEcr2Utils(!metric.isRooted());
     }
 
     @Override
     protected void searchNeighborhood(Tree currentTree) {
-        IncrementalMetric activeMetric = primaryMetric != null ? primaryMetric : this.incMetric;
+        // ZMIANA: this.ecrMetric zamiast this.incMetric
+        Ecr2IncrementalMetric activeMetric = primaryMetric != null ? primaryMetric : this.ecrMetric;
         this.tiedMoves.clear();
         this.improved = false;
         this.bestMove = null;
-        // Inicjalizujemy bieżącym dystansem: sprawdzamy tylko ruchy równe lub lepsze
         this.bestDist = activeMetric.getCurrentDistance();
 
         int intNum = currentTree.getInternalNodeCount();
@@ -72,7 +72,7 @@ public class Ecr2IncrementalHeuristic extends EcrIncrementalHeuristic {
         }
     }
 
-    private void evaluateEcr2Cluster(Node top, Node m1, Node m2, Node[] bounds, boolean isFork, IncrementalMetric activeMetric) {
+    private void evaluateEcr2Cluster(Node top, Node m1, Node m2, Node[] bounds, boolean isFork, Ecr2IncrementalMetric activeMetric) {
         for (TopologyTemplate2sECR template : SubtreeEcr2Utils.getTemplates()) {
             if (template.isFork == isFork && Arrays.equals(template.indices, new int[]{0, 1, 2, 3})) continue;
             double dist = activeMetric.evaluate2sEcrMove(top, m1, m2, bounds, template);
@@ -88,18 +88,24 @@ public class Ecr2IncrementalHeuristic extends EcrIncrementalHeuristic {
     }
 
     @Override
-    protected double evaluateMoveOnMetric(IncrementalMetric metric, TreeMove move) {
+    protected double evaluateMoveOnMetric(Ecr2IncrementalMetric metric, TreeMove move) {
         Ecr2Move m = (Ecr2Move) move;
         return metric.evaluate2sEcrMove(m.top, m.m1, m.m2, m.boundarySubtrees, m.template);
     }
 
     @Override
-    protected double commitMoveOnMetric(IncrementalMetric metric, TreeMove move) {
+    protected double commitMoveOnMetric(Ecr2IncrementalMetric metric, TreeMove move) {
         Ecr2Move m = (Ecr2Move) move;
         return metric.commit2sEcrMove(m.top, m.m1, m.m2, m.boundarySubtrees, m.template);
     }
 
-    @Override protected double commitMoveToMetric(TreeMove move) { return commitMoveOnMetric(this.incMetric, move); }
-    @Override protected Tree applyPhysicalMove(Tree tree, TreeMove move) { return ecr2Utils.applyPhysicalMove(tree, (Ecr2Move) move); }
-    @Override public String getName() { return "2sECR_IncrementalHeuristic_" + metricShortName; }
+    @Override
+    protected Tree applyPhysicalMove(Tree tree, TreeMove move) {
+        return ecr2Utils.applyPhysicalMove(tree, (Ecr2Move) move);
+    }
+
+    @Override
+    public String getName() {
+        return "2sECR_IncrementalHeuristic_" + metricShortName;
+    }
 }

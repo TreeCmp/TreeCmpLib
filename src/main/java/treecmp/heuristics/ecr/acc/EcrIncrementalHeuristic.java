@@ -9,23 +9,25 @@ import treecmp.metrics.IncrementalMetric;
 
 import java.util.List;
 
-public abstract class EcrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
+public abstract class EcrIncrementalHeuristic<M extends IncrementalMetric> extends IncrementalHeuristicBaseMetric {
 
     protected final String metricShortName;
-    protected IncrementalMetric primaryMetric; // Opcjonalny filtr (np. RFCluster)
+    protected final M ecrMetric;
+    protected M primaryMetric;
 
-    public EcrIncrementalHeuristic(IncrementalMetric metric, IncrementalMetric primaryMetric, String metricShortName) {
+    public EcrIncrementalHeuristic(M metric, M primaryMetric, String metricShortName) {
         super(metric.isRooted(), metric);
+        this.ecrMetric = metric;
         this.primaryMetric = primaryMetric;
         this.metricShortName = metricShortName;
     }
 
-    protected abstract double evaluateMoveOnMetric(IncrementalMetric metric, TreeMove move);
-    protected abstract double commitMoveOnMetric(IncrementalMetric metric, TreeMove move);
+    protected abstract double evaluateMoveOnMetric(M metric, TreeMove move);
+    protected abstract double commitMoveOnMetric(M metric, TreeMove move);
 
     @Override
     protected double commitMoveToMetric(TreeMove move) {
-        return commitMoveOnMetric(this.incMetric, move);
+        return commitMoveOnMetric(this.ecrMetric, move);
     }
 
     @Override
@@ -53,12 +55,13 @@ public abstract class EcrIncrementalHeuristic extends IncrementalHeuristicBaseMe
         this.lastMoveBaseTree = null;
 
         int maxSteps = 1000;
-        IncrementalMetric activeMetric = (primaryMetric != null) ? primaryMetric : this.incMetric;
+        // Typ M gwarantuje zgodność z evaluateMoveOnMetric oraz commitMoveOnMetric
+        M activeMetric = (primaryMetric != null) ? primaryMetric : this.ecrMetric;
 
-        // Inicjalizacja stanów obu metryk
+        // Inicjalizacja stanów metryk
         activeMetric.initCalculationState(currentTree, targetTree);
         if (primaryMetric != null) {
-            this.incMetric.initCalculationState(currentTree, targetTree);
+            this.ecrMetric.initCalculationState(currentTree, targetTree);
         }
 
         double currentDist = activeMetric.getCurrentDistance();
@@ -91,11 +94,11 @@ public abstract class EcrIncrementalHeuristic extends IncrementalHeuristicBaseMe
             // PRZYPADEK 2: Jest filtr (primaryMetric) -> oceniamy remisy metryką pomocniczą
             else {
                 double bestHeavyDist = Double.POSITIVE_INFINITY;
-                double currentHeavyDist = this.incMetric.getCurrentDistance();
+                double currentHeavyDist = this.ecrMetric.getCurrentDistance();
                 boolean rfStrictlyImproved = (this.bestDist < currentDist - 1e-9);
 
                 for (TreeMove tm : tiedMoves) {
-                    double heavyDist = evaluateMoveOnMetric(this.incMetric, tm);
+                    double heavyDist = evaluateMoveOnMetric(this.ecrMetric, tm);
 
                     if (rfStrictlyImproved) {
                         if (heavyDist < bestHeavyDist) {
@@ -120,8 +123,8 @@ public abstract class EcrIncrementalHeuristic extends IncrementalHeuristicBaseMe
             activeMetric.commit();
 
             if (primaryMetric != null) {
-                commitMoveOnMetric(this.incMetric, winningMove);
-                this.incMetric.commit();
+                commitMoveOnMetric(this.ecrMetric, winningMove);
+                this.ecrMetric.commit();
             }
 
             // BEZPIECZNIK 3: Dystans musi ściśle maleć (ochrona przed zapętleniem na plateau)

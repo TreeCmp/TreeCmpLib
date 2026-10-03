@@ -6,30 +6,25 @@ import treecmp.heuristics.ecr.SubtreeEcr3Utils;
 import treecmp.heuristics.ecr.SubtreeEcr3Utils.TopologyTemplate3sECR;
 import treecmp.heuristics.moves.Ecr3Move;
 import treecmp.heuristics.moves.TreeMove;
-import treecmp.metrics.IncrementalMetric;
 
 import java.util.List;
 
-public class Ecr3IncrementalHeuristic extends EcrIncrementalHeuristic {
+public class Ecr3IncrementalHeuristic extends EcrIncrementalHeuristic<Ecr3IncrementalMetric> {
 
     private final SubtreeEcr3Utils ecr3Utils;
-    private final String metricShortName;
 
-    // 1. Konstruktor podstawowy (bez filtra)
-    public Ecr3IncrementalHeuristic(IncrementalMetric metric, String metricShortName) {
+    public Ecr3IncrementalHeuristic(Ecr3IncrementalMetric metric, String metricShortName) {
         this(metric, null, metricShortName);
     }
 
-    // 2. Konstruktor z filtrem (np. RF tie-breaker)
-    public Ecr3IncrementalHeuristic(IncrementalMetric metric, IncrementalMetric primaryMetric, String metricShortName) {
+    public Ecr3IncrementalHeuristic(Ecr3IncrementalMetric metric, Ecr3IncrementalMetric primaryMetric, String metricShortName) {
         super(metric, primaryMetric, metricShortName);
-        this.metricShortName = metricShortName;
         this.ecr3Utils = new SubtreeEcr3Utils(!metric.isRooted());
     }
 
     @Override
     protected void searchNeighborhood(Tree currentTree) {
-        IncrementalMetric activeMetric = (this.primaryMetric != null) ? this.primaryMetric : this.incMetric;
+        Ecr3IncrementalMetric activeMetric = (this.primaryMetric != null) ? this.primaryMetric : this.ecrMetric;
 
         this.tiedMoves.clear();
         this.improved = false;
@@ -39,7 +34,6 @@ public class Ecr3IncrementalHeuristic extends EcrIncrementalHeuristic {
 
         for (int i = 0; i < intNum; i++) {
             Node rootOfCluster = currentTree.getInternalNode(i);
-
             int targetClusterSize = 4;
             List<List<Node>> clusters = ecr3Utils.getClusters(rootOfCluster, targetClusterSize);
 
@@ -55,7 +49,7 @@ public class Ecr3IncrementalHeuristic extends EcrIncrementalHeuristic {
         }
     }
 
-    private void evaluateEcr3Cluster(List<Node> cluster, Node[] boundarySubtrees, TopologyTemplate3sECR originalSignature, IncrementalMetric activeMetric) {
+    private void evaluateEcr3Cluster(List<Node> cluster, Node[] boundarySubtrees, TopologyTemplate3sECR originalSignature, Ecr3IncrementalMetric activeMetric) {
         for (TopologyTemplate3sECR template : SubtreeEcr3Utils.getTemplates()) {
             if (template.isIsomorphic(originalSignature)) continue;
 
@@ -65,20 +59,15 @@ public class Ecr3IncrementalHeuristic extends EcrIncrementalHeuristic {
     }
 
     @Override
-    protected double evaluateMoveOnMetric(IncrementalMetric activeMetric, TreeMove move) {
+    protected double evaluateMoveOnMetric(Ecr3IncrementalMetric activeMetric, TreeMove move) {
         Ecr3Move m = (Ecr3Move) move;
         return activeMetric.evaluate3sEcrMove(m.cluster, m.boundarySubtrees, m.template);
     }
 
     @Override
-    protected double commitMoveOnMetric(IncrementalMetric activeMetric, TreeMove move) {
+    protected double commitMoveOnMetric(Ecr3IncrementalMetric activeMetric, TreeMove move) {
         Ecr3Move m = (Ecr3Move) move;
         return activeMetric.commit3sEcrMove(m.cluster, m.boundarySubtrees, m.template);
-    }
-
-    @Override
-    protected double commitMoveToMetric(TreeMove move) {
-        return commitMoveOnMetric(this.incMetric, move);
     }
 
     @Override

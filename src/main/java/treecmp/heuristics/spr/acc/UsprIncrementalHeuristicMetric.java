@@ -18,7 +18,6 @@ import java.util.List;
 
 public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetric {
 
-    protected final ClassicUsprWalker standardWalker;
     private final IncrementalUsprWalker unrootedWalker;
     protected final UsprUtils usprUtils;
     private final String metricShortName;
@@ -30,7 +29,6 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
         super(false, metric);
         this.primaryMetric = primaryMetric;
         this.metricShortName = metricShortName;
-        this.standardWalker = new ClassicUsprWalker();
         this.unrootedWalker = new IncrementalUsprWalker();
         this.usprUtils = new UsprUtils();
     }
@@ -47,19 +45,11 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
         this.improved = false;
         this.bestDist = activeMetric.getCurrentDistance();
 
-        if (activeMetric instanceof MSIncrementalMetric || activeMetric instanceof M3IncrementalMetric) {
-            unrootedWalker.walk(currentTree, activeMetric, (currentDist, movingNode, targetNode) -> {
-                if (currentDist <= this.bestDist + 1e-9) {
-                    checkImprovementWithTies(currentDist, new SprMove(movingNode, targetNode));
-                }
-            });
-        } else {
-            standardWalker.walk(currentTree, activeMetric, (currentDist, movingNode, targetNode) -> {
-                if (currentDist <= this.bestDist + 1e-9) {
-                    checkImprovementWithTies(currentDist, new SprMove(movingNode, targetNode));
-                }
-            });
-        }
+        unrootedWalker.walk(currentTree, activeMetric, (currentDist, movingNode, targetNode) -> {
+            if (currentDist <= this.bestDist + 1e-9) {
+                checkImprovementWithTies(currentDist, new SprMove(movingNode, targetNode));
+            }
+        });
     }
 
     @Override

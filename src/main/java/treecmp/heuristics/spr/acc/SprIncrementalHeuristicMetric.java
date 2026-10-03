@@ -15,7 +15,7 @@ import java.util.List;
 
 public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetric {
 
-    protected final ClassicSprWalker standardWalker;
+    // USUNIĘTO: protected final ClassicSprWalker standardWalker;
     private final IncrementalSprWalker rootedWalker;
     protected final SprUtils sprUtils;
     private final String metricShortName;
@@ -27,7 +27,7 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
         super(true, metric);
         this.primaryMetric = primaryMetric;
         this.metricShortName = metricShortName;
-        this.standardWalker = new ClassicSprWalker();
+        // USUNIĘTO: this.standardWalker = new ClassicSprWalker();
         this.rootedWalker = new IncrementalSprWalker();
         this.sprUtils = new SprUtils();
     }
@@ -38,31 +38,23 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
 
     @Override
     protected void searchNeighborhood(Tree currentTree) {
-        IncrementalMetric activeMetric = primaryMetric != null ? primaryMetric : this.incMetric;
+        RootedSprIncrementalMetric activeMetric = (primaryMetric != null)
+                ? (RootedSprIncrementalMetric) primaryMetric
+                : (RootedSprIncrementalMetric) this.incMetric;
+
         this.tiedMoves.clear();
         this.bestMove = null;
         this.improved = false;
         this.bestDist = activeMetric.getCurrentDistance();
 
-        if (activeMetric instanceof IncrementalSprWalker.RootedMetric) {
-            rootedWalker.walk(currentTree, (IncrementalSprWalker.RootedMetric) activeMetric, (currentDist, movingNode, targetNode) -> {
-                if (!sprUtils.isValidSprMove(movingNode, targetNode)) {
-                    return;
-                }
-                if (currentDist <= this.bestDist + 1e-9) {
-                    checkImprovementWithTies(currentDist, new SprMove(movingNode, targetNode));
-                }
-            });
-        } else {
-            standardWalker.walk(currentTree, activeMetric, (currentDist, movingNode, targetNode) -> {
-                if (!sprUtils.isValidSprMove(movingNode, targetNode)) {
-                    return;
-                }
-                if (currentDist <= this.bestDist + 1e-9) {
-                    checkImprovementWithTies(currentDist, new SprMove(movingNode, targetNode));
-                }
-            });
-        }
+        rootedWalker.walk(currentTree, activeMetric, (currentDist, movingNode, targetNode) -> {
+            if (!sprUtils.isValidSprMove(movingNode, targetNode)) {
+                return;
+            }
+            if (currentDist <= this.bestDist + 1e-9) {
+                checkImprovementWithTies(currentDist, new SprMove(movingNode, targetNode));
+            }
+        });
     }
 
     @Override
