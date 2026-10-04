@@ -11,15 +11,22 @@ public class RFIncrementalMetric extends BaseRFIncrementalMetric {
     protected Tree targetTreeRef;
 
     private int N;
-    private final List<BitSet> baseSplitsList = new ArrayList<>();
-    private final Map<Node, Integer> nodeToSplitIndex = new IdentityHashMap<>();
+    private double initialDistance;
+    private int baseSplitsCount;
+    private BitSet[] baseSplitsArray = new BitSet[256];
     private final Map<Node, BitSet> baseClusterMap = new IdentityHashMap<>();
 
-    // Pula robocza wielokrotnego użytku - zero alokacji w pętli ewaluacji
+    // Pula robocza wielokrotnego użytku - zero alokacji na stercie w pętli ewaluacji
     private BitSet[] pool;
     private int poolIdx;
 
-    private BitSet[] evalSplits;
+    private BitSet[] removedArray = new BitSet[256];
+    private BitSet[] addedArray = new BitSet[256];
+    private int removedCount;
+    private int addedCount;
+
+    private BitSet[] finalSplitsArray = new BitSet[512];
+    private int finalCount;
 
     @Override
     public void initCalculationState(Tree baseTree, Tree targetTree) {
@@ -27,18 +34,20 @@ public class RFIncrementalMetric extends BaseRFIncrementalMetric {
         this.targetTreeRef = targetTree;
         super.initCalculationState(baseTree, targetTree);
         this.N = (baseTree != null) ? baseTree.getExternalNodeCount() : 0;
+        this.initialDistance = this.currentDistance;
 
-        ensurePool(this.N);
-        refreshBaseState();
+        ensureCapacity(this.N);
+        refreshBaseSplits();
     }
 
     @Override
     public void commit() {
         super.commit();
-        refreshBaseState();
+        this.initialDistance = this.currentDistance;
+        refreshBaseSplits();
     }
 
-    private void ensurePool(int leafCount) {
+    private void ensureCapacity(int leafCount) {
         if (leafCount <= 0) return;
         if (pool == null || pool[0].size() < leafCount) {
             pool = new BitSet[512];
@@ -46,8 +55,12 @@ public class RFIncrementalMetric extends BaseRFIncrementalMetric {
                 pool[i] = new BitSet(leafCount);
             }
         }
-        if (evalSplits == null || evalSplits.length < leafCount * 2) {
-            evalSplits = new BitSet[leafCount * 2];
+        int maxSplits = leafCount * 2 + 64;
+        if (baseSplitsArray.length < maxSplits) {
+            baseSplitsArray = new BitSet[maxSplits];
+            finalSplitsArray = new BitSet[maxSplits];
+            removedArray = new BitSet[maxSplits];
+            addedArray = new BitSet[maxSplits];
         }
     }
 
@@ -65,9 +78,19 @@ public class RFIncrementalMetric extends BaseRFIncrementalMetric {
         return bs;
     }
 
-    private void refreshBaseState() {
-        this.baseSplitsList.clear();
-        this.nodeToSplitIndex.clear();
+    private BitSet getNormalized(BitSet rawSplit) {
+        if (rawSplit == null) return null;
+        if (rawSplit.get(0)) {
+            BitSet inv = getScratch();
+            inv.or(rawSplit);
+            inv.xor(allLeavesMask);
+            return inv;
+        }
+        return rawSplit;
+    }
+
+    private void refreshBaseSplits() {
+        this.baseSplitsCount = 0;
         this.baseClusterMap.clear();
 
         for (Map.Entry<Node, BitSet> e : nodeBitSets.entrySet()) {
@@ -75,10 +98,7 @@ public class RFIncrementalMetric extends BaseRFIncrementalMetric {
             BitSet bs = e.getValue();
             baseClusterMap.put(n, bs);
             if (isNonTrivial(bs.cardinality(), N)) {
-                BitSet norm = normalizeSplit(bs);
-                int idx = baseSplitsList.size();
-                baseSplitsList.add(norm);
-                nodeToSplitIndex.put(n, idx);
+                baseSplitsArray[baseSplitsCount++] = normalizeSplit(bs);
             }
         }
     }
@@ -97,13 +117,6 @@ public class RFIncrementalMetric extends BaseRFIncrementalMetric {
             return inverted;
         }
         return rawSplit;
-    }
-
-    private BitSet normalizeInPlace(BitSet bs) {
-        if (bs != null && bs.get(0)) {
-            bs.xor(allLeavesMask);
-        }
-        return bs;
     }
 
     private Node findLca(Node a, Node b) {
@@ -142,7 +155,7 @@ public class RFIncrementalMetric extends BaseRFIncrementalMetric {
 
     public double evaluateExactUTbrDistance(Node pruneNode, Node rerootNode, Node targetNode, BitSet movingBits) {
         if (this.baseTreeRef == null || this.targetTreeRef == null || pruneNode == null || targetNode == null) {
-            return this.currentDistance;
+            return this.initialDistance;
         }
 
         Node root = this.baseTreeRef.getRoot();
@@ -150,188 +163,161 @@ public class RFIncrementalMetric extends BaseRFIncrementalMetric {
         if (pParent == null) return Double.POSITIVE_INFINITY;
 
         if (targetNode == pruneNode || targetNode == pParent) {
-            return this.currentDistance;
+            return this.initialDistance;
         }
 
+        // Zabezpieczenie przed wpięciem do odciętego komponentu
         Node temp = targetNode;
         while (temp != null) {
             if (temp == pruneNode) return Double.POSITIVE_INFINITY;
             temp = temp.getParent();
         }
 
-        Node sibling = (pParent.getChild(0) == pruneNode) ? pParent.getChild(1) : pParent.getChild(0);
-        if (rerootNode == pruneNode && targetNode == sibling) {
-            return this.currentDistance;
+        // Zabezpieczenie przed no-op (działa tylko dla węzła binarnego pParent != root)
+        if (rerootNode == pruneNode && pParent != root) {
+            Node sibling = (pParent.getChild(0) == pruneNode) ? pParent.getChild(1) : pParent.getChild(0);
+            if (targetNode == sibling) {
+                return this.initialDistance;
+            }
         }
 
         BitSet LP = baseClusterMap.get(pruneNode);
         if (LP == null) return Double.POSITIVE_INFINITY;
 
         poolIdx = 0;
-        int totalBaseSplits = baseSplitsList.size();
+        removedCount = 0;
+        addedCount = 0;
 
-        // 0. Kopiujemy stan początkowy do ewaluacji (referencje)
-        for (int i = 0; i < totalBaseSplits; i++) {
-            evalSplits[i] = baseSplitsList.get(i);
+        // --- A. DRZEWO T2 (Używamy wyłącznie niezmienniczej bazy baseClusterMap) ---
+        if (pParent != root) {
+            BitSet bsParent = baseClusterMap.get(pParent);
+            if (bsParent != null) {
+                removedArray[removedCount++] = getNormalized(bsParent);
+            }
         }
 
-        // 1. pParent zapada się - jego bipartycja przestaje istnieć
-        Integer pParentIdx = nodeToSplitIndex.get(pParent);
-        if (pParentIdx != null) {
-            evalSplits[pParentIdx] = null;
-        }
-
-        // 2. Ścieżka od pParent w górę do LCA (traci LP)
         Node lca = findLca(pParent, targetNode);
+
         if (pParent != lca) {
             Node curr = pParent.getParent();
             while (curr != null && curr != lca) {
-                Integer idx = nodeToSplitIndex.get(curr);
-                BitSet orig = baseClusterMap.get(curr);
-                if (idx != null && orig != null) {
-                    BitSet mod = getScratch();
-                    mod.or(orig);
-                    mod.andNot(LP);
-                    normalizeInPlace(mod);
-                    evalSplits[idx] = isNonTrivial(mod.cardinality(), N) ? mod : null;
+                BitSet oldC = baseClusterMap.get(curr);
+                if (oldC != null) {
+                    removedArray[removedCount++] = getNormalized(oldC);
+                    BitSet newC = getScratch();
+                    newC.or(oldC);
+                    newC.andNot(LP);
+                    addedArray[addedCount++] = getNormalized(newC);
                 }
                 curr = curr.getParent();
             }
         }
 
-        // 3. Ścieżka od targetNode w górę do LCA (zyskuje LP)
         if (targetNode != lca) {
             Node currT = targetNode.getParent();
             while (currT != null && currT != lca) {
-                Integer idx = nodeToSplitIndex.get(currT);
-                BitSet orig = baseClusterMap.get(currT);
-                if (idx != null && orig != null) {
-                    BitSet mod = getScratch();
-                    mod.or(orig);
-                    mod.or(LP);
-                    normalizeInPlace(mod);
-                    evalSplits[idx] = isNonTrivial(mod.cardinality(), N) ? mod : null;
+                BitSet oldC = baseClusterMap.get(currT);
+                if (oldC != null) {
+                    removedArray[removedCount++] = getNormalized(oldC);
+                    BitSet newC = getScratch();
+                    newC.or(oldC);
+                    newC.or(LP);
+                    addedArray[addedCount++] = getNormalized(newC);
                 }
                 currT = currT.getParent();
             }
         }
 
-        // 4. Gdy targetNode == lca
         if (targetNode == lca && targetNode != root) {
-            Integer idx = nodeToSplitIndex.get(targetNode);
-            BitSet orig = baseClusterMap.get(targetNode);
-            if (idx != null && orig != null) {
-                BitSet mod = getScratch();
-                mod.or(orig);
-                mod.andNot(LP);
-                normalizeInPlace(mod);
-                evalSplits[idx] = isNonTrivial(mod.cardinality(), N) ? mod : null;
+            BitSet oldC = baseClusterMap.get(targetNode);
+            if (oldC != null) {
+                removedArray[removedCount++] = getNormalized(oldC);
+                BitSet newC = getScratch();
+                newC.or(oldC);
+                newC.andNot(LP);
+                addedArray[addedCount++] = getNormalized(newC);
             }
         }
 
-        // 5. Przekorzenienie T1 w uTBR (Generuje nową krawędź R oraz modyfikuje ścieżkę do P)
-        BitSet newR = null;
+        // Węzeł wpięcia W
+        BitSet targetBs = baseClusterMap.get(targetNode);
+        if (targetBs != null) {
+            BitSet newW = getScratch();
+            newW.or(targetBs);
+            newW.or(LP);
+            addedArray[addedCount++] = getNormalized(newW);
+        }
+
+        // --- B. DRZEWO T1 (Przekorzenienie uTBR) ---
         if (rerootNode != pruneNode && rerootNode != null) {
-            BitSet rOrig = baseClusterMap.get(rerootNode);
-            if (rOrig != null) {
-                newR = getScratch();
+            BitSet rCluster = baseClusterMap.get(rerootNode);
+            if (rCluster != null) {
+                BitSet newR = getScratch();
                 newR.or(LP);
-                newR.andNot(rOrig);
-                normalizeInPlace(newR);
-                if (!isNonTrivial(newR.cardinality(), N)) {
-                    newR = null;
-                }
+                newR.andNot(rCluster);
+                addedArray[addedCount++] = getNormalized(newR);
             }
 
             Node currOnPath = rerootNode.getParent();
             while (currOnPath != null && currOnPath != pruneNode) {
-                Integer idx = nodeToSplitIndex.get(currOnPath);
-                BitSet orig = baseClusterMap.get(currOnPath);
-                if (idx != null && orig != null) {
-                    BitSet mod = getScratch();
-                    mod.or(LP);
-                    mod.andNot(orig);
-                    normalizeInPlace(mod);
-                    evalSplits[idx] = isNonTrivial(mod.cardinality(), N) ? mod : null;
+                BitSet oldC = baseClusterMap.get(currOnPath);
+                if (oldC != null) {
+                    removedArray[removedCount++] = getNormalized(oldC);
+                    BitSet newC = getScratch();
+                    newC.or(LP);
+                    newC.andNot(oldC);
+                    addedArray[addedCount++] = getNormalized(newC);
                 }
                 currOnPath = currOnPath.getParent();
             }
         }
 
-        // 6. Nowa bipartycja wpięcia W (w uSPR i uTBR)
-        BitSet targetOrig = baseClusterMap.get(targetNode);
-        BitSet newW = null;
-        if (targetOrig != null) {
-            newW = getScratch();
-            newW.or(targetOrig);
-            newW.or(LP);
-            normalizeInPlace(newW);
-            if (!isNonTrivial(newW.cardinality(), N)) {
-                newW = null;
-            }
-        }
+        // --- C. BEZALOKACYJNA DEDUPLIKACJA W KILKADZIESIĄT NANOSEKUND ---
+        finalCount = 0;
 
-        // 7. Zliczanie unikalnych bipartycji z jednoczesną deduplikacją zapadniętych krawędzi (np. przy korzeniu)
-        int shared = 0;
-        int activeCount = 0;
-
-        for (int i = 0; i < totalBaseSplits; i++) {
-            BitSet bs = evalSplits[i];
-            if (bs == null) continue;
-
-            boolean isDup = false;
-            for (int j = 0; j < i; j++) {
-                if (bs.equals(evalSplits[j])) {
-                    isDup = true;
+        // 1. Przefiltrowanie bazy ze starych bipartycji
+        for (int i = 0; i < baseSplitsCount; i++) {
+            BitSet b = baseSplitsArray[i];
+            boolean isRemoved = false;
+            for (int r = 0; r < removedCount; r++) {
+                if (b.equals(removedArray[r])) {
+                    isRemoved = true;
                     break;
                 }
             }
-            if (isDup) continue;
+            if (!isRemoved) {
+                finalSplitsArray[finalCount++] = b;
+            }
+        }
 
-            activeCount++;
-            if (targetSplits.contains(bs)) {
+        // 2. Dołączenie elementów dodanych z pełną deduplikacją
+        for (int i = 0; i < addedCount; i++) {
+            BitSet a = addedArray[i];
+            if (a == null) continue;
+            int card = a.cardinality();
+            if (!isNonTrivial(card, N)) continue;
+
+            boolean duplicate = false;
+            for (int f = 0; f < finalCount; f++) {
+                if (a.equals(finalSplitsArray[f])) {
+                    duplicate = true;
+                    break;
+                }
+            }
+            if (!duplicate) {
+                finalSplitsArray[finalCount++] = a;
+            }
+        }
+
+        // 3. Zliczenie wspólnych bipartycji
+        int shared = 0;
+        for (int i = 0; i < finalCount; i++) {
+            if (targetSplits.contains(finalSplitsArray[i])) {
                 shared++;
             }
         }
 
-        // 8. Weryfikacja i uwzględnienie nowej krawędzi W (z T2)
-        if (newW != null) {
-            boolean isDup = false;
-            for (int i = 0; i < totalBaseSplits; i++) {
-                if (newW.equals(evalSplits[i])) {
-                    isDup = true;
-                    break;
-                }
-            }
-            if (!isDup) {
-                activeCount++;
-                if (targetSplits.contains(newW)) {
-                    shared++;
-                }
-            }
-        }
-
-        // 9. Weryfikacja i uwzględnienie nowej krawędzi R (z T1 w uTBR)
-        if (newR != null) {
-            boolean isDup = false;
-            for (int i = 0; i < totalBaseSplits; i++) {
-                if (newR.equals(evalSplits[i])) {
-                    isDup = true;
-                    break;
-                }
-            }
-            if (!isDup && newW != null && newR.equals(newW)) {
-                isDup = true;
-            }
-            if (!isDup) {
-                activeCount++;
-                if (targetSplits.contains(newR)) {
-                    shared++;
-                }
-            }
-        }
-
-        return (activeCount + targetSplits.size() - 2.0 * shared) / 2.0;
+        return (finalCount + targetSplits.size() - 2.0 * shared) / 2.0;
     }
 
     public double evaluateExactUtbrDistance(Node pruneNode, Node rerootNode, Node targetNode, BitSet movingBits) {
