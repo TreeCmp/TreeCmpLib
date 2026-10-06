@@ -1,60 +1,22 @@
 package treecmp.benchmarks.singleStep;
 
-import org.openjdk.jmh.annotations.*;
-import org.openjdk.jmh.runner.Runner;
-import org.openjdk.jmh.runner.options.ChainedOptionsBuilder;
-import org.openjdk.jmh.runner.options.OptionsBuilder;
-import org.openjdk.jmh.runner.options.TimeValue;
-
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-
+import org.openjdk.jmh.annotations.Param;
+import org.openjdk.jmh.results.RunResult;
 import pal.tree.SimpleTree;
-import pal.tree.Tree;
 import treecmp.heuristics.ecr.SubtreeEcr2Utils;
 import treecmp.heuristics.ecr.acc.Ecr2IncrementalHeuristic;
-import treecmp.heuristics.base.IncrementalHeuristicBaseMetric;
-import treecmp.metrics.Metric;
 import treecmp.metrics.topological.*;
 import treecmp.metrics.topological.acc.*;
-import treecmp.util.TestTreeFactory;
-import treecmp.util.TreeCreator;
 
-@BenchmarkMode(Mode.AverageTime)
-@OutputTimeUnit(TimeUnit.MICROSECONDS)
-@State(Scope.Benchmark)
-public class Ecr2SingleStepBenchmark {
+import java.util.ArrayList;
+import java.util.List;
 
-    @Param({"RF", "RFC", "MS", "MC", "MP", "M3"})
-    public String metricName;
-
-    @Param({"10", "20", "30", "50", "80", "120", "200", "300", "500", "800", "1200", "2000", "3000", "5000", "8000", "12000", "20000", "30000", "50000", "80000", "120000"})
-    public int treeSize;
-
-    private Tree t1;
-    private Tree t2;
-    private Tree t1ForIncr;
+public class Ecr2SingleStepBenchmark extends AbstractSingleStepBenchmark {
 
     private SubtreeEcr2Utils classicUtils;
-    private Metric classicMetric;
-    private IncrementalHeuristicBaseMetric incrementalMetric;
 
-    private static void assignNumbers(Tree tree) {
-        if (tree instanceof SimpleTree) {
-            ((SimpleTree) tree).createNodeList();
-        }
-    }
-
-    @Setup(Level.Trial)
-    public void setup() {
-        initMetricsAndTrees(metricName, treeSize);
-    }
-
-    private void initMetricsAndTrees(String metric, int size) {
+    @Override
+    protected void initMetricsAndTrees(String metric, int size) {
         boolean isRooted = false;
 
         switch (metric) {
@@ -92,84 +54,18 @@ public class Ecr2SingleStepBenchmark {
                 throw new IllegalArgumentException("Unknown metric: " + metric);
         }
 
-        // 1. Szybkie wczytywanie gotowych drzew z datasetu
-        File datasetFile = findDatasetFile(size, isRooted);
-        boolean loadedFromFile = false;
-
-        if (datasetFile != null && datasetFile.exists()) {
-            List<Tree> loadedTrees = loadTrees(datasetFile.getPath(), 2);
-            if (loadedTrees != null && loadedTrees.size() >= 2) {
-                t1 = new SimpleTree(loadedTrees.get(0));
-                t2 = new SimpleTree(loadedTrees.get(1));
-                t1ForIncr = new SimpleTree(loadedTrees.get(0));
-                loadedFromFile = true;
-            }
-        }
-
-        // 2. Fallback do losowego generowania
-        if (!loadedFromFile) {
-            System.out.println("OSTRZEŻENIE: Brak pliku w datasets/ dla N=" + size + " (" + (isRooted ? "rb" : "ub") + "). Używam TestTreeFactory.");
-            if (isRooted) {
-                t1 = TestTreeFactory.randomRootedBinaryTree(size, 12345L);
-                t2 = TestTreeFactory.randomRootedBinaryTree(size, 67890L);
-                t1ForIncr = TestTreeFactory.randomRootedBinaryTree(size, 12345L);
-            } else {
-                t1 = TestTreeFactory.randomUnrootedBinaryTree(size, 12345L);
-                t2 = TestTreeFactory.randomUnrootedBinaryTree(size, 67890L);
-                t1ForIncr = TestTreeFactory.randomUnrootedBinaryTree(size, 12345L);
-            }
-        }
-
-        assignNumbers(t1);
-        assignNumbers(t2);
-        assignNumbers(t1ForIncr);
-
+        loadOrGenerateTrees(size, isRooted);
         classicUtils = new SubtreeEcr2Utils(!isRooted);
     }
 
-    private File findDatasetFile(int size, boolean isRooted) {
-        File dir = new File("datasets");
-        if (!dir.exists() || !dir.isDirectory()) {
-            return null;
-        }
-
-        String prefix = "n" + size + "y";
-        String suffix = (isRooted ? "rb" : "ub") + ".newick";
-
-        File[] matchingFiles = dir.listFiles((d, name) -> name.startsWith(prefix) && name.endsWith(suffix));
-        if (matchingFiles != null && matchingFiles.length > 0) {
-            return matchingFiles[0];
-        }
-        return null;
-    }
-
-    private static List<Tree> loadTrees(String filename, int limit) {
-        List<Tree> trees = new ArrayList<>();
-        try (BufferedReader br = new BufferedReader(new FileReader(filename))) {
-            String line;
-            while ((line = br.readLine()) != null && trees.size() < limit) {
-                line = line.trim();
-                if (!line.isEmpty() && !line.startsWith("#")) {
-                    Tree t = TreeCreator.getTreeFromString(line);
-                    if (t != null) {
-                        trees.add(t);
-                    }
-                }
-            }
-        } catch (Exception e) {
-            System.err.println("Błąd wczytywania z pliku " + filename + ": " + e.getMessage());
-        }
-        return trees;
-    }
-
-    private double evaluateClassicBestDist() throws Exception {
+    @Override
+    protected double evaluateClassicBestDist() throws Exception {
         final double[] bestDist = { Double.POSITIVE_INFINITY };
 
         classicUtils.forEachNeighbour(t1, neighbor -> {
             try {
-                // Bezpiecznik: odświeżenie wewnętrznych indeksów dla SimpleTree
-                if (neighbor instanceof pal.tree.SimpleTree) {
-                    ((pal.tree.SimpleTree) neighbor).createNodeList();
+                if (neighbor instanceof SimpleTree) {
+                    ((SimpleTree) neighbor).createNodeList();
                 }
 
                 double d = classicMetric.getDistance(neighbor, t2);
@@ -177,62 +73,79 @@ public class Ecr2SingleStepBenchmark {
                     bestDist[0] = d;
                 }
             } catch (Exception e) {
-                throw new RuntimeException("Błąd podczas ewaluacji dystansu w sąsiedztwie", e);
+                throw new RuntimeException("Błąd podczas ewaluacji dystansu w sąsiedztwie ECR2", e);
             }
         });
 
         return bestDist[0];
     }
 
-    @Benchmark
-    public double benchmarkClassicSingleStep() {
-        try {
-            return evaluateClassicBestDist();
-        } catch (Throwable t) {
-            return Double.NaN;
-        }
-    }
-
-    @Benchmark
-    public double benchmarkIncrementalSingleStep() {
-        return incrementalMetric.evaluateSingleStep(t1ForIncr, t2);
-    }
-
     public static void main(String[] args) throws Exception {
-        boolean quickEstimate = true;
+        boolean quickEstimate = isQuickEstimate();
 
         String[] treeSizes = Ecr2SingleStepBenchmark.class
                 .getField("treeSize")
                 .getAnnotation(Param.class)
                 .value();
 
-        List<org.openjdk.jmh.results.RunResult> allResults = new ArrayList<>();
+        List<RunResult> allResults = new ArrayList<>();
         String className = Ecr2SingleStepBenchmark.class.getSimpleName();
+        String incrOnly = className + ".benchmarkIncrementalSingleStep";
 
         for (String sizeStr : treeSizes) {
             int size = Integer.parseInt(sizeStr);
 
-            if (size <= 120) {
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"}, className, quickEstimate));
+            if (size <= 80) {
+                // N <= 80: Pełny zestaw Classic + Incremental dla wszystkich 6 metryk
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr,
+                        new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"}, className, quickEstimate));
+
+            } else if (size <= 120) {
+                // POLUZOWANIE: Dodano Classic MS i MC dla N=120 (trwają ~6-8s w ECR2)
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr,
+                        new String[]{"RF", "RFC", "MS", "MC"}, className, quickEstimate));
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr,
+                        new String[]{"MP", "M3"}, incrOnly, quickEstimate));
+
             } else if (size <= 200) {
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP"}, className, quickEstimate));
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"M3"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
-            } else if (size <= 300) {
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC"}, className, quickEstimate));
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"MS", "MC", "MP"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+                // N = 200: Classic dla RF i RFC. Inkrementalny dla wszystkich 6 metryk.
+                // OSTATNI KROK DLA M3: N=200 zamyka krzywą M3 (trwa ~29s)
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr,
+                        new String[]{"RF", "RFC"}, className, quickEstimate));
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr,
+                        new String[]{"MS", "MC", "MP", "M3"}, incrOnly, quickEstimate));
+
             } else if (size <= 500) {
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF"}, className, quickEstimate));
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RFC", "MS", "MC", "MP"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
-            } else if (size <= 3000) {
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+                // N = 300, 500: Classic tylko RF.
+                // Inkrementalny dla RF, RFC, MS, MC, MP (BEZ M3).
+                // OSTATNI KROK DLA MP: N=500 zamyka krzywą MP (trwa ~33s)
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr,
+                        new String[]{"RF"}, className, quickEstimate));
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr,
+                        new String[]{"RFC", "MS", "MC", "MP"}, incrOnly, quickEstimate));
+
+            } else if (size <= 800) {
+                // POLUZOWANIE: Classic RF pociągnięty do N=800 (~40s).
+                // Inkrementalny dla RF, RFC, MS, MC (BEZ M3, BEZ MP).
+                // OSTATNI KROK DLA MS: N=800 to granica alokacji przed OOM przy N=1200
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr,
+                        new String[]{"RF"}, className, quickEstimate));
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr,
+                        new String[]{"RFC", "MS", "MC"}, incrOnly, quickEstimate));
+
+            } else if (size <= 2000) {
+                // N = 1200, 2000: BEZ MS (OOM). Zostaje MC (~15-45s) oraz RF, RFC.
+                // OSTATNI KROK DLA MC: N=2000 zamyka metryki dopasowaniowe
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr,
+                        new String[]{"RF", "RFC", "MC"}, incrOnly, quickEstimate));
+
             } else {
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+                // N >= 3000 aż do 120 000: Czysta skalowalność topologiczna RF i RFC (w ECR2 <15-50s)
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr,
+                        new String[]{"RF", "RFC"}, incrOnly, quickEstimate));
             }
         }
 
-        // Zrzut jednym wywołaniem na sam koniec!
         AbstractSingleStepBenchmark.exportToCsv("benchmark_single_step_ECR2.csv", allResults, "ECR2");
     }
-
-    // Usunięta funkcja runJmh! Wszystko jest dziedziczone statycznie z AbstractSingleStepBenchmark!
 }

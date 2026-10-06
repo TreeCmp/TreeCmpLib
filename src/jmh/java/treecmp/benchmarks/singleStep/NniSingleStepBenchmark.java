@@ -1,67 +1,23 @@
 package treecmp.benchmarks.singleStep;
 
-import org.openjdk.jmh.annotations.*;
-import org.openjdk.jmh.runner.Runner;
-import org.openjdk.jmh.runner.options.ChainedOptionsBuilder;
-import org.openjdk.jmh.runner.options.OptionsBuilder;
-import org.openjdk.jmh.runner.options.TimeValue;
+import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.results.RunResult;
-import org.openjdk.jmh.results.Result;
-
-import java.io.PrintWriter;
-import java.io.FileWriter;
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.util.Locale;
-import java.util.Collection;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-
 import pal.tree.SimpleTree;
-import pal.tree.Tree;
 import treecmp.heuristics.TreeNeighborhoodUtils;
 import treecmp.heuristics.nni.NniUtils;
 import treecmp.heuristics.nni.acc.NniIncrementalHeuristic;
-import treecmp.heuristics.base.IncrementalHeuristicBaseMetric;
-import treecmp.metrics.Metric;
 import treecmp.metrics.topological.*;
 import treecmp.metrics.topological.acc.*;
-import treecmp.util.TestTreeFactory;
-import treecmp.util.TreeCreator;
 
-@BenchmarkMode(Mode.AverageTime)
-@OutputTimeUnit(TimeUnit.MICROSECONDS)
-@State(Scope.Benchmark)
-public class NniSingleStepBenchmark {
+import java.util.ArrayList;
+import java.util.List;
 
-    @Param({"RF", "RFC", "MS", "MC", "MP", "M3"})
-    public String metricName;
-
-    @Param({"10", "20", "30", "50", "80", "120", "200", "300", "500", "800", "1200", "2000", "3000", "5000", "8000", "12000", "20000", "30000", "50000", "80000", "120000"})
-    public int treeSize;
-
-    private Tree t1;
-    private Tree t2;
-    private Tree t1ForIncr;
+public class NniSingleStepBenchmark extends AbstractSingleStepBenchmark {
 
     private TreeNeighborhoodUtils classicUtils;
-    private Metric classicMetric;
-    private IncrementalHeuristicBaseMetric incrementalMetric;
 
-    private static void assignNumbers(Tree tree) {
-        if (tree instanceof SimpleTree) {
-            ((SimpleTree) tree).createNodeList();
-        }
-    }
-
-    @Setup(Level.Trial)
-    public void setup() {
-        initMetricsAndTrees(metricName, treeSize);
-    }
-
-    private void initMetricsAndTrees(String metric, int size) {
+    @Override
+    protected void initMetricsAndTrees(String metric, int size) {
         boolean isRooted = false;
 
         switch (metric) {
@@ -99,116 +55,35 @@ public class NniSingleStepBenchmark {
                 throw new IllegalArgumentException("Unknown metric: " + metric);
         }
 
-        // 1. Elastyczne wyszukiwanie pliku w katalogu datasets/ (np. n5000y10rb.newick lub n5000y200rb.newick)
-        File datasetFile = findDatasetFile(size, isRooted);
-        boolean loadedFromFile = false;
-
-        if (datasetFile != null && datasetFile.exists()) {
-            // Potrzebujemy dokładnie 2 drzew do przeprowadzenia pojedynczego kroku
-            List<Tree> loadedTrees = loadTrees(datasetFile.getPath(), 2);
-            if (loadedTrees != null && loadedTrees.size() >= 2) {
-                t1 = new SimpleTree(loadedTrees.get(0));
-                t2 = new SimpleTree(loadedTrees.get(1));
-                t1ForIncr = new SimpleTree(loadedTrees.get(0));
-                loadedFromFile = true;
-            }
-        }
-
-        // 2. Fallback: Jeśli nie znaleziono pliku lub miał za mało drzew – generujemy losowo
-        if (!loadedFromFile) {
-            System.out.println("OSTRZEŻENIE: Brak odpowiedniego pliku w datasets/ dla N=" + size + " (" + (isRooted ? "rb" : "ub") + "). Używam TestTreeFactory.");
-            if (isRooted) {
-                t1 = TestTreeFactory.randomRootedBinaryTree(size, 12345L);
-                t2 = TestTreeFactory.randomRootedBinaryTree(size, 67890L);
-                t1ForIncr = TestTreeFactory.randomRootedBinaryTree(size, 12345L);
-            } else {
-                t1 = TestTreeFactory.randomUnrootedBinaryTree(size, 12345L);
-                t2 = TestTreeFactory.randomUnrootedBinaryTree(size, 67890L);
-                t1ForIncr = TestTreeFactory.randomUnrootedBinaryTree(size, 12345L);
-            }
-        }
-
-        assignNumbers(t1);
-        assignNumbers(t2);
-        assignNumbers(t1ForIncr);
+        // Wspólna metoda pobierająca drzewo z datasetu lub generująca losowe (w klasie bazowej)
+        loadOrGenerateTrees(size, isRooted);
 
         classicUtils = new NniUtils(!isRooted);
     }
 
-    /**
-     * Szuka w katalogu datasets/ pliku pasującego do wzorca n{size}y*{rb/ub}.newick
-     */
-    private File findDatasetFile(int size, boolean isRooted) {
-        File dir = new File("datasets");
-        if (!dir.exists() || !dir.isDirectory()) {
-            return null;
-        }
+    @Override
+    protected double evaluateClassicBestDist() throws Exception {
+        final double[] bestDist = {Double.POSITIVE_INFINITY};
 
-        String prefix = "n" + size + "y";
-        String suffix = (isRooted ? "rb" : "ub") + ".newick";
-
-        File[] matchingFiles = dir.listFiles((d, name) -> name.startsWith(prefix) && name.endsWith(suffix));
-        if (matchingFiles != null && matchingFiles.length > 0) {
-            return matchingFiles[0]; // Zwraca pierwszy pasujący plik (np. n8000y10rb.newick)
-        }
-        return null;
-    }
-
-    private static List<Tree> loadTrees(String filename, int limit) {
-        List<Tree> trees = new ArrayList<>();
-        try (BufferedReader br = new BufferedReader(new FileReader(filename))) {
-            String line;
-            while ((line = br.readLine()) != null && trees.size() < limit) {
-                line = line.trim();
-                if (!line.isEmpty() && !line.startsWith("#")) {
-                    Tree t = TreeCreator.getTreeFromString(line);
-                    if (t != null) {
-                        trees.add(t);
-                    }
+        classicUtils.forEachNeighbour(t1, neighbor -> {
+            try {
+                if (neighbor instanceof SimpleTree) {
+                    ((SimpleTree) neighbor).createNodeList();
                 }
-            }
-        } catch (Exception e) {
-            System.err.println("Błąd podczas wczytywania z pliku " + filename + ": " + e.getMessage());
-        }
-        return trees;
-    }
-
-    @Benchmark
-    public double benchmarkClassicSingleStep() {
-        try {
-            // Używamy jednokomórkowej tablicy, by móc modyfikować ją z wnętrza lambdy
-            final double[] bestDist = {Double.POSITIVE_INFINITY};
-
-            classicUtils.forEachNeighbour(t1, neighbor -> {
-                double d = 0;
-                try {
-                    // Odświeżenie indeksów węzłów, tak samo jak w SprSingleStepBenchmark
-                    if (neighbor instanceof SimpleTree) {
-                        ((SimpleTree) neighbor).createNodeList();
-                    }
-                    d = classicMetric.getDistance(neighbor, t2);
-                } catch (Exception e) {
-                    throw new RuntimeException(e);
-                }
-
+                double d = classicMetric.getDistance(neighbor, t2);
                 if (d < bestDist[0]) {
                     bestDist[0] = d;
                 }
-            });
+            } catch (Exception e) {
+                throw new RuntimeException("Błąd podczas ewaluacji dystansu w sąsiedztwie NNI", e);
+            }
+        });
 
-            return bestDist[0];
-        } catch (Throwable t) {
-            return Double.NaN;
-        }
-    }
-
-    @Benchmark
-        public double benchmarkIncrementalSingleStep() {
-        return incrementalMetric.evaluateSingleStep(t1ForIncr, t2);
+        return bestDist[0];
     }
 
     public static void main(String[] args) throws Exception {
-        boolean quickEstimate = true;
+        boolean quickEstimate = isQuickEstimate();
 
         String[] treeSizes = NniSingleStepBenchmark.class
                 .getField("treeSize")
@@ -217,26 +92,49 @@ public class NniSingleStepBenchmark {
 
         List<org.openjdk.jmh.results.RunResult> allResults = new ArrayList<>();
         String className = NniSingleStepBenchmark.class.getSimpleName();
+        String incrOnly = className + ".benchmarkIncrementalSingleStep";
 
         for (String sizeStr : treeSizes) {
             int size = Integer.parseInt(sizeStr);
 
             if (size <= 120) {
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"}, className, quickEstimate));
-            } else if (size <= 200) {
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP"}, className, quickEstimate));
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"M3"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+                // Classic + Incremental dla wszystkich 6 metryk (~2.5 min)
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr,
+                        new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"}, className, quickEstimate));
+
             } else if (size <= 300) {
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC"}, className, quickEstimate));
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"MS", "MC", "MP"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+                // Classic dla RF, RFC; Incremental dla wszystkich metryk (M3 powraca do matrycy) (~2 min)
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr,
+                        new String[]{"RF", "RFC"}, className, quickEstimate));
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr,
+                        new String[]{"MS", "MC", "MP", "M3"}, incrOnly, quickEstimate));
+
             } else if (size <= 500) {
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF"}, className, quickEstimate));
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RFC", "MS", "MC", "MP"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+                // Classic RF; Incremental dla reszty (~3 min)
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr,
+                        new String[]{"RF"}, className, quickEstimate));
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr,
+                        new String[]{"RFC", "MS", "MC", "MP", "M3"}, incrOnly, quickEstimate));
+
+            } else if (size <= 800) {
+                // OSTATNI KROK DLA MS: N=800 wymaga 4.1 GB RAM. Dalsze rozmiary rzucą OOM (~1.5 min)
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr,
+                        new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"}, incrOnly, quickEstimate));
+
+            } else if (size <= 1200) {
+                // BEZ MS (wymaga 14 GB RAM -> OOM). MP finiszuje na 1200 (48s). MC i M3 idą lekko (~2 min)
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr,
+                        new String[]{"RF", "RFC", "MC", "MP", "M3"}, incrOnly, quickEstimate));
+
             } else if (size <= 3000) {
-                // Dodano MP obok MS i MC
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+                // N = 2000, 3000: BEZ MP (churn >100 GB) i BEZ MS. MC (~2-5s), M3 (~20-50s), RF/RFC (<10ms) (~2.5 min)
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr,
+                        new String[]{"RF", "RFC", "MC", "M3"}, incrOnly, quickEstimate));
+
             } else {
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+                // Czysta skalowalność topologiczna aż do N = 120 000 (~3 min)
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr,
+                        new String[]{"RF", "RFC"}, incrOnly, quickEstimate));
             }
         }
 

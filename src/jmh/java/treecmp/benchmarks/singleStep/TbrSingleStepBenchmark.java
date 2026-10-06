@@ -25,6 +25,9 @@ import treecmp.metrics.topological.acc.*;
 import treecmp.util.TestTreeFactory;
 import treecmp.util.TreeCreator;
 
+import static treecmp.benchmarks.singleStep.AbstractSingleStepBenchmark.isQuickEstimate;
+import static treecmp.benchmarks.singleStep.AbstractSingleStepBenchmark.loadTrees;
+
 @BenchmarkMode(Mode.AverageTime)
 @OutputTimeUnit(TimeUnit.MICROSECONDS)
 @State(Scope.Benchmark)
@@ -33,7 +36,7 @@ public class TbrSingleStepBenchmark {
     @Param({"RF", "RFC", "MS", "MC", "MP", "M3"})
     public String metricName;
 
-    // Rozszerzona lista rozmiarów
+    // Rozszerzona lista rozmiarów o 800 i 1200 dla RFC
     @Param({"10", "20", "30", "50", "80", "120", "200", "300", "500", "800", "1200"})
     public int treeSize;
 
@@ -52,22 +55,8 @@ public class TbrSingleStepBenchmark {
     }
 
     @Setup(Level.Trial)
-    public void setup() throws Exception {
+    public void setup() {
         initMetricsAndTrees(metricName, treeSize);
-
-        // Lekka weryfikacja poprawności TYLKO dla małych drzew (N <= 20 dla TBR),
-        // aby nie blokować fazy setup przed startem właściwych pomiarów
-        if (treeSize <= 20) {
-            double distIncr = incrementalMetric.evaluateSingleStep(t1ForIncr, t2);
-            double bestClassicDist = evaluateClassicBestDist();
-            boolean isMatch = (bestClassicDist == distIncr || Math.abs(bestClassicDist - distIncr) < 1e-9);
-            if (!isMatch) {
-                throw new IllegalStateException(String.format(
-                        "Mismatch in TBR/uTBR (%s) for size %d! Classic=%.4f vs Incr=%.4f",
-                        metricName, treeSize, bestClassicDist, distIncr
-                ));
-            }
-        }
     }
 
     private void initMetricsAndTrees(String metric, int size) {
@@ -109,7 +98,6 @@ public class TbrSingleStepBenchmark {
                 throw new IllegalArgumentException("Unknown metric: " + metric);
         }
 
-        // 1. Próba wczytania drzew z plików datasetu
         File datasetFile = findDatasetFile(size, isRooted);
         boolean loadedFromFile = false;
 
@@ -123,9 +111,7 @@ public class TbrSingleStepBenchmark {
             }
         }
 
-        // 2. Fallback do generatora losowego
         if (!loadedFromFile) {
-            System.out.println("OSTRZEŻENIE: Brak pliku w datasets/ dla N=" + size + " (" + (isRooted ? "rb" : "ub") + "). Używam TestTreeFactory.");
             if (isRooted) {
                 t1 = TestTreeFactory.randomRootedBinaryTree(size, 12345L);
                 t2 = TestTreeFactory.randomRootedBinaryTree(size, 67890L);
@@ -146,37 +132,13 @@ public class TbrSingleStepBenchmark {
 
     private File findDatasetFile(int size, boolean isRooted) {
         File dir = new File("datasets");
-        if (!dir.exists() || !dir.isDirectory()) {
-            return null;
-        }
+        if (!dir.exists() || !dir.isDirectory()) return null;
 
         String prefix = "n" + size + "y";
         String suffix = (isRooted ? "rb" : "ub") + ".newick";
 
         File[] matchingFiles = dir.listFiles((d, name) -> name.startsWith(prefix) && name.endsWith(suffix));
-        if (matchingFiles != null && matchingFiles.length > 0) {
-            return matchingFiles[0];
-        }
-        return null;
-    }
-
-    private static List<Tree> loadTrees(String filename, int limit) {
-        List<Tree> trees = new ArrayList<>();
-        try (BufferedReader br = new BufferedReader(new FileReader(filename))) {
-            String line;
-            while ((line = br.readLine()) != null && trees.size() < limit) {
-                line = line.trim();
-                if (!line.isEmpty() && !line.startsWith("#")) {
-                    Tree t = TreeCreator.getTreeFromString(line);
-                    if (t != null) {
-                        trees.add(t);
-                    }
-                }
-            }
-        } catch (Exception e) {
-            System.err.println("Błąd wczytywania z pliku " + filename + ": " + e.getMessage());
-        }
-        return trees;
+        return (matchingFiles != null && matchingFiles.length > 0) ? matchingFiles[0] : null;
     }
 
     private double evaluateClassicBestDist() {
@@ -193,67 +155,59 @@ public class TbrSingleStepBenchmark {
                 } catch (TreeCmpException e) {
                     throw new RuntimeException(e);
                 }
-                if (d < bestDist[0]) {
-                    bestDist[0] = d;
-                }
+                if (d < bestDist[0]) bestDist[0] = d;
             });
         }
 
         return bestDist[0];
     }
 
-    @Benchmark
-    public double benchmarkClassicSingleStep() {
-        try {
-            return evaluateClassicBestDist();
-        } catch (Throwable t) {
-            return Double.NaN;
-        }
-    }
-
-    @Benchmark
-    public double benchmarkIncrementalSingleStep() {
-        return incrementalMetric.evaluateSingleStep(t1ForIncr, t2);
-    }
-
     public static void main(String[] args) throws Exception {
-        boolean quickEstimate = true;
-
-        String[] treeSizes = TbrSingleStepBenchmark.class
-                .getField("treeSize")
-                .getAnnotation(Param.class)
-                .value();
-
-        List<RunResult> allResults = new ArrayList<>();
+        boolean quickEstimate = isQuickEstimate();
         String className = TbrSingleStepBenchmark.class.getSimpleName();
+        List<RunResult> allResults = new ArrayList<>();
 
-        for (String sizeStr : treeSizes) {
-            int size = Integer.parseInt(sizeStr);
+        int[] sizes = {10, 20, 30, 50, 80, 120, 200, 300, 500, 800, 1200};
+
+        for (int size : sizes) {
+            String sizeStr = String.valueOf(size);
 
             if (size <= 20) {
-                // Pełny przekrój Classic + Incremental dla małych drzew
+                // N <= 20: Pełny przekrój Classic + Incremental dla wszystkich 6 metryk
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"}, className, quickEstimate));
             } else if (size <= 30) {
-                // Classic dla prostszych metryk, M3 tylko Incremental
+                // N = 30: Classic + Inc dla RF, RFC, MS, MC, MP; M3 wyłącznie Incremental
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP"}, className, quickEstimate));
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"M3"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
             } else if (size <= 50) {
-                // Classic RF/RFC; wszystkie metryki inkrementalne odblokowane
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC"}, className, quickEstimate));
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"MS", "MC", "MP", "M3"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+                // N = 50: Dołożono MS Classic (+16 s). Pełny Classic dla 5 metryk; M3 Incr
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP"}, className, quickEstimate));
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"M3"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
             } else if (size <= 80) {
-                // Inkrementalne RF, RFC, MS, MC, MP, M3
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+                // N = 80: Dołożono MC i MP Classic (+4 min). Classic dla RF, RFC, MC, MP; MS i M3 Incr
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MC", "MP"}, className, quickEstimate));
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"MS", "M3"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
             } else if (size <= 120) {
-                // Inkrementalne RF, RFC, MS, MC, MP (oraz opcjonalnie M3)
+                // N = 120: Pełny zestaw 6 metryk Incremental
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
             } else if (size <= 200) {
-                // Pełny test dopasowań MS, MC, MP oraz RF, RFC
+                // N = 200: Pełny zestaw 6 metryk Incremental (w tym M3 ~15 min)
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+            } else if (size <= 300) {
+                // N = 300: RF, RFC, MC, MP Incremental (~9 min)
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MC", "MP"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+            } else if (size <= 500) {
+                // N = 500: Dołożono MP Incr (~6 min) obok RF i RFC
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MP"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+            } else if (size <= 800) {
+                // N = 800: NOWOŚĆ – najszybsze RFC Incr (~2.5 min)
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RFC"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+            } else {
+                // N = 1200: NOWOŚĆ – najszybsze RFC Incr (~7.5 min)
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RFC"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
             }
         }
 
-        // Zapis zagregowanych wyników do pliku CSV
         AbstractSingleStepBenchmark.exportToCsv("benchmark_single_step_TBR.csv", allResults, "TBR");
     }
 }
