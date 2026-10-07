@@ -1,65 +1,36 @@
 package treecmp.benchmarks.singleStep;
 
-import org.openjdk.jmh.annotations.*;
+import org.openjdk.jmh.annotations.Level;
+import org.openjdk.jmh.annotations.Setup;
 import org.openjdk.jmh.results.RunResult;
 
-import java.io.BufferedReader;
-import java.io.File;
-import java.io.FileReader;
-import java.util.ArrayList;
-import java.util.List;
-import java.util.concurrent.TimeUnit;
-
 import pal.tree.SimpleTree;
-import pal.tree.Tree;
 import treecmp.common.TreeCmpException;
 import treecmp.heuristics.TreeNeighborhoodUtils;
 import treecmp.heuristics.tbr.TbrUtils;
 import treecmp.heuristics.tbr.UTbrUtils;
 import treecmp.heuristics.tbr.acc.TbrIncrementalHeuristic;
 import treecmp.heuristics.tbr.acc.UtbrIncrementalHeuristic;
-import treecmp.heuristics.base.IncrementalHeuristicBaseMetric;
-import treecmp.metrics.Metric;
 import treecmp.metrics.topological.*;
 import treecmp.metrics.topological.acc.*;
-import treecmp.util.TestTreeFactory;
-import treecmp.util.TreeCreator;
+
+import java.util.ArrayList;
+import java.util.List;
 
 import static treecmp.benchmarks.singleStep.AbstractSingleStepBenchmark.isQuickEstimate;
-import static treecmp.benchmarks.singleStep.AbstractSingleStepBenchmark.loadTrees;
 
-@BenchmarkMode(Mode.AverageTime)
-@OutputTimeUnit(TimeUnit.MICROSECONDS)
-@State(Scope.Benchmark)
-public class TbrSingleStepBenchmark {
-
-    @Param({"RF", "RFC", "MS", "MC", "MP", "M3"})
-    public String metricName;
-
-    // Rozszerzona lista rozmiarów o 800 i 1200 dla RFC
-    @Param({"10", "20", "30", "50", "80", "120", "200", "300", "500", "800", "1200"})
-    public int treeSize;
-
-    private Tree t1;
-    private Tree t2;
-    private Tree t1ForIncr;
+public class TbrSingleStepBenchmark extends AbstractSingleStepBenchmark {
 
     private TreeNeighborhoodUtils classicUtils;
-    private Metric classicMetric;
-    private IncrementalHeuristicBaseMetric incrementalMetric;
 
-    private static void assignNumbers(Tree tree) {
-        if (tree instanceof SimpleTree) {
-            ((SimpleTree) tree).createNodeList();
-        }
-    }
-
+    @Override
     @Setup(Level.Trial)
     public void setup() {
-        initMetricsAndTrees(metricName, treeSize);
+        super.setup();
     }
 
-    private void initMetricsAndTrees(String metric, int size) {
+    @Override
+    protected void initMetricsAndTrees(String metric, int size) {
         boolean isRooted = false;
 
         switch (metric) {
@@ -98,55 +69,19 @@ public class TbrSingleStepBenchmark {
                 throw new IllegalArgumentException("Unknown metric: " + metric);
         }
 
-        File datasetFile = findDatasetFile(size, isRooted);
-        boolean loadedFromFile = false;
-
-        if (datasetFile != null && datasetFile.exists()) {
-            List<Tree> loadedTrees = loadTrees(datasetFile.getPath(), 2);
-            if (loadedTrees != null && loadedTrees.size() >= 2) {
-                t1 = new SimpleTree(loadedTrees.get(0));
-                t2 = new SimpleTree(loadedTrees.get(1));
-                t1ForIncr = new SimpleTree(loadedTrees.get(0));
-                loadedFromFile = true;
-            }
-        }
-
-        if (!loadedFromFile) {
-            if (isRooted) {
-                t1 = TestTreeFactory.randomRootedBinaryTree(size, 12345L);
-                t2 = TestTreeFactory.randomRootedBinaryTree(size, 67890L);
-                t1ForIncr = TestTreeFactory.randomRootedBinaryTree(size, 12345L);
-            } else {
-                t1 = TestTreeFactory.randomUnrootedBinaryTree(size, 12345L);
-                t2 = TestTreeFactory.randomUnrootedBinaryTree(size, 67890L);
-                t1ForIncr = TestTreeFactory.randomUnrootedBinaryTree(size, 12345L);
-            }
-        }
-
-        assignNumbers(t1);
-        assignNumbers(t2);
-        assignNumbers(t1ForIncr);
+        // Wspólne ładowanie/generowanie drzew z AbstractSingleStepBenchmark
+        loadOrGenerateTrees(size, isRooted);
 
         classicUtils = isRooted ? new TbrUtils() : new UTbrUtils();
     }
 
-    private File findDatasetFile(int size, boolean isRooted) {
-        File dir = new File("datasets");
-        if (!dir.exists() || !dir.isDirectory()) return null;
-
-        String prefix = "n" + size + "y";
-        String suffix = (isRooted ? "rb" : "ub") + ".newick";
-
-        File[] matchingFiles = dir.listFiles((d, name) -> name.startsWith(prefix) && name.endsWith(suffix));
-        return (matchingFiles != null && matchingFiles.length > 0) ? matchingFiles[0] : null;
-    }
-
-    private double evaluateClassicBestDist() {
+    @Override
+    protected double evaluateClassicBestDist() {
         final double[] bestDist = {Double.POSITIVE_INFINITY};
 
         if (classicUtils != null) {
             classicUtils.forEachNeighbour(t1, neighbor -> {
-                double d = 0;
+                double d;
                 try {
                     if (neighbor instanceof SimpleTree) {
                         ((SimpleTree) neighbor).createNodeList();
@@ -155,7 +90,9 @@ public class TbrSingleStepBenchmark {
                 } catch (TreeCmpException e) {
                     throw new RuntimeException(e);
                 }
-                if (d < bestDist[0]) bestDist[0] = d;
+                if (d < bestDist[0]) {
+                    bestDist[0] = d;
+                }
             });
         }
 
@@ -200,10 +137,10 @@ public class TbrSingleStepBenchmark {
                 // N = 500: Dołożono MP Incr (~6 min) obok RF i RFC
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MP"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
             } else if (size <= 800) {
-                // N = 800: NOWOŚĆ – najszybsze RFC Incr (~2.5 min)
+                // N = 800: Najszybsze RFC Incr (~2.5 min)
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RFC"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
             } else {
-                // N = 1200: NOWOŚĆ – najszybsze RFC Incr (~7.5 min)
+                // N = 1200: Najszybsze RFC Incr (~7.5 min)
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RFC"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
             }
         }
