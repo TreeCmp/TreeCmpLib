@@ -109,39 +109,38 @@ public class TbrSingleStepBenchmark extends AbstractSingleStepBenchmark {
         for (int size : sizes) {
             String sizeStr = String.valueOf(size);
 
-            if (size <= 20) {
-                // N <= 20: Pełny przekrój Classic + Incremental dla wszystkich 6 metryk
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"}, className, quickEstimate));
-            } else if (size <= 30) {
-                // N = 30: Classic + Inc dla RF, RFC, MS, MC, MP; M3 wyłącznie Incremental
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP"}, className, quickEstimate));
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"M3"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
-            } else if (size <= 50) {
-                // N = 50: Dołożono MS Classic (+16 s). Pełny Classic dla 5 metryk; M3 Incr
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP"}, className, quickEstimate));
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"M3"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+            if (size <= 50) {
+                // N <= 50: Pełny Classic + Incremental dla WSZYSTKICH 6 metryk.
+                // M3 Classic przy N=30 zajmuje ~0.4s, a przy N=50 tylko ~4s!
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(
+                        sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"}, className, quickEstimate));
             } else if (size <= 80) {
-                // N = 80: Dołożono MC i MP Classic (+4 min). Classic dla RF, RFC, MC, MP; MS i M3 Incr
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MC", "MP"}, className, quickEstimate));
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"MS", "M3"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+                // N = 80: Rozszerzamy Classic o MS (~16.8s) i M3 (~32.6s).
+                // Classic trwa od 3.5s (RF) do 32.6s (M3) - mieści się w budżecie.
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(
+                        sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"}, className, quickEstimate));
             } else if (size <= 120) {
-                // N = 120: Pełny zestaw 6 metryk Incremental
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+                // N = 120: RF Classic trwa ~14.6s - dociągamy linię RF Classic.
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(
+                        sizeStr, new String[]{"RF"}, className, quickEstimate));
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(
+                        sizeStr, new String[]{"RFC", "MS", "MC", "MP", "M3"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
             } else if (size <= 200) {
-                // N = 200: Pełny zestaw 6 metryk Incremental (w tym M3 ~15 min)
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+                // N = 200: Pełny zestaw 6 metryk Incremental
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(
+                        sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
             } else if (size <= 300) {
-                // N = 300: RF, RFC, MC, MP Incremental (~9 min)
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MC", "MP"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+                // N = 300: RF, RFC, MC, MP Incremental
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(
+                        sizeStr, new String[]{"RF", "RFC", "MC", "MP"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
             } else if (size <= 500) {
-                // N = 500: Dołożono MP Incr (~6 min) obok RF i RFC
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RF", "RFC", "MP"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
-            } else if (size <= 800) {
-                // N = 800: Najszybsze RFC Incr (~2.5 min)
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RFC"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+                // N = 500: RF, RFC, MP Incremental
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(
+                        sizeStr, new String[]{"RF", "RFC", "MP"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
             } else {
-                // N = 1200: Najszybsze RFC Incr (~7.5 min)
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr, new String[]{"RFC"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
+                // N = 800 oraz 1200: RFC Incremental
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(
+                        sizeStr, new String[]{"RFC"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
             }
         }
 

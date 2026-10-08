@@ -95,52 +95,58 @@ public class Ecr2SingleStepBenchmark extends AbstractSingleStepBenchmark {
         for (String sizeStr : treeSizes) {
             int size = Integer.parseInt(sizeStr);
 
-            if (size <= 80) {
-                // N <= 80: Pełny zestaw Classic + Incremental dla wszystkich 6 metryk
+            if (size <= 120) {
+                // N <= 120: Pełny zestaw Classic + Incremental dla WSZYSTKICH 6 metryk!
+                // W ECR2 przy N=120 nawet MC Classic trwa ~2.3 s, a M3/MP/MS poniżej 1.7 s.
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr,
                         new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"}, className, quickEstimate));
 
-            } else if (size <= 120) {
-                // POLUZOWANIE: Dodano Classic MS i MC dla N=120 (trwają ~6-8s w ECR2)
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr,
-                        new String[]{"RF", "RFC", "MS", "MC"}, className, quickEstimate));
-                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr,
-                        new String[]{"MP", "M3"}, incrOnly, quickEstimate));
-
             } else if (size <= 200) {
-                // N = 200: Classic dla RF i RFC. Inkrementalny dla wszystkich 6 metryk.
-                // OSTATNI KROK DLA M3: N=200 zamyka krzywą M3 (trwa ~29s)
+                // N = 200: Pełny Classic dla wszystkich 6 metryk.
+                // Czasy Classic: RF (0.4s), MS (3.5s), RFC (5.9s), MP (7.5s), M3 (7.8s), MC (11.3s).
+                // Wszystkie punkty Classic mieszczą się poniżej 12 sekund na operację.
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr,
-                        new String[]{"RF", "RFC"}, className, quickEstimate));
+                        new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"}, className, quickEstimate));
+
+            } else if (size <= 300) {
+                // N = 300: Classic dla RF (~1.1 s), MS (~11.6 s) oraz RFC (~19.0 s).
+                // Incremental: RF, RFC, MS, MC (~101 ms), MP (~2.7 s) oraz M3 (~39 s).
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr,
-                        new String[]{"MS", "MC", "MP", "M3"}, incrOnly, quickEstimate));
+                        new String[]{"RF", "RFC", "MS"}, className, quickEstimate));
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr,
+                        new String[]{"MC", "MP", "M3"}, incrOnly, quickEstimate));
 
             } else if (size <= 500) {
-                // N = 300, 500: Classic tylko RF.
-                // Inkrementalny dla RF, RFC, MS, MC, MP (BEZ M3).
-                // OSTATNI KROK DLA MP: N=500 zamyka krzywą MP (trwa ~33s)
+                // N = 500: Classic tylko RF (~3.9 s).
+                // Incremental dla RF, RFC, MS, MC, MP (~10.6 s).
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr,
                         new String[]{"RF"}, className, quickEstimate));
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr,
                         new String[]{"RFC", "MS", "MC", "MP"}, incrOnly, quickEstimate));
 
             } else if (size <= 800) {
-                // POLUZOWANIE: Classic RF pociągnięty do N=800 (~40s).
-                // Inkrementalny dla RF, RFC, MS, MC (BEZ M3, BEZ MP).
-                // OSTATNI KROK DLA MS: N=800 to granica alokacji przed OOM przy N=1200
+                // N = 800: Classic tylko RF (~12.0 s).
+                // Incremental dla RF, RFC, MS (~1.2 s, granica alokacji), MC oraz MP (~36 s).
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr,
                         new String[]{"RF"}, className, quickEstimate));
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr,
-                        new String[]{"RFC", "MS", "MC"}, incrOnly, quickEstimate));
+                        new String[]{"RFC", "MS", "MC", "MP"}, incrOnly, quickEstimate));
 
-            } else if (size <= 2000) {
-                // N = 1200, 2000: BEZ MS (OOM). Zostaje MC (~15-45s) oraz RF, RFC.
-                // OSTATNI KROK DLA MC: N=2000 zamyka metryki dopasowaniowe
+            } else if (size <= 1200) {
+                // N = 1200: Classic RF (~31.7 s - dociąga linię Classic RF pod górną granicę).
+                // Incremental dla RF, RFC, MC (~2.8 s).
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr,
+                        new String[]{"RF"}, className, quickEstimate));
+                allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr,
+                        new String[]{"RFC", "MC"}, incrOnly, quickEstimate));
+
+            } else if (size <= 3000) {
+                // N = 2000, 3000: Incremental RF, RFC oraz MC (dla N=3000 MC trwa ~29 s).
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr,
                         new String[]{"RF", "RFC", "MC"}, incrOnly, quickEstimate));
 
             } else {
-                // N >= 3000 aż do 120 000: Czysta skalowalność topologiczna RF i RFC (w ECR2 <15-50s)
+                // N >= 5000 do 120 000: Czysta skalowalność topologiczna RF i RFC Incremental.
                 allResults.addAll(AbstractSingleStepBenchmark.runJmh(sizeStr,
                         new String[]{"RF", "RFC"}, incrOnly, quickEstimate));
             }
