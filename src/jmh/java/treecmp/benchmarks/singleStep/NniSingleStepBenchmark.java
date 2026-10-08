@@ -129,7 +129,6 @@ public class NniSingleStepBenchmark extends AbstractSingleStepBenchmark {
                         sizeStr, new String[]{"RF", "RFC"}, className + ".benchmarkIncrementalSingleStep", quickEstimate));
             }
         }
-
-        AbstractSingleStepBenchmark.exportToCsv("benchmark_single_step_NNI.csv", allResults, "NNI");
+        AbstractSingleStepBenchmark.exportToCsv("benchmark_single_step_NNI.csv", allResults, "NNI", "TimeMs");
     }
 }

@@ -177,6 +177,6 @@ public class SprSingleStepBenchmark extends AbstractSingleStepBenchmark {
             }
         }
 
-        AbstractSingleStepBenchmark.exportToCsv("benchmark_single_step_SPR.csv", allResults, "SPR");
+        AbstractSingleStepBenchmark.exportToCsv("benchmark_single_step_SPR.csv", allResults, "SPR", "TimeMs");
     }
 }

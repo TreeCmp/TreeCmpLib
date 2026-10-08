@@ -144,6 +144,6 @@ public class TbrSingleStepBenchmark extends AbstractSingleStepBenchmark {
             }
         }
 
-        AbstractSingleStepBenchmark.exportToCsv("benchmark_single_step_TBR.csv", allResults, "TBR");
+        AbstractSingleStepBenchmark.exportToCsv("benchmark_single_step_TBR.csv", allResults, "TBR", "TimeMs");
     }
 }

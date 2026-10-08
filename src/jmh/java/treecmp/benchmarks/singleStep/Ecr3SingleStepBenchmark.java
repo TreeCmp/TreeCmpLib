@@ -147,6 +147,6 @@ public class Ecr3SingleStepBenchmark extends AbstractSingleStepBenchmark {
             }
         }
 
-        AbstractSingleStepBenchmark.exportToCsv("benchmark_single_step_ECR3.csv", allResults, "ECR3");
+        AbstractSingleStepBenchmark.exportToCsv("benchmark_single_step_ECR3.csv", allResults, "ECR3", "TimeMs");
     }
 }
