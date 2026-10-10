@@ -61,8 +61,8 @@ public class TbrDistanceBenchmark extends AbstractDistanceBenchmark {
 
     public static void main(String[] args) throws Exception {
         boolean quickEstimate = isQuickEstimate();
-        String className = TbrDistanceBenchmark.class.getSimpleName();
-        String incrOnly = className + ".benchmarkIncrementalFullRun";
+        String className = TbrDistanceBenchmark.class.getName();
+        String incrOnly = className + "\\.benchmarkIncrementalFullRun";
         List<RunResult> allResults = new ArrayList<>();
 
         int[] sizes = {10, 20, 30, 50, 80, 120, 200};
@@ -71,19 +71,24 @@ public class TbrDistanceBenchmark extends AbstractDistanceBenchmark {
             String sizeStr = String.valueOf(size);
 
             if (size <= 20) {
-                // N <= 20: Wszystkie 6 metryk Classic + Incremental
+                // N <= 20: Wszystkie 6 metryk Classic + Incremental (~2-3 min)
                 allResults.addAll(runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"}, className, quickEstimate));
             } else if (size <= 30) {
-                // N = 30: Classic tylko szybkie RF/RFC; Incremental dla wszystkich
+                // N = 30: Classic tylko RF/RFC; Incremental dla wszystkich (~15 min)
                 allResults.addAll(runJmh(sizeStr, new String[]{"RF", "RFC"}, className, quickEstimate));
                 allResults.addAll(runJmh(sizeStr, new String[]{"MS", "MC", "MP", "M3"}, incrOnly, quickEstimate));
             } else if (size <= 50) {
-                // N = 50: Classic RF/RFC; Incremental bez M3
-                allResults.addAll(runJmh(sizeStr, new String[]{"RF", "RFC"}, className, quickEstimate));
-                allResults.addAll(runJmh(sizeStr, new String[]{"MS", "MC", "MP"}, incrOnly, quickEstimate));
-            } else {
-                // N >= 80: Wyłącznie Incrementalne RF, RFC, MS, MC, MP
+                // N = 50: TYLKO Incremental (bez Classic RF/RFC, bo trwają 65-92 s!)
+                // M3 wycięte ze względu na O(n^3) wspinaczkę (~25 min)
                 allResults.addAll(runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP"}, incrOnly, quickEstimate));
+            } else if (size <= 80) {
+                // N = 80: Tylko Incremental; MS wycięte (trwało ponad 6 min/op).
+                // RF (nieukorzenione ~4 min/op) + szybkie ukorzenione RFC, MC, MP (~35 min)
+                allResults.addAll(runJmh(sizeStr, new String[]{"RF", "RFC", "MC", "MP"}, incrOnly, quickEstimate));
+            } else {
+                // N = 120 i N = 200: Wyłącznie Incrementalne metryki ukorzenione (TbrIncrementalHeuristic).
+                // Nieukorzenione Utbr (RF, MS) eksplodują czasowo powyżej N=80 (~15-20 min)
+                allResults.addAll(runJmh(sizeStr, new String[]{"RFC", "MC", "MP"}, incrOnly, quickEstimate));
             }
         }
 
