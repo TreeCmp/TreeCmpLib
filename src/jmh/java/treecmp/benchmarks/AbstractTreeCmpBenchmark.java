@@ -111,23 +111,22 @@ public abstract class AbstractTreeCmpBenchmark {
                 .include(includeRegex)
                 .param("treeSize", sizeStr)
                 .param("metricName", metrics)
-                .jvmArgs("-Xms4g", "-Xmx16g")
                 .addProfiler("gc");
 
         if (quickEstimate) {
             builder.warmupIterations(1)
-                    .warmupTime(TimeValue.seconds(1))
-                    .measurementIterations(1)
-                    .measurementTime(TimeValue.seconds(1))
-                    .forks(1)
-                    .warmupForks(0);
+                .warmupTime(TimeValue.seconds(1))
+                .measurementIterations(1)
+                .measurementTime(TimeValue.seconds(1))
+                .forks(1)
+                .warmupForks(0);
         } else {
-            builder.warmupIterations(5)
+            builder.warmupIterations(3)
                     .warmupTime(TimeValue.seconds(2))
-                    .measurementIterations(5)
+                .measurementIterations(3)
                     .measurementTime(TimeValue.seconds(2))
-                    .forks(2)
-                    .warmupForks(1);
+                .forks(2)
+                .warmupForks(0);
         }
 
         return new ArrayList<>(new Runner(builder.build()).run());
