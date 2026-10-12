@@ -104,9 +104,9 @@ public class SprRFDistanceBenchmark extends AbstractDistanceBenchmark {
 
     public static void main(String[] args) throws Exception {
         boolean quickEstimate = isQuickEstimate();
-        String className = SprRFDistanceBenchmark.class.getSimpleName();
-        String classicOnly = className + ".benchmarkClassicFullRun";
-        String incrOnly = className + ".benchmarkIncrementalFullRun";
+        String className = SprRFDistanceBenchmark.class.getName();
+        String classicOnly = className + "\\.benchmarkClassicFullRun";
+        String incrOnly = className + "\\.benchmarkIncrementalFullRun";
         List<RunResult> allResults = new ArrayList<>();
 
         int[] sizes = {10, 20, 30, 50, 80, 120, 200};
@@ -114,34 +114,51 @@ public class SprRFDistanceBenchmark extends AbstractDistanceBenchmark {
         for (int size : sizes) {
             String sizeStr = String.valueOf(size);
 
-            // --- HARMONOGRAM DLA WARIANTU KLASYCZNEGO (CLASSIC) ---
+            // --- 1. HARMONOGRAM DLA WARIANTU KLASYCZNEGO (CLASSIC) ---
             if (size <= 20) {
-                // N=10, 20: Wszystkie 13 metryk w wariancie klasycznym
+                // N=10, 20: Wszystkie 13 metryk w wariancie klasycznym (~3-4 min)
                 allResults.addAll(runJmh(sizeStr,
                         new String[]{"CopheneticL2", "RMAST", "MC", "MP", "NodalL2Splitted", "Triplet", "M3", "MPU", "MS", "NodalL2", "Quartet", "UMAST", "RF"},
                         classicOnly, quickEstimate));
             } else if (size <= 30) {
-                // N=30: Odcinamy bardzo ciężkie metryki sześcienne (Triplet, Quartet, M3)
+                // N=30: Odcinamy bardzo ciężkie metryki sześcienne (Triplet, Quartet, M3) (~10 min)
                 allResults.addAll(runJmh(sizeStr,
                         new String[]{"CopheneticL2", "RMAST", "MC", "MP", "NodalL2Splitted", "MPU", "MS", "NodalL2", "UMAST", "RF"},
                         classicOnly, quickEstimate));
             } else if (size <= 50) {
-                // N=50: Zostawiamy średnio ciężkie i szybkie metryki
+                // N=50: Tylko szybkie metryki Classic.
+                // Odcinamy Classic MS/MC/MP, bo liczą się po kilkadziesiąt sekund na operację! (~8 min)
                 allResults.addAll(runJmh(sizeStr,
-                        new String[]{"RF", "MS", "MC", "MP", "CopheneticL2"},
-                        classicOnly, quickEstimate));
-            } else if (size <= 80) {
-                // N=80: Tylko szybkie bazowe RF
-                allResults.addAll(runJmh(sizeStr,
-                        new String[]{"RF"},
+                        new String[]{"RF", "CopheneticL2"},
                         classicOnly, quickEstimate));
             }
+            // N >= 80: Całkowity brak Classic (drzewa przeliczane od zera eksplodują czasowo)
 
-            // --- HARMONOGRAM DLA WARIANTU INKREMENTALNEGO (INCREMENTAL) ---
-            // Uruchamiany aż do N=200 dla 5 metryk posiadających implementacje akcelerowane
-            allResults.addAll(runJmh(sizeStr,
-                    new String[]{"RF", "MS", "MC", "MP", "M3"},
-                    incrOnly, quickEstimate));
+            // --- 2. HARMONOGRAM DLA WARIANTU INKREMENTALNEGO (INCREMENTAL) ---
+            if (size <= 50) {
+                // N <= 50: Pełny komplet 5 akcelerowanych metryk (~10 min)
+                allResults.addAll(runJmh(sizeStr,
+                        new String[]{"RF", "MS", "MC", "MP", "M3"},
+                        incrOnly, quickEstimate));
+            } else if (size <= 80) {
+                // N=80: Wszystkie akcelerowane metryki (~25 min)
+                allResults.addAll(runJmh(sizeStr,
+                        new String[]{"RF", "MS", "MC", "MP", "M3"},
+                        incrOnly, quickEstimate));
+            } else if (size <= 120) {
+                // N=120: Odcinamy M3 (potrójne podziały).
+                // Zostawiamy RF, MC, MP oraz MS (MS trwa tu ~2.3 min/op) (~35 min)
+                allResults.addAll(runJmh(sizeStr,
+                        new String[]{"RF", "MS", "MC", "MP"},
+                        incrOnly, quickEstimate));
+            } else {
+                // N=200: KLUCZOWE ODCIĘCIE - BEZWZGLĘDNIE BEZ "MS"!
+                // (MS trwało u Ciebie 35.5 min na pojedynczą operację i zjadło ponad 7 godzin).
+                // Zostawiamy RF (~3 min/op), MC (~4 min/op) oraz MP (~25 s/op) (~45 min)
+                allResults.addAll(runJmh(sizeStr,
+                        new String[]{"RF", "MC", "MP"},
+                        incrOnly, quickEstimate));
+            }
         }
 
         exportToCsv("benchmark_distance_SPR_RF.csv", allResults, "SPR-RF", "TimeMs");
