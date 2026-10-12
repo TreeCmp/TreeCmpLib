@@ -15,8 +15,8 @@ import java.util.List;
 
 public class SprDistanceBenchmark extends AbstractDistanceBenchmark {
 
-    @Param({"10", "20", "30", "50", "80", "120", "200", "300", "500", "800", "1200", "2000"})
-    public int treeSize; // przesłonięcie zakresu rozmiarów dla SPR
+    @Param({"10", "20", "30", "50", "80", "120", "200"})
+    public int treeSize; // Ograniczenie do N=200 (bez tie-breakera N>=300 przekracza budzet czasowy i timeout)
 
     @Override
     protected void initMetricsAndTrees(String metric, int size) {
@@ -62,22 +62,39 @@ public class SprDistanceBenchmark extends AbstractDistanceBenchmark {
 
     public static void main(String[] args) throws Exception {
         boolean quickEstimate = isQuickEstimate();
-        String className = SprDistanceBenchmark.class.getSimpleName();
-        String incrOnly = className + ".benchmarkIncrementalFullRun";
+        String className = SprDistanceBenchmark.class.getName();
+        String classicOnly = className + "\\.benchmarkClassicFullRun";
+        String incrOnly = className + "\\.benchmarkIncrementalFullRun";
         List<RunResult> allResults = new ArrayList<>();
 
-        int[] sizes = {10, 20, 30, 50, 80, 120, 200, 300, 500, 800, 1200, 2000};
+        // Ograniczamy do N=200
+        int[] sizes = {10, 20, 30, 50, 80, 120, 200};
 
         for (int size : sizes) {
             String sizeStr = String.valueOf(size);
 
-            if (size <= 50) {
-                allResults.addAll(runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"}, className, quickEstimate));
+            // --- 1. WARIANT KLASYCZNY (CLASSIC) ---
+            if (size <= 30) {
+                // N=10, 20, 30: Wszystkie 6 metryk w wersji Classic
+                allResults.addAll(runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"}, classicOnly, quickEstimate));
+            } else if (size <= 50) {
+                // N=50: Tylko szybkie bazowe RF i RFC (odcinamy Classic MS/MC/MP/M3 przeliczane od zera)
+                allResults.addAll(runJmh(sizeStr, new String[]{"RF", "RFC"}, classicOnly, quickEstimate));
+            }
+            // N >= 80: Całkowity brak Classic (drzewa przeliczane od zera eksplodują czasowo)
+
+            // --- 2. WARIANT INKREMENTALNY (INCREMENTAL) ---
+            if (size <= 80) {
+                // N <= 80: Pełny zestaw wszystkich 6 akcelerowanych metryk
+                allResults.addAll(runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"}, incrOnly, quickEstimate));
             } else if (size <= 120) {
-                allResults.addAll(runJmh(sizeStr, new String[]{"RF", "RFC"}, className, quickEstimate));
-                allResults.addAll(runJmh(sizeStr, new String[]{"MS", "MC", "MP", "M3"}, incrOnly, quickEstimate));
+                // N=120: Wszystkie 6 metryk (w tym MS, które trwa tu ~2.3 min/op)
+                allResults.addAll(runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"}, incrOnly, quickEstimate));
             } else {
-                allResults.addAll(runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC"}, incrOnly, quickEstimate));
+                // N=200: KLUCZOWE ODCIĘCIE - BEZWZGLĘDNIE BEZ "MS"!
+                // MS trwało 36 min/op i zabierało ponad 7 godzin.
+                // RFC (~16 s), MP (~25 s), M3 (~75 s), MC (~4 min), RF (~3 min)
+                allResults.addAll(runJmh(sizeStr, new String[]{"RFC", "MP", "M3", "MC", "RF"}, incrOnly, quickEstimate));
             }
         }
 
