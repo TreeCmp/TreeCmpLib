@@ -13,7 +13,7 @@ import java.util.List;
 
 public class Ecr3DistanceBenchmark extends AbstractDistanceBenchmark {
 
-    @Param({"10", "20", "30", "50", "80", "120"})
+    @Param({"10", "20", "30", "50", "80", "120", "200"})
     public int treeSize;
 
     @Override
@@ -60,29 +60,40 @@ public class Ecr3DistanceBenchmark extends AbstractDistanceBenchmark {
 
     public static void main(String[] args) throws Exception {
         boolean quickEstimate = isQuickEstimate();
-        String className = Ecr3DistanceBenchmark.class.getSimpleName();
-        String incrOnly = className + ".benchmarkIncrementalFullRun";
+        String className = Ecr3DistanceBenchmark.class.getName();
+        String classicOnly = className + "\\.benchmarkClassicFullRun";
+        String incrOnly = className + "\\.benchmarkIncrementalFullRun";
         List<RunResult> allResults = new ArrayList<>();
 
-        int[] sizes = {10, 20, 30, 50, 80, 120};
+        // Rozszerzamy zakres do N=200 dla pełnej zgodności z SPR i TBR
+        int[] sizes = {10, 20, 30, 50, 80, 120, 200};
 
         for (int size : sizes) {
             String sizeStr = String.valueOf(size);
 
+            // --- 1. WARIANT KLASYCZNY (CLASSIC) ---
             if (size <= 20) {
-                // N <= 20: Wszystkie 6 metryk Classic + Incremental
-                allResults.addAll(runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"}, className, quickEstimate));
+                // N=10, 20: Wszystkie 6 metryk Classic
+                allResults.addAll(runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"}, classicOnly, quickEstimate));
             } else if (size <= 30) {
-                // N = 30: Classic dla RF, RFC, MS; reszta Incremental
-                allResults.addAll(runJmh(sizeStr, new String[]{"RF", "RFC", "MS"}, className, quickEstimate));
-                allResults.addAll(runJmh(sizeStr, new String[]{"MC", "MP", "M3"}, incrOnly, quickEstimate));
+                // N=30: Classic dla RF, RFC, MS (bez ciężkich sześciennych)
+                allResults.addAll(runJmh(sizeStr, new String[]{"RF", "RFC", "MS"}, classicOnly, quickEstimate));
             } else if (size <= 50) {
-                // N = 50: Classic tylko RF i RFC
-                allResults.addAll(runJmh(sizeStr, new String[]{"RF", "RFC"}, className, quickEstimate));
-                allResults.addAll(runJmh(sizeStr, new String[]{"MS", "MC", "MP"}, incrOnly, quickEstimate));
+                // N=50: Classic tylko dla szybkich RF i RFC
+                allResults.addAll(runJmh(sizeStr, new String[]{"RF", "RFC"}, classicOnly, quickEstimate));
+            }
+            // N >= 80: Brak Classic
+
+            // --- 2. WARIANT INKREMENTALNY (INCREMENTAL) ---
+            if (size <= 80) {
+                // N <= 80: Pełny komplet 6 metryk (M3 i MP w ECR3 liczą się błyskawicznie)
+                allResults.addAll(runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"}, incrOnly, quickEstimate));
+            } else if (size <= 120) {
+                // N=120: 5 metryk z przywróconym szybkim MP (odcinamy tylko M3)
+                allResults.addAll(runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP"}, incrOnly, quickEstimate));
             } else {
-                // N >= 80: Tylko Incremental RF, RFC, MS, MC
-                allResults.addAll(runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC"}, incrOnly, quickEstimate));
+                // N=200: Szybkie metryki inkrementalne (bez nieukorzenionego MS i sześciennego M3)
+                allResults.addAll(runJmh(sizeStr, new String[]{"RFC", "MP", "MC", "RF"}, incrOnly, quickEstimate));
             }
         }
 
