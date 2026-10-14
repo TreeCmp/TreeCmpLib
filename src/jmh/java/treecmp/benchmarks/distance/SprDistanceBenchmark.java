@@ -67,33 +67,28 @@ public class SprDistanceBenchmark extends AbstractDistanceBenchmark {
         String incrOnly = className + "\\.benchmarkIncrementalFullRun";
         List<RunResult> allResults = new ArrayList<>();
 
-        // Ograniczamy do N=200
+        // Ograniczamy do N=200 (~4.5 godz. lacznego czasu dla calego benchmarku)
         int[] sizes = {10, 20, 30, 50, 80, 120, 200};
 
         for (int size : sizes) {
             String sizeStr = String.valueOf(size);
 
             // --- 1. WARIANT KLASYCZNY (CLASSIC) ---
-            if (size <= 30) {
-                // N=10, 20, 30: Wszystkie 6 metryk w wersji Classic
+            if (size <= 50) {
+                // N=10, 20, 30, 50: Pelny zestaw wszystkich 6 metryk w wersji Classic (~36 min lacznie)
                 allResults.addAll(runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"}, classicOnly, quickEstimate));
-            } else if (size <= 50) {
-                // N=50: Tylko szybkie bazowe RF i RFC (odcinamy Classic MS/MC/MP/M3 przeliczane od zera)
+            } else if (size <= 80) {
+                // N=80: Szybkie bazowe RF i RFC w wersji Classic (~17.5 min)
                 allResults.addAll(runJmh(sizeStr, new String[]{"RF", "RFC"}, classicOnly, quickEstimate));
             }
-            // N >= 80: Całkowity brak Classic (drzewa przeliczane od zera eksplodują czasowo)
+            // N >= 120: Brak Classic (przekracza limit czasu na iteracje)
 
             // --- 2. WARIANT INKREMENTALNY (INCREMENTAL) ---
-            if (size <= 80) {
-                // N <= 80: Pełny zestaw wszystkich 6 akcelerowanych metryk
-                allResults.addAll(runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"}, incrOnly, quickEstimate));
-            } else if (size <= 120) {
-                // N=120: Wszystkie 6 metryk (w tym MS, które trwa tu ~2.3 min/op)
+            if (size <= 120) {
+                // N <= 120: Pelny zestaw wszystkich 6 akcelerowanych metryk (~1h 05m lacznie)
                 allResults.addAll(runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"}, incrOnly, quickEstimate));
             } else {
-                // N=200: KLUCZOWE ODCIĘCIE - BEZWZGLĘDNIE BEZ "MS"!
-                // MS trwało 36 min/op i zabierało ponad 7 godzin.
-                // RFC (~16 s), MP (~25 s), M3 (~75 s), MC (~4 min), RF (~3 min)
+                // N=200: 5 metryk inkrementalnych - bez "MS" (~2h 29m)
                 allResults.addAll(runJmh(sizeStr, new String[]{"RFC", "MP", "M3", "MC", "RF"}, incrOnly, quickEstimate));
             }
         }
