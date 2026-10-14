@@ -115,52 +115,41 @@ public class SprRFDistanceBenchmark extends AbstractDistanceBenchmark {
             String sizeStr = String.valueOf(size);
 
             // --- 1. HARMONOGRAM DLA WARIANTU KLASYCZNEGO (CLASSIC) ---
-            if (size <= 20) {
-                // N=10, 20: Wszystkie 13 metryk w wariancie klasycznym (~3-4 min)
+            if (size <= 30) {
+                // N=10, 20, 30: Pełny komplet wszystkich 13 metryk w wariancie klasycznym (~19 min łącznie)
                 allResults.addAll(runJmh(sizeStr,
                         new String[]{"CopheneticL2", "RMAST", "MC", "MP", "NodalL2Splitted", "Triplet", "M3", "MPU", "MS", "NodalL2", "Quartet", "UMAST", "RF"},
                         classicOnly, quickEstimate));
-            } else if (size <= 30) {
-                // N=30: Odcinamy bardzo ciężkie metryki sześcienne (Triplet, Quartet, M3) (~10 min)
-                allResults.addAll(runJmh(sizeStr,
-                        new String[]{"CopheneticL2", "RMAST", "MC", "MP", "NodalL2Splitted", "MPU", "MS", "NodalL2", "UMAST", "RF"},
-                        classicOnly, quickEstimate));
             } else if (size <= 50) {
-                // N=50: Tylko szybkie metryki Classic.
-                // Odcinamy Classic MS/MC/MP, bo liczą się po kilkadziesiąt sekund na operację! (~8 min)
+                // N=50: 12 z 13 metryk Classic (~50 min).
+                // Odcinamy wyłącznie ekstremalny Quartet (O(n^4) na sąsiedztwie O(n^2)).
                 allResults.addAll(runJmh(sizeStr,
-                        new String[]{"RF", "CopheneticL2"},
+                        new String[]{"RF", "CopheneticL2", "NodalL2", "NodalL2Splitted", "RMAST", "UMAST", "MP", "MPU", "MC", "MS", "M3", "Triplet"},
+                        classicOnly, quickEstimate));
+            } else if (size <= 80) {
+                // N=80: 6 szybkich metryk Classic nieopartych na ciężkim LAP i trójkach (~40 min)
+                allResults.addAll(runJmh(sizeStr,
+                        new String[]{"RF", "CopheneticL2", "NodalL2", "NodalL2Splitted", "RMAST", "UMAST"},
                         classicOnly, quickEstimate));
             }
-            // N >= 80: Całkowity brak Classic (drzewa przeliczane od zera eksplodują czasowo)
+            // N >= 120: Brak Classic
 
             // --- 2. HARMONOGRAM DLA WARIANTU INKREMENTALNEGO (INCREMENTAL) ---
-            if (size <= 50) {
-                // N <= 50: Pełny komplet 5 akcelerowanych metryk (~10 min)
+            if (size <= 120) {
+                // N=10, 20, 30, 50, 80, 120: Pełny komplet wszystkich 5 akcelerowanych metryk (~1h 15m łącznie)
+                // (Przy N=120 M3 zajmuje ~26 s/op, a MS ~2.3 min/op - mieszczą się bez problemu)
                 allResults.addAll(runJmh(sizeStr,
                         new String[]{"RF", "MS", "MC", "MP", "M3"},
-                        incrOnly, quickEstimate));
-            } else if (size <= 80) {
-                // N=80: Wszystkie akcelerowane metryki (~25 min)
-                allResults.addAll(runJmh(sizeStr,
-                        new String[]{"RF", "MS", "MC", "MP", "M3"},
-                        incrOnly, quickEstimate));
-            } else if (size <= 120) {
-                // N=120: Odcinamy M3 (potrójne podziały).
-                // Zostawiamy RF, MC, MP oraz MS (MS trwa tu ~2.3 min/op) (~35 min)
-                allResults.addAll(runJmh(sizeStr,
-                        new String[]{"RF", "MS", "MC", "MP"},
                         incrOnly, quickEstimate));
             } else {
-                // N=200: KLUCZOWE ODCIĘCIE - BEZWZGLĘDNIE BEZ "MS"!
-                // (MS trwało u Ciebie 35.5 min na pojedynczą operację i zjadło ponad 7 godzin).
-                // Zostawiamy RF (~3 min/op), MC (~4 min/op) oraz MP (~25 s/op) (~45 min)
+                // N=200: 4 z 5 metryk inkrementalnych (~1h 30m).
+                // Przywracamy M3 (~3.8 min/op), odcinamy wyłącznie patologiczne MS (~35.5 min/op).
                 allResults.addAll(runJmh(sizeStr,
-                        new String[]{"RF", "MC", "MP"},
+                        new String[]{"RF", "MC", "MP", "M3"},
                         incrOnly, quickEstimate));
             }
         }
 
-        exportToCsv("benchmark_distance_SPR_RF.csv", allResults, "SPR-RF", "TimeMs");
+        exportToCsv("benchmark_distance_SPR_RF.csv", allResults, "SPR_RF", "TimeMs");
     }
 }
