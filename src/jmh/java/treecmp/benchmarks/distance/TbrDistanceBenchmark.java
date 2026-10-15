@@ -2,7 +2,6 @@ package treecmp.benchmarks.distance;
 
 import org.openjdk.jmh.annotations.Param;
 import org.openjdk.jmh.results.RunResult;
-import treecmp.benchmarks.distance.AbstractDistanceBenchmark;
 import treecmp.heuristics.tbr.TbrHeuristicMetric;
 import treecmp.heuristics.tbr.acc.TbrIncrementalHeuristic;
 import treecmp.heuristics.tbr.acc.UtbrIncrementalHeuristic;
@@ -61,33 +60,43 @@ public class TbrDistanceBenchmark extends AbstractDistanceBenchmark {
 
     public static void main(String[] args) throws Exception {
         boolean quickEstimate = isQuickEstimate();
-        String className = TbrDistanceBenchmark.class.getName();
-        String incrOnly = className + "\\.benchmarkIncrementalFullRun";
+        String className   = TbrDistanceBenchmark.class.getName();
+        String classicOnly = className + "\\.benchmarkClassicFullRun";
+        String incrOnly    = className + "\\.benchmarkIncrementalFullRun";
+
         List<RunResult> allResults = new ArrayList<>();
 
-        int[] sizes = {10, 20, 30, 50, 80, 120, 200};
+        // Dynamiczny odczyt rozmiarów drzew z adnotacji @Param (zasada DRY)
+        String[] treeSizes = TbrDistanceBenchmark.class
+                .getField("treeSize")
+                .getAnnotation(Param.class)
+                .value();
 
-        for (int size : sizes) {
-            String sizeStr = String.valueOf(size);
+        String[] allMetrics = {"RF", "RFC", "MS", "MC", "MP", "M3"};
+
+        for (String sizeStr : treeSizes) {
+            int size = Integer.parseInt(sizeStr);
 
             if (size <= 20) {
-                // N <= 20: Wszystkie 6 metryk Classic + Incremental (~2-3 min)
-                allResults.addAll(runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"}, className, quickEstimate));
+                // N <= 20: Pełny zestaw 6 metryk — najpierw Classic, potem Incremental
+                allResults.addAll(runJmh(sizeStr, allMetrics, classicOnly, quickEstimate));
+                allResults.addAll(runJmh(sizeStr, allMetrics, incrOnly, quickEstimate));
             } else if (size <= 30) {
-                // N = 30: Classic tylko RF/RFC; Incremental dla wszystkich (~15 min)
-                allResults.addAll(runJmh(sizeStr, new String[]{"RF", "RFC"}, className, quickEstimate));
-                allResults.addAll(runJmh(sizeStr, new String[]{"MS", "MC", "MP", "M3"}, incrOnly, quickEstimate));
+                // N = 30: Classic tylko dla szybkich RF/RFC; Incremental w jednym bloku dla wszystkich 6 metryk
+                allResults.addAll(runJmh(sizeStr, new String[]{"RF", "RFC"}, classicOnly, quickEstimate));
+                allResults.addAll(runJmh(sizeStr, allMetrics, incrOnly, quickEstimate));
             } else if (size <= 50) {
-                // N = 50: TYLKO Incremental (bez Classic RF/RFC, bo trwają 65-92 s!)
-                // M3 wycięte ze względu na O(n^3) wspinaczkę (~25 min)
+                // N = 50: Opcjonalnie Classic RF/RFC (~65-92 s/op — odkomentuj, jeśli chcesz mieć punkt odniesienia jak w SPR dla N=80):
+                // allResults.addAll(runJmh(sizeStr, new String[]{"RF", "RFC"}, classicOnly, quickEstimate));
+
+                // Incremental bez M3 (ze względu na koszt O(n^3) przy wspinaczce)
                 allResults.addAll(runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP"}, incrOnly, quickEstimate));
             } else if (size <= 80) {
-                // N = 80: Tylko Incremental; MS wycięte (trwało ponad 6 min/op).
-                // RF (nieukorzenione ~4 min/op) + szybkie ukorzenione RFC, MC, MP (~35 min)
+                // N = 80: Tylko Incremental; bez MS (>6 min/op) oraz M3
                 allResults.addAll(runJmh(sizeStr, new String[]{"RF", "RFC", "MC", "MP"}, incrOnly, quickEstimate));
             } else {
-                // N = 120 i N = 200: Wyłącznie Incrementalne metryki ukorzenione (TbrIncrementalHeuristic).
-                // Nieukorzenione Utbr (RF, MS) eksplodują czasowo powyżej N=80 (~15-20 min)
+                // N = 120 i N = 200: Wyłącznie Incrementalne metryki ukorzenione (TbrIncrementalHeuristic)
+                // Nieukorzenione uTBR (RF, MS, M3) mają zbyt wysoką złożoność powyżej N = 80
                 allResults.addAll(runJmh(sizeStr, new String[]{"RFC", "MC", "MP"}, incrOnly, quickEstimate));
             }
         }
