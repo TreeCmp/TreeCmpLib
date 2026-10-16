@@ -4,33 +4,25 @@ import pal.tree.Node;
 import pal.tree.Tree;
 import treecmp.heuristics.tbr.UTbrUtils;
 import treecmp.metrics.IncrementalMetric;
-import treecmp.metrics.topological.acc.M3IncrementalMetric;
-import treecmp.metrics.topological.acc.MSIncrementalMetric;
-import treecmp.metrics.topological.acc.RFIncrementalMetric;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public class UtbrNeighborhoodWalker {
 
+    @FunctionalInterface
     public interface UtbrVisitor {
         void visit(double distance, Node pruneNode, Node rerootNode, Node targetNode);
     }
 
     private final UTbrUtils utbrUtils = new UTbrUtils();
     private final List<Node> allNodesBuf = new ArrayList<>();
-    private final List<Node> rerootNodesBuf = new ArrayList<>();
-    private final List<Node> targetNodesBuf = new ArrayList<>();
 
     public void walk(Tree baseTree, IncrementalMetric metric, UtbrVisitor visitor) {
-        // MS i M3 w drzewach nieukorzenionych korzystają z dedykowanej ścieżki fallback
-        if (metric instanceof RootedTbrMetric
-                && !(metric instanceof M3IncrementalMetric)
-                && !(metric instanceof MSIncrementalMetric)) {
+        if (metric instanceof RootedTbrMetric) {
             walkFast2dDfs(baseTree, (RootedTbrMetric) metric, visitor);
             return;
         }
-
         walkFallback(baseTree, metric, visitor);
     }
 
@@ -45,19 +37,43 @@ public class UtbrNeighborhoodWalker {
 
             Node wanderingSource = pruneNode.getParent();
 
+            // 1. Odcięcie T1 i przygotowanie stanu bazowego T2
             metric.setPrunedState(pruneNode, wanderingSource);
             metric.setTargetRoot(pruneNode, pruneNode, wanderingSource);
 
+            // 2. Dwuwymiarowy DFS: Reroot DFS w T1 x Target DFS w T2
             dfsReroot(pruneNode, pruneNode, wanderingSource, root, metric, visitor);
 
+            // 3. Atomowe wycofanie zmian
             metric.revertPrunedState(pruneNode, wanderingSource);
         }
     }
 
     private void dfsReroot(Node currentReroot, Node pruneNode, Node wanderingSource, Node root,
                            RootedTbrMetric metric, UtbrVisitor visitor) {
-        dfsTarget(root, pruneNode, currentReroot, wanderingSource, metric, visitor);
+        // A. Ewaluacja wpięcia w korzeniu T2
+        if (isValidMove(pruneNode, currentReroot, root)) {
+            visitor.visit(metric.getCurrentDistance(), pruneNode, currentReroot, root);
+        }
 
+        // B. Target DFS w głąb składowej T2 (z ominięciem pParent i pruneNode)
+        Node pParent = pruneNode.getParent();
+        for (int i = 0; i < root.getChildCount(); i++) {
+            Node c = root.getChild(i);
+            if (c == pruneNode) continue;
+            if (c == pParent) {
+                for (int j = 0; j < pParent.getChildCount(); j++) {
+                    Node gc = pParent.getChild(j);
+                    if (gc != pruneNode) {
+                        dfsTarget(root, gc, pruneNode, currentReroot, wanderingSource, metric, visitor);
+                    }
+                }
+            } else {
+                dfsTarget(root, c, pruneNode, currentReroot, wanderingSource, metric, visitor);
+            }
+        }
+
+        // C. Reroot DFS w głąb składowej T1
         if (!currentReroot.isLeaf()) {
             for (int i = 0; i < currentReroot.getChildCount(); i++) {
                 Node nextReroot = currentReroot.getChild(i);
@@ -68,29 +84,43 @@ public class UtbrNeighborhoodWalker {
         }
     }
 
-    private void dfsTarget(Node currentTarget, Node pruneNode, Node currentReroot, Node wanderingSource,
-                           RootedTbrMetric metric, UtbrVisitor visitor) {
-        if (!(currentReroot == pruneNode && currentTarget == pruneNode.getParent())) {
-            if (utbrUtils.isValidUtbrMove(pruneNode, currentReroot, currentTarget)) {
-                visitor.visit(metric.getCurrentDistance(), pruneNode, currentReroot, currentTarget);
+    private void dfsTarget(Node parentTarget, Node targetNode, Node pruneNode, Node currentReroot,
+                           Node wanderingSource, RootedTbrMetric metric, UtbrVisitor visitor) {
+        metric.moveTargetDown(parentTarget, targetNode, pruneNode, currentReroot, wanderingSource);
+
+        if (isValidMove(pruneNode, currentReroot, targetNode)) {
+            visitor.visit(metric.getCurrentDistance(), pruneNode, currentReroot, targetNode);
+        }
+
+        Node pParent = pruneNode.getParent();
+        for (int i = 0; i < targetNode.getChildCount(); i++) {
+            Node c = targetNode.getChild(i);
+            if (c == pruneNode) continue;
+            if (c == pParent) {
+                for (int j = 0; j < pParent.getChildCount(); j++) {
+                    Node gc = pParent.getChild(j);
+                    if (gc != pruneNode) {
+                        dfsTarget(targetNode, gc, pruneNode, currentReroot, wanderingSource, metric, visitor);
+                    }
+                }
+            } else {
+                dfsTarget(targetNode, c, pruneNode, currentReroot, wanderingSource, metric, visitor);
             }
         }
 
-        if (!currentTarget.isLeaf()) {
-            for (int i = 0; i < currentTarget.getChildCount(); i++) {
-                Node childTarget = currentTarget.getChild(i);
-                if (childTarget == pruneNode) continue;
+        metric.moveTargetUp(parentTarget, targetNode, pruneNode, currentReroot, wanderingSource);
+    }
 
-                metric.moveTargetDown(currentTarget, childTarget, pruneNode, currentReroot, wanderingSource);
-                dfsTarget(childTarget, pruneNode, currentReroot, wanderingSource, metric, visitor);
-                metric.moveTargetUp(currentTarget, childTarget, pruneNode, currentReroot, wanderingSource);
-            }
-        }
+    private boolean isValidMove(Node pruneNode, Node rerootNode, Node targetNode) {
+        if (rerootNode == pruneNode && targetNode == pruneNode.getParent()) return false;
+        return utbrUtils.isValidUtbrMove(pruneNode, rerootNode, targetNode);
     }
 
     private void walkFallback(Tree baseTree, IncrementalMetric metric, UtbrVisitor visitor) {
         allNodesBuf.clear();
         collectSubtreeNodes(baseTree.getRoot(), allNodesBuf);
+        List<Node> rerootNodesBuf = new ArrayList<>();
+        List<Node> targetNodesBuf = new ArrayList<>();
 
         for (int i = 0; i < allNodesBuf.size(); i++) {
             Node pruneNode = allNodesBuf.get(i);
@@ -106,21 +136,10 @@ public class UtbrNeighborhoodWalker {
                 Node rerootNode = rerootNodesBuf.get(r);
                 for (int t = 0; t < targetNodesBuf.size(); t++) {
                     Node targetNode = targetNodesBuf.get(t);
-
                     if (rerootNode == pruneNode && targetNode == pruneNode.getParent()) continue;
 
                     if (utbrUtils.isValidUtbrMove(pruneNode, rerootNode, targetNode)) {
-                        double dist;
-                        if (metric instanceof RFIncrementalMetric) {
-                            dist = ((RFIncrementalMetric) metric).evaluateExactUTbrDistance(pruneNode, rerootNode, targetNode, null);
-                        } else if (metric instanceof M3IncrementalMetric) {
-                            dist = ((M3IncrementalMetric) metric).evaluateExactUTbrDistance(pruneNode, rerootNode, targetNode, null);
-                        } else if (metric instanceof MSIncrementalMetric) {
-                            dist = ((MSIncrementalMetric) metric).evaluateExactUTbrDistance(pruneNode, rerootNode, targetNode, null);
-                        } else {
-                            dist = metric.getCurrentDistance();
-                        }
-                        visitor.visit(dist, pruneNode, rerootNode, targetNode);
+                        visitor.visit(metric.getCurrentDistance(), pruneNode, rerootNode, targetNode);
                     }
                 }
             }
