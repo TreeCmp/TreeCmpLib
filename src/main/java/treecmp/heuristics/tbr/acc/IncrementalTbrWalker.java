@@ -8,16 +8,12 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Zoptymalizowany Wędrowiec TBR (2D-DFS 1-NNI).
- * Gwarantuje symetrię stosu delty:
- * 1. setPrunedState (bisekcja)
- * 2. setTargetRoot (inicjalizacja wpięcia w korzeniu T2)
- * 3. 2D-DFS (Reroot DFS w T1 x Target DFS w T2)
- * 4. revertPrunedState (atomowe wycofanie setTargetRoot i setPrunedState)
+ * Bezalokacyjny Wędrowiec TBR (2D-DFS 1-NNI).
  */
 public class IncrementalTbrWalker {
 
     private final TbrUtils tbrUtils = new TbrUtils();
+    private final List<Node> allNodesBuf = new ArrayList<>();
 
     @FunctionalInterface
     public interface TbrVisitor {
@@ -25,10 +21,12 @@ public class IncrementalTbrWalker {
     }
 
     public void walk(Tree baseTree, RootedTbrMetric metric, TbrVisitor visitor) {
-        List<Node> allNodes = getAllNodes(baseTree);
+        allNodesBuf.clear();
+        collectNodes(baseTree.getRoot(), allNodesBuf);
         Node root = baseTree.getRoot();
 
-        for (Node pruneNode : allNodes) {
+        for (int i = 0; i < allNodesBuf.size(); i++) {
+            Node pruneNode = allNodesBuf.get(i);
             if (pruneNode.isRoot() || pruneNode.getParent() == null) continue;
 
             Node wanderingSource = pruneNode.getParent();
@@ -39,23 +37,44 @@ public class IncrementalTbrWalker {
             // 2. Inicjalizacja wpięcia w korzeniu T2 (dokładnie raz!)
             metric.setTargetRoot(pruneNode, pruneNode, wanderingSource);
 
-            // 3. Dwuwymiarowy DFS
+            // 3. Dwuwymiarowy DFS bez alokacji list pomocniczych
             dfsReroot(pruneNode, pruneNode, wanderingSource, root, metric, visitor);
 
-            // 4. Przywrócenie stanu (zdejmuje setTargetRoot oraz setPrunedState)
+            // 4. Przywrócenie stanu
             metric.revertPrunedState(pruneNode, wanderingSource);
         }
     }
 
-    private void dfsReroot(Node currentReroot, Node pruneNode, Node wanderingSource, Node root, RootedTbrMetric metric, TbrVisitor visitor) {
+    private void dfsReroot(Node currentReroot, Node pruneNode, Node wanderingSource, Node root,
+                           RootedTbrMetric metric, TbrVisitor visitor) {
         // A. Ewaluacja wpięcia w korzeniu T2 dla ustalonego currentReroot
         if (isValidMove(pruneNode, currentReroot, root)) {
             visitor.visit(metric.getCurrentDistance(), pruneNode, currentReroot, root);
         }
 
-        // B. Target DFS w głąb drzewa T2
-        for (Node child : getPrunedChildren(root, pruneNode)) {
-            dfsTarget(root, child, pruneNode, currentReroot, wanderingSource, metric, visitor);
+        // B. Target DFS w głąb drzewa T2 (bezpośrednia iteracja bez alokacji ArrayList)
+        Node pParent = pruneNode.getParent();
+        if (root == pParent) {
+            for (int i = 0; i < root.getChildCount(); i++) {
+                Node c = root.getChild(i);
+                if (c != pruneNode) {
+                    dfsTarget(root, c, pruneNode, currentReroot, wanderingSource, metric, visitor);
+                }
+            }
+        } else {
+            for (int i = 0; i < root.getChildCount(); i++) {
+                Node c = root.getChild(i);
+                if (c == pParent) {
+                    for (int j = 0; j < pParent.getChildCount(); j++) {
+                        Node gc = pParent.getChild(j);
+                        if (gc != pruneNode) {
+                            dfsTarget(root, gc, pruneNode, currentReroot, wanderingSource, metric, visitor);
+                        }
+                    }
+                } else {
+                    dfsTarget(root, c, pruneNode, currentReroot, wanderingSource, metric, visitor);
+                }
+            }
         }
 
         // C. Reroot DFS w głąb T1 krokami 1-NNI
@@ -70,15 +89,36 @@ public class IncrementalTbrWalker {
         }
     }
 
-    private void dfsTarget(Node parentTarget, Node targetNode, Node pruneNode, Node rerootNode, Node wanderingSource, RootedTbrMetric metric, TbrVisitor visitor) {
+    private void dfsTarget(Node parentTarget, Node targetNode, Node pruneNode, Node rerootNode,
+                           Node wanderingSource, RootedTbrMetric metric, TbrVisitor visitor) {
         metric.moveTargetDown(parentTarget, targetNode, pruneNode, rerootNode, wanderingSource);
 
         if (isValidMove(pruneNode, rerootNode, targetNode)) {
             visitor.visit(metric.getCurrentDistance(), pruneNode, rerootNode, targetNode);
         }
 
-        for (Node child : getPrunedChildren(targetNode, pruneNode)) {
-            dfsTarget(targetNode, child, pruneNode, rerootNode, wanderingSource, metric, visitor);
+        Node pParent = pruneNode.getParent();
+        if (targetNode == pParent) {
+            for (int i = 0; i < targetNode.getChildCount(); i++) {
+                Node c = targetNode.getChild(i);
+                if (c != pruneNode) {
+                    dfsTarget(targetNode, c, pruneNode, rerootNode, wanderingSource, metric, visitor);
+                }
+            }
+        } else {
+            for (int i = 0; i < targetNode.getChildCount(); i++) {
+                Node c = targetNode.getChild(i);
+                if (c == pParent) {
+                    for (int j = 0; j < pParent.getChildCount(); j++) {
+                        Node gc = pParent.getChild(j);
+                        if (gc != pruneNode) {
+                            dfsTarget(targetNode, gc, pruneNode, rerootNode, wanderingSource, metric, visitor);
+                        }
+                    }
+                } else {
+                    dfsTarget(targetNode, c, pruneNode, rerootNode, wanderingSource, metric, visitor);
+                }
+            }
         }
 
         metric.moveTargetUp(parentTarget, targetNode, pruneNode, rerootNode, wanderingSource);
@@ -89,40 +129,12 @@ public class IncrementalTbrWalker {
         return tbrUtils.isValidTbrMove(pruneNode, rerootNode, targetNode);
     }
 
-    private List<Node> getPrunedChildren(Node n, Node pruneNode) {
-        List<Node> children = new ArrayList<>();
-        Node pParent = pruneNode.getParent();
-
-        if (n == pParent) {
-            for (int i = 0; i < n.getChildCount(); i++) {
-                if (n.getChild(i) != pruneNode) children.add(n.getChild(i));
-            }
-            return children;
-        }
-
-        for (int i = 0; i < n.getChildCount(); i++) {
-            Node c = n.getChild(i);
-            if (c == pParent) {
-                for (int j = 0; j < pParent.getChildCount(); j++) {
-                    if (pParent.getChild(j) != pruneNode) children.add(pParent.getChild(j));
-                }
-            } else {
-                children.add(c);
-            }
-        }
-        return children;
-    }
-
-    private List<Node> getAllNodes(Tree tree) {
-        List<Node> list = new ArrayList<>();
-        collectNodes(tree.getRoot(), list);
-        return list;
-    }
-
     private void collectNodes(Node node, List<Node> list) {
         if (node != null) {
             list.add(node);
-            for (int i = 0; i < node.getChildCount(); i++) collectNodes(node.getChild(i), list);
+            for (int i = 0; i < node.getChildCount(); i++) {
+                collectNodes(node.getChild(i), list);
+            }
         }
     }
 }
