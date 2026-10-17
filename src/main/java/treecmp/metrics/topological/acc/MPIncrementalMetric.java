@@ -39,7 +39,7 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
     private int N;
 
     private IdGroup baseIdGroup;
-    private int[][] targetLcaMatrix;
+    private int[][] targetLcaColMatrix;
     private int[] targetIdToCol;
 
     private Map<Node, BitSet> baseSplits;
@@ -60,14 +60,33 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
     // PREALOKOWANE BUFORY ROBOCZE (Zero-Allocation w gorących ścieżkach)
     private int[] scratchIntersections;
     private int[] scratchChangedRowAll;
+    private int[] leafBufA;
+    private int[] leafBufB;
+    private int[][] cachedKArrays;
+
+    private BitSet currentPrunedLeaves;
+    private BitSet tbrScratch1;
+    private BitSet tbrScratch2;
+    private BitSet tbrScratch3;
+    private BitSet[] tbrChildSetsPool;
+    private int[] scratchPruneRows;
+
+    // PREALOKOWANY STOS DELTA (Zero-Allocation)
+    private int deltaMaxDepth = 128;
+    private int deltaPointer = 0;
+    private int[] deltaRowsCount;
+    private int[][] deltaRows;
+    private int[][][] deltaOldRows;
+    private int[][] deltaOldPairCounts;
+    private int[][] deltaOldU;
+    private int[][] deltaOldV;
+    private int[][] deltaOldRowsol;
+    private int[][] deltaOldColsol;
+    private double[] deltaOldDistance;
 
     private final MatchingPairMetric mpMetricFull = new MatchingPairMetric();
     private final Stack<StateRecord> history = new Stack<>();
-    private final Stack<LapStateDelta> deltaStack = new Stack<>();
-
     private final treecmp.heuristics.tbr.TbrUtils tbrUtils = new treecmp.heuristics.tbr.TbrUtils();
-
-    private BitSet currentPrunedLeaves;
 
     public BitSet getCluster(Node n) {
         return getBaseSplit(n);
@@ -99,27 +118,10 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
         return Double.POSITIVE_INFINITY;
     }
 
-    private static class LapStateDelta {
-        final int[] rows;
-        final int[][] oldRows;
-        final int[] oldPairCounts;
-        final int[] oldU, oldV, oldRowsol, oldColsol;
-        final double oldDistance;
-        final Map<Node, BitSet> oldSplits;
-
-        LapStateDelta(int[] rows, int[][] oldRows, int[] oldPairCounts,
-                      int[] oldU, int[] oldV, int[] oldRowsol, int[] oldColsol, double oldDistance, Map<Node, BitSet> oldSplits) {
-            this.rows = rows; this.oldRows = oldRows; this.oldPairCounts = oldPairCounts;
-            this.oldU = oldU; this.oldV = oldV; this.oldRowsol = oldRowsol; this.oldColsol = oldColsol;
-            this.oldDistance = oldDistance;
-            this.oldSplits = oldSplits;
-        }
-    }
-
     @Override
     public void initCalculationState(Tree baseTree, Tree targetTree) {
         history.clear();
-        deltaStack.clear();
+        deltaPointer = 0;
 
         if (baseTree != null && targetTree != null) {
             this.baseIdGroup = TreeUtils.getLeafIdGroup(baseTree);
@@ -134,6 +136,37 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
 
             this.scratchIntersections = new int[dim];
             this.scratchChangedRowAll = new int[dim];
+            this.leafBufA = new int[N];
+            this.leafBufB = new int[N];
+
+            int maxK = Math.max(64, dim + 1);
+            this.cachedKArrays = new int[maxK][];
+            for (int i = 0; i < maxK; i++) {
+                this.cachedKArrays[i] = new int[i];
+            }
+
+            int depth = Math.max(128, N * 4);
+            this.deltaMaxDepth = depth;
+            this.deltaPointer = 0;
+            this.deltaRowsCount = new int[depth];
+            this.deltaRows = new int[depth][dim];
+            this.deltaOldRows = new int[depth][dim][dim];
+            this.deltaOldPairCounts = new int[depth][dim];
+            this.deltaOldU = new int[depth][dim];
+            this.deltaOldV = new int[depth][dim];
+            this.deltaOldRowsol = new int[depth][dim];
+            this.deltaOldColsol = new int[depth][dim];
+            this.deltaOldDistance = new double[depth];
+
+            this.currentPrunedLeaves = new BitSet(N);
+            this.tbrScratch1 = new BitSet(N);
+            this.tbrScratch2 = new BitSet(N);
+            this.tbrScratch3 = new BitSet(N);
+            this.scratchPruneRows = new int[dim];
+            this.tbrChildSetsPool = new BitSet[Math.max(16, N)];
+            for (int i = 0; i < tbrChildSetsPool.length; i++) {
+                this.tbrChildSetsPool[i] = new BitSet(N);
+            }
 
             this.assigncost = new int[dim][dim];
             this.lapCostScratch = new int[dim][dim];
@@ -181,8 +214,8 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
                 currentSplits.put(n, (BitSet) split.clone());
             }
 
-            for (int i = 0; i < baseTree.getInternalNodeCount(); i++) {
-                Node nOrig = baseTree.getInternalNode(i);
+            Node[] origAllNodes = TreeCmpUtils.getAllNodes(baseTree);
+            for (Node nOrig : origAllNodes) {
                 Node nCopy = getMappedNode(this.baseTree, nOrig);
                 if (nCopy != null) {
                     Integer row = nodeToRow.get(nCopy);
@@ -195,7 +228,16 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
             }
 
             int[][] lcaMatrix1 = TreeCmpUtils.calcLcaMatrix(this.baseTree, this.baseIdGroup);
-            this.targetLcaMatrix = TreeCmpUtils.calcLcaMatrix(this.targetTree, this.baseIdGroup);
+            int[][] rawTargetLca = TreeCmpUtils.calcLcaMatrix(this.targetTree, this.baseIdGroup);
+
+            // Bezpośrednie zmapowanie macierzy LCA drzewa T2 na indeksy kolumn (O(1) odczyt w pętli!)
+            this.targetLcaColMatrix = new int[N][N];
+            for (int i = 0; i < N; i++) {
+                for (int j = 0; j < N; j++) {
+                    int lcaId = rawTargetLca[i][j];
+                    this.targetLcaColMatrix[i][j] = (lcaId >= 0 && lcaId < targetIdToCol.length) ? targetIdToCol[lcaId] : -1;
+                }
+            }
 
             short[] cSize2 = new short[maxNodesT2];
             Node[] postOrderT2 = TreeCmpUtils.getNodesInPostOrder(this.targetTree);
@@ -218,11 +260,10 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
             for (int i = 0; i < N; i++) {
                 for (int j = i + 1; j < N; j++) {
                     int ind1 = lcaMatrix1[i][j];
-                    int ind2 = this.targetLcaMatrix[i][j];
-                    if (ind1 >= 0 && ind1 < baseIdToRow.length && ind2 >= 0 && ind2 < this.targetIdToCol.length) {
+                    int c = this.targetLcaColMatrix[i][j];
+                    if (ind1 >= 0 && ind1 < baseIdToRow.length && c >= 0) {
                         int r = baseIdToRow[ind1];
-                        int c = this.targetIdToCol[ind2];
-                        if (r >= 0 && c >= 0) {
+                        if (r >= 0) {
                             initialIntersection[r][c]++;
                         }
                     }
@@ -288,99 +329,293 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
         return getLeaves(n, baseIdGroup);
     }
 
-    private void updateRowsSafelyAndSave(Map<Integer, BitSet[]> rowUpdates) {
-        int[] rows = new int[rowUpdates.size()];
-        int[][] oldRows = new int[rows.length][dim];
-        int[] oldPairCounts = new int[rows.length];
-
-        int idx = 0;
-        for (Map.Entry<Integer, BitSet[]> entry : rowUpdates.entrySet()) {
-            int r = entry.getKey();
-            rows[idx] = r;
-            oldRows[idx] = Arrays.copyOf(assigncost[r], dim);
-            oldPairCounts[idx] = currentT1PairCount[r];
-            idx++;
+    private BitSet getBaseSplit(Node n) {
+        BitSet bs = baseSplits.get(n);
+        if (bs != null) return bs;
+        if (n.isLeaf()) {
+            BitSet leafBs = new BitSet(N);
+            leafBs.set(baseIdGroup.whichIdNumber(n.getIdentifier().getName()));
+            baseSplits.put(n, leafBs);
+            return leafBs;
         }
+        return null;
+    }
 
-        deltaStack.push(new LapStateDelta(
-                rows, oldRows, oldPairCounts,
-                Arrays.copyOf(u, dim), Arrays.copyOf(v, dim),
-                Arrays.copyOf(rowsol, dim), Arrays.copyOf(colsol, dim), currentDistance, new IdentityHashMap<>()
-        ));
+    // =========================================================================
+    // ZERO-ALLOCATION STOS DELTA I SZYBKIE OBLICZANIE KOSZTU WIERSZY
+    // =========================================================================
 
-        for (Map.Entry<Integer, BitSet[]> entry : rowUpdates.entrySet()) {
-            computeRowCost(entry.getKey(), entry.getValue());
+    private void ensureDeltaCapacity() {
+        if (deltaPointer >= deltaMaxDepth) {
+            int newDepth = deltaMaxDepth * 2;
+            deltaRowsCount = Arrays.copyOf(deltaRowsCount, newDepth);
+            deltaRows = Arrays.copyOf(deltaRows, newDepth);
+            deltaOldRows = Arrays.copyOf(deltaOldRows, newDepth);
+            deltaOldPairCounts = Arrays.copyOf(deltaOldPairCounts, newDepth);
+            deltaOldU = Arrays.copyOf(deltaOldU, newDepth);
+            deltaOldV = Arrays.copyOf(deltaOldV, newDepth);
+            deltaOldRowsol = Arrays.copyOf(deltaOldRowsol, newDepth);
+            deltaOldColsol = Arrays.copyOf(deltaOldColsol, newDepth);
+            deltaOldDistance = Arrays.copyOf(deltaOldDistance, newDepth);
+
+            for (int d = deltaMaxDepth; d < newDepth; d++) {
+                deltaRows[d] = new int[dim];
+                deltaOldRows[d] = new int[dim][dim];
+                deltaOldPairCounts[d] = new int[dim];
+                deltaOldU[d] = new int[dim];
+                deltaOldV[d] = new int[dim];
+                deltaOldRowsol[d] = new int[dim];
+                deltaOldColsol[d] = new int[dim];
+            }
+            deltaMaxDepth = newDepth;
         }
+    }
 
-        if (rows.length > 0) {
-            int rawMetric = LapSolver.lapUpdate(dim, assigncost, rowsol, colsol, u, v, rows);
+    private void pushEmptyDelta() {
+        ensureDeltaCapacity();
+        int d = deltaPointer;
+        deltaRowsCount[d] = 0;
+        deltaOldDistance[d] = currentDistance;
+        deltaPointer++;
+    }
+
+    private void saveRowInCurrentDelta(int d, int idx, int r) {
+        deltaRows[d][idx] = r;
+        System.arraycopy(assigncost[r], 0, deltaOldRows[d][idx], 0, dim);
+        deltaOldPairCounts[d][idx] = currentT1PairCount[r];
+    }
+
+    private void finalizeDeltaPush(int d, int count) {
+        deltaRowsCount[d] = count;
+        if (count > 0) {
+            System.arraycopy(u, 0, deltaOldU[d], 0, dim);
+            System.arraycopy(v, 0, deltaOldV[d], 0, dim);
+            System.arraycopy(rowsol, 0, deltaOldRowsol[d], 0, dim);
+            System.arraycopy(colsol, 0, deltaOldColsol[d], 0, dim);
+        }
+        deltaOldDistance[d] = currentDistance;
+        deltaPointer++;
+    }
+
+    private void runLapUpdateForCurrentDelta(int d, int count) {
+        if (count > 0) {
+            int[] changedRowsParam = (count < cachedKArrays.length) ? cachedKArrays[count] : new int[count];
+            System.arraycopy(deltaRows[d], 0, changedRowsParam, 0, count);
+            int rawMetric = LapSolver.lapUpdate(dim, assigncost, rowsol, colsol, u, v, changedRowsParam);
             this.currentDistance = 0.5 * rawMetric;
         }
     }
 
     private void undoDeltaStack() {
-        if (deltaStack.isEmpty()) return;
-        LapStateDelta delta = deltaStack.pop();
+        if (deltaPointer <= 0) return;
+        deltaPointer--;
+        int d = deltaPointer;
+        int count = deltaRowsCount[d];
 
-        for (int i = 0; i < delta.rows.length; i++) {
-            System.arraycopy(delta.oldRows[i], 0, assigncost[delta.rows[i]], 0, dim);
-            currentT1PairCount[delta.rows[i]] = delta.oldPairCounts[i];
+        if (count > 0) {
+            for (int i = 0; i < count; i++) {
+                int r = deltaRows[d][i];
+                System.arraycopy(deltaOldRows[d][i], 0, assigncost[r], 0, dim);
+                currentT1PairCount[r] = deltaOldPairCounts[d][i];
+            }
+            System.arraycopy(deltaOldU[d], 0, u, 0, dim);
+            System.arraycopy(deltaOldV[d], 0, v, 0, dim);
+            System.arraycopy(deltaOldRowsol[d], 0, rowsol, 0, dim);
+            System.arraycopy(deltaOldColsol[d], 0, colsol, 0, dim);
         }
-
-        System.arraycopy(delta.oldU, 0, u, 0, dim);
-        System.arraycopy(delta.oldV, 0, v, 0, dim);
-        System.arraycopy(delta.oldRowsol, 0, rowsol, 0, dim);
-        System.arraycopy(delta.oldColsol, 0, colsol, 0, dim);
-
-        for (Map.Entry<Node, BitSet> e : delta.oldSplits.entrySet()) {
-            currentSplits.put(e.getKey(), e.getValue());
-        }
-
-        this.currentDistance = delta.oldDistance;
+        this.currentDistance = deltaOldDistance[d];
     }
+
+    private void computeRowCostEmpty(int row) {
+        currentT1PairCount[row] = 0;
+        int[] costRow = assigncost[row];
+        System.arraycopy(t2IntPairCount, 0, costRow, 0, intT2Num);
+        for (int c = intT2Num; c < dim; c++) {
+            costRow[c] = 0;
+        }
+    }
+
+    /**
+     * Bezalokacyjne obliczanie kosztu wiersza dla węzła binarnego (2 podzbiory liści).
+     * Używa płaskich tablic int[] zamiast wielokrotnego wywoływania BitSet.nextSetBit().
+     */
+    private void computeRowCostTwoSets(int row, BitSet setA, BitSet setB) {
+        if (setA == null || setB == null || setA.isEmpty() || setB.isEmpty()) {
+            computeRowCostEmpty(row);
+            return;
+        }
+
+        int lenA = 0;
+        for (int i = setA.nextSetBit(0); i >= 0; i = setA.nextSetBit(i + 1)) {
+            leafBufA[lenA++] = i;
+        }
+        int lenB = 0;
+        for (int i = setB.nextSetBit(0); i >= 0; i = setB.nextSetBit(i + 1)) {
+            leafBufB[lenB++] = i;
+        }
+
+        Arrays.fill(scratchIntersections, 0, intT2Num, 0);
+        int pairsCount = lenA * lenB;
+
+        for (int i = 0; i < lenA; i++) {
+            int[] lcaColRow = targetLcaColMatrix[leafBufA[i]];
+            for (int j = 0; j < lenB; j++) {
+                int c = lcaColRow[leafBufB[j]];
+                if (c >= 0) {
+                    scratchIntersections[c]++;
+                }
+            }
+        }
+
+        currentT1PairCount[row] = pairsCount;
+        int[] costRow = assigncost[row];
+        for (int c = 0; c < intT2Num; c++) {
+            costRow[c] = pairsCount + t2IntPairCount[c] - (scratchIntersections[c] << 1);
+        }
+        for (int c = intT2Num; c < dim; c++) {
+            costRow[c] = pairsCount;
+        }
+    }
+
+    private void computeRowCost(int row, BitSet[] sets) {
+        computeRowCostMulti(row, sets, sets.length);
+    }
+
+    private void computeRowCostMulti(int row, BitSet[] sets, int count) {
+        if (count < 2) {
+            computeRowCostEmpty(row);
+            return;
+        }
+        if (count == 2) {
+            computeRowCostTwoSets(row, sets[0], sets[1]);
+            return;
+        }
+
+        Arrays.fill(scratchIntersections, 0, intT2Num, 0);
+        int pairsCount = 0;
+        int lenUnion = 0;
+
+        for (int sIdx = 0; sIdx < count; sIdx++) {
+            BitSet setB = sets[sIdx];
+            if (setB == null || setB.isEmpty()) continue;
+
+            int lenB = 0;
+            for (int l = setB.nextSetBit(0); l >= 0; l = setB.nextSetBit(l + 1)) {
+                leafBufB[lenB++] = l;
+            }
+
+            if (lenUnion > 0) {
+                pairsCount += lenUnion * lenB;
+                for (int i = 0; i < lenUnion; i++) {
+                    int[] lcaColRow = targetLcaColMatrix[leafBufA[i]];
+                    for (int j = 0; j < lenB; j++) {
+                        int c = lcaColRow[leafBufB[j]];
+                        if (c >= 0) {
+                            scratchIntersections[c]++;
+                        }
+                    }
+                }
+            }
+
+            System.arraycopy(leafBufB, 0, leafBufA, lenUnion, lenB);
+            lenUnion += lenB;
+        }
+
+        currentT1PairCount[row] = pairsCount;
+        int[] costRow = assigncost[row];
+        for (int c = 0; c < intT2Num; c++) {
+            costRow[c] = pairsCount + t2IntPairCount[c] - (scratchIntersections[c] << 1);
+        }
+        for (int c = intT2Num; c < dim; c++) {
+            costRow[c] = pairsCount;
+        }
+    }
+
+    // =========================================================================
+    // ZERO-ALLOCATION 2D-DFS TBR (RootedTbrMetric)
+    // =========================================================================
 
     @Override
     public void setPrunedState(Node pruneNode, Node wanderingSource) {
-        this.currentPrunedLeaves = (BitSet) getBaseSplit(pruneNode).clone();
+        this.currentPrunedLeaves.clear();
+        this.currentPrunedLeaves.or(getBaseSplit(pruneNode));
         BitSet P = this.currentPrunedLeaves;
-        Map<Integer, BitSet[]> updates = new HashMap<>();
+
+        ensureDeltaCapacity();
+        int d = deltaPointer;
+        int count = 0;
 
         Node curr = pruneNode.getParent().getParent();
         while (curr != null) {
             Integer r = getRowForNode(curr);
             if (r != null) {
-                int chCount = curr.getChildCount();
-                BitSet[] cSets = new BitSet[chCount];
-                for (int i = 0; i < chCount; i++) {
-                    cSets[i] = (BitSet) getBaseSplit(curr.getChild(i)).clone();
-                    cSets[i].andNot(P);
-                }
-                updates.put(r, cSets);
+                saveRowInCurrentDelta(d, count, r);
+                count++;
             }
             curr = curr.getParent();
         }
 
         Integer r_floating = getRowForNode(pruneNode.getParent());
         if (r_floating != null) {
-            updates.put(r_floating, new BitSet[0]);
+            saveRowInCurrentDelta(d, count, r_floating);
+            count++;
         }
 
-        updateRowsSafelyAndSave(updates);
+        finalizeDeltaPush(d, count);
+
+        curr = pruneNode.getParent().getParent();
+        while (curr != null) {
+            Integer r = getRowForNode(curr);
+            if (r != null) {
+                int chCount = curr.getChildCount();
+                if (chCount == 2) {
+                    tbrScratch1.clear();
+                    tbrScratch1.or(getBaseSplit(curr.getChild(0)));
+                    tbrScratch1.andNot(P);
+
+                    tbrScratch2.clear();
+                    tbrScratch2.or(getBaseSplit(curr.getChild(1)));
+                    tbrScratch2.andNot(P);
+
+                    computeRowCostTwoSets(r, tbrScratch1, tbrScratch2);
+                } else {
+                    for (int i = 0; i < chCount; i++) {
+                        tbrChildSetsPool[i].clear();
+                        tbrChildSetsPool[i].or(getBaseSplit(curr.getChild(i)));
+                        tbrChildSetsPool[i].andNot(P);
+                    }
+                    computeRowCostMulti(r, tbrChildSetsPool, chCount);
+                }
+            }
+            curr = curr.getParent();
+        }
+
+        if (r_floating != null) {
+            computeRowCostEmpty(r_floating);
+        }
+
+        runLapUpdateForCurrentDelta(d, count);
     }
 
     @Override
     public void setTargetRoot(Node pruneNode, Node wanderingSource) {
-        BitSet P = (this.currentPrunedLeaves != null) ? this.currentPrunedLeaves : getBaseSplit(pruneNode);
-        Map<Integer, BitSet[]> updates = new HashMap<>();
-
+        BitSet P = this.currentPrunedLeaves;
         Integer r_floating = getRowForNode(pruneNode.getParent());
+
         if (r_floating != null) {
-            BitSet restOfTree = new BitSet(N);
-            restOfTree.set(0, N);
-            restOfTree.andNot(P);
-            updates.put(r_floating, new BitSet[]{P, restOfTree});
+            ensureDeltaCapacity();
+            int d = deltaPointer;
+            saveRowInCurrentDelta(d, 0, r_floating);
+            finalizeDeltaPush(d, 1);
+
+            tbrScratch1.set(0, N);
+            tbrScratch1.andNot(P);
+            computeRowCostTwoSets(r_floating, P, tbrScratch1);
+
+            runLapUpdateForCurrentDelta(d, 1);
+        } else {
+            pushEmptyDelta();
         }
-        updateRowsSafelyAndSave(updates);
     }
 
     @Override
@@ -390,33 +625,63 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
 
     @Override
     public void moveTargetDown(Node parentTarget, Node childTarget, Node pruneNode, Node wanderingSource) {
-        BitSet P = (this.currentPrunedLeaves != null) ? this.currentPrunedLeaves : getBaseSplit(pruneNode);
-        Map<Integer, BitSet[]> updates = new HashMap<>();
-
+        BitSet P = this.currentPrunedLeaves;
         Integer r_floating = getRowForNode(pruneNode.getParent());
-        if (r_floating != null) {
-            BitSet cTarget = (BitSet) getBaseSplit(childTarget).clone();
-            cTarget.andNot(P);
-            updates.put(r_floating, new BitSet[]{P, cTarget});
+        Integer r_p = getRowForNode(parentTarget);
+        boolean updateParent = (r_p != null && !r_p.equals(r_floating));
+
+        if (r_floating == null && !updateParent) {
+            pushEmptyDelta();
+            return;
         }
 
-        Integer r_p = getRowForNode(parentTarget);
-        if (r_p != null && !r_p.equals(r_floating)) {
+        ensureDeltaCapacity();
+        int d = deltaPointer;
+        int count = 0;
+        if (r_floating != null) {
+            saveRowInCurrentDelta(d, count++, r_floating);
+        }
+        if (updateParent) {
+            saveRowInCurrentDelta(d, count++, r_p);
+        }
+        finalizeDeltaPush(d, count);
+
+        if (r_floating != null) {
+            tbrScratch1.clear();
+            tbrScratch1.or(getBaseSplit(childTarget));
+            tbrScratch1.andNot(P);
+            computeRowCostTwoSets(r_floating, P, tbrScratch1);
+        }
+
+        if (updateParent) {
             int chCount = parentTarget.getChildCount();
-            BitSet[] cSets = new BitSet[chCount];
             BitSet targetLeaves = getBaseSplit(childTarget);
 
-            for (int i = 0; i < chCount; i++) {
-                cSets[i] = (BitSet) getBaseSplit(parentTarget.getChild(i)).clone();
-                cSets[i].andNot(P);
+            if (chCount == 2) {
+                tbrScratch1.clear();
+                tbrScratch1.or(getBaseSplit(parentTarget.getChild(0)));
+                tbrScratch1.andNot(P);
+                if (tbrScratch1.intersects(targetLeaves)) tbrScratch1.or(P);
 
-                if (cSets[i].intersects(targetLeaves)) {
-                    cSets[i].or(P);
+                tbrScratch2.clear();
+                tbrScratch2.or(getBaseSplit(parentTarget.getChild(1)));
+                tbrScratch2.andNot(P);
+                if (tbrScratch2.intersects(targetLeaves)) tbrScratch2.or(P);
+
+                computeRowCostTwoSets(r_p, tbrScratch1, tbrScratch2);
+            } else {
+                for (int i = 0; i < chCount; i++) {
+                    BitSet cs = tbrChildSetsPool[i];
+                    cs.clear();
+                    cs.or(getBaseSplit(parentTarget.getChild(i)));
+                    cs.andNot(P);
+                    if (cs.intersects(targetLeaves)) cs.or(P);
                 }
+                computeRowCostMulti(r_p, tbrChildSetsPool, chCount);
             }
-            updates.put(r_p, cSets);
         }
-        updateRowsSafelyAndSave(updates);
+
+        runLapUpdateForCurrentDelta(d, count);
     }
 
     @Override
@@ -431,48 +696,58 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
 
     @Override
     public void moveTargetUp(Node parentTarget, Node childTarget, Node pruneNode, Node rerootNode, Node wanderingSource) {
-        moveTargetUp(parentTarget, childTarget, pruneNode, wanderingSource);
+        undoDeltaStack();
     }
 
     @Override
     public void moveRerootDown(Node parentReroot, Node childReroot, Node pruneNode) {
-        Map<Integer, BitSet[]> updates = new HashMap<>();
+        if (currentPrunedLeaves == null) {
+            pushEmptyDelta();
+            return;
+        }
 
-        if (currentPrunedLeaves != null) {
-            Integer rPrune = getRowForNode(pruneNode);
-            if (rPrune != null) {
-                BitSet cLeaves = getBaseSplit(childReroot);
-                BitSet pMinusC = (BitSet) currentPrunedLeaves.clone();
-                pMinusC.andNot(cLeaves);
-                updates.put(rPrune, new BitSet[]{cLeaves, pMinusC});
-            }
+        Integer rPrune = getRowForNode(pruneNode);
+        Integer rParent = (parentReroot != pruneNode) ? getRowForNode(parentReroot) : null;
+        if (rParent != null && rParent.equals(rPrune)) {
+            rParent = null;
+        }
 
-            if (parentReroot != pruneNode) {
-                Integer rParent = getRowForNode(parentReroot);
-                if (rParent != null) {
-                    BitSet sLeaves = new BitSet(N);
-                    for (int i = 0; i < parentReroot.getChildCount(); i++) {
-                        Node ch = parentReroot.getChild(i);
-                        if (ch != childReroot) {
-                            sLeaves.or(getBaseSplit(ch));
-                        }
-                    }
+        if (rPrune == null && rParent == null) {
+            pushEmptyDelta();
+            return;
+        }
 
-                    BitSet above = (BitSet) currentPrunedLeaves.clone();
-                    above.andNot(getBaseSplit(parentReroot));
+        ensureDeltaCapacity();
+        int d = deltaPointer;
+        int count = 0;
+        if (rPrune != null) saveRowInCurrentDelta(d, count++, rPrune);
+        if (rParent != null) saveRowInCurrentDelta(d, count++, rParent);
+        finalizeDeltaPush(d, count);
 
-                    updates.put(rParent, new BitSet[]{sLeaves, above});
+        if (rPrune != null) {
+            BitSet cLeaves = getBaseSplit(childReroot);
+            tbrScratch1.clear();
+            tbrScratch1.or(currentPrunedLeaves);
+            tbrScratch1.andNot(cLeaves);
+            computeRowCostTwoSets(rPrune, cLeaves, tbrScratch1);
+        }
+
+        if (rParent != null) {
+            tbrScratch1.clear();
+            for (int i = 0; i < parentReroot.getChildCount(); i++) {
+                Node ch = parentReroot.getChild(i);
+                if (ch != childReroot) {
+                    tbrScratch1.or(getBaseSplit(ch));
                 }
             }
+            tbrScratch2.clear();
+            tbrScratch2.or(currentPrunedLeaves);
+            tbrScratch2.andNot(getBaseSplit(parentReroot));
+
+            computeRowCostTwoSets(rParent, tbrScratch1, tbrScratch2);
         }
 
-        if (!updates.isEmpty()) {
-            updateRowsSafelyAndSave(updates);
-        } else {
-            deltaStack.push(new LapStateDelta(new int[0], new int[0][0], new int[0],
-                    Arrays.copyOf(u, dim), Arrays.copyOf(v, dim),
-                    Arrays.copyOf(rowsol, dim), Arrays.copyOf(colsol, dim), currentDistance, new IdentityHashMap<>()));
-        }
+        runLapUpdateForCurrentDelta(d, count);
     }
 
     @Override
@@ -485,6 +760,10 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
         undoDeltaStack();
         undoDeltaStack();
     }
+
+    // =========================================================================
+    // NNI, SPR & ECR
+    // =========================================================================
 
     public void applySprPrune(Node pruneNode) { this.activePruneNode = pruneNode; }
     public void undoSprPrune(Node pruneNode) { this.activePruneNode = null; }
@@ -500,13 +779,11 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
         int rowV = rVIndex;
         int rowU = rUIndex;
 
-        int[] rows = {rowV, rowU};
-        int[][] oldRows = {Arrays.copyOf(assigncost[rowV], dim), Arrays.copyOf(assigncost[rowU], dim)};
-        int[] oldPairCounts = {currentT1PairCount[rowV], currentT1PairCount[rowU]};
-
-        deltaStack.push(new LapStateDelta(rows, oldRows, oldPairCounts,
-                Arrays.copyOf(this.u, dim), Arrays.copyOf(this.v, dim),
-                Arrays.copyOf(rowsol, dim), Arrays.copyOf(colsol, dim), currentDistance, new IdentityHashMap<>()));
+        ensureDeltaCapacity();
+        int d = deltaPointer;
+        saveRowInCurrentDelta(d, 0, rowV);
+        saveRowInCurrentDelta(d, 1, rowU);
+        finalizeDeltaPush(d, 2);
 
         Node currentPos = (bitsIn != null) ? v : u;
 
@@ -523,23 +800,22 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
     }
 
     private void updateRowPairs(int row, Node n, Node currentPos) {
-        BitSet[] cSets;
         if (n == currentPos) {
-            cSets = new BitSet[2];
-            cSets[0] = getBaseSplit(activePruneNode);
-            BitSet cTarget = (BitSet) getBaseSplit(n).clone();
-            cTarget.andNot(getBaseSplit(activePruneNode));
-            cSets[1] = cTarget;
+            BitSet pSplit = getBaseSplit(activePruneNode);
+            tbrScratch1.clear();
+            tbrScratch1.or(getBaseSplit(n));
+            tbrScratch1.andNot(pSplit);
+            computeRowCostTwoSets(row, pSplit, tbrScratch1);
         } else if (n == activePruneNode.getParent()) {
-            cSets = new BitSet[0];
+            computeRowCostEmpty(row);
         } else {
             int chCount = n.getChildCount();
-            cSets = new BitSet[chCount];
             for (int i = 0; i < chCount; i++) {
-                cSets[i] = getCurrentCluster(n.getChild(i), currentPos, activePruneNode);
+                tbrChildSetsPool[i].clear();
+                tbrChildSetsPool[i].or(getCurrentCluster(n.getChild(i), currentPos, activePruneNode));
             }
+            computeRowCostMulti(row, tbrChildSetsPool, chCount);
         }
-        computeRowCost(row, cSets);
     }
 
     private BitSet getCurrentCluster(Node x, Node currentPos, Node pruneNode) {
@@ -572,53 +848,6 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
             }
         }
         return cSets;
-    }
-
-    private void computeRowCost(int row, BitSet[] sets) {
-        Arrays.fill(scratchIntersections, 0, dim, 0);
-        int pairsCount = 0;
-
-        for (int i = 0; i < sets.length; i++) {
-            BitSet setA = sets[i];
-            if (setA == null || setA.isEmpty()) continue;
-            int cardA = setA.cardinality();
-
-            for (int j = i + 1; j < sets.length; j++) {
-                BitSet setB = sets[j];
-                if (setB == null || setB.isEmpty()) continue;
-
-                pairsCount += cardA * setB.cardinality();
-
-                for (int l1 = setA.nextSetBit(0); l1 >= 0; l1 = setA.nextSetBit(l1 + 1)) {
-                    int[] lcaRowT2 = targetLcaMatrix[l1];
-                    for (int l2 = setB.nextSetBit(0); l2 >= 0; l2 = setB.nextSetBit(l2 + 1)) {
-                        int lcaT2 = lcaRowT2[l2];
-                        if (lcaT2 >= 0) {
-                            int c = targetIdToCol[lcaT2];
-                            if (c >= 0) scratchIntersections[c]++;
-                        }
-                    }
-                }
-            }
-        }
-
-        currentT1PairCount[row] = pairsCount;
-        int[] costRow = assigncost[row];
-        for (int c = 0; c < intT2Num; c++) {
-            costRow[c] = pairsCount + t2IntPairCount[c] - (scratchIntersections[c] << 1);
-        }
-        for (int c = intT2Num; c < dim; c++) {
-            costRow[c] = pairsCount;
-        }
-    }
-
-    private BitSet getBaseSplit(Node n) {
-        if (n.isLeaf()) {
-            BitSet bs = new BitSet(N);
-            bs.set(baseIdGroup.whichIdNumber(n.getIdentifier().getName()));
-            return bs;
-        }
-        return baseSplits.get(n);
     }
 
     private boolean isDescendantOrSelf(Node descendant, Node ancestor) {
@@ -1056,11 +1285,10 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
         for (int i = 0; i < N; i++) {
             for (int j = i + 1; j < N; j++) {
                 int ind1 = lcaNew[i][j];
-                int ind2 = this.targetLcaMatrix[i][j];
-                if (ind1 >= 0 && ind1 < idToRow.length && ind2 >= 0 && ind2 < this.targetIdToCol.length) {
+                int c = this.targetLcaColMatrix[i][j];
+                if (ind1 >= 0 && ind1 < idToRow.length && c >= 0) {
                     int r_new = idToRow[ind1];
-                    int c = this.targetIdToCol[ind2];
-                    if (r_new >= 0 && c >= 0) newIntersection[r_new][c]++;
+                    if (r_new >= 0) newIntersection[r_new][c]++;
                 }
             }
         }
@@ -1173,7 +1401,7 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
     }
 
     @Override public double getCurrentDistance() { return this.currentDistance; }
-    @Override public void commit() { history.clear(); deltaStack.clear(); }
+    @Override public void commit() { history.clear(); deltaPointer = 0; }
     @Override public double getDistance(Tree t1, Tree t2, int... indexes) { return mpMetricFull.getDistance(t1, t2, indexes); }
     @Override public String getName() { return "Accelerated " + mpMetricFull.getName(); }
     @Override public String getCommandLineName() { return mpMetricFull.getCommandLineName(); }
