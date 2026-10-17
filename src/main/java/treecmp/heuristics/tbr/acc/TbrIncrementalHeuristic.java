@@ -1,5 +1,6 @@
 package treecmp.heuristics.tbr.acc;
 
+import pal.tree.Node;
 import pal.tree.SimpleTree;
 import pal.tree.Tree;
 import pal.tree.TreeUtils;
@@ -26,6 +27,14 @@ public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
     private final TbrUtils tbrUtils;
     private int tbrStepsCount = 0;
 
+    private int bestMoveNniCost = Integer.MAX_VALUE;
+    private Node bestPruneNode;
+    private Node bestRerootNode;
+    private Node bestTargetNode;
+
+    private final List<Tree> stepBaseTrees = new ArrayList<>();
+    private final List<TreeMove> stepMoves = new ArrayList<>();
+
     public TbrIncrementalHeuristic(IncrementalMetric metric, String metricShortName) {
         this(metric, null, metricShortName);
     }
@@ -47,20 +56,75 @@ public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
         this.improved = false;
         this.bestDist = activeMetric.getCurrentDistance();
 
-        if (activeMetric instanceof RootedTbrMetric) {
-            incrementalWalker.walk(currentTree, (RootedTbrMetric) activeMetric,
-                    (dist, prune, reroot, target) -> {
-                        if (dist <= this.bestDist + 1e-9) {
-                            checkImprovementWithTies(dist, new TbrMove(prune, reroot, target));
-                        }
-                    });
+        if (this.primaryMetric == null) {
+            this.bestMoveNniCost = Integer.MAX_VALUE;
+            this.bestPruneNode = null;
+            this.bestRerootNode = null;
+            this.bestTargetNode = null;
+
+            if (activeMetric instanceof RootedTbrMetric) {
+                incrementalWalker.walk(currentTree, (RootedTbrMetric) activeMetric,
+                        (dist, prune, reroot, target) -> {
+                            if (dist < this.bestDist - 1e-9) {
+                                this.bestDist = dist;
+                                this.bestPruneNode = prune;
+                                this.bestRerootNode = reroot;
+                                this.bestTargetNode = target;
+                                this.bestMoveNniCost = TbrMove.computeFastNniCost(prune, reroot, target);
+                                this.improved = true;
+                            } else if (this.improved && Math.abs(dist - this.bestDist) <= 1e-9) {
+                                int cost = TbrMove.computeFastNniCost(prune, reroot, target);
+                                if (cost < this.bestMoveNniCost) {
+                                    this.bestMoveNniCost = cost;
+                                    this.bestPruneNode = prune;
+                                    this.bestRerootNode = reroot;
+                                    this.bestTargetNode = target;
+                                }
+                            }
+                        });
+            } else {
+                classicWalker.walk(currentTree, activeMetric,
+                        (dist, prune, reroot, target) -> {
+                            if (dist < this.bestDist - 1e-9) {
+                                this.bestDist = dist;
+                                this.bestPruneNode = prune;
+                                this.bestRerootNode = reroot;
+                                this.bestTargetNode = target;
+                                this.bestMoveNniCost = TbrMove.computeFastNniCost(prune, reroot, target);
+                                this.improved = true;
+                            } else if (this.improved && Math.abs(dist - this.bestDist) <= 1e-9) {
+                                int cost = TbrMove.computeFastNniCost(prune, reroot, target);
+                                if (cost < this.bestMoveNniCost) {
+                                    this.bestMoveNniCost = cost;
+                                    this.bestPruneNode = prune;
+                                    this.bestRerootNode = reroot;
+                                    this.bestTargetNode = target;
+                                }
+                            }
+                        });
+            }
+
+            if (this.improved && this.bestPruneNode != null) {
+                TbrMove winningMove = new TbrMove(this.bestPruneNode, this.bestRerootNode, this.bestTargetNode);
+                this.bestMove = winningMove;
+                this.tiedMoves.add(winningMove);
+            }
         } else {
-            classicWalker.walk(currentTree, activeMetric,
-                    (dist, prune, reroot, target) -> {
-                        if (dist <= this.bestDist + 1e-9) {
-                            checkImprovementWithTies(dist, new TbrMove(prune, reroot, target));
-                        }
-                    });
+            if (activeMetric instanceof RootedTbrMetric) {
+                incrementalWalker.walk(currentTree, (RootedTbrMetric) activeMetric,
+                        (dist, prune, reroot, target) -> {
+                            if (dist <= this.bestDist + 1e-9) {
+                                checkImprovementWithTies(dist, new TbrMove(prune, reroot, target));
+                            }
+                        });
+            } else {
+                classicWalker.walk(currentTree, activeMetric,
+                        (dist, prune, reroot, target) -> {
+                            if (dist <= this.bestDist + 1e-9) {
+                                checkImprovementWithTies(dist, new TbrMove(prune, reroot, target));
+                            }
+                        });
+            }
         }
     }
 
@@ -103,6 +167,8 @@ public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
         this.accumulatedSteps = 0;
         this.tbrStepsCount = 0;
         this.fullOptimumTrajectory.clear();
+        this.stepBaseTrees.clear();
+        this.stepMoves.clear();
 
         IncrementalMetric activeMetric = this.primaryMetric != null ? this.primaryMetric : this.incMetric;
 
@@ -138,18 +204,7 @@ public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
 
             if (this.primaryMetric == null) {
                 if (this.bestDist < currentDist - 1e-9) {
-                    if (this.tiedMoves.size() > 1) {
-                        double lowestNniCost = Double.POSITIVE_INFINITY;
-                        for (TreeMove move : this.tiedMoves) {
-                            double cost = move.getNniEquivalentCost();
-                            if (cost < lowestNniCost) {
-                                lowestNniCost = cost;
-                                bestMove = move;
-                            }
-                        }
-                    } else {
-                        bestMove = this.tiedMoves.get(0);
-                    }
+                    bestMove = this.tiedMoves.get(0);
                 } else {
                     break;
                 }
@@ -225,21 +280,10 @@ public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
                 nextSecDist = this.incMetric.getCurrentDistance();
             }
 
-            // Dekompozycja ruchu rTBR na sekwencję 1-NNI
-            int nniStepsAdded = 0;
-            try {
-                List<Tree> stepTraj = bestMove.getNniTrajectory(currentTree);
-                if (stepTraj != null && !stepTraj.isEmpty()) {
-                    this.fullOptimumTrajectory.addAll(stepTraj);
-                    nniStepsAdded = stepTraj.size();
-                }
-            } catch (Exception ignored) {
-            }
+            this.stepBaseTrees.add(currentTree);
+            this.stepMoves.add(bestMove);
 
-            if (nniStepsAdded == 0) {
-                nniStepsAdded = (int) Math.round(bestMove.getNniEquivalentCost());
-            }
-
+            int nniStepsAdded = Math.max(1, (int) Math.round(bestMove.getNniEquivalentCost()));
             this.accumulatedNniCost += nniStepsAdded;
             this.accumulatedSteps += nniStepsAdded;
             this.tbrStepsCount++;
@@ -264,7 +308,18 @@ public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
 
     @Override
     public List<Tree> getLastOptimumTrajectory(Tree startTree) {
-        if (this.fullOptimumTrajectory != null && !this.fullOptimumTrajectory.isEmpty()) {
+        if (this.fullOptimumTrajectory.isEmpty() && !this.stepMoves.isEmpty()) {
+            for (int i = 0; i < this.stepMoves.size(); i++) {
+                try {
+                    List<Tree> stepTraj = this.stepMoves.get(i).getNniTrajectory(this.stepBaseTrees.get(i));
+                    if (stepTraj != null && !stepTraj.isEmpty()) {
+                        this.fullOptimumTrajectory.addAll(stepTraj);
+                    }
+                } catch (Exception ignored) {
+                }
+            }
+        }
+        if (!this.fullOptimumTrajectory.isEmpty()) {
             return new ArrayList<>(this.fullOptimumTrajectory);
         }
         if (this.lastOptimumTree != null) {
