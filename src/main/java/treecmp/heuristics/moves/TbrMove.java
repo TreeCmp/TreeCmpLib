@@ -36,36 +36,72 @@ public class TbrMove implements TreeMove {
                 ", target=" + getNodeName(targetNode) + "]";
     }
 
-    @Override
-    public int getNniEquivalentCost() {
+    /**
+     * Bezalokacyjne obliczenie kosztu równoważnego NNI w czasie O(depth).
+     * Zero alokacji na stercie (brak IdentityHashMap i ArrayList).
+     */
+    public static int computeFastNniCost(Node movingNode, Node rerootNode, Node targetNode) {
         int cost = 0;
         if (movingNode != null && rerootNode != null && movingNode != rerootNode) {
-            cost += getPathDistanceInSubtree(movingNode, rerootNode);
+            cost += getFastSubtreeDistance(movingNode, rerootNode);
         }
         if (movingNode != null && movingNode.getParent() != null && targetNode != null) {
-            cost += getTreeDistance(movingNode.getParent(), targetNode);
+            cost += getFastTreeDistance(movingNode.getParent(), targetNode);
         }
         return Math.max(1, cost);
     }
 
-    private int getPathDistanceInSubtree(Node root, Node target) {
+    private static int getFastSubtreeDistance(Node root, Node target) {
         int dist = 0;
-        Set<Node> visited = Collections.newSetFromMap(new IdentityHashMap<>());
         Node curr = target;
-        while (curr != null && curr != root) {
-            if (!visited.add(curr)) {
-                throw new IllegalStateException("Wykryto cykl wskaźników 'parent' w strukturze drzewa przy węźle: " + curr);
-            }
+        int maxSteps = 4096;
+        while (curr != null && curr != root && dist < maxSteps) {
             dist++;
             curr = curr.getParent();
         }
         return dist;
     }
 
-    private int getTreeDistance(Node u, Node v) {
-        if (u == v) return 0;
-        List<Node> path = getTargetNodePath(u, v);
-        return Math.max(1, path.size() - 1);
+    private static int getFastTreeDistance(Node u, Node v) {
+        if (u == v || u == null || v == null) return 0;
+        int dU = getDepthFast(u);
+        int dV = getDepthFast(v);
+        int dist = 0;
+
+        Node currU = u;
+        Node currV = v;
+
+        while (dU > dV && currU != null) {
+            currU = currU.getParent();
+            dU--;
+            dist++;
+        }
+        while (dV > dU && currV != null) {
+            currV = currV.getParent();
+            dV--;
+            dist++;
+        }
+        while (currU != currV && currU != null && currV != null) {
+            currU = currU.getParent();
+            currV = currV.getParent();
+            dist += 2;
+        }
+        return Math.max(1, dist);
+    }
+
+    private static int getDepthFast(Node n) {
+        int d = 0;
+        Node curr = n;
+        while (curr != null && d < 4096) {
+            d++;
+            curr = curr.getParent();
+        }
+        return d;
+    }
+
+    @Override
+    public int getNniEquivalentCost() {
+        return computeFastNniCost(this.movingNode, this.rerootNode, this.targetNode);
     }
 
     @Override
