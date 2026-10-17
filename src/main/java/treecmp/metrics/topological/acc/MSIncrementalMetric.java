@@ -1126,15 +1126,24 @@ public class MSIncrementalMetric implements IncrementalMetric,
     // ZOPTYMALIZOWANY KONTRAKT RootedTbrMetric DLA 2D-DFS uTBR (ZERO-ALLOCATION)
     // =========================================================================
 
+    private Integer findCollapsedRootRow(Node pruneNode, Node activeRootChild) {
+        Node root = baseTree.getRoot();
+        for (int i = 0; i < root.getChildCount(); i++) {
+            Node ch = root.getChild(i);
+            if (ch != pruneNode && ch != activeRootChild && !ch.isLeaf()) {
+                return nodeToRow.get(ch);
+            }
+        }
+        if (activeRootChild != null && !activeRootChild.isLeaf()) {
+            return nodeToRow.get(activeRootChild);
+        }
+        return null;
+    }
+
     @Override
     public void setPrunedState(Node pruneNode, Node wanderingSource) {
         this.currentPrunedLeaves = (BitSet) getSplitBits(pruneNode).clone();
         this.currentRootBranch = null;
-
-        if (wanderingSource != null && wanderingSource.isRoot()) {
-            pushEmptyDelta();
-            return;
-        }
 
         BitSet P = this.currentPrunedLeaves;
         Map<Integer, BitSet> updates = new HashMap<>();
@@ -1151,7 +1160,13 @@ public class MSIncrementalMetric implements IncrementalMetric,
             curr = curr.getParent();
         }
 
-        Integer rFloating = (wanderingSource != null) ? nodeToRow.get(wanderingSource) : null;
+        Integer rFloating;
+        if (wanderingSource != null && !wanderingSource.isRoot()) {
+            rFloating = nodeToRow.get(wanderingSource);
+        } else {
+            rFloating = findCollapsedRootRow(pruneNode, null);
+        }
+
         if (rFloating != null) {
             updates.put(rFloating, new BitSet(N));
         }
@@ -1160,13 +1175,14 @@ public class MSIncrementalMetric implements IncrementalMetric,
     }
 
     public void setTargetRoot(Node pruneNode, Node wanderingSource) {
-        if (wanderingSource != null && wanderingSource.isRoot()) {
-            pushEmptyDelta();
-            return;
-        }
-
         BitSet P = (this.currentPrunedLeaves != null) ? this.currentPrunedLeaves : getSplitBits(pruneNode);
-        Integer rFloating = (wanderingSource != null) ? nodeToRow.get(wanderingSource) : null;
+
+        Integer rFloating;
+        if (wanderingSource != null && !wanderingSource.isRoot()) {
+            rFloating = nodeToRow.get(wanderingSource);
+        } else {
+            rFloating = findCollapsedRootRow(pruneNode, this.currentRootBranch);
+        }
 
         if (rFloating != null) {
             tbrScratch1.clear();
@@ -1184,12 +1200,8 @@ public class MSIncrementalMetric implements IncrementalMetric,
     }
 
     public void moveTargetDown(Node parentTarget, Node childTarget, Node pruneNode, Node wanderingSource) {
-        if (wanderingSource != null && wanderingSource.isRoot()) {
-            if (parentTarget.isRoot()) {
-                this.currentRootBranch = childTarget;
-                pushEmptyDelta();
-                return;
-            }
+        if (wanderingSource != null && wanderingSource.isRoot() && parentTarget.isRoot()) {
+            this.currentRootBranch = childTarget;
         }
 
         BitSet P = (this.currentPrunedLeaves != null) ? this.currentPrunedLeaves : getSplitBits(pruneNode);
@@ -1198,7 +1210,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
         if (wanderingSource != null && !wanderingSource.isRoot()) {
             rFloating = nodeToRow.get(wanderingSource);
         } else {
-            rFloating = (this.currentRootBranch != null) ? nodeToRow.get(this.currentRootBranch) : null;
+            rFloating = findCollapsedRootRow(pruneNode, this.currentRootBranch);
         }
 
         Integer rParent = nodeToRow.get(parentTarget);
