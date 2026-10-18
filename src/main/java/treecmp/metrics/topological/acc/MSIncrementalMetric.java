@@ -82,6 +82,8 @@ public class MSIncrementalMetric implements IncrementalMetric,
     // Prealokowane bufory robocze dla 2D-DFS TBR (Zero-Allocation)
     private BitSet tbrScratch1;
     private BitSet tbrScratch2;
+    private int[] scratchPruneRows;
+    private BitSet[] scratchPruneBitSets;
 
     // PREALOKOWANE BUFORY I STRUKTURY DLA ZERO-ALLOCATION uTBR (STATYCZNY)
     private final Map<BitSet, Integer> splitToRow = new HashMap<>();
@@ -134,6 +136,15 @@ public class MSIncrementalMetric implements IncrementalMetric,
         dest.or(src);
         if (dest.get(0)) {
             dest.flip(0, N);
+        }
+    }
+
+    private void fillWordsFromBitSet(BitSet bs, long[] dest) {
+        Arrays.fill(dest, 0L);
+        if (bs != null && !bs.isEmpty()) {
+            for (int i = bs.nextSetBit(0); i >= 0; i = bs.nextSetBit(i + 1)) {
+                dest[i >>> 6] |= (1L << i);
+            }
         }
     }
 
@@ -335,7 +346,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
             }
         }
 
-        // 3. WYODRĘBNIENIENIETRYWIALNYCH I NIEIZOMORFICZNYCH ZMIAN
+        // 3. WYODRĘBNIENIE NIETRYWIALNYCH I NIEIZOMORFICZNYCH ZMIAN
         for (int i = 0; i < rawRemoved.size(); i++) {
             BitSet rem = rawRemoved.get(i);
             if (!isNonTrivialSplit(rem)) continue;
@@ -404,9 +415,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
             System.arraycopy(assigncost[r], 0, scratchSavedOldRows[i], 0, dim);
 
             BitSet add = toAdd.get(i);
-            Arrays.fill(scratchAddWords, 0L);
-            long[] words = add.toLongArray();
-            System.arraycopy(words, 0, scratchAddWords, 0, words.length);
+            fillWordsFromBitSet(add, scratchAddWords);
 
             short[] costRow = assigncost[r];
             for (int j = 0; j < dim; j++) {
@@ -522,9 +531,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
             System.arraycopy(assigncost[r], 0, scratchSavedOldRows[i], 0, dim);
 
             BitSet add = scratchNewSplits[i];
-            Arrays.fill(scratchAddWords, 0L);
-            long[] words = add.toLongArray();
-            System.arraycopy(words, 0, scratchAddWords, 0, words.length);
+            fillWordsFromBitSet(add, scratchAddWords);
 
             short[] costRow = assigncost[r];
             for (int j = 0; j < dim; j++) {
@@ -703,6 +710,13 @@ public class MSIncrementalMetric implements IncrementalMetric,
             this.scratchCanonical = new BitSet(N);
             this.tbrScratch1 = new BitSet(N);
             this.tbrScratch2 = new BitSet(N);
+            this.currentPrunedLeaves = new BitSet(N);
+
+            this.scratchPruneRows = new int[dim];
+            this.scratchPruneBitSets = new BitSet[dim];
+            for (int i = 0; i < dim; i++) {
+                this.scratchPruneBitSets[i] = new BitSet(N);
+            }
 
             this.baseSplits = new IdentityHashMap<>();
             this.currentSplits = new IdentityHashMap<>();
@@ -744,8 +758,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
                 if (n2 != null) {
                     BitSet bs = targetSplits.get(n2);
                     if (bs != null) {
-                        long[] words = bs.toLongArray();
-                        System.arraycopy(words, 0, targetSplitWords[j], 0, words.length);
+                        fillWordsFromBitSet(bs, targetSplitWords[j]);
                     }
                 }
             }
@@ -772,6 +785,8 @@ public class MSIncrementalMetric implements IncrementalMetric,
         if (node.isLeaf()) {
             int id = idGroup.whichIdNumber(node.getIdentifier().getName());
             if (id >= 0) bs.set(id);
+            map.put(node, (BitSet) bs.clone());
+            return bs;
         } else {
             for (int i = 0; i < node.getChildCount(); i++) {
                 bs.or(extractSplits(node.getChild(i), idGroup, map, numLeaves, polarize));
@@ -785,27 +800,28 @@ public class MSIncrementalMetric implements IncrementalMetric,
         return bs;
     }
 
+    private void computeRowCostsFast(int r, BitSet split) {
+        canonicalizeInto(split, scratchCanonical);
+        fillWordsFromBitSet(scratchCanonical, scratchAddWords);
+
+        short[] costRow = assigncost[r];
+        for (int j = 0; j < dim; j++) {
+            long[] tWords = targetSplitWords[j];
+            int diff = 0;
+            for (int w = 0; w < numWords; w++) {
+                diff += Long.bitCount(scratchAddWords[w] ^ tWords[w]);
+            }
+            costRow[j] = (short) Math.min(diff, N - diff);
+        }
+    }
+
     private void buildInitialCostMatrix(int numLeaves) {
         for (int i = 0; i < dim; i++) {
             Node n1 = rowToNode[i];
-            BitSet canonicalSplit = new BitSet(numLeaves);
             if (n1 != null && currentSplits.containsKey(n1)) {
-                canonicalSplit = (BitSet) currentSplits.get(n1).clone();
-                if (canonicalSplit.get(0)) canonicalSplit.flip(0, numLeaves);
-            }
-
-            Arrays.fill(scratchAddWords, 0L);
-            long[] words = canonicalSplit.toLongArray();
-            System.arraycopy(words, 0, scratchAddWords, 0, words.length);
-
-            short[] costRow = assigncost[i];
-            for (int j = 0; j < dim; j++) {
-                long[] tWords = targetSplitWords[j];
-                int diff = 0;
-                for (int w = 0; w < numWords; w++) {
-                    diff += Long.bitCount(scratchAddWords[w] ^ tWords[w]);
-                }
-                costRow[j] = (short) Math.min(diff, numLeaves - diff);
+                computeRowCostsFast(i, currentSplits.get(n1));
+            } else {
+                computeRowCostsFast(i, new BitSet(numLeaves));
             }
         }
     }
@@ -844,20 +860,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
             currBs.or(newSplit);
         }
 
-        canonicalizeInto(newSplit, scratchCanonical);
-        Arrays.fill(scratchAddWords, 0L);
-        long[] words = scratchCanonical.toLongArray();
-        System.arraycopy(words, 0, scratchAddWords, 0, words.length);
-
-        short[] costRow = assigncost[r];
-        for (int j = 0; j < dim; j++) {
-            long[] tWords = targetSplitWords[j];
-            int diff = 0;
-            for (int w = 0; w < numWords; w++) {
-                diff += Long.bitCount(scratchAddWords[w] ^ tWords[w]);
-            }
-            costRow[j] = (short) Math.min(diff, N - diff);
-        }
+        computeRowCostsFast(r, newSplit);
 
         int[] changedRowsParam = cachedKArrays[1];
         changedRowsParam[0] = r;
@@ -909,21 +912,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
                 currBs.clear();
                 currBs.or(split);
             }
-
-            canonicalizeInto(split, scratchCanonical);
-            Arrays.fill(scratchAddWords, 0L);
-            long[] words = scratchCanonical.toLongArray();
-            System.arraycopy(words, 0, scratchAddWords, 0, words.length);
-
-            short[] costRow = assigncost[r];
-            for (int j = 0; j < dim; j++) {
-                long[] tWords = targetSplitWords[j];
-                int diff = 0;
-                for (int w = 0; w < numWords; w++) {
-                    diff += Long.bitCount(scratchAddWords[w] ^ tWords[w]);
-                }
-                costRow[j] = (short) Math.min(diff, N - diff);
-            }
+            computeRowCostsFast(r, split);
         }
 
         int[] changedRowsParam = cachedKArrays[2];
@@ -932,33 +921,28 @@ public class MSIncrementalMetric implements IncrementalMetric,
         this.currentDistance = LapSolver.lapShortUpdate(dim, assigncost, rowsol, colsol, u, v, changedRowsParam);
     }
 
-    private void updateRowSafelyAndSave(Map<Integer, BitSet> rowUpdates) {
-        if (rowUpdates == null || rowUpdates.isEmpty()) {
+    private void updateMultipleRowsAndSave(int count, int[] rows, BitSet[] splits) {
+        if (count <= 0) {
             pushEmptyDelta();
             return;
         }
-
         ensureDeltaCapacity();
         int d = deltaPointer;
-        int count = 0;
 
-        for (Map.Entry<Integer, BitSet> entry : rowUpdates.entrySet()) {
-            int r = entry.getKey();
-            deltaRows[d][count] = r;
-            System.arraycopy(assigncost[r], 0, deltaOldRows[d][count], 0, dim);
+        for (int i = 0; i < count; i++) {
+            int r = rows[i];
+            deltaRows[d][i] = r;
+            System.arraycopy(assigncost[r], 0, deltaOldRows[d][i], 0, dim);
 
             Node n = rowToNode[r];
             if (n != null && currentSplits.containsKey(n)) {
-                deltaOldSplitsNode[d][count] = n;
+                deltaOldSplitsNode[d][i] = n;
                 BitSet oldBs = currentSplits.get(n);
-                deltaOldSplitsBits[d][count].clear();
-                if (oldBs != null) {
-                    deltaOldSplitsBits[d][count].or(oldBs);
-                }
+                deltaOldSplitsBits[d][i].clear();
+                if (oldBs != null) deltaOldSplitsBits[d][i].or(oldBs);
             } else {
-                deltaOldSplitsNode[d][count] = null;
+                deltaOldSplitsNode[d][i] = null;
             }
-            count++;
         }
 
         deltaRowsCount[d] = count;
@@ -969,45 +953,42 @@ public class MSIncrementalMetric implements IncrementalMetric,
         deltaOldDistance[d] = currentDistance;
         deltaPointer++;
 
-        int numLeaves = baseTree.getExternalNodeCount();
-
-        for (Map.Entry<Integer, BitSet> entry : rowUpdates.entrySet()) {
-            int r = entry.getKey();
-            BitSet newSplit = entry.getValue();
-
+        for (int i = 0; i < count; i++) {
+            int r = rows[i];
+            BitSet newSplit = splits[i];
             Node n = rowToNode[r];
             if (n != null) {
                 BitSet currBs = currentSplits.get(n);
                 if (currBs == null) {
-                    currBs = new BitSet(numLeaves);
+                    currBs = new BitSet(N);
                     currentSplits.put(n, currBs);
                 }
                 currBs.clear();
                 currBs.or(newSplit);
             }
-
-            canonicalizeInto(newSplit, scratchCanonical);
-
-            Arrays.fill(scratchAddWords, 0L);
-            long[] words = scratchCanonical.toLongArray();
-            System.arraycopy(words, 0, scratchAddWords, 0, words.length);
-
-            short[] costRow = assigncost[r];
-            for (int j = 0; j < dim; j++) {
-                long[] tWords = targetSplitWords[j];
-                int diff = 0;
-                for (int w = 0; w < numWords; w++) {
-                    diff += Long.bitCount(scratchAddWords[w] ^ tWords[w]);
-                }
-                costRow[j] = (short) Math.min(diff, numLeaves - diff);
-            }
+            computeRowCostsFast(r, newSplit);
         }
 
-        if (dim > 0 && count > 0) {
+        if (dim > 0) {
             int[] changedRowsParam = (count < cachedKArrays.length) ? cachedKArrays[count] : new int[count];
-            System.arraycopy(deltaRows[d], 0, changedRowsParam, 0, count);
+            System.arraycopy(rows, 0, changedRowsParam, 0, count);
             this.currentDistance = LapSolver.lapShortUpdate(dim, assigncost, rowsol, colsol, u, v, changedRowsParam);
         }
+    }
+
+    private void updateRowSafelyAndSave(Map<Integer, BitSet> rowUpdates) {
+        if (rowUpdates == null || rowUpdates.isEmpty()) {
+            pushEmptyDelta();
+            return;
+        }
+        int count = 0;
+        for (Map.Entry<Integer, BitSet> entry : rowUpdates.entrySet()) {
+            scratchPruneRows[count] = entry.getKey();
+            scratchPruneBitSets[count].clear();
+            scratchPruneBitSets[count].or(entry.getValue());
+            count++;
+        }
+        updateMultipleRowsAndSave(count, scratchPruneRows, scratchPruneBitSets);
     }
 
     private void undoDeltaStack() {
@@ -1068,27 +1049,13 @@ public class MSIncrementalMetric implements IncrementalMetric,
             shadowEdge = pureT;
         }
 
-        canonicalizeInto(shadowEdge, scratchCanonical);
-
         System.arraycopy(assigncost[r_w], 0, scratchSavedOldRows[0], 0, dim);
         System.arraycopy(u, 0, scratchSavedU, 0, dim);
         System.arraycopy(v, 0, scratchSavedV, 0, dim);
         System.arraycopy(rowsol, 0, scratchSavedRowsol, 0, dim);
         System.arraycopy(colsol, 0, scratchSavedColsol, 0, dim);
 
-        Arrays.fill(scratchAddWords, 0L);
-        long[] words = scratchCanonical.toLongArray();
-        System.arraycopy(words, 0, scratchAddWords, 0, words.length);
-
-        short[] costRow = assigncost[r_w];
-        for (int j = 0; j < dim; j++) {
-            long[] tWords = targetSplitWords[j];
-            int diff = 0;
-            for (int w = 0; w < numWords; w++) {
-                diff += Long.bitCount(scratchAddWords[w] ^ tWords[w]);
-            }
-            costRow[j] = (short) Math.min(diff, N - diff);
-        }
+        computeRowCostsFast(r_w, shadowEdge);
 
         double fixedDist = LapSolver.lapShort(dim, assigncost, rowsol, colsol, u, v);
 
@@ -1102,14 +1069,16 @@ public class MSIncrementalMetric implements IncrementalMetric,
     }
 
     private BitSet getSplitBits(Node node) {
+        BitSet bs = currentSplits.get(node);
+        if (bs != null) return bs;
         if (node.isLeaf()) {
-            BitSet bs = new BitSet(baseTree.getExternalNodeCount());
+            BitSet leafBs = new BitSet(N);
             int id = idGroup.whichIdNumber(node.getIdentifier().getName());
-            if (id >= 0) bs.set(id);
-            return bs;
-        } else {
-            return currentSplits.get(node);
+            if (id >= 0) leafBs.set(id);
+            currentSplits.put(node, leafBs);
+            return leafBs;
         }
+        return null;
     }
 
     private Node resolveWandering(Node wanderingSource, Node pruneNode) {
@@ -1142,20 +1111,24 @@ public class MSIncrementalMetric implements IncrementalMetric,
 
     @Override
     public void setPrunedState(Node pruneNode, Node wanderingSource) {
-        this.currentPrunedLeaves = (BitSet) getSplitBits(pruneNode).clone();
+        this.currentPrunedLeaves.clear();
+        this.currentPrunedLeaves.or(getSplitBits(pruneNode));
         this.currentRootBranch = null;
 
         BitSet P = this.currentPrunedLeaves;
-        Map<Integer, BitSet> updates = new HashMap<>();
+        int count = 0;
 
         Node curr = (pruneNode.getParent() != null) ? pruneNode.getParent().getParent() : null;
         while (curr != null) {
             Integer r = nodeToRow.get(curr);
             if (r != null) {
-                BitSet bs = (BitSet) currentSplits.get(curr).clone();
+                scratchPruneRows[count] = r;
+                BitSet bs = scratchPruneBitSets[count];
+                bs.clear();
+                bs.or(currentSplits.get(curr));
                 bs.andNot(P);
                 if (!isNonTrivialSplit(bs)) bs.clear();
-                updates.put(r, bs);
+                count++;
             }
             curr = curr.getParent();
         }
@@ -1168,10 +1141,12 @@ public class MSIncrementalMetric implements IncrementalMetric,
         }
 
         if (rFloating != null) {
-            updates.put(rFloating, new BitSet(N));
+            scratchPruneRows[count] = rFloating;
+            scratchPruneBitSets[count].clear();
+            count++;
         }
 
-        updateRowSafelyAndSave(updates);
+        updateMultipleRowsAndSave(count, scratchPruneRows, scratchPruneBitSets);
     }
 
     public void setTargetRoot(Node pruneNode, Node wanderingSource) {
@@ -1386,33 +1361,33 @@ public class MSIncrementalMetric implements IncrementalMetric,
 
     @Override
     public double commit2sEcrMove(Node top, Node m1, Node m2, Node[] b, SubtreeEcr2Utils.TopologyTemplate2sECR template) {
-        Map<Integer, BitSet> updates = new HashMap<>();
-        BitSet[] bBits = new BitSet[4];
-        for (int i = 0; i < 4; i++) {
-            bBits[i] = getSplitBits(b[i]);
-        }
-
-        BitSet newM1 = new BitSet();
-        BitSet newM2 = new BitSet();
+        tbrScratch1.clear();
+        tbrScratch2.clear();
 
         if (template.isFork) {
-            newM1.or(bBits[template.indices[0]]);
-            newM1.or(bBits[template.indices[1]]);
-            newM2.or(bBits[template.indices[2]]);
-            newM2.or(bBits[template.indices[3]]);
+            tbrScratch1.or(getSplitBits(b[template.indices[0]]));
+            tbrScratch1.or(getSplitBits(b[template.indices[1]]));
+            tbrScratch2.or(getSplitBits(b[template.indices[2]]));
+            tbrScratch2.or(getSplitBits(b[template.indices[3]]));
         } else {
-            newM2.or(bBits[template.indices[2]]);
-            newM2.or(bBits[template.indices[3]]);
-            newM1.or(bBits[template.indices[1]]);
-            newM1.or(newM2);
+            tbrScratch2.or(getSplitBits(b[template.indices[2]]));
+            tbrScratch2.or(getSplitBits(b[template.indices[3]]));
+            tbrScratch1.or(getSplitBits(b[template.indices[1]]));
+            tbrScratch1.or(tbrScratch2);
         }
 
         Integer r1 = nodeToRow.get(m1);
-        if (r1 != null) updates.put(r1, newM1);
         Integer r2 = nodeToRow.get(m2);
-        if (r2 != null) updates.put(r2, newM2);
 
-        updateRowSafelyAndSave(updates);
+        if (r1 != null && r2 != null) {
+            updateTwoRowsAndSave(r1, tbrScratch1, r2, tbrScratch2);
+        } else if (r1 != null) {
+            updateSingleRowAndSave(r1, tbrScratch1);
+        } else if (r2 != null) {
+            updateSingleRowAndSave(r2, tbrScratch2);
+        } else {
+            pushEmptyDelta();
+        }
         return this.currentDistance;
     }
 
@@ -1487,7 +1462,11 @@ public class MSIncrementalMetric implements IncrementalMetric,
         for (Map.Entry<Node, BitSet> entry : currentSplits.entrySet()) {
             splitsCopy.put(entry.getKey(), (BitSet) entry.getValue().clone());
         }
-        splitHistory.push(splitsCopy);
+        splitHistory.push(clustersCopy(splitsCopy));
+    }
+
+    private Map<Node, BitSet> clustersCopy(Map<Node, BitSet> map) {
+        return map;
     }
 
     private void clearHistory() {

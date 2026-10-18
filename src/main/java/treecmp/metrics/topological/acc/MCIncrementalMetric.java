@@ -219,8 +219,9 @@ public class MCIncrementalMetric implements IncrementalMetric,
     private void fillWordsFromBitSet(BitSet bs, long[] dest) {
         Arrays.fill(dest, 0L);
         if (bs != null && !bs.isEmpty()) {
-            long[] words = bs.toLongArray();
-            System.arraycopy(words, 0, dest, 0, Math.min(words.length, dest.length));
+            for (int i = bs.nextSetBit(0); i >= 0; i = bs.nextSetBit(i + 1)) {
+                dest[i >>> 6] |= (1L << i);
+            }
         }
     }
 
