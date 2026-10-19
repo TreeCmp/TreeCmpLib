@@ -15,7 +15,6 @@ import java.util.List;
 
 public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetric {
 
-    // USUNIĘTO: protected final ClassicSprWalker standardWalker;
     private final IncrementalSprWalker rootedWalker;
     protected final SprUtils sprUtils;
     private final String metricShortName;
@@ -23,11 +22,13 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
     protected IncrementalMetric primaryMetric;
     private int sprStepsCount = 0;
 
+    private final List<Tree> stepBaseTrees = new ArrayList<>();
+    private final List<TreeMove> stepMoves = new ArrayList<>();
+
     public SprIncrementalHeuristicMetric(IncrementalMetric metric, IncrementalMetric primaryMetric, String metricShortName) {
         super(true, metric);
         this.primaryMetric = primaryMetric;
         this.metricShortName = metricShortName;
-        // USUNIĘTO: this.standardWalker = new ClassicSprWalker();
         this.rootedWalker = new IncrementalSprWalker();
         this.sprUtils = new SprUtils();
     }
@@ -45,10 +46,13 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
         this.tiedMoves.clear();
         this.bestMove = null;
         this.improved = false;
-        this.bestDist = activeMetric.getCurrentDistance();
+        double initialDist = activeMetric.getCurrentDistance();
+        this.bestDist = initialDist;
+        final boolean allowPlateau = (this.primaryMetric != null);
 
+        // Walidacja isValidSprMove odbywa się już wewnątrz IncrementalSprWalker przed wywołaniem visitor.visit()
         rootedWalker.walk(currentTree, activeMetric, (currentDist, movingNode, targetNode) -> {
-            if (!sprUtils.isValidSprMove(movingNode, targetNode)) {
+            if (!allowPlateau && currentDist >= initialDist - 1e-9) {
                 return;
             }
             if (currentDist <= this.bestDist + 1e-9) {
@@ -95,6 +99,8 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
         this.accumulatedSteps = 0;
         this.sprStepsCount = 0;
         this.fullOptimumTrajectory.clear();
+        this.stepBaseTrees.clear();
+        this.stepMoves.clear();
 
         IncrementalMetric activeMetric = primaryMetric != null ? primaryMetric : this.incMetric;
 
@@ -132,7 +138,8 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
                 if (this.bestDist < currentDist - 1e-9) {
                     if (this.tiedMoves.size() > 1) {
                         double lowestNniCost = Double.POSITIVE_INFINITY;
-                        for (TreeMove move : this.tiedMoves) {
+                        for (int i = 0; i < this.tiedMoves.size(); i++) {
+                            TreeMove move = this.tiedMoves.get(i);
                             double cost = move.getNniEquivalentCost();
                             if (cost < lowestNniCost) {
                                 lowestNniCost = cost;
@@ -152,7 +159,8 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
                     double bestSecondaryDist = Double.POSITIVE_INFINITY;
                     double bestNniCostForTie = Double.POSITIVE_INFINITY;
 
-                    for (TreeMove move : this.tiedMoves) {
+                    for (int i = 0; i < this.tiedMoves.size(); i++) {
+                        TreeMove move = this.tiedMoves.get(i);
                         Tree candidateTree = applyPhysicalMove(currentTree, move);
                         if (candidateTree == null || candidateTree == currentTree) {
                             continue;
@@ -190,6 +198,12 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
                 break;
             }
 
+            // Obliczamy równoważny koszt NNI przed modyfikacją drzewa, bez alokacji drzew pośrednich
+            int nniStepsAdded = (int) Math.round(bestMove.getNniEquivalentCost());
+            if (nniStepsAdded <= 0) {
+                nniStepsAdded = 1;
+            }
+
             Tree nextTree = (bestCandidateTree != null) ? bestCandidateTree : applyPhysicalMove(currentTree, bestMove);
             if (nextTree == null || nextTree == currentTree) {
                 break;
@@ -217,20 +231,8 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
                 nextSecDist = this.incMetric.getCurrentDistance();
             }
 
-            // Dekompozycja ruchu rSPR na sekwencję 1-NNI do certyfikacji
-            int nniStepsAdded = 0;
-            try {
-                List<Tree> stepTraj = bestMove.getNniTrajectory(currentTree);
-                if (stepTraj != null && !stepTraj.isEmpty()) {
-                    this.fullOptimumTrajectory.addAll(stepTraj);
-                    nniStepsAdded = stepTraj.size();
-                }
-            } catch (Exception ignored) {
-            }
-
-            if (nniStepsAdded == 0) {
-                nniStepsAdded = (int) Math.round(bestMove.getNniEquivalentCost());
-            }
+            this.stepBaseTrees.add(currentTree);
+            this.stepMoves.add(bestMove);
 
             // Niezależna księgowość: NNI vs natywne ruchy SPR
             this.accumulatedNniCost += nniStepsAdded;
@@ -253,6 +255,17 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
 
     @Override
     public List<Tree> getLastOptimumTrajectory(Tree startTree) {
+        if (this.fullOptimumTrajectory.isEmpty() && !this.stepMoves.isEmpty()) {
+            for (int i = 0; i < this.stepMoves.size(); i++) {
+                try {
+                    List<Tree> stepTraj = this.stepMoves.get(i).getNniTrajectory(this.stepBaseTrees.get(i));
+                    if (stepTraj != null && !stepTraj.isEmpty()) {
+                        this.fullOptimumTrajectory.addAll(stepTraj);
+                    }
+                } catch (Exception ignored) {
+                }
+            }
+        }
         if (this.fullOptimumTrajectory != null && !this.fullOptimumTrajectory.isEmpty()) {
             return new ArrayList<>(this.fullOptimumTrajectory);
         }

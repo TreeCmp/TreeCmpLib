@@ -35,6 +35,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
 
     private final MatchingSplitMetric msMetricFull = new MatchingSplitMetric();
     private final UTbrUtils utbrUtils = new UTbrUtils();
+    private final UsprUtils usprUtils = new UsprUtils();
 
     private int dim;
     private short[][] assigncost;
@@ -66,7 +67,9 @@ public class MSIncrementalMetric implements IncrementalMetric,
     // =========================================================================
     // PREALOKOWANY STOS DELTA (ZERO-ALLOCATION DLA NNI, SPR, ECR, TBR)
     // =========================================================================
-    private int deltaMaxDepth = 128;
+    private int deltaMaxDepth = 0;
+    private int allocatedDim = -1;
+    private int allocatedN = -1;
     private int deltaPointer = 0;
     private int[] deltaRowsCount;
     private int[][] deltaRows;
@@ -79,7 +82,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
     private Node[][] deltaOldSplitsNode;
     private BitSet[][] deltaOldSplitsBits;
 
-    // Prealokowane bufory robocze dla 2D-DFS TBR (Zero-Allocation)
+    // Prealokowane bufory robocze dla 2D-DFS TBR oraz uSPR (Zero-Allocation)
     private BitSet tbrScratch1;
     private BitSet tbrScratch2;
     private int[] scratchPruneRows;
@@ -346,7 +349,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
             }
         }
 
-        // 3. WYODRĘBNIENIE NIETRYWIALNYCH I NIEIZOMORFICZNYCH ZMIAN
+        // 3. WYODRĘBNIENIENIETRYWIALNYCH I NIEIZOMORFICZNYCH ZMIAN
         for (int i = 0; i < rawRemoved.size(); i++) {
             BitSet rem = rawRemoved.get(i);
             if (!isNonTrivialSplit(rem)) continue;
@@ -636,101 +639,116 @@ public class MSIncrementalMetric implements IncrementalMetric,
             int size1 = baseTree.getInternalNodeCount() - 1;
             int size2 = targetTree.getInternalNodeCount() - 1;
             this.dim = Math.max(size1, size2);
-
-            this.assigncost = new short[dim][dim];
-            this.rowsol = new int[dim];
-            this.colsol = new int[dim];
-            this.u = new int[dim];
-            this.v = new int[dim];
-
             this.numWords = (N + 63) >>> 6;
-            this.scratchAddWords = new long[numWords];
-            this.targetSplitWords = new long[dim][numWords];
-
-            int maxK = Math.max(64, dim + 1);
-            this.cachedKArrays = new int[maxK][];
-            for (int i = 0; i < maxK; i++) {
-                this.cachedKArrays[i] = new int[i];
-            }
-
-            this.scratchSavedOldRows = new short[dim][dim];
-            this.scratchSavedU = new int[dim];
-            this.scratchSavedV = new int[dim];
-            this.scratchSavedRowsol = new int[dim];
-            this.scratchSavedColsol = new int[dim];
-            this.scratchChangedRows = new int[dim];
 
             int depth = Math.max(128, N * 4);
-            this.deltaMaxDepth = depth;
-            this.deltaPointer = 0;
-            this.deltaRowsCount = new int[depth];
-            this.deltaRows = new int[depth][dim];
-            this.deltaOldRows = new short[depth][dim][dim];
-            this.deltaOldU = new int[depth][dim];
-            this.deltaOldV = new int[depth][dim];
-            this.deltaOldRowsol = new int[depth][dim];
-            this.deltaOldColsol = new int[depth][dim];
-            this.deltaOldDistance = new double[depth];
-            this.deltaOldSplitsNode = new Node[depth][dim];
-            this.deltaOldSplitsBits = new BitSet[depth][dim];
-            for (int d = 0; d < depth; d++) {
-                for (int r = 0; r < dim; r++) {
-                    this.deltaOldSplitsBits[d][r] = new BitSet(N);
-                }
-            }
+            boolean needRealloc = (this.dim != this.allocatedDim) || (this.N != this.allocatedN) || (this.assigncost == null);
 
-            int maxPoolSize = Math.max(128, N * 4);
-            if (this.bitSetPool == null || this.bitSetPool.length < maxPoolSize || this.bitSetPool[0].size() < N) {
+            if (needRealloc) {
+                this.assigncost = new short[dim][dim];
+                this.rowsol = new int[dim];
+                this.colsol = new int[dim];
+                this.u = new int[dim];
+                this.v = new int[dim];
+
+                this.scratchAddWords = new long[numWords];
+                this.targetSplitWords = new long[dim][numWords];
+
+                int maxK = Math.max(64, dim + 1);
+                this.cachedKArrays = new int[maxK][];
+                for (int i = 0; i < maxK; i++) {
+                    this.cachedKArrays[i] = new int[i];
+                }
+
+                this.scratchSavedOldRows = new short[dim][dim];
+                this.scratchSavedU = new int[dim];
+                this.scratchSavedV = new int[dim];
+                this.scratchSavedRowsol = new int[dim];
+                this.scratchSavedColsol = new int[dim];
+                this.scratchChangedRows = new int[dim];
+
+                this.deltaMaxDepth = depth;
+                this.deltaRowsCount = new int[depth];
+                this.deltaRows = new int[depth][dim];
+                this.deltaOldRows = new short[depth][dim][dim];
+                this.deltaOldU = new int[depth][dim];
+                this.deltaOldV = new int[depth][dim];
+                this.deltaOldRowsol = new int[depth][dim];
+                this.deltaOldColsol = new int[depth][dim];
+                this.deltaOldDistance = new double[depth];
+                this.deltaOldSplitsNode = new Node[depth][dim];
+                this.deltaOldSplitsBits = new BitSet[depth][dim];
+                for (int d = 0; d < depth; d++) {
+                    for (int r = 0; r < dim; r++) {
+                        this.deltaOldSplitsBits[d][r] = new BitSet(N);
+                    }
+                }
+
+                int maxPoolSize = Math.max(128, N * 4);
                 this.bitSetPool = new BitSet[maxPoolSize];
                 for (int i = 0; i < maxPoolSize; i++) {
                     this.bitSetPool[i] = new BitSet(N);
                 }
-            }
 
-            int maxTreeNodes = N * 2 + 10;
-            this.pathBuf = new Node[maxTreeNodes];
-
-            if (this.tempTreeSplits == null || this.tempTreeSplits.length < maxTreeNodes || this.tempTreeSplits[0].size() < N) {
+                int maxTreeNodes = N * 2 + 10;
+                this.pathBuf = new Node[maxTreeNodes];
                 this.tempTreeSplits = new BitSet[maxTreeNodes];
                 for (int i = 0; i < maxTreeNodes; i++) {
                     this.tempTreeSplits[i] = new BitSet(N);
                 }
-            }
 
-            if (this.scratchNewSplits == null || this.scratchNewSplits.length < dim + 5 || this.scratchNewSplits[0].size() < N) {
                 this.scratchNewSplits = new BitSet[dim + 5];
                 for (int i = 0; i < scratchNewSplits.length; i++) {
                     this.scratchNewSplits[i] = new BitSet(N);
                 }
-            }
 
-            if (this.scratchRowUsed == null || this.scratchRowUsed.length < dim + 5) {
                 this.scratchRowUsed = new boolean[dim + 5];
-            }
-            this.scratchCanonical = new BitSet(N);
-            this.tbrScratch1 = new BitSet(N);
-            this.tbrScratch2 = new BitSet(N);
-            this.currentPrunedLeaves = new BitSet(N);
+                this.scratchCanonical = new BitSet(N);
+                this.tbrScratch1 = new BitSet(N);
+                this.tbrScratch2 = new BitSet(N);
+                this.currentPrunedLeaves = new BitSet(N);
 
-            this.scratchPruneRows = new int[dim];
-            this.scratchPruneBitSets = new BitSet[dim];
-            for (int i = 0; i < dim; i++) {
-                this.scratchPruneBitSets[i] = new BitSet(N);
+                this.scratchPruneRows = new int[dim];
+                this.scratchPruneBitSets = new BitSet[dim];
+                for (int i = 0; i < dim; i++) {
+                    this.scratchPruneBitSets[i] = new BitSet(N);
+                }
+
+                this.rowToNode = new Node[dim];
+                this.colToNode = new Node[dim];
+                this.baseSplits = new IdentityHashMap<>(N * 2);
+                this.currentSplits = new IdentityHashMap<>(N * 2);
+                this.targetSplits = new IdentityHashMap<>(N * 2);
+                this.nodeToRow = new IdentityHashMap<>(N * 2);
+
+                this.allocatedDim = this.dim;
+                this.allocatedN = this.N;
+            } else {
+                for (int i = 0; i < dim; i++) {
+                    Arrays.fill(this.assigncost[i], (short) 0);
+                    Arrays.fill(this.targetSplitWords[i], 0L);
+                }
+                Arrays.fill(this.rowsol, 0);
+                Arrays.fill(this.colsol, 0);
+                Arrays.fill(this.u, 0);
+                Arrays.fill(this.v, 0);
+                Arrays.fill(this.rowToNode, null);
+                Arrays.fill(this.colToNode, null);
+                this.baseSplits.clear();
+                this.currentSplits.clear();
+                this.targetSplits.clear();
+                this.nodeToRow.clear();
             }
 
-            this.baseSplits = new IdentityHashMap<>();
-            this.currentSplits = new IdentityHashMap<>();
+            this.deltaPointer = 0;
+            this.poolIdx = 0;
+
             extractSplits(baseTree.getRoot(), idGroup, this.baseSplits, N, false);
             for (Map.Entry<Node, BitSet> e : baseSplits.entrySet()) {
                 currentSplits.put(e.getKey(), (BitSet) e.getValue().clone());
             }
 
-            this.targetSplits = new IdentityHashMap<>();
             extractSplits(targetTree.getRoot(), idGroup, this.targetSplits, N, true);
-
-            this.rowToNode = new Node[dim];
-            this.colToNode = new Node[dim];
-            this.nodeToRow = new IdentityHashMap<>();
 
             int r = 0;
             for (int i = 0; i < baseTree.getInternalNodeCount(); i++) {
@@ -1022,31 +1040,44 @@ public class MSIncrementalMetric implements IncrementalMetric,
         this.currentDistance = deltaOldDistance[d];
     }
 
+    /**
+     * ZOPTYMALIZOWANA EWALUACJA PUNKTU WPIĘCIA uSPR (ZERO-ALLOCATION + CIEPŁY START LAP O(N^2))
+     */
     public double getFixedDistanceForRegraft(Node targetNode, Node wanderingSource, BitSet pruneMask, Node pruneNode) {
         Node resolvedWandering = resolveWandering(wanderingSource, pruneNode);
         Integer r_w = nodeToRow.get(resolvedWandering);
 
+        if (r_w == null && wanderingSource != null && wanderingSource.isRoot()) {
+            Node activeBranch = findRootChildLeadingTo(baseTree.getRoot(), pruneNode, targetNode);
+            r_w = findCollapsedRootRow(pruneNode, activeBranch);
+        }
+
         if (r_w == null) {
-            return evaluateSprRegraft(pruneNode, targetNode);
+            return evaluateExactUTbrDistance(pruneNode, pruneNode, targetNode, pruneMask);
         }
 
         BitSet origT = baseSplits.get(targetNode);
-        BitSet pureT = getScratchBitSet();
-        pureT.or(origT);
-        pureT.andNot(pruneMask);
+        if (origT == null) {
+            return evaluateExactUTbrDistance(pruneNode, pruneNode, targetNode, pruneMask);
+        }
 
-        BitSet combinedX = getScratchBitSet();
-        combinedX.or(origT);
-        combinedX.or(pruneMask);
+        // Używamy prealokowanych tbrScratch1 i tbrScratch2 zamiast getScratchBitSet()!
+        tbrScratch1.clear();
+        tbrScratch1.or(origT);
+        tbrScratch1.andNot(pruneMask);
+
+        tbrScratch2.clear();
+        tbrScratch2.or(origT);
+        tbrScratch2.or(pruneMask);
 
         BitSet currentT = currentSplits.get(targetNode);
         BitSet shadowEdge;
         if (currentT == null) {
-            shadowEdge = combinedX;
-        } else if (currentT.equals(pureT)) {
-            shadowEdge = combinedX;
+            shadowEdge = tbrScratch2;
+        } else if (currentT.equals(tbrScratch1)) {
+            shadowEdge = tbrScratch2;
         } else {
-            shadowEdge = pureT;
+            shadowEdge = tbrScratch1;
         }
 
         System.arraycopy(assigncost[r_w], 0, scratchSavedOldRows[0], 0, dim);
@@ -1057,7 +1088,9 @@ public class MSIncrementalMetric implements IncrementalMetric,
 
         computeRowCostsFast(r_w, shadowEdge);
 
-        double fixedDist = LapSolver.lapShort(dim, assigncost, rowsol, colsol, u, v);
+        int[] changedRowsParam = cachedKArrays[1];
+        changedRowsParam[0] = r_w;
+        double fixedDist = LapSolver.lapShortUpdate(dim, assigncost, rowsol, colsol, u, v, changedRowsParam);
 
         System.arraycopy(scratchSavedOldRows[0], 0, assigncost[r_w], 0, dim);
         System.arraycopy(scratchSavedU, 0, u, 0, dim);
@@ -1068,7 +1101,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
         return fixedDist;
     }
 
-    private BitSet getSplitBits(Node node) {
+    public BitSet getSplitBits(Node node) {
         BitSet bs = currentSplits.get(node);
         if (bs != null) return bs;
         if (node.isLeaf()) {
@@ -1079,6 +1112,12 @@ public class MSIncrementalMetric implements IncrementalMetric,
             return leafBs;
         }
         return null;
+    }
+
+    public BitSet getBaseSplitBits(Node node) {
+        BitSet bs = baseSplits.get(node);
+        if (bs != null) return bs;
+        return getSplitBits(node);
     }
 
     private Node resolveWandering(Node wanderingSource, Node pruneNode) {
@@ -1340,8 +1379,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
     }
 
     public double evaluateSprRegraft(Node pruneNode, Node targetNode) {
-        UsprUtils utils = new UsprUtils();
-        Tree neighbor = utils.createUsprTree(baseTree, pruneNode, targetNode);
+        Tree neighbor = usprUtils.createUsprTree(baseTree, pruneNode, targetNode);
         try {
             if (neighbor instanceof pal.tree.SimpleTree) {
                 ((pal.tree.SimpleTree) neighbor).createNodeList();

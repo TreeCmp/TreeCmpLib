@@ -18,6 +18,8 @@ import java.util.List;
 public class IncrementalUsprWalker {
 
     private final UsprUtils usprUtils = new UsprUtils();
+    private final List<Node> reusableNodes = new ArrayList<>(512);
+    private BitSet reusablePruneMask = new BitSet(256);
 
     public void walk(Tree baseTree, IncrementalMetric metric, SprVisitor visitor) {
         boolean isFastMs = metric instanceof MSIncrementalMetric;
@@ -25,11 +27,18 @@ public class IncrementalUsprWalker {
         boolean isFastRf = metric instanceof BaseRFIncrementalMetric;
         boolean isFastUspr = isFastMs || isFastM3;
 
-        IdGroup idGroup = TreeUtils.getLeafIdGroup(baseTree);
+        IdGroup idGroup = (!isFastMs && !isFastRf) ? TreeUtils.getLeafIdGroup(baseTree) : null;
         int numLeaves = baseTree.getExternalNodeCount();
-        List<Node> allNodes = getAllNodes(baseTree);
+        if (reusablePruneMask.size() < numLeaves) {
+            reusablePruneMask = new BitSet(numLeaves);
+        }
 
-        for (Node pruneNode : allNodes) {
+        reusableNodes.clear();
+        collectNodes(baseTree.getRoot(), reusableNodes);
+        int nodeCount = reusableNodes.size();
+
+        for (int nIdx = 0; nIdx < nodeCount; nIdx++) {
+            Node pruneNode = reusableNodes.get(nIdx);
             // W uSPR omijamy korzeń wirtualny
             if (pruneNode.isRoot() || pruneNode.getParent() == null) continue;
 
@@ -40,7 +49,17 @@ public class IncrementalUsprWalker {
                 ((BaseRFIncrementalMetric) metric).applySprPrune(pruneNode);
             }
 
-            BitSet pruneMask = getLeafMask(pruneNode, idGroup, numLeaves);
+            BitSet pruneMask;
+            if (isFastMs) {
+                pruneMask = ((MSIncrementalMetric) metric).getBaseSplitBits(pruneNode);
+            } else if (isFastRf) {
+                pruneMask = null; // BaseRFIncrementalMetric nie używa zewnętrznego pruneMask
+            } else {
+                reusablePruneMask.clear();
+                populateLeafMask(pruneNode, idGroup, reusablePruneMask);
+                pruneMask = reusablePruneMask;
+            }
+
             Node startNode = pruneNode.getParent();
 
             if (startNode.getParent() != null) {
@@ -115,12 +134,6 @@ public class IncrementalUsprWalker {
         }
     }
 
-    private BitSet getLeafMask(Node node, IdGroup idGroup, int numLeaves) {
-        BitSet bs = new BitSet(numLeaves);
-        populateLeafMask(node, idGroup, bs);
-        return bs;
-    }
-
     private void populateLeafMask(Node node, IdGroup idGroup, BitSet bs) {
         if (node.isLeaf()) {
             bs.set(idGroup.whichIdNumber(node.getIdentifier().getName()));
@@ -129,12 +142,6 @@ public class IncrementalUsprWalker {
                 populateLeafMask(node.getChild(i), idGroup, bs);
             }
         }
-    }
-
-    private List<Node> getAllNodes(Tree tree) {
-        List<Node> list = new ArrayList<>();
-        collectNodes(tree.getRoot(), list);
-        return list;
     }
 
     private void collectNodes(Node node, List<Node> list) {

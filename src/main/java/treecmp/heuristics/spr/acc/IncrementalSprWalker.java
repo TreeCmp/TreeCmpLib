@@ -9,23 +9,27 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Zoptymalizowany Wędrowiec SPR dedykowany dla metryk ukorzenionych (MC, MP).
+ * Zoptymalizowany, bezalokacyjny (Zero-Allocation) Wędrowiec SPR dedykowany dla metryk ukorzenionych (RFC, MC, MP).
  * Przeszukuje otoczenie przy użyciu struktury "Target DFS", aktualizując dokładnie
  * 2 wiersze macierzy LapSolvera podczas schodzenia w dół docelowej gałęzi.
  */
 public class IncrementalSprWalker {
     private final SprUtils sprUtils = new SprUtils();
+    private final List<Node> reusableNodes = new ArrayList<>(512);
 
     public void walk(Tree baseTree, RootedSprIncrementalMetric metric, SprVisitor visitor) {
-        List<Node> allNodes = getAllNodes(baseTree);
+        reusableNodes.clear();
+        collectNodes(baseTree.getRoot(), reusableNodes);
         Node root = baseTree.getRoot();
+        int nodeCount = reusableNodes.size();
 
-        for (Node pruneNode : allNodes) {
-            if (pruneNode.isRoot() || pruneNode.getParent() == null) continue;
+        for (int idx = 0; idx < nodeCount; idx++) {
+            Node pruneNode = reusableNodes.get(idx);
+            Node pParent = pruneNode.getParent();
+            if (pruneNode.isRoot() || pParent == null) continue;
 
-            // POPRAWKA: Wędrujące źródło to ZAWSZE oryginalny rodzic odcinanego węzła.
-            // Nawet dla korzenia nie możemy nadpisywać wiersza "Brata", by nie niszczyć macierzy!
-            Node wanderingSource = pruneNode.getParent();
+            // Wędrujące źródło to oryginalny rodzic odcinanego węzła
+            Node wanderingSource = pParent;
 
             // 1. Inicjalizacja wyciętego stanu
             metric.setPrunedState(pruneNode, wanderingSource);
@@ -35,64 +39,59 @@ public class IncrementalSprWalker {
                 visitor.visit(metric.getCurrentDistance(), pruneNode, root);
             }
 
-            // 2. Eksploracja wszystkich punktów wszczepienia za pomocą DFS
-            for (Node child : getPrunedChildren(root, pruneNode)) {
-                dfsPrunedTree(root, child, pruneNode, wanderingSource, metric, visitor);
-            }
+            // 2. Bezalokacyjna eksploracja wszystkich punktów wszczepienia za pomocą DFS
+            explorePrunedChildren(root, pruneNode, pParent, wanderingSource, metric, visitor);
 
             // 3. Cofnięcie do pełnego drzewa
             metric.revertPrunedState(pruneNode, wanderingSource);
         }
     }
 
-    private void dfsPrunedTree(Node parentTarget, Node targetNode, Node pruneNode, Node wanderingSource, RootedSprIncrementalMetric metric, SprVisitor visitor) {
+    private void dfsPrunedTree(Node parentTarget, Node targetNode, Node pruneNode, Node pParent,
+                               Node wanderingSource, RootedSprIncrementalMetric metric, SprVisitor visitor) {
         metric.moveTargetDown(parentTarget, targetNode, pruneNode, wanderingSource);
 
         if (sprUtils.isValidSprMove(pruneNode, targetNode)) {
             visitor.visit(metric.getCurrentDistance(), pruneNode, targetNode);
         }
 
-        for (Node child : getPrunedChildren(targetNode, pruneNode)) {
-            dfsPrunedTree(targetNode, child, pruneNode, wanderingSource, metric, visitor);
-        }
+        explorePrunedChildren(targetNode, pruneNode, pParent, wanderingSource, metric, visitor);
 
         metric.moveTargetUp(parentTarget, targetNode, pruneNode, wanderingSource);
     }
 
-    // Pozwala wędrowcowi bezpiecznie omijać "dziurę" po wyciętym węźle
-    private List<Node> getPrunedChildren(Node n, Node pruneNode) {
-        List<Node> children = new ArrayList<>();
-        Node pParent = pruneNode.getParent();
+    /**
+     * Bezalokacyjne przejście po dzieciach węzła z pominięciem wyciętego poddrzewa (pruneNode)
+     * oraz zapadniętego węzła rodzica (pParent).
+     */
+    private void explorePrunedChildren(Node n, Node pruneNode, Node pParent,
+                                       Node wanderingSource, RootedSprIncrementalMetric metric, SprVisitor visitor) {
+        int childCount = n.getChildCount();
 
-        // Jeśli wędrujemy przez węzeł, który fizycznie znika (pParent)
         if (n == pParent) {
-            for (int i = 0; i < n.getChildCount(); i++) {
-                if (n.getChild(i) != pruneNode) {
-                    children.add(n.getChild(i));
+            for (int i = 0; i < childCount; i++) {
+                Node child = n.getChild(i);
+                if (child != pruneNode) {
+                    dfsPrunedTree(n, child, pruneNode, pParent, wanderingSource, metric, visitor);
                 }
             }
-            return children;
+            return;
         }
 
-        for (int i = 0; i < n.getChildCount(); i++) {
+        for (int i = 0; i < childCount; i++) {
             Node c = n.getChild(i);
             if (c == pParent) {
-                for (int j = 0; j < pParent.getChildCount(); j++) {
-                    if (pParent.getChild(j) != pruneNode) {
-                        children.add(pParent.getChild(j));
+                int pChildCount = pParent.getChildCount();
+                for (int j = 0; j < pChildCount; j++) {
+                    Node grandChild = pParent.getChild(j);
+                    if (grandChild != pruneNode) {
+                        dfsPrunedTree(n, grandChild, pruneNode, pParent, wanderingSource, metric, visitor);
                     }
                 }
             } else {
-                children.add(c);
+                dfsPrunedTree(n, c, pruneNode, pParent, wanderingSource, metric, visitor);
             }
         }
-        return children;
-    }
-
-    private List<Node> getAllNodes(Tree tree) {
-        List<Node> list = new ArrayList<>();
-        collectNodes(tree.getRoot(), list);
-        return list;
     }
 
     private void collectNodes(Node node, List<Node> list) {
