@@ -29,6 +29,7 @@ public class MCIncrementalMetric implements IncrementalMetric,
 
     private Tree baseTree;
     private Tree targetTree;
+    private Tree lastTargetTree;
     private double currentDistance;
     private IdGroup idGroup;
     private int N;
@@ -36,6 +37,8 @@ public class MCIncrementalMetric implements IncrementalMetric,
     private final MatchingClusterMetric mcMetricFull = new MatchingClusterMetric();
 
     private int dim;
+    private int allocatedDim = -1;
+    private int allocatedN = -1;
     private short[][] assigncost;
     private int[] rowsol;
     private int[] colsol;
@@ -72,7 +75,7 @@ public class MCIncrementalMetric implements IncrementalMetric,
     // =========================================================================
     // PREALOKOWANY STOS DELTA (ZERO-ALLOCATION W 2D-DFS TBR, NNI, ECR)
     // =========================================================================
-    private int deltaMaxDepth = 128;
+    private int deltaMaxDepth = 0;
     private int deltaPointer = 0;
     private int[] deltaRowsCount;
     private int[][] deltaRows;
@@ -98,70 +101,93 @@ public class MCIncrementalMetric implements IncrementalMetric,
 
         if (baseTree != null && targetTree != null) {
             clearHistory();
-            this.idGroup = TreeUtils.getLeafIdGroup(baseTree);
             this.N = baseTree.getExternalNodeCount();
 
             int size1 = baseTree.getInternalNodeCount() - 1;
             int size2 = targetTree.getInternalNodeCount() - 1;
             this.dim = Math.max(size1, size2);
-
-            this.assigncost = new short[dim][dim];
-            this.rowsol = new int[dim];
-            this.colsol = new int[dim];
-            this.u = new int[dim];
-            this.v = new int[dim];
-
             this.numWords = (N + 63) >>> 6;
-            this.scratchWords = new long[numWords];
-            this.targetClusterWords = new long[dim][numWords];
-            this.targetNullRowCosts = new short[dim];
 
-            int maxK = Math.max(64, dim + 1);
-            this.cachedKArrays = new int[maxK][];
-            for (int i = 0; i < maxK; i++) {
-                this.cachedKArrays[i] = new int[i];
+            boolean sameTarget = (targetTree == this.lastTargetTree) && (this.dim == this.allocatedDim) && (this.N == this.allocatedN) && (this.idGroup != null);
+            if (!sameTarget) {
+                this.idGroup = TreeUtils.getLeafIdGroup(baseTree);
             }
 
-            int depth = Math.max(128, N * 4);
-            this.deltaMaxDepth = depth;
-            this.deltaPointer = 0;
-            this.deltaRowsCount = new int[depth];
-            this.deltaRows = new int[depth][dim];
-            this.deltaOldRows = new short[depth][dim][dim];
-            this.deltaOldU = new int[depth][dim];
-            this.deltaOldV = new int[depth][dim];
-            this.deltaOldRowsol = new int[depth][dim];
-            this.deltaOldColsol = new int[depth][dim];
-            this.deltaOldDistance = new double[depth];
-            this.deltaOldClustNode = new Node[depth][dim];
-            this.deltaOldClustBits = new BitSet[depth][dim];
-            for (int d = 0; d < depth; d++) {
-                for (int r = 0; r < dim; r++) {
-                    this.deltaOldClustBits[d][r] = new BitSet(N);
+            boolean needRealloc = (this.dim != this.allocatedDim) || (this.N != this.allocatedN) || (this.assigncost == null);
+
+            if (needRealloc) {
+                this.assigncost = new short[dim][dim];
+                this.rowsol = new int[dim];
+                this.colsol = new int[dim];
+                this.u = new int[dim];
+                this.v = new int[dim];
+
+                this.scratchWords = new long[numWords];
+                this.targetClusterWords = new long[dim][numWords];
+                this.targetNullRowCosts = new short[dim];
+
+                int maxK = Math.max(64, dim + 1);
+                this.cachedKArrays = new int[maxK][];
+                for (int i = 0; i < maxK; i++) {
+                    this.cachedKArrays[i] = new int[i];
                 }
+
+                int depth = Math.max(128, N * 4);
+                this.deltaMaxDepth = depth;
+                this.deltaRowsCount = new int[depth];
+                this.deltaRows = new int[depth][dim];
+                this.deltaOldRows = new short[depth][dim][dim];
+                this.deltaOldU = new int[depth][dim];
+                this.deltaOldV = new int[depth][dim];
+                this.deltaOldRowsol = new int[depth][dim];
+                this.deltaOldColsol = new int[depth][dim];
+                this.deltaOldDistance = new double[depth];
+                this.deltaOldClustNode = new Node[depth][dim];
+                this.deltaOldClustBits = new BitSet[depth][dim];
+                for (int d = 0; d < depth; d++) {
+                    for (int r = 0; r < dim; r++) {
+                        this.deltaOldClustBits[d][r] = new BitSet(N);
+                    }
+                }
+
+                this.tbrScratch1 = new BitSet(N);
+                this.tbrScratch2 = new BitSet(N);
+                this.currentPrunedLeaves = new BitSet(N);
+                this.fullTreeLeaves = new BitSet(N);
+                this.fullTreeLeaves.set(0, N);
+
+                this.scratchPruneRows = new int[dim];
+                this.scratchPruneBitSets = new BitSet[dim];
+                for (int i = 0; i < dim; i++) {
+                    this.scratchPruneBitSets[i] = new BitSet(N);
+                }
+
+                int expectedMapSize = (N * 2 + 5) * 4 / 3;
+                this.currentClusters = new IdentityHashMap<>(expectedMapSize);
+                this.targetClusters = new IdentityHashMap<>(expectedMapSize);
+                this.nodeToRow = new IdentityHashMap<>(expectedMapSize);
+                this.rowToNode = new Node[dim];
+                this.colToNode = new Node[dim];
+
+                this.allocatedDim = this.dim;
+                this.allocatedN = this.N;
+                sameTarget = false;
+            } else {
+                for (int i = 0; i < dim; i++) {
+                    Arrays.fill(this.assigncost[i], (short) 0);
+                }
+                Arrays.fill(this.rowsol, 0);
+                Arrays.fill(this.colsol, 0);
+                Arrays.fill(this.u, 0);
+                Arrays.fill(this.v, 0);
+                Arrays.fill(this.rowToNode, null);
+                this.currentClusters.clear();
+                this.nodeToRow.clear();
             }
 
-            this.tbrScratch1 = new BitSet(N);
-            this.tbrScratch2 = new BitSet(N);
-            this.currentPrunedLeaves = new BitSet(N);
-            this.fullTreeLeaves = new BitSet(N);
-            this.fullTreeLeaves.set(0, N);
+            this.deltaPointer = 0;
 
-            this.scratchPruneRows = new int[dim];
-            this.scratchPruneBitSets = new BitSet[dim];
-            for (int i = 0; i < dim; i++) {
-                this.scratchPruneBitSets[i] = new BitSet(N);
-            }
-
-            this.currentClusters = new IdentityHashMap<>();
             extractClusters(baseTree.getRoot(), idGroup, this.currentClusters);
-
-            this.targetClusters = new IdentityHashMap<>();
-            extractClusters(targetTree.getRoot(), idGroup, this.targetClusters);
-
-            this.rowToNode = new Node[dim];
-            this.colToNode = new Node[dim];
-            this.nodeToRow = new IdentityHashMap<>();
 
             int r = 0;
             for (int i = 0; i < baseTree.getInternalNodeCount(); i++) {
@@ -173,25 +199,36 @@ public class MCIncrementalMetric implements IncrementalMetric,
                 }
             }
 
-            int c = 0;
-            for (int j = 0; j < targetTree.getInternalNodeCount(); j++) {
-                Node n = targetTree.getInternalNode(j);
-                if (!n.isRoot() && c < dim) {
-                    colToNode[c] = n;
-                    c++;
+            if (!sameTarget) {
+                this.targetClusters.clear();
+                Arrays.fill(this.colToNode, null);
+                Arrays.fill(this.targetNullRowCosts, (short) 0);
+                for (int j = 0; j < dim; j++) {
+                    Arrays.fill(this.targetClusterWords[j], 0L);
                 }
-            }
 
-            for (int j = 0; j < dim; j++) {
-                Node n2 = colToNode[j];
-                if (n2 != null) {
-                    BitSet bs = targetClusters.get(n2);
-                    if (bs != null) {
-                        long[] words = bs.toLongArray();
-                        System.arraycopy(words, 0, targetClusterWords[j], 0, words.length);
-                        targetNullRowCosts[j] = (short) bs.cardinality();
+                extractClusters(targetTree.getRoot(), idGroup, this.targetClusters);
+
+                int c = 0;
+                for (int j = 0; j < targetTree.getInternalNodeCount(); j++) {
+                    Node n = targetTree.getInternalNode(j);
+                    if (!n.isRoot() && c < dim) {
+                        colToNode[c] = n;
+                        c++;
                     }
                 }
+
+                for (int j = 0; j < dim; j++) {
+                    Node n2 = colToNode[j];
+                    if (n2 != null) {
+                        BitSet bs = targetClusters.get(n2);
+                        if (bs != null) {
+                            fillWordsFromBitSet(bs, targetClusterWords[j]);
+                            targetNullRowCosts[j] = (short) bs.cardinality();
+                        }
+                    }
+                }
+                this.lastTargetTree = targetTree;
             }
 
             buildInitialCostMatrix();
@@ -206,12 +243,12 @@ public class MCIncrementalMetric implements IncrementalMetric,
         if (node.isLeaf()) {
             int id = idGroup.whichIdNumber(node.getIdentifier().getName());
             if (id >= 0) bs.set(id);
-            map.put(node, (BitSet) bs.clone());
+            map.put(node, bs);
         } else {
             for (int i = 0; i < node.getChildCount(); i++) {
                 bs.or(extractClusters(node.getChild(i), idGroup, map));
             }
-            map.put(node, (BitSet) bs.clone());
+            map.put(node, bs);
         }
         return bs;
     }
@@ -926,9 +963,6 @@ public class MCIncrementalMetric implements IncrementalMetric,
         System.err.printf("\nSuma cząstkowych wag dopasowania: %.2f%n", sumCosts);
 
         System.err.println("\n--- [C] Klastry FIZYCZNE, których BRAKUJE w strukturach inkrementalnych ---");
-        for (int i = 0; i < dim; i++) {
-            // opcjonalny zrzut
-        }
         for (String pcs : physClusterStrings) {
             if (!incrClusterStrings.contains(pcs)) {
                 System.err.println("   [BRAKUJĄCY KLASTER] " + pcs);

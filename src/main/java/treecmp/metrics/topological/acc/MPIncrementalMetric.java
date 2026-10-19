@@ -31,12 +31,18 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
 
     private Tree baseTree;
     private Tree targetTree;
+    private Tree lastRawTargetTree;
     private Tree currentVirtualTree;
+    private boolean virtualTreeInitialized = false;
+
     private double currentDistance;
     private int dim;
     private int intT1Num;
     private int intT2Num;
     private int N;
+
+    private int allocatedDim = -1;
+    private int allocatedN = -1;
 
     private IdGroup baseIdGroup;
     private int[][] targetLcaColMatrix;
@@ -48,6 +54,7 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
 
     private int[][] assigncost;
     private int[][] lapCostScratch;
+    private int[][] initialIntersectionScratch;
     private int[] rowsol;
     private int[] colsol;
     private int[] u;
@@ -56,6 +63,9 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
     private int[] t2IntPairCount;
     private int[] currentT1PairCount;
     private Map<Node, Integer> nodeToRow;
+    private int[] baseIdToRow;
+    private short[] cladeSizeScratch1;
+    private short[] cladeSizeScratch2;
 
     // PREALOKOWANE BUFORY ROBOCZE (Zero-Allocation w gorących ścieżkach)
     private int[] scratchIntersections;
@@ -72,7 +82,7 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
     private int[] scratchPruneRows;
 
     // PREALOKOWANY STOS DELTA (Zero-Allocation)
-    private int deltaMaxDepth = 128;
+    private int deltaMaxDepth = 0;
     private int deltaPointer = 0;
     private int[] deltaRowsCount;
     private int[][] deltaRows;
@@ -122,164 +132,200 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
     public void initCalculationState(Tree baseTree, Tree targetTree) {
         history.clear();
         deltaPointer = 0;
+        activePruneNode = null;
+        virtualTreeInitialized = false;
 
         if (baseTree != null && targetTree != null) {
-            this.baseIdGroup = TreeUtils.getLeafIdGroup(baseTree);
-            this.baseTree = createCleanCopy(baseTree);
-            this.targetTree = createCleanCopy(targetTree);
-            this.currentVirtualTree = createCleanCopy(this.baseTree);
+            boolean sameTarget = (targetTree == this.lastRawTargetTree && this.targetTree != null && this.baseIdGroup != null);
+            if (!sameTarget) {
+                this.baseIdGroup = TreeUtils.getLeafIdGroup(baseTree);
+                this.targetTree = createCleanCopy(targetTree);
+                this.lastRawTargetTree = targetTree;
+            }
+
+            if (baseTree instanceof SimpleTree && baseTree.getRoot().getParent() == null) {
+                this.baseTree = baseTree;
+            } else {
+                this.baseTree = createCleanCopy(baseTree);
+            }
+            this.currentVirtualTree = this.baseTree;
 
             this.intT1Num = this.baseTree.getInternalNodeCount();
             this.intT2Num = this.targetTree.getInternalNodeCount();
             this.dim = Math.max(intT1Num, intT2Num);
             this.N = this.baseTree.getExternalNodeCount();
 
-            this.scratchIntersections = new int[dim];
-            this.scratchChangedRowAll = new int[dim];
-            this.leafBufA = new int[N];
-            this.leafBufB = new int[N];
+            boolean needRealloc = (this.dim != this.allocatedDim) || (this.N != this.allocatedN) || (this.assigncost == null);
 
-            int maxK = Math.max(64, dim + 1);
-            this.cachedKArrays = new int[maxK][];
-            for (int i = 0; i < maxK; i++) {
-                this.cachedKArrays[i] = new int[i];
+            if (needRealloc) {
+                this.scratchIntersections = new int[dim];
+                this.scratchChangedRowAll = new int[dim];
+                this.leafBufA = new int[N];
+                this.leafBufB = new int[N];
+
+                int maxK = Math.max(64, dim + 1);
+                this.cachedKArrays = new int[maxK][];
+                for (int i = 0; i < maxK; i++) {
+                    this.cachedKArrays[i] = new int[i];
+                }
+
+                int depth = Math.max(128, N * 4);
+                this.deltaMaxDepth = depth;
+                this.deltaRowsCount = new int[depth];
+                this.deltaRows = new int[depth][dim];
+                this.deltaOldRows = new int[depth][dim][dim];
+                this.deltaOldPairCounts = new int[depth][dim];
+                this.deltaOldU = new int[depth][dim];
+                this.deltaOldV = new int[depth][dim];
+                this.deltaOldRowsol = new int[depth][dim];
+                this.deltaOldColsol = new int[depth][dim];
+                this.deltaOldDistance = new double[depth];
+
+                this.currentPrunedLeaves = new BitSet(N);
+                this.tbrScratch1 = new BitSet(N);
+                this.tbrScratch2 = new BitSet(N);
+                this.tbrScratch3 = new BitSet(N);
+                this.scratchPruneRows = new int[dim];
+                this.tbrChildSetsPool = new BitSet[Math.max(16, N)];
+                for (int i = 0; i < tbrChildSetsPool.length; i++) {
+                    this.tbrChildSetsPool[i] = new BitSet(N);
+                }
+
+                this.assigncost = new int[dim][dim];
+                this.lapCostScratch = new int[dim][dim];
+                this.initialIntersectionScratch = new int[dim][dim];
+                this.rowsol = new int[dim];
+                this.colsol = new int[dim];
+                this.u = new int[dim];
+                this.v = new int[dim];
+                this.currentT1PairCount = new int[dim];
+                this.t2IntPairCount = new int[dim];
+                this.targetLcaColMatrix = new int[N][N];
+
+                int expectedMapSize = (N * 2 + 5) * 4 / 3;
+                this.nodeToRow = new IdentityHashMap<>(expectedMapSize);
+                this.baseSplits = new IdentityHashMap<>(expectedMapSize);
+                this.currentSplits = new IdentityHashMap<>(expectedMapSize);
+
+                int safeMaxIds = N * 2 + 16;
+                this.baseIdToRow = new int[safeMaxIds];
+                this.targetIdToCol = new int[safeMaxIds];
+                this.cladeSizeScratch1 = new short[safeMaxIds];
+                this.cladeSizeScratch2 = new short[safeMaxIds];
+
+                this.allocatedDim = this.dim;
+                this.allocatedN = this.N;
+                sameTarget = false; // wymuś odświeżenie struktur T2 po realokacji
+            } else {
+                for (int r = 0; r < dim; r++) {
+                    Arrays.fill(this.initialIntersectionScratch[r], 0);
+                }
+                Arrays.fill(this.currentT1PairCount, 0);
+                this.nodeToRow.clear();
+                this.baseSplits.clear();
+                this.currentSplits.clear();
             }
 
-            int depth = Math.max(128, N * 4);
-            this.deltaMaxDepth = depth;
-            this.deltaPointer = 0;
-            this.deltaRowsCount = new int[depth];
-            this.deltaRows = new int[depth][dim];
-            this.deltaOldRows = new int[depth][dim][dim];
-            this.deltaOldPairCounts = new int[depth][dim];
-            this.deltaOldU = new int[depth][dim];
-            this.deltaOldV = new int[depth][dim];
-            this.deltaOldRowsol = new int[depth][dim];
-            this.deltaOldColsol = new int[depth][dim];
-            this.deltaOldDistance = new double[depth];
+            if (!sameTarget) {
+                int maxNodesT2 = getSafeMaxNodeId(this.targetTree);
+                if (this.targetIdToCol.length < maxNodesT2) {
+                    this.targetIdToCol = new int[maxNodesT2];
+                    this.cladeSizeScratch2 = new short[maxNodesT2];
+                }
+                Arrays.fill(this.targetIdToCol, 0, maxNodesT2, -1);
+                for (int i = 0; i < intT2Num; i++) {
+                    this.targetIdToCol[this.targetTree.getInternalNode(i).getNumber()] = i;
+                }
 
-            this.currentPrunedLeaves = new BitSet(N);
-            this.tbrScratch1 = new BitSet(N);
-            this.tbrScratch2 = new BitSet(N);
-            this.tbrScratch3 = new BitSet(N);
-            this.scratchPruneRows = new int[dim];
-            this.tbrChildSetsPool = new BitSet[Math.max(16, N)];
-            for (int i = 0; i < tbrChildSetsPool.length; i++) {
-                this.tbrChildSetsPool[i] = new BitSet(N);
-            }
+                int[][] rawTargetLca = TreeCmpUtils.calcLcaMatrix(this.targetTree, this.baseIdGroup);
+                for (int i = 0; i < N; i++) {
+                    int[] rawRow = rawTargetLca[i];
+                    int[] colRow = this.targetLcaColMatrix[i];
+                    for (int j = 0; j < N; j++) {
+                        int lcaId = rawRow[j];
+                        colRow[j] = (lcaId >= 0 && lcaId < maxNodesT2) ? this.targetIdToCol[lcaId] : -1;
+                    }
+                }
 
-            this.assigncost = new int[dim][dim];
-            this.lapCostScratch = new int[dim][dim];
-            this.rowsol = new int[dim];
-            this.colsol = new int[dim];
-            this.u = new int[dim];
-            this.v = new int[dim];
-            this.currentT1PairCount = new int[dim];
+                Arrays.fill(this.cladeSizeScratch2, 0, maxNodesT2, (short) 0);
+                Node[] postOrderT2 = TreeCmpUtils.getNodesInPostOrder(this.targetTree);
+                TreeCmpUtils.calcCladeSizes(this.targetTree, postOrderT2, this.cladeSizeScratch2);
 
-            int expectedMapSize = (N * 2 + 5) * 4 / 3;
-            this.nodeToRow = new IdentityHashMap<>(expectedMapSize);
-            this.baseSplits = new IdentityHashMap<>(expectedMapSize);
-            this.currentSplits = new IdentityHashMap<>(expectedMapSize);
-
-            int maxNodesT2 = getSafeMaxNodeId(this.targetTree);
-            this.targetIdToCol = new int[maxNodesT2];
-            Arrays.fill(this.targetIdToCol, -1);
-            for (int i = 0; i < intT2Num; i++) {
-                this.targetIdToCol[this.targetTree.getInternalNode(i).getNumber()] = i;
+                Arrays.fill(this.t2IntPairCount, 0);
+                for (int i = 0; i < intT2Num; i++) {
+                    this.t2IntPairCount[i] = coutChildrenPairsFast(this.targetTree.getInternalNode(i), this.cladeSizeScratch2);
+                }
             }
 
             int maxNodesT1 = getSafeMaxNodeId(this.baseTree);
-            int[] baseIdToRow = new int[maxNodesT1];
-            Arrays.fill(baseIdToRow, -1);
+            if (this.baseIdToRow.length < maxNodesT1) {
+                this.baseIdToRow = new int[maxNodesT1];
+                this.cladeSizeScratch1 = new short[maxNodesT1];
+            }
+            Arrays.fill(this.baseIdToRow, 0, maxNodesT1, -1);
 
             for (int i = 0; i < intT1Num; i++) {
                 Node nBase = this.baseTree.getInternalNode(i);
-                Node nVirt = this.currentVirtualTree.getInternalNode(i);
-                baseIdToRow[nBase.getNumber()] = i;
-                nodeToRow.put(nBase, i);
-                nodeToRow.put(nVirt, i);
+                this.baseIdToRow[nBase.getNumber()] = i;
+                this.nodeToRow.put(nBase, i);
             }
 
-            Node[] allNodesBaseCopy = TreeCmpUtils.getAllNodes(this.baseTree);
-            for (Node n : allNodesBaseCopy) {
-                BitSet split = getLeaves(n, baseIdGroup);
-                baseSplits.put(n, split);
-                currentSplits.put(n, (BitSet) split.clone());
-            }
+            // Szybka ekstrakcja klastrów w jednym przejściu Post-Order O(N) zamiast O(N^2)
+            extractSplitsPostOrder(this.baseTree.getRoot());
 
-            Node[] allNodesVirtCopy = TreeCmpUtils.getAllNodes(this.currentVirtualTree);
-            for (Node n : allNodesVirtCopy) {
-                BitSet split = getLeaves(n, baseIdGroup);
-                baseSplits.put(n, split);
-                currentSplits.put(n, (BitSet) split.clone());
-            }
-
-            Node[] origAllNodes = TreeCmpUtils.getAllNodes(baseTree);
-            for (Node nOrig : origAllNodes) {
-                Node nCopy = getMappedNode(this.baseTree, nOrig);
-                if (nCopy != null) {
-                    Integer row = nodeToRow.get(nCopy);
-                    if (row != null) {
-                        nodeToRow.put(nOrig, row);
+            // Jeśli this.baseTree powstało jako kopia (gdy wejściowe drzewo nie było SimpleTree), zmapuj referencje
+            if (this.baseTree != baseTree) {
+                Node[] origAllNodes = TreeCmpUtils.getAllNodes(baseTree);
+                for (Node nOrig : origAllNodes) {
+                    Node nCopy = getMappedNode(this.baseTree, nOrig);
+                    if (nCopy != null) {
+                        Integer row = nodeToRow.get(nCopy);
+                        if (row != null) nodeToRow.put(nOrig, row);
+                        BitSet bs = baseSplits.get(nCopy);
+                        baseSplits.put(nOrig, bs);
+                        currentSplits.put(nOrig, bs);
                     }
-                    baseSplits.put(nOrig, baseSplits.get(nCopy));
-                    currentSplits.put(nOrig, (BitSet) currentSplits.get(nCopy).clone());
                 }
             }
 
             int[][] lcaMatrix1 = TreeCmpUtils.calcLcaMatrix(this.baseTree, this.baseIdGroup);
-            int[][] rawTargetLca = TreeCmpUtils.calcLcaMatrix(this.targetTree, this.baseIdGroup);
 
-            // Bezpośrednie zmapowanie macierzy LCA drzewa T2 na indeksy kolumn (O(1) odczyt w pętli!)
-            this.targetLcaColMatrix = new int[N][N];
-            for (int i = 0; i < N; i++) {
-                for (int j = 0; j < N; j++) {
-                    int lcaId = rawTargetLca[i][j];
-                    this.targetLcaColMatrix[i][j] = (lcaId >= 0 && lcaId < targetIdToCol.length) ? targetIdToCol[lcaId] : -1;
-                }
-            }
-
-            short[] cSize2 = new short[maxNodesT2];
-            Node[] postOrderT2 = TreeCmpUtils.getNodesInPostOrder(this.targetTree);
-            TreeCmpUtils.calcCladeSizes(this.targetTree, postOrderT2, cSize2);
-
-            this.t2IntPairCount = new int[dim];
-            for (int i = 0; i < intT2Num; i++) {
-                this.t2IntPairCount[i] = coutChildrenPairsFast(this.targetTree.getInternalNode(i), cSize2);
-            }
-
-            short[] cSize1 = new short[maxNodesT1];
+            Arrays.fill(this.cladeSizeScratch1, 0, maxNodesT1, (short) 0);
             Node[] postOrderT1 = TreeCmpUtils.getNodesInPostOrder(this.baseTree);
-            TreeCmpUtils.calcCladeSizes(this.baseTree, postOrderT1, cSize1);
+            TreeCmpUtils.calcCladeSizes(this.baseTree, postOrderT1, this.cladeSizeScratch1);
 
             for (int i = 0; i < intT1Num; i++) {
-                this.currentT1PairCount[i] = coutChildrenPairsFast(this.baseTree.getInternalNode(i), cSize1);
+                this.currentT1PairCount[i] = coutChildrenPairsFast(this.baseTree.getInternalNode(i), this.cladeSizeScratch1);
             }
 
-            int[][] initialIntersection = new int[dim][dim];
             for (int i = 0; i < N; i++) {
+                int[] lcaRow1 = lcaMatrix1[i];
+                int[] targetColRow = this.targetLcaColMatrix[i];
                 for (int j = i + 1; j < N; j++) {
-                    int ind1 = lcaMatrix1[i][j];
-                    int c = this.targetLcaColMatrix[i][j];
-                    if (ind1 >= 0 && ind1 < baseIdToRow.length && c >= 0) {
-                        int r = baseIdToRow[ind1];
+                    int ind1 = lcaRow1[j];
+                    int c = targetColRow[j];
+                    if (ind1 >= 0 && ind1 < maxNodesT1 && c >= 0) {
+                        int r = this.baseIdToRow[ind1];
                         if (r >= 0) {
-                            initialIntersection[r][c]++;
+                            this.initialIntersectionScratch[r][c]++;
                         }
                     }
                 }
             }
 
             for (int r = 0; r < dim; r++) {
+                int[] costRow = this.assigncost[r];
+                int[] interRow = this.initialIntersectionScratch[r];
+                int t1Pairs = this.currentT1PairCount[r];
                 for (int c = 0; c < dim; c++) {
                     if (r < intT1Num && c < intT2Num) {
-                        assigncost[r][c] = currentT1PairCount[r] + t2IntPairCount[c] - (initialIntersection[r][c] << 1);
+                        costRow[c] = t1Pairs + t2IntPairCount[c] - (interRow[c] << 1);
                     } else if (r >= intT1Num && c < intT2Num) {
-                        assigncost[r][c] = t2IntPairCount[c];
+                        costRow[c] = t2IntPairCount[c];
                     } else if (r < intT1Num && c >= intT2Num) {
-                        assigncost[r][c] = currentT1PairCount[r];
+                        costRow[c] = t1Pairs;
                     } else {
-                        assigncost[r][c] = 0;
+                        costRow[c] = 0;
                     }
                 }
             }
@@ -288,6 +334,54 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
         } else {
             this.currentDistance = 0;
         }
+    }
+
+    private BitSet extractSplitsPostOrder(Node node) {
+        BitSet bs = new BitSet(N);
+        if (node.isLeaf()) {
+            int id = baseIdGroup.whichIdNumber(node.getIdentifier().getName());
+            if (id >= 0) bs.set(id);
+        } else {
+            int chCount = node.getChildCount();
+            for (int i = 0; i < chCount; i++) {
+                bs.or(extractSplitsPostOrder(node.getChild(i)));
+            }
+        }
+        baseSplits.put(node, bs);
+        currentSplits.put(node, bs);
+        return bs;
+    }
+
+    private void ensureVirtualTreeInitialized() {
+        if (!virtualTreeInitialized && this.baseTree != null) {
+            this.currentVirtualTree = createCleanCopy(this.baseTree);
+            for (int i = 0; i < intT1Num; i++) {
+                Node nBase = this.baseTree.getInternalNode(i);
+                Node nVirt = this.currentVirtualTree.getInternalNode(i);
+                Integer row = nodeToRow.get(nBase);
+                if (row != null) {
+                    nodeToRow.put(nVirt, row);
+                }
+            }
+            extractVirtualSplitsPostOrder(this.currentVirtualTree.getRoot());
+            virtualTreeInitialized = true;
+        }
+    }
+
+    private BitSet extractVirtualSplitsPostOrder(Node node) {
+        BitSet bs = new BitSet(N);
+        if (node.isLeaf()) {
+            int id = baseIdGroup.whichIdNumber(node.getIdentifier().getName());
+            if (id >= 0) bs.set(id);
+        } else {
+            int chCount = node.getChildCount();
+            for (int i = 0; i < chCount; i++) {
+                bs.or(extractVirtualSplitsPostOrder(node.getChild(i)));
+            }
+        }
+        baseSplits.put(node, bs);
+        currentSplits.put(node, (BitSet) bs.clone());
+        return bs;
     }
 
     private void solveLap() {
@@ -790,7 +884,7 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
         updateRowPairs(rowV, v, currentPos);
         updateRowPairs(rowU, u, currentPos);
 
-        solveLap();
+        runLapUpdateForCurrentDelta(d, 2);
 
         return this.currentDistance;
     }
@@ -812,25 +906,25 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
             int chCount = n.getChildCount();
             for (int i = 0; i < chCount; i++) {
                 tbrChildSetsPool[i].clear();
-                tbrChildSetsPool[i].or(getCurrentCluster(n.getChild(i), currentPos, activePruneNode));
+                populateCurrentClusterInto(n.getChild(i), currentPos, activePruneNode, tbrChildSetsPool[i]);
             }
             computeRowCostMulti(row, tbrChildSetsPool, chCount);
         }
     }
 
-    private BitSet getCurrentCluster(Node x, Node currentPos, Node pruneNode) {
-        if (x == pruneNode) return new BitSet(N);
-        BitSet res = (BitSet) getBaseSplit(x).clone();
+    private void populateCurrentClusterInto(Node x, Node currentPos, Node pruneNode, BitSet dest) {
+        dest.clear();
+        if (x == pruneNode) return;
+        dest.or(getBaseSplit(x));
 
         boolean pInside = isDescendantOrSelf(pruneNode, x);
         boolean cInside = isDescendantOrSelf(currentPos, x);
 
         if (pInside && !cInside) {
-            res.andNot(getBaseSplit(pruneNode));
+            dest.andNot(getBaseSplit(pruneNode));
         } else if (!pInside && cInside) {
-            res.or(getBaseSplit(pruneNode));
+            dest.or(getBaseSplit(pruneNode));
         }
-        return res;
     }
 
     private BitSet[] getPartitionsForNode(Node n) {
@@ -860,6 +954,7 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
     }
 
     public double evaluateSprRegraft(Node pruneNode, Node targetNode) {
+        ensureVirtualTreeInitialized();
         SimpleTree tNew = (SimpleTree) createCleanCopy(currentVirtualTree);
         Node P = getMappedNode(tNew, pruneNode);
         Node T = getMappedNode(tNew, targetNode);
@@ -940,6 +1035,7 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
 
     @Override
     public double applyNni(NniMove move) {
+        ensureVirtualTreeInitialized();
         Node virtMoving = getMappedNode(this.currentVirtualTree, move.movingSubtree);
         Node virtPartner = getMappedNode(this.currentVirtualTree, move.swapPartner);
 
@@ -1007,6 +1103,7 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
     }
 
     private double internalApply2sEcrMove(Node top, Node m1, Node m2, Node[] boundarySubtrees, SubtreeEcr2Utils.TopologyTemplate2sECR template, boolean isCommit) {
+        ensureVirtualTreeInitialized();
         SimpleTree tNew = (SimpleTree) createCleanCopy(currentVirtualTree);
         Node vTop = getMappedNode(tNew, top);
         Node vM1 = getMappedNode(tNew, m1);
@@ -1054,6 +1151,7 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
     }
 
     private double internalApply3sEcrMove(List<Node> cluster, Node[] boundarySubtrees, SubtreeEcr3Utils.TopologyTemplate3sECR template, boolean isCommit) {
+        ensureVirtualTreeInitialized();
         SimpleTree tNew = (SimpleTree) createCleanCopy(currentVirtualTree);
         Node[] vAvailable = new Node[4];
         for (int i = 0; i < 4; i++) {
@@ -1099,7 +1197,7 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
     }
 
     private Node getMappedNode(Tree destTree, Node srcNode) {
-        if (srcNode == null) return null;
+        if (srcNode == null || destTree == null) return null;
         if (srcNode.isLeaf()) return TreeUtils.getNodeByName(destTree, srcNode.getIdentifier().getName());
         Signature targetSig = new Signature(srcNode, N, baseIdGroup);
         for (int i = 0; i < destTree.getInternalNodeCount(); i++) {
@@ -1125,9 +1223,15 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
 
     private int getSafeMaxNodeId(Tree tree) {
         int maxId = 0;
-        Node[] allNodes = TreeCmpUtils.getAllNodes(tree);
-        for (Node n : allNodes) {
-            if (n != null && n.getNumber() > maxId) maxId = n.getNumber();
+        int extCount = tree.getExternalNodeCount();
+        for (int i = 0; i < extCount; i++) {
+            int num = tree.getExternalNode(i).getNumber();
+            if (num > maxId) maxId = num;
+        }
+        int intCount = tree.getInternalNodeCount();
+        for (int i = 0; i < intCount; i++) {
+            int num = tree.getInternalNode(i).getNumber();
+            if (num > maxId) maxId = num;
         }
         return maxId + 1;
     }
@@ -1237,6 +1341,7 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
     }
 
     private double calculateCleanSlateDistance(SimpleTree tNew, boolean isCommit, int maxCostBound) {
+        ensureVirtualTreeInitialized();
         Map<Signature, Integer> sigToOldRow = new HashMap<>();
         for (int i = 0; i < intT1Num; i++) {
             Node n = this.currentVirtualTree.getInternalNode(i);
@@ -1341,16 +1446,17 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
             mappedOldAssigncost[r_new] = this.assigncost[newToOld[r_new]];
         }
 
-        List<Integer> changedRowsList = new ArrayList<>();
+        int changedCount = 0;
         for (int r_new = 0; r_new < dim; r_new++) {
             if (!Arrays.equals(mappedOldAssigncost[r_new], tempAssigncost[r_new])) {
-                changedRowsList.add(r_new);
+                scratchChangedRowAll[changedCount++] = r_new;
             }
         }
-        int[] changedRows = changedRowsList.stream().mapToInt(i -> i).toArray();
+        int[] changedRows = (changedCount < cachedKArrays.length) ? cachedKArrays[changedCount] : new int[changedCount];
+        System.arraycopy(scratchChangedRowAll, 0, changedRows, 0, changedCount);
 
         int rawMetric;
-        if (changedRows.length > 0 && changedRows.length < dim && maxCostBound >= 0) {
+        if (changedCount > 0 && changedCount < dim && maxCostBound >= 0) {
             rawMetric = LapSolver.lapUpdateBoundedInt(dim, lapCost, tempRowsol, tempColsol, tempU, tempV, changedRows, maxCostBound);
         } else {
             rawMetric = LapSolver.lap(dim, lapCost, tempRowsol, tempColsol, tempU, tempV);
