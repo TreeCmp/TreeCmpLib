@@ -81,15 +81,10 @@ public class SprDistanceBenchmark extends AbstractDistanceBenchmark {
                 // N=80: Szybkie bazowe RF i RFC w wersji Classic (~17.5 min)
                 allResults.addAll(runJmh(sizeStr, new String[]{"RF", "RFC"}, classicOnly, quickEstimate));
             }
-            // N >= 120: Brak Classic (przekracza limit czasu na iteracje)
-
             // --- 2. WARIANT INKREMENTALNY (INCREMENTAL) ---
-            if (size <= 120) {
-                // N <= 120: Pelny zestaw wszystkich 6 akcelerowanych metryk (~1h 05m lacznie)
+            else {
+                // N=200: Pelny zestaw wszystkich 6 akcelerowanych metryk
                 allResults.addAll(runJmh(sizeStr, new String[]{"RF", "RFC", "MS", "MC", "MP", "M3"}, incrOnly, quickEstimate));
-            } else {
-                // N=200: 5 metryk inkrementalnych - bez "MS" (~2h 29m)
-                allResults.addAll(runJmh(sizeStr, new String[]{"RFC", "MP", "M3", "MC", "RF"}, incrOnly, quickEstimate));
             }
         }
 
