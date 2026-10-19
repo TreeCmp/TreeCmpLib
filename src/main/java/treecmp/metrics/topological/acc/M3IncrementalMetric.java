@@ -35,6 +35,7 @@ public class M3IncrementalMetric implements IncrementalMetric,
     private Tree lastRawTargetTree;
     private Tree currentVirtualTree;
     private boolean virtualTreeInitialized = false;
+    private boolean baseSigToRowInitialized = false;
 
     private double currentDistance;
     private int dim;
@@ -55,6 +56,7 @@ public class M3IncrementalMetric implements IncrementalMetric,
     private Map<Node, Integer> nodeToRow;
 
     private int[][] assigncost;
+    private int[][] lapCostScratch;
     private int[] rowsol;
     private int[] colsol;
     private int[] u;
@@ -99,7 +101,7 @@ public class M3IncrementalMetric implements IncrementalMetric,
     private final UsprUtils usprUtils = new UsprUtils();
 
     // =========================================================================
-    // PREALOKOWANY STOS DELTA (ZERO-ALLOCATION DLA 2D-DFS uTBR oraz NNI)
+    // PREALOKOWANY STOS DELTA (ZERO-ALLOCATION DLA 2D-DFS uTBR, NNI, 2s/3s-ECR)
     // =========================================================================
     private int deltaMaxDepth = 0;
     private int deltaPointer = 0;
@@ -115,9 +117,17 @@ public class M3IncrementalMetric implements IncrementalMetric,
     private Node[] deltaOldSplitNode;
     private BitSet[] deltaOldSplitBits;
 
-    // Prealokowane bufory trójpartycji dla 2D-DFS uTBR (zero alokacji w krokach DFS)
+    // Prealokowane bufory trójpartycji dla 2D-DFS uTBR oraz ECR (zero alokacji)
     private final BitSet[] fastTripletSets1 = new BitSet[3];
     private final BitSet[] fastTripletSets2 = new BitSet[3];
+    private final BitSet[][] ecrTripletSets = new BitSet[4][3];
+    private final BitSet[] ecrBBits = new BitSet[5];
+    private final int[] ecrRows = new int[4];
+    private final Node[] ecrNodes = new Node[4];
+    private final BitSet[] ecrUnionSets = new BitSet[4];
+    private int ecrNextAvailIdx = 1;
+    private int ecrUpdateCount = 0;
+
     private BitSet tbrScratchUnion;
     private BitSet[] tbrBitSetPool;
     private int tbrPoolIdx = 0;
@@ -147,6 +157,7 @@ public class M3IncrementalMetric implements IncrementalMetric,
         deltaPointer = 0;
         activePruneNode = null;
         virtualTreeInitialized = false;
+        baseSigToRowInitialized = false;
 
         if (baseTree != null && targetTree != null) {
             this.originalBaseTree = baseTree;
@@ -174,6 +185,7 @@ public class M3IncrementalMetric implements IncrementalMetric,
 
             if (needRealloc) {
                 this.assigncost = new int[dim][dim];
+                this.lapCostScratch = new int[dim][dim];
                 this.rowsol = new int[dim];
                 this.colsol = new int[dim];
                 this.u = new int[dim];
@@ -195,6 +207,12 @@ public class M3IncrementalMetric implements IncrementalMetric,
                 for (int i = 0; i < 3; i++) {
                     this.fastTripletSets1[i] = new BitSet(N);
                     this.fastTripletSets2[i] = new BitSet(N);
+                }
+                for (int i = 0; i < 4; i++) {
+                    this.ecrUnionSets[i] = new BitSet(N);
+                    for (int j = 0; j < 3; j++) {
+                        this.ecrTripletSets[i][j] = new BitSet(N);
+                    }
                 }
                 this.tbrScratchUnion = new BitSet(N);
 
@@ -228,6 +246,7 @@ public class M3IncrementalMetric implements IncrementalMetric,
                 this.nodeToRow = new IdentityHashMap<>(expectedMapSize);
                 this.baseSplits = new IdentityHashMap<>(expectedMapSize);
                 this.currentSplits = new IdentityHashMap<>(expectedMapSize);
+                this.baseSigToRow = new HashMap<>((intT1Num * 4) / 3 + 1);
 
                 this.currentT1TripletCount = new int[dim];
                 this.t2IntTripletCount = new int[dim];
@@ -263,6 +282,7 @@ public class M3IncrementalMetric implements IncrementalMetric,
                 this.nodeToRow.clear();
                 this.baseSplits.clear();
                 this.currentSplits.clear();
+                this.baseSigToRow.clear();
             }
 
             int maxNodesT2 = getSafeMaxNodeId(this.targetTree);
@@ -275,7 +295,6 @@ public class M3IncrementalMetric implements IncrementalMetric,
                     this.targetIdToCol[this.targetTree.getInternalNode(i).getNumber()] = i;
                 }
 
-                // Inicjalizacja topologii T2 indeksowanej post-order
                 Node[] postOrder = TreeCmpUtils.getNodesInPostOrder(this.targetTree);
                 this.postOrderT2Count = postOrder.length;
 
@@ -329,29 +348,30 @@ public class M3IncrementalMetric implements IncrementalMetric,
 
             for (int i = 0; i < intT1Num; i++) {
                 Node nBase = this.baseTree.getInternalNode(i);
-                Node nVirt = this.currentVirtualTree.getInternalNode(i);
                 nodeToRow.put(nBase, i);
-                nodeToRow.put(nVirt, i);
             }
 
             extractSplitsPostOrder(this.baseTree.getRoot());
 
-            for (Node nOrig : TreeCmpUtils.getAllNodes(this.originalBaseTree)) {
-                Node nCopy = getMappedNode(this.baseTree, nOrig);
-                if (nCopy != null) {
-                    Integer row = nodeToRow.get(nCopy);
-                    if (row != null) {
-                        nodeToRow.put(nOrig, row);
+            if (this.baseTree != baseTree) {
+                for (Node nOrig : TreeCmpUtils.getAllNodes(this.originalBaseTree)) {
+                    Node nCopy = getMappedNode(this.baseTree, nOrig);
+                    if (nCopy != null) {
+                        Integer row = nodeToRow.get(nCopy);
+                        if (row != null) {
+                            nodeToRow.put(nOrig, row);
+                        }
+                        BitSet bs = baseSplits.get(nCopy);
+                        baseSplits.put(nOrig, bs);
+                        currentSplits.put(nOrig, (BitSet) bs.clone());
                     }
-                    baseSplits.put(nOrig, baseSplits.get(nCopy));
-                    currentSplits.put(nOrig, (BitSet) currentSplits.get(nCopy).clone());
                 }
             }
 
-            // Inicjalizacja macierzy kosztów w czasie O(N^2)
+            // Inicjalizacja macierzy kosztów w czasie O(N^2) bez alokacji tablic w pętli
             for (int r = 0; r < intT1Num; r++) {
                 Node nBase = this.baseTree.getInternalNode(r);
-                computeRowCostFast(r, getPartitionsForNode(nBase));
+                computeNodeRowCostInPlace(r, nBase);
             }
 
             for (int r = intT1Num; r < dim; r++) {
@@ -361,22 +381,26 @@ public class M3IncrementalMetric implements IncrementalMetric,
                 }
             }
 
-            int[][] lapCost = new int[dim][dim];
             for (int i = 0; i < dim; i++) {
-                System.arraycopy(assigncost[i], 0, lapCost[i], 0, dim);
+                System.arraycopy(assigncost[i], 0, lapCostScratch[i], 0, dim);
             }
 
-            int rawMetric = LapSolver.lap(dim, lapCost, rowsol, colsol, this.u, this.v);
+            int rawMetric = LapSolver.lap(dim, lapCostScratch, rowsol, colsol, this.u, this.v);
             this.currentDistance = 0.5 * rawMetric;
 
-            this.baseSigToRow = new HashMap<>((intT1Num * 4) / 3 + 1);
+        } else {
+            this.currentDistance = 0;
+        }
+    }
+
+    private void ensureBaseSigToRowInitialized() {
+        if (!baseSigToRowInitialized && this.baseTree != null) {
+            this.baseSigToRow.clear();
             for (int r = 0; r < intT1Num; r++) {
                 Node n = this.baseTree.getInternalNode(r);
                 this.baseSigToRow.put(new Signature(n, N, baseIdGroup), r);
             }
-
-        } else {
-            this.currentDistance = 0;
+            baseSigToRowInitialized = true;
         }
     }
 
@@ -392,7 +416,7 @@ public class M3IncrementalMetric implements IncrementalMetric,
             }
         }
         baseSplits.put(node, bs);
-        currentSplits.put(node, bs);
+        currentSplits.put(node, (BitSet) bs.clone());
         return bs;
     }
 
@@ -642,6 +666,38 @@ public class M3IncrementalMetric implements IncrementalMetric,
     // =========================================================================
     // AKCELERATOR KOSZTU WIERSZA O(N) POPRZEZ DRZEWNE DP I PERMANENT 3x3
     // =========================================================================
+
+    private void computeNodeRowCostInPlace(int row, Node n) {
+        if (activePruneNode != null && n == activePruneNode.getParent()) {
+            computeRowCostFast(row, null);
+            return;
+        }
+
+        int chCount = n.getChildCount();
+        int numNeighbors = (n.getParent() == null) ? chCount : chCount + 1;
+
+        if (numNeighbors == 3) {
+            tbrScratchUnion.clear();
+            for (int i = 0; i < chCount; i++) {
+                Node child = n.getChild(i);
+                BitSet s = fastTripletSets1[i];
+                s.clear();
+                if (activePruneNode == null || child != activePruneNode) {
+                    s.or(getSplitForNode(child));
+                    tbrScratchUnion.or(s);
+                }
+            }
+            if (n.getParent() != null) {
+                BitSet pSet = fastTripletSets1[chCount];
+                pSet.clear();
+                pSet.set(0, N);
+                pSet.andNot(tbrScratchUnion);
+            }
+            computeRowCostFast(row, fastTripletSets1);
+        } else {
+            computeRowCostFast(row, getPartitionsForNode(n));
+        }
+    }
 
     private void computeRowCostFast(int row, BitSet[] sets) {
         if (sets == null || sets.length < 3) {
@@ -1070,6 +1126,7 @@ public class M3IncrementalMetric implements IncrementalMetric,
     // =========================================================================
 
     private double evaluateTempTreeDistance(Tree tempTree) {
+        ensureBaseSigToRowInitialized();
         if (tempTree instanceof SimpleTree) {
             ((SimpleTree) tempTree).createNodeList();
             pal.tree.TreeUtils.computeParentPointers(tempTree.getRoot());
@@ -1275,13 +1332,11 @@ public class M3IncrementalMetric implements IncrementalMetric,
         }
         deltaPointer++;
 
-        BitSet newSplitV = (BitSet) oldSplitV.clone();
-        if (bitsOut != null) newSplitV.andNot(bitsOut);
-        if (bitsIn != null) newSplitV.or(bitsIn);
-        currentSplits.put(vNode, newSplitV);
+        if (bitsOut != null) oldSplitV.andNot(bitsOut);
+        if (bitsIn != null) oldSplitV.or(bitsIn);
 
-        if (rVIndex != null) computeRowCostFast(rVIndex, getPartitionsForNode(vNode));
-        if (rUIndex != null && !rUIndex.equals(rVIndex)) computeRowCostFast(rUIndex, getPartitionsForNode(uNode));
+        if (rVIndex != null) computeNodeRowCostInPlace(rVIndex, vNode);
+        if (rUIndex != null && !rUIndex.equals(rVIndex)) computeNodeRowCostInPlace(rUIndex, uNode);
 
         if (count > 0) {
             int[] changedRowsParam = cachedKArrays[count];
@@ -1373,18 +1428,19 @@ public class M3IncrementalMetric implements IncrementalMetric,
             refreshNodeSplit(p2);
         }
 
-        List<Integer> changedList = new ArrayList<>(2);
+        int changedCount = 0;
         if (r1 != null) {
-            computeRowCostFast(r1, getPartitionsForNode(p1));
-            changedList.add(r1);
+            computeNodeRowCostInPlace(r1, p1);
+            scratchChangedRows[changedCount++] = r1;
         }
         if (r2 != null && !r2.equals(r1)) {
-            computeRowCostFast(r2, getPartitionsForNode(p2));
-            changedList.add(r2);
+            computeNodeRowCostInPlace(r2, p2);
+            scratchChangedRows[changedCount++] = r2;
         }
 
-        int[] changedRows = changedList.stream().mapToInt(i -> i).toArray();
-        if (changedRows.length > 0) {
+        if (changedCount > 0) {
+            int[] changedRows = cachedKArrays[changedCount];
+            System.arraycopy(scratchChangedRows, 0, changedRows, 0, changedCount);
             int rawMetric = LapSolver.lapUpdate(dim, assigncost, rowsol, colsol, u, v, changedRows);
             this.currentDistance = 0.5 * rawMetric;
         }
@@ -1434,310 +1490,255 @@ public class M3IncrementalMetric implements IncrementalMetric,
     }
 
     // =========================================================================
-    // IMPLEMENTACJA ECR
+    // BEZALOKACYJNA IMPLEMENTACJA 2s-ECR ORAZ 3s-ECR NA STOSIE DELTA!
     // =========================================================================
 
-    @Override
-    public double evaluate2sEcrMove(Node top, Node m1, Node m2, Node[] boundarySubtrees, SubtreeEcr2Utils.TopologyTemplate2sECR template) {
-        return internalApply2sEcrMove(top, m1, m2, boundarySubtrees, template, false);
+    private void fillTripletSets(BitSet[] dest3, BitSet left, BitSet right) {
+        dest3[0].clear();
+        dest3[0].or(left);
+
+        dest3[1].clear();
+        dest3[1].or(right);
+
+        dest3[2].clear();
+        dest3[2].set(0, N);
+        dest3[2].andNot(left);
+        dest3[2].andNot(right);
     }
 
     @Override
-    public double commit2sEcrMove(Node top, Node m1, Node m2, Node[] boundarySubtrees, SubtreeEcr2Utils.TopologyTemplate2sECR template) {
-        return internalApply2sEcrMove(top, m1, m2, boundarySubtrees, template, true);
+    public double evaluate2sEcrMove(Node top, Node m1, Node m2, Node[] b, SubtreeEcr2Utils.TopologyTemplate2sECR template) {
+        double dist = apply2sEcrDelta(top, m1, m2, b, template, false);
+        undoDeltaStack();
+        return dist;
     }
 
-    private double internalApply2sEcrMove(Node top, Node m1, Node m2, Node[] boundarySubtrees, SubtreeEcr2Utils.TopologyTemplate2sECR template, boolean isCommit) {
-        ensureVirtualTreeInitialized();
-        SimpleTree tNew = (SimpleTree) TreeNeighborhoodUtils.fastTreeClone(currentVirtualTree);
+    @Override
+    public double commit2sEcrMove(Node top, Node m1, Node m2, Node[] b, SubtreeEcr2Utils.TopologyTemplate2sECR template) {
+        return apply2sEcrDelta(top, m1, m2, b, template, true);
+    }
 
-        Node vTop = getMappedNode(tNew, top);
-        Node vM1 = getMappedNode(tNew, m1);
-        Node vM2 = getMappedNode(tNew, m2);
-
-        if (vTop == null || vM1 == null || vM2 == null) return isCommit ? pushUnchangedState() : this.currentDistance;
-
-        Node[] vBounds = new Node[4];
+    private double apply2sEcrDelta(Node top, Node m1, Node m2, Node[] b, SubtreeEcr2Utils.TopologyTemplate2sECR template, boolean updateSplits) {
         for (int i = 0; i < 4; i++) {
-            vBounds[i] = getMappedNode(tNew, boundarySubtrees[i]);
-            if (vBounds[i] == null) return isCommit ? pushUnchangedState() : this.currentDistance;
+            ecrBBits[i] = getSplitForNode(b[i]);
         }
 
-        boolean isOriginalFork = (m2.getParent() == top);
-        int portA = -1, portB = -1;
-        for (int i = 0; i < vTop.getChildCount(); i++) {
-            if (vTop.getChild(i) == (isOriginalFork ? vM1 : vBounds[0])) portA = i;
-            if (vTop.getChild(i) == (isOriginalFork ? vM2 : vM1)) portB = i;
-        }
-        if (portA == -1) portA = 0;
-        if (portB == -1) portB = 1;
-        if (portA == portB) { portA = 0; portB = 1; }
+        BitSet b0 = ecrBBits[template.indices[0]];
+        BitSet b1 = ecrBBits[template.indices[1]];
+        BitSet b2 = ecrBBits[template.indices[2]];
+        BitSet b3 = ecrBBits[template.indices[3]];
 
         if (template.isFork) {
-            vTop.setChild(portA, vM1); vM1.setParent(vTop);
-            vTop.setChild(portB, vM2); vM2.setParent(vTop);
-            vM1.setChild(0, vBounds[template.indices[0]]); vBounds[template.indices[0]].setParent(vM1);
-            vM1.setChild(1, vBounds[template.indices[1]]); vBounds[template.indices[1]].setParent(vM1);
-            vM2.setChild(0, vBounds[template.indices[2]]); vBounds[template.indices[2]].setParent(vM2);
-            vM2.setChild(1, vBounds[template.indices[3]]); vBounds[template.indices[3]].setParent(vM2);
+            fillTripletSets(ecrTripletSets[0], b0, b1);
+            ecrNodes[0] = m1;
+            Integer r1 = getRowForNode(m1);
+            ecrRows[0] = (r1 != null) ? r1 : -1;
+
+            fillTripletSets(ecrTripletSets[1], b2, b3);
+            ecrNodes[1] = m2;
+            Integer r2 = getRowForNode(m2);
+            ecrRows[1] = (r2 != null) ? r2 : -1;
+
+            tbrScratchUnion.clear();
+            tbrScratchUnion.or(b0);
+            tbrScratchUnion.or(b1);
+
+            scratchSetA.clear();
+            scratchSetA.or(b2);
+            scratchSetA.or(b3);
+
+            fillTripletSets(ecrTripletSets[2], tbrScratchUnion, scratchSetA);
+            ecrNodes[2] = top;
+            Integer rTop = getRowForNode(top);
+            ecrRows[2] = (rTop != null) ? rTop : -1;
         } else {
-            vTop.setChild(portA, vBounds[template.indices[0]]); vBounds[template.indices[0]].setParent(vTop);
-            vTop.setChild(portB, vM1); vM1.setParent(vTop);
-            vM1.setChild(0, vBounds[template.indices[1]]); vBounds[template.indices[1]].setParent(vM1);
-            vM1.setChild(1, vM2); vM2.setParent(vM1);
-            vM2.setChild(0, vBounds[template.indices[2]]); vBounds[template.indices[2]].setParent(vM2);
-            vM2.setChild(1, vBounds[template.indices[3]]); vBounds[template.indices[3]].setParent(vM2);
+            fillTripletSets(ecrTripletSets[1], b2, b3);
+            ecrNodes[1] = m2;
+            Integer r2 = getRowForNode(m2);
+            ecrRows[1] = (r2 != null) ? r2 : -1;
+
+            tbrScratchUnion.clear();
+            tbrScratchUnion.or(b2);
+            tbrScratchUnion.or(b3);
+            fillTripletSets(ecrTripletSets[0], b1, tbrScratchUnion);
+            ecrNodes[0] = m1;
+            Integer r1 = getRowForNode(m1);
+            ecrRows[0] = (r1 != null) ? r1 : -1;
+
+            scratchSetA.clear();
+            scratchSetA.or(b1);
+            scratchSetA.or(tbrScratchUnion);
+
+            fillTripletSets(ecrTripletSets[2], b0, scratchSetA);
+            ecrNodes[2] = top;
+            Integer rTop = getRowForNode(top);
+            ecrRows[2] = (rTop != null) ? rTop : -1;
         }
 
-        return calculateCleanSlateDistance(tNew, isCommit);
+        int updateCount = 3;
+        int validRows = 0;
+        for (int i = 0; i < updateCount; i++) {
+            if (ecrRows[i] >= 0) validRows++;
+        }
+
+        ensureDeltaCapacity(validRows);
+        int d = deltaPointer;
+        deltaRowsCount[d] = validRows;
+
+        int idx = 0;
+        for (int i = 0; i < updateCount; i++) {
+            int r = ecrRows[i];
+            if (r >= 0) {
+                deltaRows[d][idx] = r;
+                System.arraycopy(assigncost[r], 0, deltaOldRows[d][idx], 0, dim);
+                deltaOldTripletCounts[d][idx] = currentT1TripletCount[r];
+                idx++;
+            }
+        }
+
+        if (validRows > 0) {
+            System.arraycopy(u, 0, deltaOldU[d], 0, dim);
+            System.arraycopy(v, 0, deltaOldV[d], 0, dim);
+            System.arraycopy(rowsol, 0, deltaOldRowsol[d], 0, dim);
+            System.arraycopy(colsol, 0, deltaOldColsol[d], 0, dim);
+        }
+        deltaOldSplitNode[d] = null;
+        deltaOldDistance[d] = currentDistance;
+        deltaPointer++;
+
+        for (int i = 0; i < updateCount; i++) {
+            int r = ecrRows[i];
+            if (r >= 0) {
+                computeRowCostFast(r, ecrTripletSets[i]);
+            }
+            if (updateSplits && i < 2 && ecrNodes[i] != null) {
+                BitSet bs = currentSplits.get(ecrNodes[i]);
+                if (bs != null) {
+                    bs.clear();
+                    bs.or(ecrTripletSets[i][0]);
+                    bs.or(ecrTripletSets[i][1]);
+                }
+            }
+        }
+
+        if (validRows > 0) {
+            int[] changedRowsParam = cachedKArrays[validRows];
+            System.arraycopy(deltaRows[d], 0, changedRowsParam, 0, validRows);
+            int rawMetric = LapSolver.lapUpdate(dim, assigncost, rowsol, colsol, u, v, changedRowsParam);
+            this.currentDistance = 0.5 * rawMetric;
+        }
+
+        return this.currentDistance;
     }
 
     @Override
-    public double evaluate3sEcrMove(List<Node> cluster, Node[] boundarySubtrees, SubtreeEcr3Utils.TopologyTemplate3sECR template) {
-        return internalApply3sEcrMove(cluster, boundarySubtrees, template, false);
-    }
-
-    @Override
-    public double commit3sEcrMove(List<Node> cluster, Node[] boundarySubtrees, SubtreeEcr3Utils.TopologyTemplate3sECR template) {
-        return internalApply3sEcrMove(cluster, boundarySubtrees, template, true);
-    }
-
-    private double internalApply3sEcrMove(List<Node> cluster, Node[] boundarySubtrees, SubtreeEcr3Utils.TopologyTemplate3sECR template, boolean isCommit) {
-        ensureVirtualTreeInitialized();
-        SimpleTree tNew = (SimpleTree) TreeNeighborhoodUtils.fastTreeClone(currentVirtualTree);
-
-        Node[] vAvailable = new Node[4];
-        for (int i = 0; i < 4; i++) {
-            vAvailable[i] = getMappedNode(tNew, cluster.get(i));
-            if (vAvailable[i] == null) return isCommit ? pushUnchangedState() : this.currentDistance;
-        }
-
-        Node[] vBounds = new Node[5];
-        for (int i = 0; i < 5; i++) {
-            vBounds[i] = getMappedNode(tNew, boundarySubtrees[i]);
-            if (vBounds[i] == null) return isCommit ? pushUnchangedState() : this.currentDistance;
-        }
-
-        for (int i = 0; i < 4; i++) {
-            while (vAvailable[i].getChildCount() > 0) vAvailable[i].removeChild(0);
-        }
-
-        bindMapped3sEcrTemplate(template, vAvailable[0], vAvailable, 1, vBounds);
-
-        return calculateCleanSlateDistance(tNew, isCommit);
-    }
-
-    private int bindMapped3sEcrTemplate(SubtreeEcr3Utils.TopologyTemplate3sECR temp, Node currentInternal, Node[] available, int nextAvailIdx, Node[] newS) {
-        int idx = nextAvailIdx;
-        if (temp.left.leafIndex != -1) {
-            currentInternal.insertChild(newS[temp.left.leafIndex], 0);
-            newS[temp.left.leafIndex].setParent(currentInternal);
-        } else {
-            Node nextInt = available[idx++];
-            currentInternal.insertChild(nextInt, 0); nextInt.setParent(currentInternal);
-            idx = bindMapped3sEcrTemplate(temp.left, nextInt, available, idx, newS);
-        }
-        if (temp.right.leafIndex != -1) {
-            currentInternal.insertChild(newS[temp.right.leafIndex], 1);
-            newS[temp.right.leafIndex].setParent(currentInternal);
-        } else {
-            Node nextInt = available[idx++];
-            currentInternal.insertChild(nextInt, 1); nextInt.setParent(currentInternal);
-            idx = bindMapped3sEcrTemplate(temp.right, nextInt, available, idx, newS);
-        }
-        return idx;
-    }
-
-    private double calculateCleanSlateDistance(SimpleTree tNew, boolean isCommit) {
-        ensureVirtualTreeInitialized();
-        Map<Signature, Integer> sigToOldRow = new HashMap<>((intT1Num * 4) / 3 + 1);
-        for (int i = 0; i < intT1Num; i++) {
-            Node n = this.currentVirtualTree.getInternalNode(i);
-            Signature sig = new Signature(n, N, baseIdGroup);
-            sigToOldRow.put(sig, i);
-        }
-
-        Tree tPerfect = TreeNeighborhoodUtils.fastTreeClone(tNew);
-
-        int[] newToOld = new int[dim];
-        int[] oldToNew = new int[dim];
-        Arrays.fill(newToOld, -1);
-        Arrays.fill(oldToNew, -1);
-
-        for (int r_new = 0; r_new < intT1Num; r_new++) {
-            Node n = tPerfect.getInternalNode(r_new);
-            Signature sig = new Signature(n, N, baseIdGroup);
-            Integer r_old = sigToOldRow.get(sig);
-            if (r_old != null && oldToNew[r_old] == -1) {
-                newToOld[r_new] = r_old;
-                oldToNew[r_old] = r_new;
-            }
-        }
-
-        int unmappedOld = 0;
-        for (int r_new = 0; r_new < dim; r_new++) {
-            if (newToOld[r_new] == -1) {
-                while (unmappedOld < dim && oldToNew[unmappedOld] != -1) unmappedOld++;
-                if (unmappedOld < dim) {
-                    newToOld[r_new] = unmappedOld;
-                    oldToNew[unmappedOld] = r_new;
-                }
-            }
-        }
-
-        int maxNodesNew = getSafeMaxNodeId(tPerfect);
-        int[] idToRow = new int[maxNodesNew];
-        Arrays.fill(idToRow, -1);
-        for (int r_new = 0; r_new < intT1Num; r_new++) {
-            idToRow[tPerfect.getInternalNode(r_new).getNumber()] = r_new;
-        }
-
-        int[][] lcaNew = TreeCmpUtils.calcLcaMatrix(tPerfect, this.baseIdGroup);
-        int[][] newIntersection = new int[dim][dim];
-
-        for (int i = 0; i < N; i++) {
-            int[] lcaRowNewI = lcaNew[i];
-            int[] lcaRowTargetI = this.targetLcaMatrix[i];
-            for (int j = i + 1; j < N; j++) {
-                int i_j_new = lcaRowNewI[j];
-                int i_j_target = lcaRowTargetI[j];
-                int[] lcaRowNewJ = lcaNew[j];
-                int[] lcaRowTargetJ = this.targetLcaMatrix[j];
-                for (int k = j + 1; k < N; k++) {
-                    int i_k_new = lcaRowNewI[k];
-                    int j_k_new = lcaRowNewJ[k];
-                    int ind1;
-                    if (i_j_new == i_k_new) ind1 = j_k_new;
-                    else if (i_j_new == j_k_new) ind1 = i_k_new;
-                    else ind1 = i_j_new;
-
-                    int i_k_target = lcaRowTargetI[k];
-                    int j_k_target = lcaRowTargetJ[k];
-                    int ind2;
-                    if (i_j_target == i_k_target) ind2 = j_k_target;
-                    else if (i_j_target == j_k_target) ind2 = i_k_target;
-                    else ind2 = i_j_target;
-
-                    if (ind1 >= 0 && ind1 < idToRow.length && ind2 >= 0 && ind2 < this.targetIdToCol.length) {
-                        int r_new = idToRow[ind1];
-                        int c = this.targetIdToCol[ind2];
-                        if (r_new >= 0 && c >= 0) {
-                            newIntersection[r_new][c]++;
-                        }
-                    }
-                }
-            }
-        }
-
-        short[] cSizeNew = new short[maxNodesNew];
-        Node[] postOrderNew = TreeCmpUtils.getNodesInPostOrder(tPerfect);
-        TreeCmpUtils.calcCladeSizes(tPerfect, postOrderNew, cSizeNew);
-
-        int[] newT1TripletCount = new int[dim];
-        for (int r_new = 0; r_new < intT1Num; r_new++) {
-            newT1TripletCount[r_new] = countTriplets(tPerfect.getInternalNode(r_new), cSizeNew);
-        }
-
-        int[][] tempAssigncost = new int[dim][dim];
-        for (int r = 0; r < dim; r++) {
-            for (int c = 0; c < dim; c++) {
-                if (r < intT1Num && c < intT2Num) {
-                    tempAssigncost[r][c] = newT1TripletCount[r] + t2IntTripletCount[c] - (newIntersection[r][c] << 1);
-                } else if (r >= intT1Num && c < intT2Num) {
-                    tempAssigncost[r][c] = t2IntTripletCount[c];
-                } else if (r < intT1Num && c >= intT2Num) {
-                    tempAssigncost[r][c] = newT1TripletCount[r];
-                } else {
-                    tempAssigncost[r][c] = 0;
-                }
-            }
-        }
-
-        int[][] lapCost = new int[dim][dim];
-        for (int i = 0; i < dim; i++) {
-            System.arraycopy(tempAssigncost[i], 0, lapCost[i], 0, dim);
-        }
-
-        int[] tempRowsol = new int[dim];
-        int[] tempColsol = new int[dim];
-        int[] tempU = new int[dim];
-        int[] tempV = this.v.clone();
-
-        for (int r_new = 0; r_new < dim; r_new++) {
-            int r_old = newToOld[r_new];
-            tempU[r_new] = this.u[r_old];
-            tempRowsol[r_new] = this.rowsol[r_old];
-        }
-
-        for (int c = 0; c < dim; c++) {
-            int r_old = this.colsol[c];
-            tempColsol[c] = oldToNew[r_old];
-        }
-
-        int[][] mappedOldAssigncost = new int[dim][dim];
-        for (int r_new = 0; r_new < dim; r_new++) {
-            mappedOldAssigncost[r_new] = this.assigncost[newToOld[r_new]];
-        }
-
-        List<Integer> changedRowsList = new ArrayList<>();
-        for (int r_new = 0; r_new < dim; r_new++) {
-            if (!Arrays.equals(mappedOldAssigncost[r_new], tempAssigncost[r_new])) {
-                changedRowsList.add(r_new);
-            }
-        }
-        int[] changedRows = changedRowsList.stream().mapToInt(i -> i).toArray();
-
-        int rawMetric;
-        if (changedRows.length == 0) {
-            rawMetric = (int) Math.round(this.currentDistance * 2.0);
-        } else if (changedRows.length <= 2) {
-            rawMetric = LapSolver.lapUpdate(dim, lapCost, tempRowsol, tempColsol, tempU, tempV, changedRows);
-        } else {
-            rawMetric = LapSolver.lap(dim, lapCost, tempRowsol, tempColsol, tempU, tempV);
-        }
-
-        double dist = 0.5 * rawMetric;
-
-        if (isCommit) {
-            history.push(new StateRecord(this.assigncost, this.rowsol, this.colsol, this.u, this.v, this.currentDistance, this.currentVirtualTree, this.currentT1TripletCount, this.currentSplits, this.nodeToRow, null, null));
-
-            this.assigncost = tempAssigncost;
-            this.currentVirtualTree = tPerfect;
-            this.currentT1TripletCount = newT1TripletCount;
-            this.rowsol = tempRowsol;
-            this.colsol = tempColsol;
-            this.u = tempU;
-            this.v = tempV;
-            this.currentDistance = dist;
-
-            this.currentSplits.clear();
-            this.nodeToRow.clear();
-            Node[] allNodesPerfect = TreeCmpUtils.getAllNodes(tPerfect);
-            for (Node n : allNodesPerfect) {
-                BitSet split = getLeaves(n, baseIdGroup);
-                this.currentSplits.put(n, split);
-                if (!n.isLeaf()) {
-                    for (int i = 0; i < intT1Num; i++) {
-                        if (tPerfect.getInternalNode(i) == n) {
-                            this.nodeToRow.put(n, i);
-                            break;
-                        }
-                    }
-                }
-            }
-            for (Node nOrig : TreeCmpUtils.getAllNodes(this.originalBaseTree)) {
-                Node nCopy = getMappedNode(tPerfect, nOrig);
-                if (nCopy != null) {
-                    this.currentSplits.put(nOrig, (BitSet) this.currentSplits.get(nCopy).clone());
-                    Integer row = this.nodeToRow.get(nCopy);
-                    if (row != null) {
-                        this.nodeToRow.put(nOrig, row);
-                    }
-                }
-            }
-        }
-
+    public double evaluate3sEcrMove(List<Node> cluster, Node[] b, SubtreeEcr3Utils.TopologyTemplate3sECR template) {
+        double dist = apply3sEcrDelta(cluster, b, template, false);
+        undoDeltaStack();
         return dist;
+    }
+
+    @Override
+    public double commit3sEcrMove(List<Node> cluster, Node[] b, SubtreeEcr3Utils.TopologyTemplate3sECR template) {
+        return apply3sEcrDelta(cluster, b, template, true);
+    }
+
+    private double apply3sEcrDelta(List<Node> cluster, Node[] b, SubtreeEcr3Utils.TopologyTemplate3sECR template, boolean updateSplits) {
+        for (int i = 0; i < 5; i++) {
+            ecrBBits[i] = getSplitForNode(b[i]);
+        }
+
+        ecrNextAvailIdx = 1;
+        ecrUpdateCount = 0;
+
+        Node top = cluster.get(0);
+        compute3sEcrTripletsFast(template, 0, cluster);
+
+        int validRows = 0;
+        for (int i = 0; i < ecrUpdateCount; i++) {
+            if (ecrRows[i] >= 0) validRows++;
+        }
+
+        ensureDeltaCapacity(validRows);
+        int d = deltaPointer;
+        deltaRowsCount[d] = validRows;
+
+        int idx = 0;
+        for (int i = 0; i < ecrUpdateCount; i++) {
+            int r = ecrRows[i];
+            if (r >= 0) {
+                deltaRows[d][idx] = r;
+                System.arraycopy(assigncost[r], 0, deltaOldRows[d][idx], 0, dim);
+                deltaOldTripletCounts[d][idx] = currentT1TripletCount[r];
+                idx++;
+            }
+        }
+
+        if (validRows > 0) {
+            System.arraycopy(u, 0, deltaOldU[d], 0, dim);
+            System.arraycopy(v, 0, deltaOldV[d], 0, dim);
+            System.arraycopy(rowsol, 0, deltaOldRowsol[d], 0, dim);
+            System.arraycopy(colsol, 0, deltaOldColsol[d], 0, dim);
+        }
+        deltaOldSplitNode[d] = null;
+        deltaOldDistance[d] = currentDistance;
+        deltaPointer++;
+
+        for (int i = 0; i < ecrUpdateCount; i++) {
+            int r = ecrRows[i];
+            if (r >= 0) {
+                computeRowCostFast(r, ecrTripletSets[i]);
+            }
+            if (updateSplits && ecrNodes[i] != top && ecrNodes[i] != null) {
+                BitSet bs = currentSplits.get(ecrNodes[i]);
+                if (bs != null) {
+                    bs.clear();
+                    bs.or(ecrUnionSets[i]);
+                }
+            }
+        }
+
+        if (validRows > 0) {
+            int[] changedRowsParam = cachedKArrays[validRows];
+            System.arraycopy(deltaRows[d], 0, changedRowsParam, 0, validRows);
+            int rawMetric = LapSolver.lapUpdate(dim, assigncost, rowsol, colsol, u, v, changedRowsParam);
+            this.currentDistance = 0.5 * rawMetric;
+        }
+
+        return this.currentDistance;
+    }
+
+    private BitSet compute3sEcrTripletsFast(SubtreeEcr3Utils.TopologyTemplate3sECR temp, int clusterIdx, List<Node> cluster) {
+        Node currNode = cluster.get(clusterIdx);
+        BitSet leftBits;
+        if (temp.left.leafIndex != -1) {
+            leftBits = ecrBBits[temp.left.leafIndex];
+        } else {
+            int cSize = cluster.size();
+            int nextIdx = (ecrNextAvailIdx < cSize) ? ecrNextAvailIdx++ : cSize - 1;
+            leftBits = compute3sEcrTripletsFast(temp.left, nextIdx, cluster);
+        }
+
+        BitSet rightBits;
+        if (temp.right.leafIndex != -1) {
+            rightBits = ecrBBits[temp.right.leafIndex];
+        } else {
+            int cSize = cluster.size();
+            int nextIdx = (ecrNextAvailIdx < cSize) ? ecrNextAvailIdx++ : cSize - 1;
+            rightBits = compute3sEcrTripletsFast(temp.right, nextIdx, cluster);
+        }
+
+        int slot = ecrUpdateCount++;
+        ecrNodes[slot] = currNode;
+        Integer r = getRowForNode(currNode);
+        ecrRows[slot] = (r != null) ? r : -1;
+        fillTripletSets(ecrTripletSets[slot], leftBits, rightBits);
+
+        BitSet union = ecrUnionSets[slot];
+        union.clear();
+        union.or(leftBits);
+        union.or(rightBits);
+        return union;
     }
 
     private double pushUnchangedState() {
@@ -1796,7 +1797,7 @@ public class M3IncrementalMetric implements IncrementalMetric,
     }
 
     private Node getMappedNode(Tree destTree, Node srcNode) {
-        if (srcNode == null) return null;
+        if (srcNode == null || destTree == null) return null;
         if (srcNode.isLeaf()) return TreeUtils.getNodeByName(destTree, srcNode.getIdentifier().getName());
         Signature targetSig = new Signature(srcNode, N, baseIdGroup);
         for (int i = 0; i < destTree.getInternalNodeCount(); i++) {
@@ -1863,9 +1864,15 @@ public class M3IncrementalMetric implements IncrementalMetric,
 
     private int getSafeMaxNodeId(Tree tree) {
         int maxId = 0;
-        Node[] allNodes = TreeCmpUtils.getAllNodes(tree);
-        for (Node n : allNodes) {
-            if (n != null && n.getNumber() > maxId) maxId = n.getNumber();
+        int extCount = tree.getExternalNodeCount();
+        for (int i = 0; i < extCount; i++) {
+            int num = tree.getExternalNode(i).getNumber();
+            if (num > maxId) maxId = num;
+        }
+        int intCount = tree.getInternalNodeCount();
+        for (int i = 0; i < intCount; i++) {
+            int num = tree.getInternalNode(i).getNumber();
+            if (num > maxId) maxId = num;
         }
         return maxId + 1;
     }

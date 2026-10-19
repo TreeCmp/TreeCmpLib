@@ -82,11 +82,14 @@ public class MSIncrementalMetric implements IncrementalMetric,
     private Node[][] deltaOldSplitsNode;
     private BitSet[][] deltaOldSplitsBits;
 
-    // Prealokowane bufory robocze dla 2D-DFS TBR oraz uSPR (Zero-Allocation)
+    // Prealokowane bufory robocze dla 2D-DFS TBR, uSPR oraz 3s-ECR (Zero-Allocation)
     private BitSet tbrScratch1;
     private BitSet tbrScratch2;
     private int[] scratchPruneRows;
     private BitSet[] scratchPruneBitSets;
+    private final BitSet[] ecr3BBits = new BitSet[5];
+    private int ecr3NextClusterIdx = 1;
+    private int ecr3UpdateCount = 0;
 
     // PREALOKOWANE BUFORY I STRUKTURY DLA ZERO-ALLOCATION uTBR (STATYCZNY)
     private final Map<BitSet, Integer> splitToRow = new HashMap<>();
@@ -349,7 +352,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
             }
         }
 
-        // 3. WYODRĘBNIENIENIETRYWIALNYCH I NIEIZOMORFICZNYCH ZMIAN
+        // 3. WYODRĘBNIENIE NIETRYWIALNYCH I NIEIZOMORFICZNYCH ZMIAN
         for (int i = 0; i < rawRemoved.size(); i++) {
             BitSet rem = rawRemoved.get(i);
             if (!isNonTrivialSplit(rem)) continue;
@@ -994,21 +997,6 @@ public class MSIncrementalMetric implements IncrementalMetric,
         }
     }
 
-    private void updateRowSafelyAndSave(Map<Integer, BitSet> rowUpdates) {
-        if (rowUpdates == null || rowUpdates.isEmpty()) {
-            pushEmptyDelta();
-            return;
-        }
-        int count = 0;
-        for (Map.Entry<Integer, BitSet> entry : rowUpdates.entrySet()) {
-            scratchPruneRows[count] = entry.getKey();
-            scratchPruneBitSets[count].clear();
-            scratchPruneBitSets[count].or(entry.getValue());
-            count++;
-        }
-        updateMultipleRowsAndSave(count, scratchPruneRows, scratchPruneBitSets);
-    }
-
     private void undoDeltaStack() {
         if (deltaPointer <= 0) return;
         deltaPointer--;
@@ -1061,7 +1049,6 @@ public class MSIncrementalMetric implements IncrementalMetric,
             return evaluateExactUTbrDistance(pruneNode, pruneNode, targetNode, pruneMask);
         }
 
-        // Używamy prealokowanych tbrScratch1 i tbrScratch2 zamiast getScratchBitSet()!
         tbrScratch1.clear();
         tbrScratch1.or(origT);
         tbrScratch1.andNot(pruneMask);
@@ -1312,7 +1299,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
     }
 
     // =========================================================================
-    // NNI, SPR & ECR
+    // NNI, SPR & ECR (100% ZERO-ALLOCATION)
     // =========================================================================
 
     public boolean applyNniStep(Node nodeToUpdate, BitSet bitsOut, BitSet bitsIn) {
@@ -1438,46 +1425,51 @@ public class MSIncrementalMetric implements IncrementalMetric,
 
     @Override
     public double commit3sEcrMove(List<Node> cluster, Node[] b, SubtreeEcr3Utils.TopologyTemplate3sECR template) {
-        Map<Integer, BitSet> updates = new HashMap<>();
-        BitSet[] bBits = new BitSet[5];
+        poolIdx = 0;
         for (int i = 0; i < 5; i++) {
-            bBits[i] = getSplitBits(b[i]);
+            ecr3BBits[i] = getSplitBits(b[i]);
         }
 
-        Node[] available = cluster.toArray(new Node[0]);
-        int[] idxArr = {1};
+        ecr3NextClusterIdx = 1;
+        ecr3UpdateCount = 0;
 
-        compute3sEcrTemplateBits(template, available[0], available, idxArr, bBits, updates);
+        Node top = cluster.get(0);
+        compute3sEcrTemplateBitsFast(template, top, cluster, top);
 
-        updateRowSafelyAndSave(updates);
+        updateMultipleRowsAndSave(ecr3UpdateCount, scratchPruneRows, scratchPruneBitSets);
         return this.currentDistance;
     }
 
-    private BitSet compute3sEcrTemplateBits(SubtreeEcr3Utils.TopologyTemplate3sECR temp, Node currentInternal, Node[] available, int[] idxArr, BitSet[] bBits, Map<Integer, BitSet> updates) {
-        BitSet myBits = new BitSet();
+    private BitSet compute3sEcrTemplateBitsFast(SubtreeEcr3Utils.TopologyTemplate3sECR temp, Node currentInternal, List<Node> cluster, Node topNode) {
+        BitSet myBits = getScratchBitSet();
 
         if (temp.left.leafIndex != -1) {
-            myBits.or(bBits[temp.left.leafIndex]);
+            myBits.or(ecr3BBits[temp.left.leafIndex]);
         } else {
-            int nextIdx = (idxArr[0] < available.length) ? idxArr[0]++ : available.length - 1;
-            Node nextInternal = available[nextIdx];
-            BitSet leftBits = compute3sEcrTemplateBits(temp.left, nextInternal, available, idxArr, bBits, updates);
+            int clusterSize = cluster.size();
+            int nextIdx = (ecr3NextClusterIdx < clusterSize) ? ecr3NextClusterIdx++ : clusterSize - 1;
+            Node nextInternal = cluster.get(nextIdx);
+            BitSet leftBits = compute3sEcrTemplateBitsFast(temp.left, nextInternal, cluster, topNode);
             myBits.or(leftBits);
         }
 
         if (temp.right.leafIndex != -1) {
-            myBits.or(bBits[temp.right.leafIndex]);
+            myBits.or(ecr3BBits[temp.right.leafIndex]);
         } else {
-            int nextIdx = (idxArr[0] < available.length) ? idxArr[0]++ : available.length - 1;
-            Node nextInternal = available[nextIdx];
-            BitSet rightBits = compute3sEcrTemplateBits(temp.right, nextInternal, available, idxArr, bBits, updates);
+            int clusterSize = cluster.size();
+            int nextIdx = (ecr3NextClusterIdx < clusterSize) ? ecr3NextClusterIdx++ : clusterSize - 1;
+            Node nextInternal = cluster.get(nextIdx);
+            BitSet rightBits = compute3sEcrTemplateBitsFast(temp.right, nextInternal, cluster, topNode);
             myBits.or(rightBits);
         }
 
-        if (currentInternal != available[0]) {
+        if (currentInternal != topNode) {
             Integer r = nodeToRow.get(currentInternal);
             if (r != null) {
-                updates.put(r, myBits);
+                scratchPruneRows[ecr3UpdateCount] = r;
+                scratchPruneBitSets[ecr3UpdateCount].clear();
+                scratchPruneBitSets[ecr3UpdateCount].or(myBits);
+                ecr3UpdateCount++;
             }
         }
 
