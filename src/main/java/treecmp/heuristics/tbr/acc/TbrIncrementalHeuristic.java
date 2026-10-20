@@ -27,7 +27,6 @@ public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
     private final TbrUtils tbrUtils;
     private int tbrStepsCount = 0;
 
-    private int bestMoveNniCost = Integer.MAX_VALUE;
     private Node bestPruneNode;
     private Node bestRerootNode;
     private Node bestTargetNode;
@@ -57,7 +56,6 @@ public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
         this.bestDist = activeMetric.getCurrentDistance();
 
         if (this.primaryMetric == null) {
-            this.bestMoveNniCost = Integer.MAX_VALUE;
             this.bestPruneNode = null;
             this.bestRerootNode = null;
             this.bestTargetNode = null;
@@ -70,16 +68,7 @@ public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
                                 this.bestPruneNode = prune;
                                 this.bestRerootNode = reroot;
                                 this.bestTargetNode = target;
-                                this.bestMoveNniCost = TbrMove.computeFastNniCost(prune, reroot, target);
                                 this.improved = true;
-                            } else if (this.improved && Math.abs(dist - this.bestDist) <= 1e-9) {
-                                int cost = TbrMove.computeFastNniCost(prune, reroot, target);
-                                if (cost < this.bestMoveNniCost) {
-                                    this.bestMoveNniCost = cost;
-                                    this.bestPruneNode = prune;
-                                    this.bestRerootNode = reroot;
-                                    this.bestTargetNode = target;
-                                }
                             }
                         });
             } else {
@@ -90,16 +79,7 @@ public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
                                 this.bestPruneNode = prune;
                                 this.bestRerootNode = reroot;
                                 this.bestTargetNode = target;
-                                this.bestMoveNniCost = TbrMove.computeFastNniCost(prune, reroot, target);
                                 this.improved = true;
-                            } else if (this.improved && Math.abs(dist - this.bestDist) <= 1e-9) {
-                                int cost = TbrMove.computeFastNniCost(prune, reroot, target);
-                                if (cost < this.bestMoveNniCost) {
-                                    this.bestMoveNniCost = cost;
-                                    this.bestPruneNode = prune;
-                                    this.bestRerootNode = reroot;
-                                    this.bestTargetNode = target;
-                                }
                             }
                         });
             }
@@ -213,7 +193,6 @@ public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
                     bestMove = this.tiedMoves.get(0);
                 } else {
                     double bestSecondaryDist = Double.POSITIVE_INFINITY;
-                    double bestNniCostForTie = Double.POSITIVE_INFINITY;
 
                     for (TreeMove move : this.tiedMoves) {
                         Tree candidateTree = applyPhysicalMove(currentTree, move);
@@ -225,16 +204,10 @@ public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
                         this.incMetric.initCalculationState(candidateTree, targetTree);
 
                         double secDist = this.incMetric.getCurrentDistance();
-                        double moveCost = move.getNniEquivalentCost();
 
                         if (secDist < bestSecondaryDist - 1e-9) {
                             bestSecondaryDist = secDist;
                             bestMove = move;
-                            bestNniCostForTie = moveCost;
-                            bestCandidateTree = candidateTree;
-                        } else if (Math.abs(secDist - bestSecondaryDist) <= 1e-9 && moveCost < bestNniCostForTie) {
-                            bestMove = move;
-                            bestNniCostForTie = moveCost;
                             bestCandidateTree = candidateTree;
                         }
                     }
@@ -285,7 +258,7 @@ public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
 
             int nniStepsAdded = Math.max(1, (int) Math.round(bestMove.getNniEquivalentCost()));
             this.accumulatedNniCost += nniStepsAdded;
-            this.accumulatedSteps += nniStepsAdded;
+            this.accumulatedSteps++;
             this.tbrStepsCount++;
 
             this.lastOptimumMove = bestMove;
@@ -336,7 +309,7 @@ public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
     @Override
     public double getDistance(Tree tree1, Tree tree2, int... indexes) {
         double dist = performLocalDescent(tree1, tree2);
-        return dist == 0.0 ? this.accumulatedNniCost : Double.POSITIVE_INFINITY;
+        return dist == 0.0 ? (double) this.tbrStepsCount : Double.POSITIVE_INFINITY;
     }
 
     @Override
