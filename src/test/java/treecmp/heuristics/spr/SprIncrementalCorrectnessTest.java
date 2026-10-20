@@ -12,6 +12,7 @@ import java.util.ArrayList;
 import java.util.List;
 import java.util.stream.Stream;
 
+import pal.tree.Node;
 import pal.tree.SimpleTree;
 import pal.tree.Tree;
 import pal.tree.TreeUtils;
@@ -229,4 +230,86 @@ public class SprIncrementalCorrectnessTest {
         assertTrue(heuristic.getAccumulatedNniCost() > incrDist,
                 "Skumulowany koszt NNI (dla VND) musi być ostro większy od liczby kroków SPR");
     }
+
+    @Test
+    @DisplayName("Weryfikacja jednostkowego zliczania kroków uSPR dla M3 (Pure) na nielokalnym sąsiedzie 1-uSPR")
+    void testUsprM3PureReportsUnitStepForSingleMove() throws Exception {
+        Tree t1 = TestTreeFactory.randomUnrootedBinaryTree(10, 42L);
+        assignNumbers(t1);
+
+        // Wybieramy sąsiada oddalonego o 1 ruch uSPR, ale o koszcie NNI > 1
+        UsprUtils utils = new UsprUtils();
+        Tree t2 = null;
+        MatchingTripletMetric m3Classic = new MatchingTripletMetric();
+
+        for (int i = 0; i < t1.getInternalNodeCount(); i++) {
+            Node source = t1.getInternalNode(i);
+            for (int j = 0; j < t1.getInternalNodeCount(); j++) {
+                Node target = t1.getInternalNode(j);
+                if (source != target && source.getParent() != target && target.getParent() != source) {
+                    Tree candidate = utils.createUsprTree(t1, source, target);
+                    if (candidate != null) {
+                        assignNumbers(candidate);
+                        // Upewniamy się, że to faktyczny ruch uSPR o odległości > 0
+                        if (m3Classic.getDistance(t1, candidate) > 0.0) {
+                            t2 = candidate;
+                            break;
+                        }
+                    }
+                }
+            }
+            if (t2 != null) break;
+        }
+        assertNotNull(t2, "Powinien istnieć poprawny sąsiad 1-uSPR");
+
+        UsprIncrementalHeuristicMetric m3Heuristic =
+                new UsprIncrementalHeuristicMetric(new M3IncrementalMetric(), "M3");
+
+        double dist = m3Heuristic.getDistance(new SimpleTree(t1), new SimpleTree(t2));
+
+        // 1. Zbieżność w 1 kroku
+        assertFalse(Double.isInfinite(dist), "Heurystyka powinna znaleźć sąsiada 1-uSPR w dokładnie 1 kroku");
+
+        // 2. Weryfikacja jednostkowego kosztu SPR vs koszt NNI
+        assertEquals(1.0, dist, EPSILON,
+                "getDistance() musi zwrócić 1.0 (jeden krok SPR), a nie wagę dekompozycji NNI!");
+        assertEquals(1, m3Heuristic.getSprStepsCount());
+        assertEquals(1, m3Heuristic.getAccumulatedSteps());
+        assertTrue(m3Heuristic.getAccumulatedNniCost() >= 1.0);
+    }
+
+    @Test
+    @DisplayName("Weryfikacja pełnego zejścia uSPR M3 (z tie-breakerem RF) i jednostkowego zliczania kroków")
+    void testUsprM3ConvergenceAndStepCount() {
+        // Używamy wariantu z filtrem remisów RF, aby uniknąć utknięcia na plateau losowych drzew
+        UsprIncrementalHeuristicMetric m3Heuristic =
+                new UsprIncrementalHeuristicMetric(new M3IncrementalMetric(), new RFIncrementalMetric(), "M3_RF");
+
+        Tree t1 = TestTreeFactory.randomUnrootedBinaryTree(10, 42L);
+        Tree t2 = TestTreeFactory.randomUnrootedBinaryTree(10, 99L);
+
+        assignNumbers(t1);
+        assignNumbers(t2);
+
+        double dist = m3Heuristic.getDistance(new SimpleTree(t1), new SimpleTree(t2));
+
+        // 1. Sprawdzenie zbieżności do drzewa docelowego
+        assertFalse(Double.isInfinite(dist),
+                "Heurystyka uSPR M3 (z tie-breakerem RF) powinna zbiec do odległości 0.0");
+
+        int sprSteps = m3Heuristic.getSprStepsCount();
+
+        // 2. Dystans musi odpowiadać faktycznej liczbie kroków uSPR
+        assertEquals((double) sprSteps, dist, EPSILON,
+                "getDistance() musi zwracać jednostkową liczbę kroków uSPR (sprStepsCount)");
+        assertEquals(sprSteps, m3Heuristic.getAccumulatedSteps(),
+                "accumulatedSteps musi być równe liczbie kroków uSPR");
+
+        // 3. Sprawdzenie, że nie został zwrócony skumulowany koszt NNI
+        assertTrue(m3Heuristic.getAccumulatedNniCost() >= dist,
+                "Koszt NNI (dla VND) powinien być >= odległości uSPR");
+        assertTrue(dist <= 10.0,
+                "Dystans uSPR dla N=10 nie powinien przekraczać rozmiaru drzewa (zwrócono: " + dist + ")");
+    }
+
 }

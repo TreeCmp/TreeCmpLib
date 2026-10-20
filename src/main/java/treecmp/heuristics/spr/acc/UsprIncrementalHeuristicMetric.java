@@ -50,7 +50,7 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
 
         unrootedWalker.walk(currentTree, activeMetric, (currentDist, movingNode, targetNode) -> {
             if (!allowPlateau) {
-                // W trybie Pure interesuje nas wylacznie scisla poprawa wzgledem dotychczas najlepszego
+                // W trybie Pure wybieramy scisla poprawe wzgledem dotychczas najlepszego
                 if (currentDist < this.bestDist - 1e-9) {
                     this.bestDist = currentDist;
                     this.tiedMoves.clear();
@@ -79,6 +79,12 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
                     ((SimpleTree) newTree).createNodeList();
                 }
                 TreeUtils.computeParentPointers(newTree.getRoot());
+                for (int i = 0; i < newTree.getExternalNodeCount(); i++) {
+                    newTree.getExternalNode(i).setNumber(i);
+                }
+                for (int i = 0; i < newTree.getInternalNodeCount(); i++) {
+                    newTree.getInternalNode(i).setNumber(i);
+                }
                 return newTree;
             }
         }
@@ -226,7 +232,7 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
             this.stepBaseTrees.add(currentTree);
             this.stepMoves.add(bestMove);
 
-            // Niezalezne zliczanie: kroki jednostkowe SPR vs waga NNI
+            // Niezalezne zliczanie: kroki jednostkowe SPR vs waga NNI dla VND
             this.accumulatedNniCost += nniStepsAdded;
             this.accumulatedSteps++;
             this.sprStepsCount++;
