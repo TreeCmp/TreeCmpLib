@@ -25,6 +25,7 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
 
     private final List<Tree> stepBaseTrees = new ArrayList<>();
     private final List<TreeMove> stepMoves = new ArrayList<>();
+    private final List<TreeMove> fallbackImprovingMoves = new ArrayList<>();
 
     public UsprIncrementalHeuristicMetric(IncrementalMetric metric, IncrementalMetric primaryMetric, String metricShortName) {
         super(false, metric);
@@ -42,6 +43,7 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
     protected void searchNeighborhood(Tree currentTree) {
         IncrementalMetric activeMetric = primaryMetric != null ? primaryMetric : this.incMetric;
         this.tiedMoves.clear();
+        this.fallbackImprovingMoves.clear();
         this.bestMove = null;
         this.improved = false;
         double initialDist = activeMetric.getCurrentDistance();
@@ -50,14 +52,21 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
 
         unrootedWalker.walk(currentTree, activeMetric, (currentDist, movingNode, targetNode) -> {
             if (!allowPlateau) {
-                // W trybie Pure wybieramy scisla poprawe wzgledem dotychczas najlepszego
-                if (currentDist < this.bestDist - 1e-9) {
-                    this.bestDist = currentDist;
-                    this.tiedMoves.clear();
+                // W trybie Pure zbieramy wszystkie ruchy dające ścisłą poprawę względem initialDist
+                if (currentDist < initialDist - 1e-9) {
                     SprMove move = new SprMove(movingNode, targetNode);
-                    this.tiedMoves.add(move);
-                    this.bestMove = move;
-                    this.improved = true;
+                    if (currentDist < this.bestDist - 1e-9) {
+                        this.fallbackImprovingMoves.addAll(0, this.tiedMoves);
+                        this.bestDist = currentDist;
+                        this.tiedMoves.clear();
+                        this.tiedMoves.add(move);
+                        this.bestMove = move;
+                        this.improved = true;
+                    } else if (Math.abs(currentDist - this.bestDist) <= 1e-9) {
+                        this.tiedMoves.add(move);
+                    } else {
+                        this.fallbackImprovingMoves.add(move);
+                    }
                 }
             } else {
                 // W trybie z filtrem RF dopuszczamy plateau
@@ -104,6 +113,12 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
             ((SimpleTree) currentTree).createNodeList();
         }
         TreeUtils.computeParentPointers(currentTree.getRoot());
+        for (int i = 0; i < currentTree.getExternalNodeCount(); i++) {
+            currentTree.getExternalNode(i).setNumber(i);
+        }
+        for (int i = 0; i < currentTree.getInternalNodeCount(); i++) {
+            currentTree.getInternalNode(i).setNumber(i);
+        }
 
         this.improved = true;
         this.accumulatedNniCost = 0.0;
@@ -142,12 +157,52 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
 
             TreeMove bestMove = null;
             Tree bestCandidateTree = null;
+            double verifiedNewDist = Double.POSITIVE_INFINITY;
             double nextSecDist = currentSecDist;
             boolean isPlateau = Math.abs(this.bestDist - currentDist) <= 1e-9;
 
             if (primaryMetric == null) {
                 if (this.bestDist < currentDist - 1e-9) {
-                    bestMove = this.tiedMoves.get(0);
+                    // 1. Sprawdzamy ruchy z tiedMoves (o najlepszym wyliczonym bestDist)
+                    for (int i = 0; i < this.tiedMoves.size(); i++) {
+                        TreeMove candMove = this.tiedMoves.get(i);
+                        Tree candTree = applyPhysicalMove(currentTree, candMove);
+                        if (candTree == null || candTree == currentTree) {
+                            continue;
+                        }
+                        activeMetric.initCalculationState(candTree, targetTree);
+                        double d = activeMetric.getCurrentDistance();
+                        if (Math.abs(d - this.bestDist) <= 1e-9) {
+                            bestMove = candMove;
+                            bestCandidateTree = candTree;
+                            verifiedNewDist = d;
+                            break;
+                        } else if (d < currentDist - 1e-9 && d < verifiedNewDist - 1e-9) {
+                            bestMove = candMove;
+                            bestCandidateTree = candTree;
+                            verifiedNewDist = d;
+                        }
+                    }
+
+                    // 2. Jeśli żaden z tiedMoves po fizycznym createUsprTree nie dał poprawy,
+                    // sprawdzamy pozostałe ruchy poprawiające z fallbackImprovingMoves
+                    if (bestMove == null) {
+                        for (int i = 0; i < this.fallbackImprovingMoves.size(); i++) {
+                            TreeMove candMove = this.fallbackImprovingMoves.get(i);
+                            Tree candTree = applyPhysicalMove(currentTree, candMove);
+                            if (candTree == null || candTree == currentTree) {
+                                continue;
+                            }
+                            activeMetric.initCalculationState(candTree, targetTree);
+                            double d = activeMetric.getCurrentDistance();
+                            if (d < currentDist - 1e-9 && d < verifiedNewDist - 1e-9) {
+                                bestMove = candMove;
+                                bestCandidateTree = candTree;
+                                verifiedNewDist = d;
+                                break;
+                            }
+                        }
+                    }
                 } else {
                     break;
                 }
@@ -207,13 +262,13 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
                 break;
             }
 
-            if (nextTree instanceof SimpleTree) {
-                ((SimpleTree) nextTree).createNodeList();
+            double newDist;
+            if (primaryMetric == null && verifiedNewDist < Double.POSITIVE_INFINITY) {
+                newDist = verifiedNewDist;
+            } else {
+                activeMetric.initCalculationState(nextTree, targetTree);
+                newDist = activeMetric.getCurrentDistance();
             }
-            TreeUtils.computeParentPointers(nextTree.getRoot());
-
-            activeMetric.initCalculationState(nextTree, targetTree);
-            double newDist = activeMetric.getCurrentDistance();
 
             if (newDist > currentDist + 1e-9) {
                 break;
@@ -232,7 +287,7 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
             this.stepBaseTrees.add(currentTree);
             this.stepMoves.add(bestMove);
 
-            // Niezalezne zliczanie: kroki jednostkowe SPR vs waga NNI dla VND
+            // Niezależne zliczanie: kroki jednostkowe SPR vs waga NNI dla VND
             this.accumulatedNniCost += nniStepsAdded;
             this.accumulatedSteps++;
             this.sprStepsCount++;
