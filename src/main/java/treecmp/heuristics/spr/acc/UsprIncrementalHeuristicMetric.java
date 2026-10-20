@@ -49,11 +49,21 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
         final boolean allowPlateau = (this.primaryMetric != null);
 
         unrootedWalker.walk(currentTree, activeMetric, (currentDist, movingNode, targetNode) -> {
-            if (!allowPlateau && currentDist >= initialDist - 1e-9) {
-                return;
-            }
-            if (currentDist <= this.bestDist + 1e-9) {
-                checkImprovementWithTies(currentDist, new SprMove(movingNode, targetNode));
+            if (!allowPlateau) {
+                // W trybie Pure interesuje nas wylacznie scisla poprawa wzgledem dotychczas najlepszego
+                if (currentDist < this.bestDist - 1e-9) {
+                    this.bestDist = currentDist;
+                    this.tiedMoves.clear();
+                    SprMove move = new SprMove(movingNode, targetNode);
+                    this.tiedMoves.add(move);
+                    this.bestMove = move;
+                    this.improved = true;
+                }
+            } else {
+                // W trybie z filtrem RF dopuszczamy plateau
+                if (currentDist <= this.bestDist + 1e-9) {
+                    checkImprovementWithTies(currentDist, new SprMove(movingNode, targetNode));
+                }
             }
         });
     }
@@ -131,19 +141,7 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
 
             if (primaryMetric == null) {
                 if (this.bestDist < currentDist - 1e-9) {
-                    if (this.tiedMoves.size() > 1) {
-                        double lowestNniCost = Double.POSITIVE_INFINITY;
-                        for (int i = 0; i < this.tiedMoves.size(); i++) {
-                            TreeMove move = this.tiedMoves.get(i);
-                            double cost = move.getNniEquivalentCost();
-                            if (cost < lowestNniCost) {
-                                lowestNniCost = cost;
-                                bestMove = move;
-                            }
-                        }
-                    } else {
-                        bestMove = this.tiedMoves.get(0);
-                    }
+                    bestMove = this.tiedMoves.get(0);
                 } else {
                     break;
                 }
@@ -193,7 +191,6 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
                 break;
             }
 
-            // Obliczamy koszt równoważny NNI na drzewie currentTree PRZED wykonaniem ruchu (bez alokacji drzew pośrednich!)
             int nniStepsAdded = (int) Math.round(bestMove.getNniEquivalentCost());
             if (nniStepsAdded <= 0) {
                 nniStepsAdded = 1;
@@ -229,8 +226,9 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
             this.stepBaseTrees.add(currentTree);
             this.stepMoves.add(bestMove);
 
+            // Niezalezne zliczanie: kroki jednostkowe SPR vs waga NNI
             this.accumulatedNniCost += nniStepsAdded;
-            this.accumulatedSteps += nniStepsAdded;
+            this.accumulatedSteps++;
             this.sprStepsCount++;
 
             this.lastOptimumMove = bestMove;
@@ -277,7 +275,7 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
     @Override
     public double getDistance(Tree tree1, Tree tree2, int... indexes) {
         double dist = performLocalDescent(tree1, tree2);
-        return dist == 0.0 ? this.accumulatedNniCost : Double.POSITIVE_INFINITY;
+        return dist == 0.0 ? (double) this.sprStepsCount : Double.POSITIVE_INFINITY;
     }
 
     public int getSprStepsCount() {
