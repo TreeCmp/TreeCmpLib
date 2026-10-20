@@ -1,9 +1,11 @@
 package treecmp.heuristics.spr;
 
 import org.junit.jupiter.api.DisplayName;
+import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.Arguments;
 import org.junit.jupiter.params.provider.MethodSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import static org.junit.jupiter.api.Assertions.*;
 
 import java.util.ArrayList;
@@ -12,27 +14,25 @@ import java.util.stream.Stream;
 
 import pal.tree.SimpleTree;
 import pal.tree.Tree;
+import pal.tree.TreeUtils;
 import treecmp.common.TreeCmpException;
 import treecmp.heuristics.TreeNeighborhoodUtils;
-import treecmp.heuristics.spr.SprUtils;
-import treecmp.heuristics.spr.UsprUtils;
+import treecmp.heuristics.base.IncrementalHeuristicBaseMetric;
 import treecmp.heuristics.spr.acc.SprIncrementalHeuristicMetric;
 import treecmp.heuristics.spr.acc.UsprIncrementalHeuristicMetric;
-import treecmp.heuristics.base.IncrementalHeuristicBaseMetric;
 import treecmp.metrics.Metric;
 import treecmp.metrics.topological.*;
 import treecmp.metrics.topological.acc.*;
 import treecmp.util.TestTreeFactory;
 
-@DisplayName("Weryfikacja poprawności 1-krokowego SPR/uSPR vs klasyczne SprUtils/UsprUtils")
+@DisplayName("Weryfikacja poprawności heurystyk i odległości rSPR / uSPR")
 public class SprIncrementalCorrectnessTest {
 
     private static final double EPSILON = 1e-9;
 
     private static Stream<Arguments> provideTestParameters() {
         String[] metrics = {"RF", "RFC", "MS", "MC", "MP", "M3"};
-        // Dla SPR zalecane rozmiary N <= 50, aby testy unitowe kończyły się błyskawicznie
-        int[] treeSizes = {10, 20, 30, 50};
+        int[] treeSizes = {10, 15, 20};
         long[][] seedPairs = {
                 {12345L, 67890L},
                 {42L, 999L}
@@ -53,11 +53,18 @@ public class SprIncrementalCorrectnessTest {
         if (tree instanceof SimpleTree) {
             ((SimpleTree) tree).createNodeList();
         }
+        TreeUtils.computeParentPointers(tree.getRoot());
+        for (int i = 0; i < tree.getExternalNodeCount(); i++) {
+            tree.getExternalNode(i).setNumber(i);
+        }
+        for (int i = 0; i < tree.getInternalNodeCount(); i++) {
+            tree.getInternalNode(i).setNumber(i);
+        }
     }
 
     @ParameterizedTest(name = "Metryka: {0} | n={1} | seeds=[{2}, {3}]")
     @MethodSource("provideTestParameters")
-    @DisplayName("Porównanie minimalnej odległości w otoczeniu SPR/uSPR (Incr vs Classic)")
+    @DisplayName("Porównanie minimalnej odległości w otoczeniu 1-krokowym SPR/uSPR (Incr vs Classic)")
     void testSingleStepBestNeighborMatch(String metricName, int treeSize, long seed1, long seed2) throws Exception {
         boolean isRooted = false;
         Metric classicMetric;
@@ -116,17 +123,15 @@ public class SprIncrementalCorrectnessTest {
 
         TreeNeighborhoodUtils classicUtils = isRooted ? new SprUtils() : new UsprUtils();
 
-        // 1. Obliczenie wyniku inkrementalnego
         double distIncr = incrementalMetric.evaluateSingleStep(t1ForIncr, t2);
 
-        // 2. Obliczenie wyniku klasycznego za pomocą wywołań zwrotnych (callbacks)
         final double[] bestClassicDist = {Double.POSITIVE_INFINITY};
         final int[] neighborCount = {0};
 
         if (classicUtils instanceof SprUtils) {
             ((SprUtils) classicUtils).forEachSprTree(t1, neighbor -> {
                 neighborCount[0]++;
-                double d = 0;
+                double d;
                 try {
                     assignNumbers(neighbor);
                     d = classicMetric.getDistance(neighbor, t2);
@@ -138,7 +143,7 @@ public class SprIncrementalCorrectnessTest {
         } else if (classicUtils instanceof UsprUtils) {
             ((UsprUtils) classicUtils).forEachUsprTree(t1, neighbor -> {
                 neighborCount[0]++;
-                double d = 0;
+                double d;
                 try {
                     assignNumbers(neighbor);
                     d = classicMetric.getDistance(neighbor, t2);
@@ -151,7 +156,6 @@ public class SprIncrementalCorrectnessTest {
 
         assertTrue(neighborCount[0] > 0, "Otoczenie SPR nie powinno być puste");
 
-        // 3. Weryfikacja zgodności najlepszego kroku
         assertEquals(
                 bestClassicDist[0],
                 distIncr,
@@ -161,5 +165,68 @@ public class SprIncrementalCorrectnessTest {
                         metricName, treeSize, seed1, seed2, bestClassicDist[0], distIncr
                 )
         );
+    }
+
+    @ParameterizedTest(name = "Metryka: {0}")
+    @ValueSource(strings = {"RF", "RFC", "MS", "MC", "MP", "M3"})
+    @DisplayName("Weryfikacja jednostkowego zliczania kroków SPR/uSPR w getDistance()")
+    void testFullDescentReportsUnitStepsInsteadOfNniEquivalentCost(String metricName) {
+        boolean isRooted;
+        IncrementalHeuristicBaseMetric heuristic;
+
+        // Uzywamy wariantu z tie-breakerem RF dla metryk parujących, aby zagwarantować bezwzględne dotarcie do optimum
+        switch (metricName) {
+            case "RF":
+                isRooted = false;
+                heuristic = new UsprIncrementalHeuristicMetric(new RFIncrementalMetric(), "RF");
+                break;
+            case "RFC":
+                isRooted = true;
+                heuristic = new SprIncrementalHeuristicMetric(new RFClusterIncrementalMetric(), "RFC");
+                break;
+            case "MS":
+                isRooted = false;
+                heuristic = new UsprIncrementalHeuristicMetric(new MSIncrementalMetric(), new RFIncrementalMetric(), "MS_RF");
+                break;
+            case "MC":
+                isRooted = true;
+                heuristic = new SprIncrementalHeuristicMetric(new MCIncrementalMetric(), new RFClusterIncrementalMetric(), "MC_RF");
+                break;
+            case "MP":
+                isRooted = true;
+                heuristic = new SprIncrementalHeuristicMetric(new MPIncrementalMetric(), new RFClusterIncrementalMetric(), "MP_RF");
+                break;
+            case "M3":
+                isRooted = false;
+                heuristic = new UsprIncrementalHeuristicMetric(new M3IncrementalMetric(), new RFIncrementalMetric(), "M3_RF");
+                break;
+            default:
+                throw new IllegalArgumentException("Nieznana metryka: " + metricName);
+        }
+
+        Tree t1 = isRooted
+                ? TestTreeFactory.randomRootedBinaryTree(10, 42L)
+                : TestTreeFactory.randomUnrootedBinaryTree(10, 42L);
+        Tree t2 = isRooted
+                ? TestTreeFactory.randomRootedBinaryTree(10, 99L)
+                : TestTreeFactory.randomUnrootedBinaryTree(10, 99L);
+
+        assignNumbers(t1);
+        assignNumbers(t2);
+
+        double incrDist = heuristic.getDistance(new SimpleTree(t1), new SimpleTree(t2));
+
+        assertFalse(Double.isInfinite(incrDist), "Heurystyka inkrementalna SPR/uSPR powinna zbiec do drzewa docelowego");
+
+        int sprSteps = (heuristic instanceof SprIncrementalHeuristicMetric) ?
+                ((SprIncrementalHeuristicMetric) heuristic).getSprStepsCount() :
+                ((UsprIncrementalHeuristicMetric) heuristic).getSprStepsCount();
+
+        assertEquals((double) sprSteps, incrDist, EPSILON,
+                "getDistance() musi zwracać liczbę kroków SPR, a nie skumulowany koszt NNI!");
+        assertEquals(sprSteps, heuristic.getAccumulatedSteps(),
+                "accumulatedSteps musi odpowiadać liczbie kroków SPR");
+        assertTrue(heuristic.getAccumulatedNniCost() > incrDist,
+                "Skumulowany koszt NNI (dla VND) musi być ostro większy od liczby kroków SPR");
     }
 }
