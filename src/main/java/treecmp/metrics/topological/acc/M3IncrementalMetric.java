@@ -1266,6 +1266,9 @@ public class M3IncrementalMetric implements IncrementalMetric,
         Tree tempTree = null;
         try {
             tempTree = usprUtils.createUsprTree(tree, pruneNode, targetNode);
+            if (tempTree != null) {
+                TreeCmpUtils.unrootTreeIfNeeded(tempTree); // Dodano: zachowanie zgodności liczby węzłów wewnętrznych (intT1Num)
+            }
         } catch (Exception ignored) {
         }
 
