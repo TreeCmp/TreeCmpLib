@@ -247,7 +247,6 @@ public class UtbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
                 nextSecDist = this.incMetric.getCurrentDistance();
             }
 
-            // Zapisujemy krok do leniwego odtworzenia trajektorii (bez uruchamiania BFS w pętli!)
             this.stepBaseTrees.add(currentTree);
             this.stepMoves.add(chosenMove);
 
@@ -304,7 +303,7 @@ public class UtbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
     @Override
     public double getDistance(Tree tree1, Tree tree2, int... indexes) {
         double dist = performLocalDescent(tree1, tree2);
-        return dist == 0.0 ? this.accumulatedNniCost : Double.POSITIVE_INFINITY;
+        return dist == 0.0 ? this.utbrStepsCount : Double.POSITIVE_INFINITY;
     }
 
     @Override
