@@ -43,7 +43,6 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
     protected void searchNeighborhood(Tree currentTree) {
         IncrementalMetric activeMetric = primaryMetric != null ? primaryMetric : this.incMetric;
         this.tiedMoves.clear();
-        this.fallbackImprovingMoves.clear();
         this.bestMove = null;
         this.improved = false;
         double initialDist = activeMetric.getCurrentDistance();
@@ -52,24 +51,15 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
 
         unrootedWalker.walk(currentTree, activeMetric, (currentDist, movingNode, targetNode) -> {
             if (!allowPlateau) {
-                // W trybie Pure zbieramy wszystkie ruchy dające ścisłą poprawę względem initialDist
-                if (currentDist < initialDist - 1e-9) {
+                if (currentDist < this.bestDist - 1e-9) {
+                    this.bestDist = currentDist;
+                    this.tiedMoves.clear();
                     SprMove move = new SprMove(movingNode, targetNode);
-                    if (currentDist < this.bestDist - 1e-9) {
-                        this.fallbackImprovingMoves.addAll(0, this.tiedMoves);
-                        this.bestDist = currentDist;
-                        this.tiedMoves.clear();
-                        this.tiedMoves.add(move);
-                        this.bestMove = move;
-                        this.improved = true;
-                    } else if (Math.abs(currentDist - this.bestDist) <= 1e-9) {
-                        this.tiedMoves.add(move);
-                    } else {
-                        this.fallbackImprovingMoves.add(move);
-                    }
+                    this.tiedMoves.add(move);
+                    this.bestMove = move;
+                    this.improved = true;
                 }
             } else {
-                // W trybie z filtrem RF dopuszczamy plateau
                 if (currentDist <= this.bestDist + 1e-9) {
                     checkImprovementWithTies(currentDist, new SprMove(movingNode, targetNode));
                 }
@@ -274,8 +264,12 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
                 break;
             }
             if (Math.abs(newDist - currentDist) <= 1e-9) {
-                if (primaryMetric == null || nextSecDist >= currentSecDist - 1e-9) {
-                    break;
+                if (primaryMetric == null) {
+                    if (this.bestDist < currentDist - 1e-9) {
+                        bestMove = this.tiedMoves.get(0);
+                    } else {
+                        break;
+                    }
                 }
             }
 
