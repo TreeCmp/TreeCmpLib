@@ -25,7 +25,7 @@ public class IncrementalUsprWalker {
         boolean isFastMs = metric instanceof MSIncrementalMetric;
         boolean isFastM3 = metric instanceof M3IncrementalMetric;
         boolean isFastRf = metric instanceof BaseRFIncrementalMetric;
-        boolean isFastUspr = isFastMs || isFastM3;
+        boolean isFastUspr = isFastMs; // TYLKO MS używa applyNniStep!
 
         IdGroup idGroup = (!isFastMs && !isFastRf) ? TreeUtils.getLeafIdGroup(baseTree) : null;
         int numLeaves = baseTree.getExternalNodeCount();
@@ -39,13 +39,10 @@ public class IncrementalUsprWalker {
 
         for (int nIdx = 0; nIdx < nodeCount; nIdx++) {
             Node pruneNode = reusableNodes.get(nIdx);
-            // W uSPR omijamy korzeń wirtualny
             if (pruneNode.isRoot() || pruneNode.getParent() == null) continue;
 
-            // Metryki M3 oraz RF potrzebują powiadomienia o odcięciu
-            if (isFastM3) {
-                ((M3IncrementalMetric) metric).applySprPrune(pruneNode);
-            } else if (isFastRf) {
+            // TYLKO BaseRFIncrementalMetric potrzebuje applySprPrune
+            if (isFastRf) {
                 ((BaseRFIncrementalMetric) metric).applySprPrune(pruneNode);
             }
 
@@ -53,7 +50,7 @@ public class IncrementalUsprWalker {
             if (isFastMs) {
                 pruneMask = ((MSIncrementalMetric) metric).getBaseSplitBits(pruneNode);
             } else if (isFastRf) {
-                pruneMask = null; // BaseRFIncrementalMetric nie używa zewnętrznego pruneMask
+                pruneMask = null;
             } else {
                 reusablePruneMask.clear();
                 populateLeafMask(pruneNode, idGroup, reusablePruneMask);
@@ -72,9 +69,7 @@ public class IncrementalUsprWalker {
                 }
             }
 
-            if (isFastM3) {
-                ((M3IncrementalMetric) metric).undoSprPrune(pruneNode);
-            } else if (isFastRf) {
+            if (isFastRf) {
                 ((BaseRFIncrementalMetric) metric).undoSprPrune(pruneNode);
             }
         }
@@ -86,18 +81,13 @@ public class IncrementalUsprWalker {
 
         boolean statePushed = false;
 
-        // Błyskawiczny przesuw (NNI Step) na maskach bitowych bez dotykania drzewa
+        // Błyskawiczny przesuw (NNI Step) na maskach bitowych - TYLKO DLA MS!
         if (isFastUspr) {
             boolean movingUp = (currentNode == previousNode.getParent());
             Node nodeToUpdate = movingUp ? previousNode : currentNode;
             BitSet bitsOut = movingUp ? pruneMask : null;
             BitSet bitsIn = movingUp ? null : pruneMask;
-
-            if (isFastMs) {
-                statePushed = ((MSIncrementalMetric) metric).applyNniStep(nodeToUpdate, bitsOut, bitsIn);
-            } else {
-                statePushed = ((M3IncrementalMetric) metric).applyNniStep(nodeToUpdate, bitsOut, bitsIn);
-            }
+            statePushed = ((MSIncrementalMetric) metric).applyNniStep(nodeToUpdate, bitsOut, bitsIn);
         }
 
         if (usprUtils.isValidUsprMove(pruneNode, currentNode)) {
@@ -105,7 +95,7 @@ public class IncrementalUsprWalker {
             if (isFastMs) {
                 dist = ((MSIncrementalMetric) metric).getFixedDistanceForRegraft(currentNode, pruneNode.getParent(), pruneMask, pruneNode);
             } else if (isFastM3) {
-                dist = ((M3IncrementalMetric) metric).getFixedDistanceForRegraft(currentNode, pruneNode.getParent(), pruneMask, pruneNode);
+                dist = ((M3IncrementalMetric) metric).evaluateSprRegraft(pruneNode, currentNode);
             } else if (isFastRf) {
                 dist = ((BaseRFIncrementalMetric) metric).evaluateSprRegraft(pruneNode, currentNode);
             } else {
@@ -124,13 +114,8 @@ public class IncrementalUsprWalker {
             }
         }
 
-        // Natychmiastowe wycofanie zmian ze stosu
         if (statePushed) {
-            if (isFastMs) {
-                ((MSIncrementalMetric) metric).undoNniStep();
-            } else {
-                ((M3IncrementalMetric) metric).undoNniStep();
-            }
+            ((MSIncrementalMetric) metric).undoNniStep();
         }
     }
 
