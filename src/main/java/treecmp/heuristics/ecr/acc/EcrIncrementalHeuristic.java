@@ -51,11 +51,11 @@ public abstract class EcrIncrementalHeuristic<M extends IncrementalMetric> exten
         this.accumulatedNniCost = 0.0;
         this.accumulatedSteps = 0;
         this.fullOptimumTrajectory.clear();
+        this.nativeOptimumTrajectory.clear();
         this.lastOptimumMove = null;
         this.lastMoveBaseTree = null;
 
         int maxSteps = 1000;
-        // Typ M gwarantuje zgodność z evaluateMoveOnMetric oraz commitMoveOnMetric
         M activeMetric = (primaryMetric != null) ? primaryMetric : this.ecrMetric;
 
         // Inicjalizacja stanów metryk
@@ -149,6 +149,18 @@ public abstract class EcrIncrementalHeuristic<M extends IncrementalMetric> exten
             TreeUtils.computeParentPointers(currentTree.getRoot());
             if (currentTree instanceof SimpleTree) {
                 ((SimpleTree) currentTree).createNodeList();
+            }
+
+            // Rejestracja kroku natywnego (1 krok ECR)
+            SimpleTree stepCopy = new SimpleTree(currentTree);
+            stepCopy.createNodeList();
+            TreeUtils.computeParentPointers(stepCopy.getRoot());
+            this.nativeOptimumTrajectory.add(stepCopy);
+
+            // Reindeksacja metryki pod kolejne przeszukiwanie
+            activeMetric.initCalculationState(currentTree, targetTree);
+            if (primaryMetric != null) {
+                this.ecrMetric.initCalculationState(currentTree, targetTree);
             }
 
             currentDist = newDist;

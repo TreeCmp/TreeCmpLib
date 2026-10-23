@@ -22,6 +22,7 @@ public abstract class HeuristicBaseMetric extends BaseMetric implements Metric {
     protected double accumulatedNniCost = 0.0;
     protected int accumulatedSteps = 0;
     protected List<Tree> fullOptimumTrajectory = new ArrayList<>();
+    protected List<Tree> nativeOptimumTrajectory = new ArrayList<>();
 
     public Tree getLastOptimumTree() {
         return this.lastOptimumTree;
@@ -77,6 +78,7 @@ public abstract class HeuristicBaseMetric extends BaseMetric implements Metric {
         this.accumulatedNniCost = 0.0;
         this.accumulatedSteps = 0;
         this.fullOptimumTrajectory.clear();
+        this.nativeOptimumTrajectory.clear();
 
         Tree currentStepTree = ensureIndexedSimpleTree(startTree);
         Tree targetStepTree = targetTree;
@@ -166,10 +168,12 @@ public abstract class HeuristicBaseMetric extends BaseMetric implements Metric {
 
                 currentBestDist = bestDist;
 
-                // 1. ZAWSZE dokładnie 1 ruch natywnej heurystyki (dla getDistance)
+                // 1. ZAWSZE dokładnie 1 ruch natywnej heurystyki (dla getDistance oraz certyfikatu natywnego)
                 this.accumulatedSteps++;
+                Tree clonedNextStepTree = ensureIndexedSimpleTree(TreeNeighborhoodUtils.fastTreeClone(bestTree));
+                this.nativeOptimumTrajectory.add(clonedNextStepTree);
 
-                // 2. Dekompozycja ruchu makro na 1-NNI (do certyfikatów i VND)
+                // 2. Dekompozycja ruchu makro na 1-NNI (do certyfikatów NNI i VND)
                 TreeMove move = tnu.getMoveForTree(bestTree);
                 List<Tree> stepTraj = null;
 
@@ -187,11 +191,11 @@ public abstract class HeuristicBaseMetric extends BaseMetric implements Metric {
                     }
                     this.accumulatedNniCost += stepTraj.size();
                 } else {
-                    this.fullOptimumTrajectory.add(ensureIndexedSimpleTree(bestTree));
+                    this.fullOptimumTrajectory.add(clonedNextStepTree);
                     this.accumulatedNniCost += (move != null) ? move.getNniEquivalentCost() : tnu.getTreeCost(bestTree);
                 }
 
-                currentStepTree = ensureIndexedSimpleTree(TreeNeighborhoodUtils.fastTreeClone(bestTree));
+                currentStepTree = clonedNextStepTree;
 
             } while (currentBestDist > 0);
 
@@ -249,6 +253,18 @@ public abstract class HeuristicBaseMetric extends BaseMetric implements Metric {
     public List<Tree> getLastOptimumTrajectory(Tree startTree) {
         if (this.fullOptimumTrajectory != null && !this.fullOptimumTrajectory.isEmpty()) {
             return new ArrayList<>(this.fullOptimumTrajectory);
+        }
+
+        if (lastOptimumTree == null) {
+            return Collections.emptyList();
+        }
+
+        return Collections.singletonList(lastOptimumTree);
+    }
+
+    public List<Tree> getLastNativeOptimumTrajectory() {
+        if (this.nativeOptimumTrajectory != null && !this.nativeOptimumTrajectory.isEmpty()) {
+            return new ArrayList<>(this.nativeOptimumTrajectory);
         }
 
         if (lastOptimumTree == null) {

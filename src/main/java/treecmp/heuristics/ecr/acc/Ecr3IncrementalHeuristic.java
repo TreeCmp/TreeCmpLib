@@ -2,6 +2,7 @@ package treecmp.heuristics.ecr.acc;
 
 import pal.tree.Node;
 import pal.tree.Tree;
+import treecmp.heuristics.TreeNeighborhoodUtils;
 import treecmp.heuristics.ecr.SubtreeEcr3Utils;
 import treecmp.heuristics.ecr.SubtreeEcr3Utils.TopologyTemplate3sECR;
 import treecmp.heuristics.moves.Ecr3Move;
@@ -20,6 +21,12 @@ public class Ecr3IncrementalHeuristic extends EcrIncrementalHeuristic<Ecr3Increm
     public Ecr3IncrementalHeuristic(Ecr3IncrementalMetric metric, Ecr3IncrementalMetric primaryMetric, String metricShortName) {
         super(metric, primaryMetric, metricShortName);
         this.ecr3Utils = new SubtreeEcr3Utils(!metric.isRooted());
+    }
+
+    @Override
+    public double performLocalDescent(Tree startTree, Tree targetTree) {
+        this.nativeOptimumTrajectory.clear();
+        return super.performLocalDescent(startTree, targetTree);
     }
 
     @Override
@@ -65,14 +72,18 @@ public class Ecr3IncrementalHeuristic extends EcrIncrementalHeuristic<Ecr3Increm
     }
 
     @Override
-    protected double commitMoveOnMetric(Ecr3IncrementalMetric activeMetric, TreeMove move) {
+    protected double commitMoveOnMetric(Ecr3IncrementalMetric metric, TreeMove move) {
         Ecr3Move m = (Ecr3Move) move;
-        return activeMetric.commit3sEcrMove(m.cluster, m.boundarySubtrees, m.template);
+        return metric.commit3sEcrMove(m.cluster, m.boundarySubtrees, m.template);
     }
 
     @Override
     protected Tree applyPhysicalMove(Tree tree, TreeMove move) {
-        return ecr3Utils.applyPhysicalMove(tree, (Ecr3Move) move);
+        Tree nextTree = ecr3Utils.applyPhysicalMove(tree, (Ecr3Move) move);
+        if (nextTree != null && nextTree != tree) {
+            this.nativeOptimumTrajectory.add(ensureIndexedSimpleTree(TreeNeighborhoodUtils.fastTreeClone(nextTree)));
+        }
+        return nextTree;
     }
 
     @Override

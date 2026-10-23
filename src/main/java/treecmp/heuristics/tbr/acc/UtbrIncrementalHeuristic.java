@@ -4,6 +4,7 @@ import pal.tree.Node;
 import pal.tree.SimpleTree;
 import pal.tree.Tree;
 import pal.tree.TreeUtils;
+import treecmp.heuristics.TreeNeighborhoodUtils;
 import treecmp.heuristics.base.IncrementalHeuristicBaseMetric;
 import treecmp.heuristics.moves.TbrMove;
 import treecmp.heuristics.moves.TreeMove;
@@ -26,13 +27,11 @@ public class UtbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
     private final UTbrUtils utbrUtils;
     private int utbrStepsCount = 0;
 
-    // Pola do bezalokacyjnego rozstrzygania remisów w locie (gdy primaryMetric == null)
     private int bestMoveNniCost = Integer.MAX_VALUE;
     private Node bestPruneNode;
     private Node bestRerootNode;
     private Node bestTargetNode;
 
-    // Leniwa historia kroków do rekonstrukcji trajektorii tylko na żądanie
     private final List<Tree> stepBaseTrees = new ArrayList<>();
     private final List<TreeMove> stepMoves = new ArrayList<>();
 
@@ -134,6 +133,7 @@ public class UtbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
         this.accumulatedSteps = 0;
         this.utbrStepsCount = 0;
         this.fullOptimumTrajectory.clear();
+        this.nativeOptimumTrajectory.clear();
         this.stepBaseTrees.clear();
         this.stepMoves.clear();
 
@@ -249,10 +249,11 @@ public class UtbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
 
             this.stepBaseTrees.add(currentTree);
             this.stepMoves.add(chosenMove);
+            this.nativeOptimumTrajectory.add(ensureIndexedSimpleTree(TreeNeighborhoodUtils.fastTreeClone(nextTree)));
 
             int nniStepsAdded = Math.max(1, (int) Math.round(chosenMove.getNniEquivalentCost()));
             this.accumulatedNniCost += nniStepsAdded;
-            this.accumulatedSteps += nniStepsAdded;
+            this.accumulatedSteps++;
             this.utbrStepsCount++;
 
             this.lastOptimumMove = chosenMove;
@@ -303,7 +304,7 @@ public class UtbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
     @Override
     public double getDistance(Tree tree1, Tree tree2, int... indexes) {
         double dist = performLocalDescent(tree1, tree2);
-        return dist == 0.0 ? this.utbrStepsCount : Double.POSITIVE_INFINITY;
+        return dist == 0.0 ? (double) this.utbrStepsCount : Double.POSITIVE_INFINITY;
     }
 
     @Override

@@ -28,6 +28,7 @@ public abstract class IncrementalHeuristicBaseMetric extends BaseMetric {
     protected double accumulatedNniCost = 0.0;
     protected int accumulatedSteps = 0;
     protected List<Tree> fullOptimumTrajectory = new ArrayList<>();
+    protected List<Tree> nativeOptimumTrajectory = new ArrayList<>();
 
     public Tree getLastOptimumTree() {
         return this.lastOptimumTree;
@@ -94,6 +95,7 @@ public abstract class IncrementalHeuristicBaseMetric extends BaseMetric {
         this.accumulatedNniCost = 0.0;
         this.accumulatedSteps = 0;
         this.fullOptimumTrajectory.clear();
+        this.nativeOptimumTrajectory.clear();
         this.lastOptimumMove = null;
         this.lastMoveBaseTree = null;
 
@@ -121,6 +123,11 @@ public abstract class IncrementalHeuristicBaseMetric extends BaseMetric {
                 }
                 nextTree = ensureIndexedSimpleTree(nextTree);
 
+                // 1. Zapis natywnego kroku heurystyki (1 ruch SPR/TBR/ECR/NNI)
+                this.accumulatedSteps++;
+                this.nativeOptimumTrajectory.add(ensureIndexedSimpleTree(TreeNeighborhoodUtils.fastTreeClone(nextTree)));
+
+                // 2. Dekompozycja na 1-NNI dla VND
                 List<Tree> stepTraj = null;
                 try {
                     stepTraj = this.bestMove.getNniTrajectory(currentTree);
@@ -138,8 +145,6 @@ public abstract class IncrementalHeuristicBaseMetric extends BaseMetric {
                     this.accumulatedNniCost += getMoveNniCost(this.bestMove);
                 }
 
-                // ZAWSZE dokładnie 1 ruch tej heurystyki
-                this.accumulatedSteps++;
                 this.lastOptimumMove = this.bestMove;
                 this.lastMoveBaseTree = currentTree;
                 currentTree = nextTree;
@@ -175,6 +180,18 @@ public abstract class IncrementalHeuristicBaseMetric extends BaseMetric {
     public List<Tree> getLastOptimumTrajectory(Tree startTree) {
         if (this.fullOptimumTrajectory != null && !this.fullOptimumTrajectory.isEmpty()) {
             return new ArrayList<>(this.fullOptimumTrajectory);
+        }
+
+        if (lastOptimumTree == null) {
+            return Collections.emptyList();
+        }
+
+        return Collections.singletonList(lastOptimumTree);
+    }
+
+    public List<Tree> getLastNativeOptimumTrajectory() {
+        if (this.nativeOptimumTrajectory != null && !this.nativeOptimumTrajectory.isEmpty()) {
+            return new ArrayList<>(this.nativeOptimumTrajectory);
         }
 
         if (lastOptimumTree == null) {

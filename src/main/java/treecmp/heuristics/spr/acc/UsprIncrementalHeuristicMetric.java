@@ -4,6 +4,7 @@ import pal.tree.SimpleTree;
 import pal.tree.Tree;
 import pal.tree.TreeUtils;
 import treecmp.common.TreeCmpUtils;
+import treecmp.heuristics.TreeNeighborhoodUtils;
 import treecmp.heuristics.base.IncrementalHeuristicBaseMetric;
 import treecmp.heuristics.moves.SprMove;
 import treecmp.heuristics.moves.TreeMove;
@@ -115,6 +116,7 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
         this.accumulatedSteps = 0;
         this.sprStepsCount = 0;
         this.fullOptimumTrajectory.clear();
+        this.nativeOptimumTrajectory.clear();
         this.stepBaseTrees.clear();
         this.stepMoves.clear();
 
@@ -153,7 +155,6 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
 
             if (primaryMetric == null) {
                 if (this.bestDist < currentDist - 1e-9) {
-                    // 1. Sprawdzamy ruchy z tiedMoves (o najlepszym wyliczonym bestDist)
                     for (int i = 0; i < this.tiedMoves.size(); i++) {
                         TreeMove candMove = this.tiedMoves.get(i);
                         Tree candTree = applyPhysicalMove(currentTree, candMove);
@@ -174,8 +175,6 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
                         }
                     }
 
-                    // 2. Jeśli żaden z tiedMoves po fizycznym createUsprTree nie dał poprawy,
-                    // sprawdzamy pozostałe ruchy poprawiające z fallbackImprovingMoves
                     if (bestMove == null) {
                         for (int i = 0; i < this.fallbackImprovingMoves.size(); i++) {
                             TreeMove candMove = this.fallbackImprovingMoves.get(i);
@@ -280,8 +279,8 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
 
             this.stepBaseTrees.add(currentTree);
             this.stepMoves.add(bestMove);
+            this.nativeOptimumTrajectory.add(ensureIndexedSimpleTree(TreeNeighborhoodUtils.fastTreeClone(nextTree)));
 
-            // Niezależne zliczanie: kroki jednostkowe SPR vs waga NNI dla VND
             this.accumulatedNniCost += nniStepsAdded;
             this.accumulatedSteps++;
             this.sprStepsCount++;

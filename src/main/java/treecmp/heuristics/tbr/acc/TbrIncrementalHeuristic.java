@@ -4,6 +4,7 @@ import pal.tree.Node;
 import pal.tree.SimpleTree;
 import pal.tree.Tree;
 import pal.tree.TreeUtils;
+import treecmp.heuristics.TreeNeighborhoodUtils;
 import treecmp.heuristics.base.IncrementalHeuristicBaseMetric;
 import treecmp.heuristics.moves.TbrMove;
 import treecmp.heuristics.moves.TreeMove;
@@ -147,6 +148,7 @@ public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
         this.accumulatedSteps = 0;
         this.tbrStepsCount = 0;
         this.fullOptimumTrajectory.clear();
+        this.nativeOptimumTrajectory.clear();
         this.stepBaseTrees.clear();
         this.stepMoves.clear();
 
@@ -255,6 +257,7 @@ public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
 
             this.stepBaseTrees.add(currentTree);
             this.stepMoves.add(bestMove);
+            this.nativeOptimumTrajectory.add(ensureIndexedSimpleTree(TreeNeighborhoodUtils.fastTreeClone(nextTree)));
 
             int nniStepsAdded = Math.max(1, (int) Math.round(bestMove.getNniEquivalentCost()));
             this.accumulatedNniCost += nniStepsAdded;

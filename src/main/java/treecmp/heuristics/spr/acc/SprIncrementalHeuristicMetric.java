@@ -3,6 +3,7 @@ package treecmp.heuristics.spr.acc;
 import pal.tree.SimpleTree;
 import pal.tree.Tree;
 import pal.tree.TreeUtils;
+import treecmp.heuristics.TreeNeighborhoodUtils;
 import treecmp.heuristics.base.IncrementalHeuristicBaseMetric;
 import treecmp.heuristics.moves.SprMove;
 import treecmp.heuristics.moves.TreeMove;
@@ -50,7 +51,6 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
         this.bestDist = initialDist;
         final boolean allowPlateau = (this.primaryMetric != null);
 
-        // Walidacja isValidSprMove odbywa się już wewnątrz IncrementalSprWalker przed wywołaniem visitor.visit()
         rootedWalker.walk(currentTree, activeMetric, (currentDist, movingNode, targetNode) -> {
             if (!allowPlateau && currentDist >= initialDist - 1e-9) {
                 return;
@@ -99,6 +99,7 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
         this.accumulatedSteps = 0;
         this.sprStepsCount = 0;
         this.fullOptimumTrajectory.clear();
+        this.nativeOptimumTrajectory.clear();
         this.stepBaseTrees.clear();
         this.stepMoves.clear();
 
@@ -198,7 +199,6 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
                 break;
             }
 
-            // Obliczamy równoważny koszt NNI przed modyfikacją drzewa, bez alokacji drzew pośrednich
             int nniStepsAdded = (int) Math.round(bestMove.getNniEquivalentCost());
             if (nniStepsAdded <= 0) {
                 nniStepsAdded = 1;
@@ -233,8 +233,8 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
 
             this.stepBaseTrees.add(currentTree);
             this.stepMoves.add(bestMove);
+            this.nativeOptimumTrajectory.add(ensureIndexedSimpleTree(TreeNeighborhoodUtils.fastTreeClone(nextTree)));
 
-            // Niezależna księgowość: NNI vs natywne ruchy SPR
             this.accumulatedNniCost += nniStepsAdded;
             this.accumulatedSteps++;
             this.sprStepsCount++;
@@ -283,7 +283,6 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
     @Override
     public double getDistance(Tree tree1, Tree tree2, int... indexes) {
         double dist = performLocalDescent(tree1, tree2);
-        // Zwraca liczbę wykonanych kroków rSPR, spójnie z klasycznym SprHeuristicMetric
         return dist == 0.0 ? (double) this.accumulatedSteps : Double.POSITIVE_INFINITY;
     }
 

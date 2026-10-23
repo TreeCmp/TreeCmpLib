@@ -2,6 +2,7 @@ package treecmp.heuristics.ecr.acc;
 
 import pal.tree.Node;
 import pal.tree.Tree;
+import treecmp.heuristics.TreeNeighborhoodUtils;
 import treecmp.heuristics.moves.Ecr2Move;
 import treecmp.heuristics.moves.TreeMove;
 import treecmp.heuristics.ecr.SubtreeEcr2Utils;
@@ -19,15 +20,19 @@ public class Ecr2IncrementalHeuristic extends EcrIncrementalHeuristic<Ecr2Increm
         this(metric, null, metricShortName);
     }
 
-    // ZMIANA: Ecr2IncrementalMetric primaryMetric zamiast IncrementalMetric
     public Ecr2IncrementalHeuristic(Ecr2IncrementalMetric metric, Ecr2IncrementalMetric primaryMetric, String metricShortName) {
         super(metric, primaryMetric, metricShortName);
         this.ecr2Utils = new SubtreeEcr2Utils(!metric.isRooted());
     }
 
     @Override
+    public double performLocalDescent(Tree startTree, Tree targetTree) {
+        this.nativeOptimumTrajectory.clear();
+        return super.performLocalDescent(startTree, targetTree);
+    }
+
+    @Override
     protected void searchNeighborhood(Tree currentTree) {
-        // ZMIANA: this.ecrMetric zamiast this.incMetric
         Ecr2IncrementalMetric activeMetric = primaryMetric != null ? primaryMetric : this.ecrMetric;
         this.tiedMoves.clear();
         this.improved = false;
@@ -101,7 +106,11 @@ public class Ecr2IncrementalHeuristic extends EcrIncrementalHeuristic<Ecr2Increm
 
     @Override
     protected Tree applyPhysicalMove(Tree tree, TreeMove move) {
-        return ecr2Utils.applyPhysicalMove(tree, (Ecr2Move) move);
+        Tree nextTree = ecr2Utils.applyPhysicalMove(tree, (Ecr2Move) move);
+        if (nextTree != null && nextTree != tree) {
+            this.nativeOptimumTrajectory.add(ensureIndexedSimpleTree(TreeNeighborhoodUtils.fastTreeClone(nextTree)));
+        }
+        return nextTree;
     }
 
     @Override

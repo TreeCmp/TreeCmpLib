@@ -104,7 +104,7 @@ public class NniIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
     @Override
     public double getDistance(Tree tree1, Tree tree2, int... indexes) {
         double remainingDist = performLocalDescent(tree1, tree2);
-        return (remainingDist == 0.0) ? this.accumulatedNniCost : Double.POSITIVE_INFINITY;
+        return (remainingDist == 0.0) ? (double) this.accumulatedSteps : Double.POSITIVE_INFINITY;
     }
 
     @Override
@@ -119,6 +119,7 @@ public class NniIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
         this.accumulatedSteps = 0;
         this.accumulatedNniCost = 0.0;
         this.fullOptimumTrajectory.clear();
+        this.nativeOptimumTrajectory.clear();
         this.lastOptimumMove = null;
 
         int totalSteps = 0;
@@ -176,21 +177,6 @@ public class NniIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
 
             NniMove finalMove = (NniMove) bestMove;
 
-            // Aktualizacja matematyki dla filtra
-            double newDist = activeMetric.applyNni(finalMove);
-            activeMetric.commit();
-
-            // BEZPIECZNIK 3: Dystans musi ściśle maleć
-            if (newDist >= currentDist - 1e-9) {
-                break;
-            }
-
-            // Utrzymanie synchronizacji w ciężkiej metryce przy aktywnym filtrze
-            if (primaryMetric != null) {
-                this.nniMetric.applyNni(finalMove);
-                this.nniMetric.commit();
-            }
-
             // Fizyczna modyfikacja drzewa pod kolejną iterację
             currentTree = applyPhysicalMove(currentTree, finalMove);
             if (currentTree instanceof SimpleTree) {
@@ -198,11 +184,25 @@ public class NniIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
             }
             TreeUtils.computeParentPointers(currentTree.getRoot());
 
-            // Rejestracja kroku w trajektorii certyfikatu
+            // Pełna synchronizacja stanu metryki z nową topologią drzewa
+            activeMetric.initCalculationState(currentTree, targetTree);
+            if (primaryMetric != null) {
+                this.nniMetric.initCalculationState(currentTree, targetTree);
+            }
+
+            double newDist = activeMetric.getCurrentDistance();
+
+            // BEZPIECZNIK 3: Dystans musi ściśle maleć
+            if (newDist >= currentDist - 1e-9) {
+                break;
+            }
+
+            // Rejestracja kroku w trajektorii certyfikatu NNI oraz natywnej
             SimpleTree stepCopy = new SimpleTree(currentTree);
             stepCopy.createNodeList();
             TreeUtils.computeParentPointers(stepCopy.getRoot());
             this.fullOptimumTrajectory.add(stepCopy);
+            this.nativeOptimumTrajectory.add(stepCopy);
 
             totalSteps++;
             this.accumulatedSteps++;
