@@ -132,13 +132,13 @@ public class Ecr2QualityVsTimeMacroBenchmark extends AbstractQualityMacroBenchma
                     List<Tree> trajectory = null;
                     if (baseMetric instanceof HeuristicBaseMetric) {
                         HeuristicBaseMetric hbm = (HeuristicBaseMetric) baseMetric;
-                        trajectory = hbm.getLastOptimumTrajectory(startCopy);
+                        trajectory = hbm.getLastNativeOptimumTrajectory();
                         if ((trajectory == null || trajectory.isEmpty()) && hbm.getLastOptimumTree() != null) {
                             trajectory = Collections.singletonList(hbm.getLastOptimumTree());
                         }
                     } else if (baseMetric instanceof IncrementalHeuristicBaseMetric) {
                         IncrementalHeuristicBaseMetric ihbm = (IncrementalHeuristicBaseMetric) baseMetric;
-                        trajectory = ihbm.getLastOptimumTrajectory(startCopy);
+                        trajectory = ihbm.getLastNativeOptimumTrajectory();
                         if ((trajectory == null || trajectory.isEmpty()) && ihbm.getLastOptimumTree() != null) {
                             trajectory = Collections.singletonList(ihbm.getLastOptimumTree());
                         }
@@ -245,7 +245,7 @@ public class Ecr2QualityVsTimeMacroBenchmark extends AbstractQualityMacroBenchma
         PrintWriter pw = new PrintWriter(sw);
         TreeUtils.printNH(tree, pw, false, false);
         pw.flush();
-        String newick = sw.toString().trim();
+        String newick = sw.toString().replace("\r", "").replace("\n", "").trim();
         if (!newick.endsWith(";")) {
             newick += ";";
         }
