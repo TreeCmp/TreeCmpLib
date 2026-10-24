@@ -39,39 +39,67 @@ public class NniIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
         NniIncrementalMetric activeMetric = primaryMetric != null ? primaryMetric : this.nniMetric;
 
         this.tiedMoves.clear();
+        this.bestMove = null;
         this.improved = false;
-        // Inicjalizacja bieżącym dystansem - zbieramy wyłącznie ruchy ściśle poprawiające
-        this.bestDist = activeMetric.getCurrentDistance();
 
-        exploreNniRecursive(currentTree.getRoot(), activeMetric);
+        double currentDist = activeMetric.getCurrentDistance();
+        // Gdy primaryMetric == null, szukamy tylko ruchów ściśle lepszych niż currentDist.
+        // Gdy primaryMetric != null (filtr RF), inicjalizujemy INFINITY, aby zebrać najlepsze ruchy
+        // (nawet jeśli najlepszy ruch w otoczeniu ma dist == currentDist, czyli leży na plateau RF).
+        this.bestDist = (primaryMetric == null) ? currentDist : Double.POSITIVE_INFINITY;
+
+        exploreNniRecursive(currentTree.getRoot(), activeMetric, currentDist);
     }
 
-    private void exploreNniRecursive(Node parent, NniIncrementalMetric activeMetric) {
+    private void exploreNniRecursive(Node parent, NniIncrementalMetric activeMetric, double initialDist) {
         if (parent.isLeaf()) return;
 
-        for (int i = 0; i < parent.getChildCount(); i++) {
+        int childCount = parent.getChildCount();
+        for (int i = 0; i < childCount; i++) {
             Node child = parent.getChild(i);
             if (child.isLeaf()) continue;
 
-            Node sibling = findSibling(parent, child);
-            if (sibling != null && child.getChildCount() >= 2) {
+            if (child.getChildCount() >= 2) {
                 Node g1 = child.getChild(0);
                 Node g2 = child.getChild(1);
 
-                // --- SĄSIAD 1 ---
-                NniMove move1 = new NniMove(g1, sibling);
-                double dist1 = activeMetric.applyNni(move1);
-                checkImprovementWithTies(dist1, move1);
-                activeMetric.undoNni(move1);
+                // Iterujemy po WSZYSTKICH braciach (dla korzenia nieukorzenionego o stopniu 3 wystarczy pierwszy brat,
+                // dokładnie tak jak w NniUtils.addMovesForInternalEdge, ponieważ wymiana z drugim bratem daje izomorficzne NNI)
+                for (int j = 0; j < childCount; j++) {
+                    if (i == j) continue;
+                    Node sibling = parent.getChild(j);
 
-                // --- SĄSIAD 2 ---
-                NniMove move2 = new NniMove(g2, sibling);
-                double dist2 = activeMetric.applyNni(move2);
-                checkImprovementWithTies(dist2, move2);
-                activeMetric.undoNni(move2);
+                    // --- SĄSIAD 1 (konwencja NniIncrementalMetric: wnuk jako pierwszy, brat jako drugi) ---
+                    NniMove move1 = new NniMove(g1, sibling);
+                    double dist1 = activeMetric.applyNni(move1);
+                    if (primaryMetric == null) {
+                        if (dist1 < initialDist - 1e-9) {
+                            checkImprovementWithTies(dist1, move1);
+                        }
+                    } else if (dist1 <= initialDist + 1e-9) {
+                        checkImprovementWithTies(dist1, move1);
+                    }
+                    activeMetric.undoNni(move1);
+
+                    // --- SĄSIAD 2 ---
+                    NniMove move2 = new NniMove(g2, sibling);
+                    double dist2 = activeMetric.applyNni(move2);
+                    if (primaryMetric == null) {
+                        if (dist2 < initialDist - 1e-9) {
+                            checkImprovementWithTies(dist2, move2);
+                        }
+                    } else if (dist2 <= initialDist + 1e-9) {
+                        checkImprovementWithTies(dist2, move2);
+                    }
+                    activeMetric.undoNni(move2);
+
+                    if (!this.rooted && parent.isRoot()) {
+                        break;
+                    }
+                }
             }
 
-            exploreNniRecursive(child, activeMetric);
+            exploreNniRecursive(child, activeMetric, initialDist);
         }
     }
 
@@ -91,14 +119,6 @@ public class NniIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
             return nniUtils.applyPhysicalMove(tree, (NniMove) move);
         }
         return tree;
-    }
-
-    private Node findSibling(Node parent, Node child) {
-        for (int i = 0; i < parent.getChildCount(); i++) {
-            Node n = parent.getChild(i);
-            if (n != child) return n;
-        }
-        return null;
     }
 
     @Override
@@ -129,11 +149,13 @@ public class NniIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
 
         // Inicjalizacja stanów metryk na startowym drzewie
         activeMetric.initCalculationState(currentTree, targetTree);
+        double currentDist = activeMetric.getCurrentDistance();
+
+        double currentHeavyDist = Double.POSITIVE_INFINITY;
         if (primaryMetric != null) {
             this.nniMetric.initCalculationState(currentTree, targetTree);
+            currentHeavyDist = this.nniMetric.getCurrentDistance();
         }
-
-        double currentDist = activeMetric.getCurrentDistance();
 
         if (currentDist == 0.0) {
             this.lastOptimumTree = currentTree;
@@ -144,33 +166,44 @@ public class NniIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
             this.improved = false;
             searchNeighborhood(currentTree);
 
-            // BEZPIECZNIK 1: Brak poprawy lub brak ruchów -> minimum lokalne
-            if (this.tiedMoves.isEmpty() || this.bestDist >= currentDist - 1e-9) {
+            // BEZPIECZNIK 1: Brak ruchów lub pogorszenie na aktywnej metryce
+            if (this.tiedMoves.isEmpty() || this.bestDist > currentDist + 1e-9) {
                 break;
             }
 
             TreeMove bestMove = null;
+            boolean isPlateau = Math.abs(this.bestDist - currentDist) <= 1e-9;
 
-            // Brak remisów lub brak filtra -> bierzemy pierwszy lepszy ruch
-            if (primaryMetric == null || tiedMoves.size() == 1) {
-                bestMove = tiedMoves.get(0);
-            }
-            // TIE-BREAKER: Sprawdzamy remisy ciężką metryką wirtualnie
-            else {
+            if (primaryMetric == null) {
+                if (this.bestDist < currentDist - 1e-9) {
+                    bestMove = tiedMoves.get(0);
+                } else {
+                    break;
+                }
+            } else {
+                // TIE-BREAKER (oraz weryfikacja ścisłej poprawy na metryce głównej w przypadku plateau RF)
                 double bestHeavyDist = Double.POSITIVE_INFINITY;
                 for (TreeMove tm : tiedMoves) {
                     NniMove nniM = (NniMove) tm;
 
                     double heavyDist = this.nniMetric.applyNni(nniM);
-                    if (heavyDist < bestHeavyDist) {
-                        bestHeavyDist = heavyDist;
-                        bestMove = nniM;
+                    if (!isPlateau) {
+                        if (heavyDist < bestHeavyDist - 1e-9) {
+                            bestHeavyDist = heavyDist;
+                            bestMove = nniM;
+                        }
+                    } else {
+                        // Na plateau RF wymagamy ścisłego spadku metryki pomocniczej (np. M3, MS, MC, MP)
+                        if (heavyDist < currentHeavyDist - 1e-9 && heavyDist < bestHeavyDist - 1e-9) {
+                            bestHeavyDist = heavyDist;
+                            bestMove = nniM;
+                        }
                     }
                     this.nniMetric.undoNni(nniM);
                 }
             }
 
-            // BEZPIECZNIK 2: Jeśli nie wybrano ruchu, natychmiast przerywamy
+            // BEZPIECZNIK 2: Jeśli nie wybrano ruchu poprawiającego, natychmiast przerywamy
             if (bestMove == null) {
                 break;
             }
@@ -186,15 +219,22 @@ public class NniIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
 
             // Pełna synchronizacja stanu metryki z nową topologią drzewa
             activeMetric.initCalculationState(currentTree, targetTree);
-            if (primaryMetric != null) {
-                this.nniMetric.initCalculationState(currentTree, targetTree);
-            }
-
             double newDist = activeMetric.getCurrentDistance();
 
-            // BEZPIECZNIK 3: Dystans musi ściśle maleć
-            if (newDist >= currentDist - 1e-9) {
+            double newHeavyDist = Double.POSITIVE_INFINITY;
+            if (primaryMetric != null) {
+                this.nniMetric.initCalculationState(currentTree, targetTree);
+                newHeavyDist = this.nniMetric.getCurrentDistance();
+            }
+
+            // BEZPIECZNIK 3: Ochrona przed zapętleniem
+            if (newDist > currentDist + 1e-9) {
                 break;
+            }
+            if (Math.abs(newDist - currentDist) <= 1e-9) {
+                if (primaryMetric == null || newHeavyDist >= currentHeavyDist - 1e-9) {
+                    break;
+                }
             }
 
             // Rejestracja kroku w trajektorii certyfikatu NNI oraz natywnej
@@ -211,6 +251,7 @@ public class NniIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
             this.lastMoveBaseTree = currentTree;
 
             currentDist = newDist;
+            currentHeavyDist = newHeavyDist;
             this.improved = true;
         }
 
