@@ -1,0 +1,57 @@
+========================================================
+HEURISTIC TRAJECTORY: VND Classic (MP)
+========================================================
+STEP 0 [START] - Distance: 27.0000
+(7,(((2,10),(6,(9,3))),(5,(1,(4,8)))));
+
+STEP 1 [NNI_ClassicHeuristic_MP -> NNI_Substep_1] - Distance: 25.0000
+(7,(((9,3),(6,(2,10))),(5,(1,(4,8)))));
+
+STEP 2 [NNI_ClassicHeuristic_MP -> NNI_Substep_2] - Distance: 21.0000
+(7,(((5,(1,(4,8))),(6,(2,10))),(9,3)));
+
+STEP 3 [NNI_ClassicHeuristic_MP -> NNI_Substep_3] - Distance: 19.0000
+(7,(3,(9,((5,(1,(4,8))),(6,(2,10))))));
+
+STEP 4 [NNI_ClassicHeuristic_MP -> NNI_Substep_4] - Distance: 18.0000
+(7,(3,(9,((5,(8,(4,1))),(6,(2,10))))));
+
+STEP 5 [NNI_ClassicHeuristic_MP -> NNI_Substep_5] - Distance: 17.0000
+(7,(3,(9,((8,(5,(4,1))),(6,(2,10))))));
+
+STEP 6 [NNI_ClassicHeuristic_MP -> NNI_Substep_6] - Distance: 16.0000
+(7,(3,(9,((8,(1,(4,5))),(6,(2,10))))));
+
+STEP 7 [NNI_ClassicHeuristic_MP -> NNI_Substep_7] - Distance: 15.0000
+(7,(3,((6,(2,10)),((8,(1,(4,5))),9))));
+
+STEP 8 [NNI_ClassicHeuristic_MP -> NNI_Substep_8] - Distance: 12.0000
+(3,((6,(2,10)),(7,((8,(1,(4,5))),9))));
+
+STEP 9 [NNI_ClassicHeuristic_MP -> NNI_Substep_9] - Distance: 8.0000
+(3,((6,(2,10)),((8,(1,(4,5))),(7,9))));
+
+STEP 10 [SPR_ClassicHeuristic_MP -> NNI_Substep_1] - Distance: 8.0000
+(3,(((6,10),2),((8,(1,(4,5))),(7,9))));
+
+STEP 11 [SPR_ClassicHeuristic_MP -> NNI_Substep_2] - Distance: 7.0000
+(3,(((6,10),((8,(1,(4,5))),(7,9))),2));
+
+STEP 12 [SPR_ClassicHeuristic_MP -> NNI_Substep_3] - Distance: 5.0000
+(3,((6,10),(((8,(1,(4,5))),(7,9)),2)));
+
+STEP 13 [SPR_ClassicHeuristic_MP -> NNI_Substep_4] - Distance: 3.0000
+(3,((6,10),(((8,(1,(4,5))),2),(7,9))));
+
+STEP 14 [SPR_ClassicHeuristic_MP -> NNI_Substep_5] - Distance: 2.0000
+(3,((6,10),((8,((1,(4,5)),2)),(7,9))));
+
+STEP 15 [SPR_ClassicHeuristic_MP -> NNI_Substep_6] - Distance: 1.0000
+(3,((6,10),((8,(1,((4,5),2))),(7,9))));
+
+STEP 16 [SPR_ClassicHeuristic_MP -> NNI_Substep_7] - Distance: 0.0000
+(3,((6,10),((8,(1,(4,(5,2)))),(7,9))));
+
+========================================================
+[FINAL] Total Steps: 16 | Final Distance: 0.0000
+========================================================

@@ -1,0 +1,48 @@
+========================================================
+HEURISTIC TRAJECTORY: VND Incremental (MC_RF)
+========================================================
+STEP 0 [START] - Distance: 22.0000
+((6,(4,1)),(((5,(3,7)),(10,8)),(2,9)));
+
+STEP 1 [NNI_IncrementalHeuristic_MC_RF -> NNI_Substep_1] - Distance: 17.0000
+((2,9),(((5,(3,7)),(10,8)),(4,(6,1))));
+
+STEP 2 [NNI_IncrementalHeuristic_MC_RF -> NNI_Substep_2] - Distance: 14.0000
+(((9,(4,(6,1))),((5,(3,7)),(10,8))),2);
+
+STEP 3 [NNI_IncrementalHeuristic_MC_RF -> NNI_Substep_3] - Distance: 12.0000
+(((4,(9,(6,1))),((5,(3,7)),(10,8))),2);
+
+STEP 4 [NNI_IncrementalHeuristic_MC_RF -> NNI_Substep_4] - Distance: 10.0000
+(((10,8),((5,(3,7)),(4,(9,(6,1))))),2);
+
+STEP 5 [2sECR_IncrementalHeuristic_MC_RF -> NNI_Substep_1] - Distance: 10.0000
+(((10,8),(4,((5,(3,7)),(9,(6,1))))),2);
+
+STEP 6 [2sECR_IncrementalHeuristic_MC_RF -> NNI_Substep_2] - Distance: 9.0000
+((4,((10,8),((5,(3,7)),(9,(6,1))))),2);
+
+STEP 7 [2sECR_IncrementalHeuristic_MC_RF -> NNI_Substep_3] - Distance: 14.0000
+((4,(10,(((5,(3,7)),(9,(6,1))),8))),2);
+
+STEP 8 [2sECR_IncrementalHeuristic_MC_RF -> NNI_Substep_4] - Distance: 6.0000
+(((4,10),(((5,(3,7)),(9,(6,1))),8)),2);
+
+STEP 9 [2sECR_IncrementalHeuristic_MC_RF -> NNI_Substep_5] - Distance: 8.0000
+(((4,10),((5,((9,(6,1)),(3,7))),8)),2);
+
+STEP 10 [2sECR_IncrementalHeuristic_MC_RF -> NNI_Substep_6] - Distance: 4.0000
+(((4,10),(((9,(6,1)),(3,7)),(8,5))),2);
+
+STEP 11 [2sECR_IncrementalHeuristic_MC_RF -> NNI_Substep_7] - Distance: 6.0000
+(((4,10),((3,((9,(6,1)),7)),(8,5))),2);
+
+STEP 12 [2sECR_IncrementalHeuristic_MC_RF -> NNI_Substep_8] - Distance: 2.0000
+(((4,10),(((9,(6,1)),7),((8,5),3))),2);
+
+STEP 13 [2sECR_IncrementalHeuristic_MC_RF -> NNI_Substep_9] - Distance: 0.0000
+(((4,10),(((9,(6,1)),7),(5,(3,8)))),2);
+
+========================================================
+[FINAL] Total Steps: 13 | Final Distance: 0.0000
+========================================================

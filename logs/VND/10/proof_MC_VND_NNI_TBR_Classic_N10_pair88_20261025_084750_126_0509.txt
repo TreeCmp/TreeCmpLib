@@ -1,0 +1,54 @@
+========================================================
+HEURISTIC TRAJECTORY: VND Classic (MC)
+========================================================
+STEP 0 [START] - Distance: 24.0000
+((8,(6,(4,(9,(10,7))))),(3,(2,(5,1))));
+
+STEP 1 [NNI_ClassicHeuristic_MC -> NNI_Substep_1] - Distance: 22.0000
+((8,((9,(10,7)),(4,6))),(3,(2,(5,1))));
+
+STEP 2 [NNI_ClassicHeuristic_MC -> NNI_Substep_2] - Distance: 18.0000
+(((9,(10,7)),(8,(4,6))),(3,(2,(5,1))));
+
+STEP 3 [NNI_ClassicHeuristic_MC -> NNI_Substep_3] - Distance: 17.0000
+(((9,(10,7)),(8,(4,6))),((5,1),(2,3)));
+
+STEP 4 [NNI_ClassicHeuristic_MC -> NNI_Substep_4] - Distance: 14.0000
+((((8,(4,6)),(2,3)),(5,1)),(9,(10,7)));
+
+STEP 5 [TBR_ClassicHeuristic_MC -> NNI_Substep_1] - Distance: 14.0000
+(((((8,(4,6)),2),3),(9,(10,7))),(5,1));
+
+STEP 6 [TBR_ClassicHeuristic_MC -> NNI_Substep_2] - Distance: 16.0000
+(((((8,(4,6)),2),(9,(10,7))),3),(5,1));
+
+STEP 7 [TBR_ClassicHeuristic_MC -> NNI_Substep_3] - Distance: 13.0000
+((((8,(4,6)),2),((9,(10,7)),3)),(5,1));
+
+STEP 8 [TBR_ClassicHeuristic_MC -> NNI_Substep_4] - Distance: 12.0000
+((((8,(4,6)),2),((9,3),(10,7))),(5,1));
+
+STEP 9 [TBR_ClassicHeuristic_MC -> NNI_Substep_5] - Distance: 10.0000
+(((((8,(4,6)),2),1),((9,3),(10,7))),5);
+
+STEP 10 [TBR_ClassicHeuristic_MC -> NNI_Substep_6] - Distance: 10.0000
+(((((8,(4,6)),1),2),((9,3),(10,7))),5);
+
+STEP 11 [TBR_ClassicHeuristic_MC -> NNI_Substep_7] - Distance: 10.0000
+((((8,((4,6),1)),2),((9,3),(10,7))),5);
+
+STEP 12 [TBR_ClassicHeuristic_MC -> NNI_Substep_8] - Distance: 8.0000
+((((8,(4,(6,1))),2),((9,3),(10,7))),5);
+
+STEP 13 [TBR_ClassicHeuristic_MC -> NNI_Substep_9] - Distance: 4.0000
+((((9,3),(10,7)),((4,(6,1)),(8,2))),5);
+
+STEP 14 [TBR_ClassicHeuristic_MC -> NNI_Substep_10] - Distance: 5.0000
+((((3,(10,7)),9),((4,(6,1)),(8,2))),5);
+
+STEP 15 [TBR_ClassicHeuristic_MC -> NNI_Substep_11] - Distance: 0.0000
+((((3,(10,7)),((4,(6,1)),(8,2))),9),5);
+
+========================================================
+[FINAL] Total Steps: 15 | Final Distance: 0.0000
+========================================================

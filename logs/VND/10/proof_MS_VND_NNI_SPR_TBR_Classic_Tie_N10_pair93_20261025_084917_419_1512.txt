@@ -1,0 +1,39 @@
+========================================================
+HEURISTIC TRAJECTORY: VND Classic (MS_RF)
+========================================================
+STEP 0 [START] - Distance: 15.0000
+((7,5),(1,3),(10,((4,9),(6,(8,2)))));
+
+STEP 1 [NNI_ClassicHeuristic_MS_RF -> NNI_Substep_1] - Distance: 11.0000
+((7,5),(1,3),(10,((8,2),(6,(4,9)))));
+
+STEP 2 [NNI_ClassicHeuristic_MS_RF -> NNI_Substep_2] - Distance: 10.0000
+((7,5),(1,3),((8,2),(10,(6,(4,9)))));
+
+STEP 3 [NNI_ClassicHeuristic_MS_RF -> NNI_Substep_3] - Distance: 9.0000
+(3,(1,(7,5)),((8,2),(10,(6,(4,9)))));
+
+STEP 4 [uSPR_ClassicHeuristic_null_MS_RF -> NNI_Substep_1] - Distance: 9.0000
+(3,((1,7),5),((8,2),(10,(6,(4,9)))));
+
+STEP 5 [uSPR_ClassicHeuristic_null_MS_RF -> NNI_Substep_2] - Distance: 9.0000
+(3,(1,7),(((8,2),(10,(6,(4,9)))),5));
+
+STEP 6 [uSPR_ClassicHeuristic_null_MS_RF -> NNI_Substep_3] - Distance: 6.0000
+(3,(1,7),(((8,2),5),(10,(6,(4,9)))));
+
+STEP 7 [uSPR_ClassicHeuristic_null_MS_RF -> NNI_Substep_4] - Distance: 4.0000
+(3,(1,7),((8,(2,5)),(10,(6,(4,9)))));
+
+STEP 8 [uSPR_ClassicHeuristic_null_MS_RF -> NNI_Substep_5] - Distance: 5.0000
+((8,(2,5)),((10,(6,(4,9))),(1,7)),3);
+
+STEP 9 [uSPR_ClassicHeuristic_null_MS_RF -> NNI_Substep_6] - Distance: 4.0000
+((8,(2,5)),((10,(1,7)),(6,(4,9))),3);
+
+STEP 10 [uSPR_ClassicHeuristic_null_MS_RF -> NNI_Substep_7] - Distance: 0.0000
+((8,(2,5)),(10,(1,7)),(3,(6,(4,9))));
+
+========================================================
+[FINAL] Total Steps: 10 | Final Distance: 0.0000
+========================================================

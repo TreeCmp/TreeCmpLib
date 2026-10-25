@@ -1,0 +1,36 @@
+========================================================
+HEURISTIC TRAJECTORY: VND Incremental (MP)
+========================================================
+STEP 0 [START] - Distance: 21.0000
+((8,(10,(6,(4,1)))),((7,(5,3)),(9,2)));
+
+STEP 1 [TBR_IncrementalHeuristic_MP -> NNI_Substep_1] - Distance: 11.0000
+((9,2),(((7,3),5),(8,(10,(6,(4,1))))));
+
+STEP 2 [TBR_IncrementalHeuristic_MP -> NNI_Substep_2] - Distance: 10.0000
+((9,2),(((7,3),(8,(10,(6,(4,1))))),5));
+
+STEP 3 [TBR_IncrementalHeuristic_MP -> NNI_Substep_3] - Distance: 8.0000
+((9,2),((7,3),((8,(10,(6,(4,1)))),5)));
+
+STEP 4 [TBR_IncrementalHeuristic_MP -> NNI_Substep_4] - Distance: 5.0000
+((9,2),((7,3),((8,5),(10,(6,(4,1))))));
+
+STEP 5 [TBR_IncrementalHeuristic_MP -> NNI_Substep_5] - Distance: 5.0000
+((9,2),((7,3),((8,5),(10,((6,1),4)))));
+
+STEP 6 [TBR_IncrementalHeuristic_MP -> NNI_Substep_6] - Distance: 5.0000
+((9,2),((7,3),((8,5),((10,(6,1)),4))));
+
+STEP 7 [TBR_IncrementalHeuristic_MP -> NNI_Substep_7] - Distance: 4.0000
+((9,2),((7,3),(((8,5),(10,(6,1))),4)));
+
+STEP 8 [TBR_IncrementalHeuristic_MP -> NNI_Substep_8] - Distance: 1.0000
+((9,2),((7,3),(((8,5),4),(10,(6,1)))));
+
+STEP 9 [TBR_IncrementalHeuristic_MP -> NNI_Substep_9] - Distance: 0.0000
+((9,2),((7,3),((8,(5,4)),(10,(6,1)))));
+
+========================================================
+[FINAL] Total Steps: 9 | Final Distance: 0.0000
+========================================================

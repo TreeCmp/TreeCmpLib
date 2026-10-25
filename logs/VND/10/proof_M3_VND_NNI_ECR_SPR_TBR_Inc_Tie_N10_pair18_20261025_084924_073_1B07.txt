@@ -1,0 +1,57 @@
+========================================================
+HEURISTIC TRAJECTORY: VND Incremental (M3_RF)
+========================================================
+STEP 0 [START] - Distance: 92.0000
+(6,(2,8),((3,4),(10,((1,9),(5,7)))));
+
+STEP 1 [NNI_IncrementalHeuristic_M3_RF -> NNI_Substep_1] - Distance: 86.0000
+(6,(2,8),(((10,((1,9),(5,7))),4),3));
+
+STEP 2 [NNI_IncrementalHeuristic_M3_RF -> NNI_Substep_2] - Distance: 80.0000
+(6,(2,8),((((1,9),(10,(5,7))),4),3));
+
+STEP 3 [NNI_IncrementalHeuristic_M3_RF -> NNI_Substep_3] - Distance: 78.0000
+(3,(2,8),((((1,9),(10,(5,7))),4),6));
+
+STEP 4 [NNI_IncrementalHeuristic_M3_RF -> NNI_Substep_4] - Distance: 76.0000
+(8,(2,3),((((1,9),(10,(5,7))),4),6));
+
+STEP 5 [NNI_IncrementalHeuristic_M3_RF -> NNI_Substep_5] - Distance: 74.0000
+(8,(2,3),((((1,9),4),(10,(5,7))),6));
+
+STEP 6 [NNI_IncrementalHeuristic_M3_RF -> NNI_Substep_6] - Distance: 70.0000
+(8,(2,3),((((1,9),4),6),(10,(5,7))));
+
+STEP 7 [NNI_IncrementalHeuristic_M3_RF -> NNI_Substep_7] - Distance: 65.0000
+((10,(5,7)),(2,3),((((1,9),4),6),8));
+
+STEP 8 [NNI_IncrementalHeuristic_M3_RF -> NNI_Substep_8] - Distance: 61.0000
+((10,(5,7)),(2,3),((((1,9),4),8),6));
+
+STEP 9 [NNI_IncrementalHeuristic_M3_RF -> NNI_Substep_9] - Distance: 55.0000
+((10,(5,7)),(2,3),((((1,9),8),4),6));
+
+STEP 10 [NNI_IncrementalHeuristic_M3_RF -> NNI_Substep_10] - Distance: 52.0000
+((10,(5,7)),(2,3),((((1,8),9),4),6));
+
+STEP 11 [NNI_IncrementalHeuristic_M3_RF -> NNI_Substep_11] - Distance: 48.0000
+((10,(5,7)),(2,3),((((1,8),4),9),6));
+
+STEP 12 [NNI_IncrementalHeuristic_M3_RF -> NNI_Substep_12] - Distance: 43.0000
+((10,(5,7)),(2,3),((((1,8),4),6),9));
+
+STEP 13 [NNI_IncrementalHeuristic_M3_RF -> NNI_Substep_13] - Distance: 29.0000
+(9,(2,3),((((1,8),4),6),(10,(5,7))));
+
+STEP 14 [NNI_IncrementalHeuristic_M3_RF -> NNI_Substep_14] - Distance: 27.0000
+(9,(2,3),((((1,8),4),6),(5,(10,7))));
+
+STEP 15 [NNI_IncrementalHeuristic_M3_RF -> NNI_Substep_15] - Distance: 18.0000
+(9,(2,3),((10,7),(5,(((1,8),4),6))));
+
+STEP 16 [NNI_IncrementalHeuristic_M3_RF -> NNI_Substep_16] - Distance: 0.0000
+(9,(2,3),((10,7),(((1,8),4),(5,6))));
+
+========================================================
+[FINAL] Total Steps: 16 | Final Distance: 0.0000
+========================================================

@@ -1,0 +1,54 @@
+========================================================
+HEURISTIC TRAJECTORY: VND Incremental (MP)
+========================================================
+STEP 0 [START] - Distance: 26.0000
+((((1,7),(4,9)),(3,5)),(8,(10,(6,2))));
+
+STEP 1 [NNI_IncrementalHeuristic_MP -> NNI_Substep_1] - Distance: 25.0000
+((((1,7),(3,5)),(4,9)),(8,(10,(6,2))));
+
+STEP 2 [NNI_IncrementalHeuristic_MP -> NNI_Substep_2] - Distance: 24.0000
+((4,(((1,7),(3,5)),9)),(8,(10,(6,2))));
+
+STEP 3 [2sECR_IncrementalHeuristic_MP] - Distance: 21.0000
+((9,(4,((1,7),(3,5)))),(8,(10,(6,2))));
+
+STEP 4 [3sECR_IncrementalHeuristic_MP -> NNI_Substep_1] - Distance: 21.0000
+((4,((1,7),(3,5))),(9,((8,(6,2)),10)));
+
+STEP 5 [3sECR_IncrementalHeuristic_MP -> NNI_Substep_2] - Distance: 21.0000
+((4,((1,7),(3,5))),((9,(8,(6,2))),10));
+
+STEP 6 [3sECR_IncrementalHeuristic_MP -> NNI_Substep_3] - Distance: 16.0000
+(((4,((1,7),(3,5))),10),(9,((8,2),6)));
+
+STEP 7 [3sECR_IncrementalHeuristic_MP -> NNI_Substep_4] - Distance: 16.0000
+(((4,((1,7),(3,5))),10),((9,(8,2)),6));
+
+STEP 8 [3sECR_IncrementalHeuristic_MP -> NNI_Substep_5] - Distance: 12.0000
+(((6,(4,((1,7),(3,5)))),10),(9,(8,2)));
+
+STEP 9 [3sECR_IncrementalHeuristic_MP -> NNI_Substep_6] - Distance: 11.0000
+((((6,((1,7),(3,5))),4),10),(9,(8,2)));
+
+STEP 10 [3sECR_IncrementalHeuristic_MP -> NNI_Substep_7] - Distance: 9.0000
+(((((6,(3,5)),(1,7)),4),10),(9,(8,2)));
+
+STEP 11 [Heur. rSPR MP -> NNI_Substep_1] - Distance: 9.0000
+((((((6,5),3),(1,7)),4),10),(9,(8,2)));
+
+STEP 12 [Heur. rSPR MP -> NNI_Substep_2] - Distance: 9.0000
+((((((6,5),(1,7)),3),4),10),(9,(8,2)));
+
+STEP 13 [Heur. rSPR MP -> NNI_Substep_3] - Distance: 9.0000
+((((((6,5),(1,7)),4),3),10),(9,(8,2)));
+
+STEP 14 [Heur. rSPR MP -> NNI_Substep_4] - Distance: 9.0000
+((((((6,5),(1,7)),4),10),3),(9,(8,2)));
+
+STEP 15 [Heur. rSPR MP -> NNI_Substep_5] - Distance: 0.0000
+(((((6,5),(1,7)),4),10),((9,3),(8,2)));
+
+========================================================
+[FINAL] Total Steps: 15 | Final Distance: 0.0000
+========================================================

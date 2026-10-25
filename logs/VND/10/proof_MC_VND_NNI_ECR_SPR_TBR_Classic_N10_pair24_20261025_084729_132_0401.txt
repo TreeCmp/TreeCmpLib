@@ -1,0 +1,60 @@
+========================================================
+HEURISTIC TRAJECTORY: VND Classic (MC)
+========================================================
+STEP 0 [START] - Distance: 23.0000
+((4,5),((9,1),((8,(6,(10,2))),(7,3))));
+
+STEP 1 [NNI_ClassicHeuristic_MC -> NNI_Substep_1] - Distance: 19.0000
+((4,5),((8,(6,(10,2))),((9,1),(7,3))));
+
+STEP 2 [NNI_ClassicHeuristic_MC -> NNI_Substep_2] - Distance: 18.0000
+((4,5),(((10,2),(6,8)),((9,1),(7,3))));
+
+STEP 3 [3sECR_ClassicHeuristic_MC -> NNI_Substep_1] - Distance: 19.0000
+((4,5),((((6,8),2),10),((9,1),(7,3))));
+
+STEP 4 [3sECR_ClassicHeuristic_MC -> NNI_Substep_2] - Distance: 18.0000
+((4,5),(((6,8),2),(10,((9,1),(7,3)))));
+
+STEP 5 [3sECR_ClassicHeuristic_MC -> NNI_Substep_3] - Distance: 15.0000
+((4,5),(((6,8),2),((10,(7,3)),(9,1))));
+
+STEP 6 [3sECR_ClassicHeuristic_MC -> NNI_Substep_4] - Distance: 15.0000
+((4,5),(((10,(7,3)),(9,1)),((2,8),6)));
+
+STEP 7 [3sECR_ClassicHeuristic_MC -> NNI_Substep_5] - Distance: 19.0000
+((4,5),((((10,(7,3)),(9,1)),(2,8)),6));
+
+STEP 8 [3sECR_ClassicHeuristic_MC -> NNI_Substep_6] - Distance: 12.0000
+(((4,5),6),((2,8),((9,1),((10,3),7))));
+
+STEP 9 [3sECR_ClassicHeuristic_MC -> NNI_Substep_7] - Distance: 13.0000
+(((4,5),6),((2,8),(((9,1),(10,3)),7)));
+
+STEP 10 [3sECR_ClassicHeuristic_MC -> NNI_Substep_8] - Distance: 11.0000
+(((4,5),6),(((2,8),7),((9,1),(10,3))));
+
+STEP 11 [3sECR_ClassicHeuristic_MC -> NNI_Substep_9] - Distance: 14.0000
+(((4,5),6),(((2,8),((9,1),(10,3))),7));
+
+STEP 12 [3sECR_ClassicHeuristic_MC -> NNI_Substep_10] - Distance: 7.0000
+(((2,8),((9,1),(10,3))),(7,((6,5),4)));
+
+STEP 13 [3sECR_ClassicHeuristic_MC -> NNI_Substep_11] - Distance: 6.0000
+(((2,8),((9,1),(10,3))),((7,4),(6,5)));
+
+STEP 14 [3sECR_ClassicHeuristic_MC -> NNI_Substep_12] - Distance: 7.0000
+(((2,8),((9,1),(10,3))),(((6,5),7),4));
+
+STEP 15 [3sECR_ClassicHeuristic_MC -> NNI_Substep_13] - Distance: 5.0000
+(((2,8),(((9,1),(10,3)),4)),((6,5),7));
+
+STEP 16 [3sECR_ClassicHeuristic_MC -> NNI_Substep_14] - Distance: 2.0000
+(((2,8),((4,(9,1)),(10,3))),((6,5),7));
+
+STEP 17 [3sECR_ClassicHeuristic_MC -> NNI_Substep_15] - Distance: 0.0000
+(((2,8),(((4,9),1),(10,3))),((6,5),7));
+
+========================================================
+[FINAL] Total Steps: 17 | Final Distance: 0.0000
+========================================================

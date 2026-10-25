@@ -1,0 +1,72 @@
+========================================================
+HEURISTIC TRAJECTORY: VND Incremental (MP)
+========================================================
+STEP 0 [START] - Distance: 27.0000
+(((4,(1,(8,7))),(3,2)),(9,(5,(6,10))));
+
+STEP 1 [NNI_IncrementalHeuristic_MP] - Distance: 20.0000
+((3,((4,(1,(8,7))),2)),(9,(5,(6,10))));
+
+STEP 2 [2sECR_IncrementalHeuristic_MP -> NNI_Substep_1] - Distance: 21.0000
+(((9,(5,(6,10))),(4,(2,(1,(8,7))))),3);
+
+STEP 3 [2sECR_IncrementalHeuristic_MP -> NNI_Substep_2] - Distance: 20.0000
+((((9,(5,(6,10))),4),(2,(1,(8,7)))),3);
+
+STEP 4 [2sECR_IncrementalHeuristic_MP -> NNI_Substep_3] - Distance: 18.0000
+(((1,(8,7)),(2,((9,(5,(6,10))),4))),3);
+
+STEP 5 [2sECR_IncrementalHeuristic_MP -> NNI_Substep_4] - Distance: 18.0000
+(((7,(1,8)),(2,((9,(5,(6,10))),4))),3);
+
+STEP 6 [2sECR_IncrementalHeuristic_MP -> NNI_Substep_5] - Distance: 17.0000
+(((1,8),((2,((9,(5,(6,10))),4)),7)),3);
+
+STEP 7 [2sECR_IncrementalHeuristic_MP -> NNI_Substep_6] - Distance: 16.0000
+(((1,8),((7,((9,(5,(6,10))),4)),2)),3);
+
+STEP 8 [2sECR_IncrementalHeuristic_MP -> NNI_Substep_7] - Distance: 15.0000
+(((1,8),((4,(7,(9,(5,(6,10))))),2)),3);
+
+STEP 9 [2sECR_IncrementalHeuristic_MP -> NNI_Substep_8] - Distance: 14.0000
+(((1,8),((4,((7,9),(5,(6,10)))),2)),3);
+
+STEP 10 [2sECR_IncrementalHeuristic_MP -> NNI_Substep_9] - Distance: 14.0000
+(((1,8),((4,(5,((6,10),(7,9)))),2)),3);
+
+STEP 11 [3sECR_IncrementalHeuristic_MP -> NNI_Substep_1] - Distance: 14.0000
+(((1,8),(2,((4,((6,10),(7,9))),5))),3);
+
+STEP 12 [3sECR_IncrementalHeuristic_MP -> NNI_Substep_2] - Distance: 14.0000
+(((1,8),((2,(4,((6,10),(7,9)))),5)),3);
+
+STEP 13 [3sECR_IncrementalHeuristic_MP -> NNI_Substep_3] - Distance: 9.0000
+((((1,8),5),(2,(4,((6,10),(7,9))))),3);
+
+STEP 14 [3sECR_IncrementalHeuristic_MP -> NNI_Substep_4] - Distance: 8.0000
+((((5,1),8),(2,(4,((6,10),(7,9))))),3);
+
+STEP 15 [Heur. rSPR MP -> NNI_Substep_1] - Distance: 8.0000
+((((5,1),8),(2,(4,((10,(7,9)),6)))),3);
+
+STEP 16 [Heur. rSPR MP -> NNI_Substep_2] - Distance: 8.0000
+((((5,1),8),(2,((4,(10,(7,9))),6))),3);
+
+STEP 17 [Heur. rSPR MP -> NNI_Substep_3] - Distance: 8.0000
+((((5,1),8),((2,(4,(10,(7,9)))),6)),3);
+
+STEP 18 [Heur. rSPR MP -> NNI_Substep_4] - Distance: 7.0000
+(((((5,1),8),(2,(4,(10,(7,9))))),6),3);
+
+STEP 19 [Heur. rSPR MP -> NNI_Substep_5] - Distance: 2.0000
+(((((5,1),8),6),(2,(4,(10,(7,9))))),3);
+
+STEP 20 [Heur. rSPR MP -> NNI_Substep_6] - Distance: 1.0000
+(((((5,1),6),8),(2,(4,(10,(7,9))))),3);
+
+STEP 21 [Heur. rSPR MP -> NNI_Substep_7] - Distance: 0.0000
+((((5,(1,6)),8),(2,(4,(10,(7,9))))),3);
+
+========================================================
+[FINAL] Total Steps: 21 | Final Distance: 0.0000
+========================================================
