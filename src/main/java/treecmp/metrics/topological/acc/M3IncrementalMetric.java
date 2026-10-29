@@ -52,6 +52,7 @@ public class M3IncrementalMetric implements IncrementalMetric,
 
     private Map<Node, BitSet> baseSplits;
     private Map<Node, BitSet> currentSplits;
+    private Map<Node, Node> nodeToVirt;
     private Node activePruneNode = null;
     private Map<Node, Integer> nodeToRow;
 
@@ -95,7 +96,6 @@ public class M3IncrementalMetric implements IncrementalMetric,
     private BitSet currentPrunedLeaves;
 
     private final MatchingTripletMetric mtMetricFull = new MatchingTripletMetric();
-    private final Stack<StateRecord> history = new Stack<>();
 
     private final UTbrUtils utbrUtils = new UTbrUtils();
     private final UsprUtils usprUtils = new UsprUtils();
@@ -116,6 +116,14 @@ public class M3IncrementalMetric implements IncrementalMetric,
     private double[] deltaOldDistance;
     private Node[] deltaOldSplitNode;
     private BitSet[] deltaOldSplitBits;
+    private Node[] deltaOldSplitNode2;
+    private BitSet[] deltaOldSplitBits2;
+    private Node[] deltaNniMoving;
+    private Node[] deltaNniPartner;
+    private Node[] deltaNniP1;
+    private Node[] deltaNniP2;
+    private int[] deltaNniIdx1;
+    private int[] deltaNniIdx2;
 
     // Prealokowane bufory trójpartycji dla 2D-DFS uTBR oraz ECR (zero alokacji)
     private final BitSet[] fastTripletSets1 = new BitSet[3];
@@ -153,7 +161,6 @@ public class M3IncrementalMetric implements IncrementalMetric,
 
     @Override
     public void initCalculationState(Tree baseTree, Tree targetTree) {
-        history.clear();
         deltaPointer = 0;
         activePruneNode = null;
         virtualTreeInitialized = false;
@@ -235,17 +242,27 @@ public class M3IncrementalMetric implements IncrementalMetric,
                 this.deltaOldDistance = new double[depth];
                 this.deltaOldSplitNode = new Node[depth];
                 this.deltaOldSplitBits = new BitSet[depth];
+                this.deltaOldSplitNode2 = new Node[depth];
+                this.deltaOldSplitBits2 = new BitSet[depth];
+                this.deltaNniMoving = new Node[depth];
+                this.deltaNniPartner = new Node[depth];
+                this.deltaNniP1 = new Node[depth];
+                this.deltaNniP2 = new Node[depth];
+                this.deltaNniIdx1 = new int[depth];
+                this.deltaNniIdx2 = new int[depth];
 
                 for (int d = 0; d < depth; d++) {
                     int rowSlots = (d < 2) ? dim : 4;
                     this.deltaOldRows[d] = new int[rowSlots][dim];
                     this.deltaOldSplitBits[d] = new BitSet(N);
+                    this.deltaOldSplitBits2[d] = new BitSet(N);
                 }
 
                 int expectedMapSize = (N * 2 + 5) * 4 / 3;
                 this.nodeToRow = new IdentityHashMap<>(expectedMapSize);
                 this.baseSplits = new IdentityHashMap<>(expectedMapSize);
                 this.currentSplits = new IdentityHashMap<>(expectedMapSize);
+                this.nodeToVirt = new IdentityHashMap<>(expectedMapSize * 2);
                 this.baseSigToRow = new HashMap<>((intT1Num * 4) / 3 + 1);
 
                 this.currentT1TripletCount = new int[dim];
@@ -282,6 +299,7 @@ public class M3IncrementalMetric implements IncrementalMetric,
                 this.nodeToRow.clear();
                 this.baseSplits.clear();
                 this.currentSplits.clear();
+                this.nodeToVirt.clear();
                 this.baseSigToRow.clear();
             }
 
@@ -354,18 +372,7 @@ public class M3IncrementalMetric implements IncrementalMetric,
             extractSplitsPostOrder(this.baseTree.getRoot());
 
             if (this.baseTree != baseTree) {
-                for (Node nOrig : TreeCmpUtils.getAllNodes(this.originalBaseTree)) {
-                    Node nCopy = getMappedNode(this.baseTree, nOrig);
-                    if (nCopy != null) {
-                        Integer row = nodeToRow.get(nCopy);
-                        if (row != null) {
-                            nodeToRow.put(nOrig, row);
-                        }
-                        BitSet bs = baseSplits.get(nCopy);
-                        baseSplits.put(nOrig, bs);
-                        currentSplits.put(nOrig, (BitSet) bs.clone());
-                    }
-                }
+                mapOrigToBaseRecursive(this.originalBaseTree.getRoot(), this.baseTree.getRoot());
             }
 
             // Inicjalizacja macierzy kosztów w czasie O(N^2) bez alokacji tablic w pętli
@@ -390,6 +397,33 @@ public class M3IncrementalMetric implements IncrementalMetric,
 
         } else {
             this.currentDistance = 0;
+        }
+    }
+
+    private void mapOrigToBaseRecursive(Node nOrig, Node nCopy) {
+        if (nOrig == null || nCopy == null) return;
+        Integer row = nodeToRow.get(nCopy);
+        if (row != null) {
+            nodeToRow.put(nOrig, row);
+        }
+        BitSet bs = baseSplits.get(nCopy);
+        if (bs != null) {
+            baseSplits.put(nOrig, bs);
+            currentSplits.put(nOrig, (BitSet) bs.clone());
+        }
+        int chCount = Math.min(nOrig.getChildCount(), nCopy.getChildCount());
+        for (int i = 0; i < chCount; i++) {
+            mapOrigToBaseRecursive(nOrig.getChild(i), nCopy.getChild(i));
+        }
+    }
+
+    private void mapTreeNodesRecursive(Node src, Node dst) {
+        if (src == null || dst == null) return;
+        this.nodeToVirt.put(src, dst);
+        this.nodeToVirt.put(dst, dst);
+        int chCount = Math.min(src.getChildCount(), dst.getChildCount());
+        for (int i = 0; i < chCount; i++) {
+            mapTreeNodesRecursive(src.getChild(i), dst.getChild(i));
         }
     }
 
@@ -423,9 +457,17 @@ public class M3IncrementalMetric implements IncrementalMetric,
     private void ensureVirtualTreeInitialized() {
         if (!virtualTreeInitialized && this.baseTree != null) {
             this.currentVirtualTree = TreeNeighborhoodUtils.fastTreeClone(this.baseTree);
+            this.nodeToVirt.clear();
+            mapTreeNodesRecursive(this.baseTree.getRoot(), this.currentVirtualTree.getRoot());
+            if (this.originalBaseTree != null && this.originalBaseTree != this.baseTree) {
+                mapTreeNodesRecursive(this.originalBaseTree.getRoot(), this.currentVirtualTree.getRoot());
+            }
             for (int i = 0; i < intT1Num; i++) {
                 Node nBase = this.baseTree.getInternalNode(i);
-                Node nVirt = this.currentVirtualTree.getInternalNode(i);
+                Node nVirt = this.nodeToVirt.get(nBase);
+                if (nVirt == null) {
+                    nVirt = this.currentVirtualTree.getInternalNode(i);
+                }
                 Integer row = nodeToRow.get(nBase);
                 if (row != null) {
                     nodeToRow.put(nVirt, row);
@@ -434,6 +476,17 @@ public class M3IncrementalMetric implements IncrementalMetric,
             extractVirtualSplitsPostOrder(this.currentVirtualTree.getRoot());
             virtualTreeInitialized = true;
         }
+    }
+
+    private Node getVirtualNode(Node srcNode) {
+        if (srcNode == null) return null;
+        Node virt = this.nodeToVirt.get(srcNode);
+        if (virt != null) return virt;
+        virt = getMappedNode(this.currentVirtualTree, srcNode);
+        if (virt != null) {
+            this.nodeToVirt.put(srcNode, virt);
+        }
+        return virt;
     }
 
     private BitSet extractVirtualSplitsPostOrder(Node node) {
@@ -481,6 +534,14 @@ public class M3IncrementalMetric implements IncrementalMetric,
             deltaOldDistance = Arrays.copyOf(deltaOldDistance, newDepth);
             deltaOldSplitNode = Arrays.copyOf(deltaOldSplitNode, newDepth);
             deltaOldSplitBits = Arrays.copyOf(deltaOldSplitBits, newDepth);
+            deltaOldSplitNode2 = Arrays.copyOf(deltaOldSplitNode2, newDepth);
+            deltaOldSplitBits2 = Arrays.copyOf(deltaOldSplitBits2, newDepth);
+            deltaNniMoving = Arrays.copyOf(deltaNniMoving, newDepth);
+            deltaNniPartner = Arrays.copyOf(deltaNniPartner, newDepth);
+            deltaNniP1 = Arrays.copyOf(deltaNniP1, newDepth);
+            deltaNniP2 = Arrays.copyOf(deltaNniP2, newDepth);
+            deltaNniIdx1 = Arrays.copyOf(deltaNniIdx1, newDepth);
+            deltaNniIdx2 = Arrays.copyOf(deltaNniIdx2, newDepth);
 
             for (int d = deltaMaxDepth; d < newDepth; d++) {
                 deltaRows[d] = new int[dim];
@@ -491,19 +552,22 @@ public class M3IncrementalMetric implements IncrementalMetric,
                 deltaOldRowsol[d] = new int[dim];
                 deltaOldColsol[d] = new int[dim];
                 deltaOldSplitBits[d] = new BitSet(N);
+                deltaOldSplitBits2[d] = new BitSet(N);
             }
             deltaMaxDepth = newDepth;
         }
         if (deltaOldRows[deltaPointer].length < requiredRows) {
             deltaOldRows[deltaPointer] = new int[Math.max(requiredRows, dim)][dim];
         }
+        deltaOldSplitNode[deltaPointer] = null;
+        deltaOldSplitNode2[deltaPointer] = null;
+        deltaNniMoving[deltaPointer] = null;
     }
 
     private void pushEmptyDelta() {
         ensureDeltaCapacity(0);
         int d = deltaPointer;
         deltaRowsCount[d] = 0;
-        deltaOldSplitNode[d] = null;
         deltaOldDistance[d] = currentDistance;
         deltaPointer++;
     }
@@ -520,7 +584,6 @@ public class M3IncrementalMetric implements IncrementalMetric,
         System.arraycopy(v, 0, deltaOldV[d], 0, dim);
         System.arraycopy(rowsol, 0, deltaOldRowsol[d], 0, dim);
         System.arraycopy(colsol, 0, deltaOldColsol[d], 0, dim);
-        deltaOldSplitNode[d] = null;
         deltaOldDistance[d] = currentDistance;
         deltaPointer++;
 
@@ -547,7 +610,6 @@ public class M3IncrementalMetric implements IncrementalMetric,
         System.arraycopy(v, 0, deltaOldV[d], 0, dim);
         System.arraycopy(rowsol, 0, deltaOldRowsol[d], 0, dim);
         System.arraycopy(colsol, 0, deltaOldColsol[d], 0, dim);
-        deltaOldSplitNode[d] = null;
         deltaOldDistance[d] = currentDistance;
         deltaPointer++;
 
@@ -585,7 +647,6 @@ public class M3IncrementalMetric implements IncrementalMetric,
         System.arraycopy(v, 0, deltaOldV[d], 0, dim);
         System.arraycopy(rowsol, 0, deltaOldRowsol[d], 0, dim);
         System.arraycopy(colsol, 0, deltaOldColsol[d], 0, dim);
-        deltaOldSplitNode[d] = null;
         deltaOldDistance[d] = currentDistance;
         deltaPointer++;
 
@@ -617,6 +678,21 @@ public class M3IncrementalMetric implements IncrementalMetric,
             System.arraycopy(deltaOldColsol[d], 0, colsol, 0, dim);
         }
 
+        if (deltaNniMoving[d] != null) {
+            Node p1 = deltaNniP1[d];
+            Node p2 = deltaNniP2[d];
+            Node moving = deltaNniMoving[d];
+            Node partner = deltaNniPartner[d];
+            p1.setChild(deltaNniIdx1[d], moving);
+            moving.setParent(p1);
+            p2.setChild(deltaNniIdx2[d], partner);
+            partner.setParent(p2);
+            deltaNniMoving[d] = null;
+            deltaNniPartner[d] = null;
+            deltaNniP1[d] = null;
+            deltaNniP2[d] = null;
+        }
+
         if (deltaOldSplitNode[d] != null) {
             Node vNode = deltaOldSplitNode[d];
             BitSet bs = currentSplits.get(vNode);
@@ -629,6 +705,18 @@ public class M3IncrementalMetric implements IncrementalMetric,
             deltaOldSplitNode[d] = null;
         }
 
+        if (deltaOldSplitNode2[d] != null) {
+            Node uNode = deltaOldSplitNode2[d];
+            BitSet bs2 = currentSplits.get(uNode);
+            if (bs2 == null) {
+                bs2 = new BitSet(N);
+                currentSplits.put(uNode, bs2);
+            }
+            bs2.clear();
+            bs2.or(deltaOldSplitBits2[d]);
+            deltaOldSplitNode2[d] = null;
+        }
+
         this.currentDistance = deltaOldDistance[d];
     }
 
@@ -636,7 +724,8 @@ public class M3IncrementalMetric implements IncrementalMetric,
         if (n == null || n.isLeaf()) return null;
         Integer row = nodeToRow.get(n);
         if (row != null) return row;
-        Node mapped = getMappedNode(this.currentVirtualTree, n);
+        Node mapped = (virtualTreeInitialized) ? nodeToVirt.get(n) : null;
+        if (mapped == null) mapped = getMappedNode(this.currentVirtualTree, n);
         if (mapped == null) mapped = getMappedNode(this.baseTree, n);
         if (mapped != null && !mapped.isLeaf()) {
             row = nodeToRow.get(mapped);
@@ -652,7 +741,8 @@ public class M3IncrementalMetric implements IncrementalMetric,
         if (n == null) return new BitSet(N);
         BitSet bs = currentSplits.get(n);
         if (bs != null) return bs;
-        Node mapped = getMappedNode(this.baseTree, n);
+        Node mapped = (virtualTreeInitialized) ? nodeToVirt.get(n) : null;
+        if (mapped == null) mapped = getMappedNode(this.baseTree, n);
         if (mapped != null) {
             bs = currentSplits.get(mapped);
             if (bs != null) {
@@ -1267,7 +1357,7 @@ public class M3IncrementalMetric implements IncrementalMetric,
         try {
             tempTree = usprUtils.createUsprTree(tree, pruneNode, targetNode);
             if (tempTree != null) {
-                TreeCmpUtils.unrootTreeIfNeeded(tempTree); // Dodano: zachowanie zgodności liczby węzłów wewnętrznych (intT1Num)
+                TreeCmpUtils.unrootTreeIfNeeded(tempTree);
             }
         } catch (Exception ignored) {
         }
@@ -1287,7 +1377,7 @@ public class M3IncrementalMetric implements IncrementalMetric,
     }
 
     // =========================================================================
-    // SPR & NNI
+    // SPR & NNI (100% ZERO-ALLOCATION NA STOSIE DELTA!)
     // =========================================================================
 
     public boolean applyNniStep(Node nodeToUpdate, BitSet bitsOut, BitSet bitsIn) {
@@ -1398,52 +1488,129 @@ public class M3IncrementalMetric implements IncrementalMetric,
         return fixedDist;
     }
 
+    private void refreshNodeSplitInPlace(Node n) {
+        BitSet b = currentSplits.get(n);
+        if (b == null) {
+            b = new BitSet(N);
+            currentSplits.put(n, b);
+        } else {
+            b.clear();
+        }
+        int chCount = n.getChildCount();
+        for (int i = 0; i < chCount; i++) {
+            b.or(getSplitForNode(n.getChild(i)));
+        }
+    }
+
     @Override
     public double applyNni(NniMove move) {
         ensureVirtualTreeInitialized();
-        Node virtMoving = getMappedNode(this.currentVirtualTree, move.movingSubtree);
-        Node virtPartner = getMappedNode(this.currentVirtualTree, move.swapPartner);
+        Node virtMoving = getVirtualNode(move.movingSubtree);
+        Node virtPartner = getVirtualNode(move.swapPartner);
 
-        if (virtMoving == null || virtPartner == null) return pushUnchangedState();
+        if (virtMoving == null || virtPartner == null) {
+            pushEmptyDelta();
+            return this.currentDistance;
+        }
 
         Node p1 = virtMoving.getParent();
         Node p2 = virtPartner.getParent();
-        if (p1 == null || p2 == null || p1 == p2) return pushUnchangedState();
+        if (p1 == null || p2 == null || p1 == p2) {
+            pushEmptyDelta();
+            return this.currentDistance;
+        }
 
         int idx1 = findChildPos(virtMoving, p1);
         int idx2 = findChildPos(virtPartner, p2);
-        if (idx1 == -1 || idx2 == -1) return pushUnchangedState();
+        if (idx1 == -1 || idx2 == -1) {
+            pushEmptyDelta();
+            return this.currentDistance;
+        }
 
         Integer r1 = getRowForNode(p1);
         Integer r2 = getRowForNode(p2);
-        if (r1 == null && r2 == null) return pushUnchangedState();
-
-        history.push(new StateRecord(assigncost, rowsol, colsol, u, v, currentDistance, currentVirtualTree, currentT1TripletCount, currentSplits, nodeToRow, virtMoving, virtPartner));
-
-        p1.setChild(idx1, virtPartner); virtPartner.setParent(p1);
-        p2.setChild(idx2, virtMoving); virtMoving.setParent(p2);
-
-        if (p2.getParent() == p1) {
-            refreshNodeSplit(p2);
-            refreshNodeSplit(p1);
-        } else {
-            refreshNodeSplit(p1);
-            refreshNodeSplit(p2);
+        if (r1 == null && r2 == null) {
+            pushEmptyDelta();
+            return this.currentDistance;
         }
 
-        int changedCount = 0;
+        int count = 0;
+        if (r1 != null) count++;
+        if (r2 != null && !r2.equals(r1)) count++;
+
+        ensureDeltaCapacity(count);
+        int d = deltaPointer;
+        deltaRowsCount[d] = count;
+
+        int idx = 0;
+        if (r1 != null) {
+            deltaRows[d][idx] = r1;
+            System.arraycopy(assigncost[r1], 0, deltaOldRows[d][idx], 0, dim);
+            deltaOldTripletCounts[d][idx] = currentT1TripletCount[r1];
+            idx++;
+        }
+        if (r2 != null && !r2.equals(r1)) {
+            deltaRows[d][idx] = r2;
+            System.arraycopy(assigncost[r2], 0, deltaOldRows[d][idx], 0, dim);
+            deltaOldTripletCounts[d][idx] = currentT1TripletCount[r2];
+            idx++;
+        }
+
+        if (count > 0) {
+            System.arraycopy(this.u, 0, deltaOldU[d], 0, dim);
+            System.arraycopy(this.v, 0, deltaOldV[d], 0, dim);
+            System.arraycopy(this.rowsol, 0, deltaOldRowsol[d], 0, dim);
+            System.arraycopy(this.colsol, 0, deltaOldColsol[d], 0, dim);
+        }
+        deltaOldDistance[d] = currentDistance;
+
+        BitSet oldSplitP1 = getSplitForNode(p1);
+        deltaOldSplitNode[d] = p1;
+        deltaOldSplitBits[d].clear();
+        if (oldSplitP1 != null) {
+            deltaOldSplitBits[d].or(oldSplitP1);
+        }
+
+        BitSet oldSplitP2 = getSplitForNode(p2);
+        deltaOldSplitNode2[d] = p2;
+        deltaOldSplitBits2[d].clear();
+        if (oldSplitP2 != null) {
+            deltaOldSplitBits2[d].or(oldSplitP2);
+        }
+
+        deltaNniMoving[d] = virtMoving;
+        deltaNniPartner[d] = virtPartner;
+        deltaNniP1[d] = p1;
+        deltaNniP2[d] = p2;
+        deltaNniIdx1[d] = idx1;
+        deltaNniIdx2[d] = idx2;
+        deltaPointer++;
+
+        p1.setChild(idx1, virtPartner);
+        virtPartner.setParent(p1);
+        p2.setChild(idx2, virtMoving);
+        virtMoving.setParent(p2);
+
+        if (p2.getParent() == p1) {
+            refreshNodeSplitInPlace(p2);
+            refreshNodeSplitInPlace(p1);
+        } else {
+            refreshNodeSplitInPlace(p1);
+            refreshNodeSplitInPlace(p2);
+        }
+
         if (r1 != null) {
             computeNodeRowCostInPlace(r1, p1);
-            scratchChangedRows[changedCount++] = r1;
         }
         if (r2 != null && !r2.equals(r1)) {
             computeNodeRowCostInPlace(r2, p2);
-            scratchChangedRows[changedCount++] = r2;
         }
 
-        if (changedCount > 0) {
-            int[] changedRows = cachedKArrays[changedCount];
-            System.arraycopy(scratchChangedRows, 0, changedRows, 0, changedCount);
+        if (count > 0) {
+            int[] changedRows = cachedKArrays[count];
+            for (int i = 0; i < count; i++) {
+                changedRows[i] = deltaRows[d][i];
+            }
             int rawMetric = LapSolver.lapUpdate(dim, assigncost, rowsol, colsol, u, v, changedRows);
             this.currentDistance = 0.5 * rawMetric;
         }
@@ -1451,45 +1618,9 @@ public class M3IncrementalMetric implements IncrementalMetric,
         return this.currentDistance;
     }
 
-    private void refreshNodeSplit(Node n) {
-        BitSet b = new BitSet(N);
-        for (int i = 0; i < n.getChildCount(); i++) {
-            b.or(getSplitForNode(n.getChild(i)));
-        }
-        currentSplits.put(n, b);
-    }
-
     @Override
     public void undoNni(NniMove move) {
-        if (!history.isEmpty()) {
-            StateRecord r = history.pop();
-            this.assigncost = r.oldAssigncost;
-            this.rowsol = r.rowsol;
-            this.colsol = r.colsol;
-            this.u = r.u;
-            this.v = r.v;
-            this.currentDistance = r.distance;
-            this.currentT1TripletCount = r.oldTripletCount;
-
-            if (r.nniMovingNode != null && r.nniPartnerNode != null) {
-                Node p1 = r.nniPartnerNode.getParent();
-                Node p2 = r.nniMovingNode.getParent();
-                if (p1 != null && p2 != null) {
-                    int i1 = findChildPos(r.nniPartnerNode, p1);
-                    int i2 = findChildPos(r.nniMovingNode, p2);
-                    if (i1 != -1 && i2 != -1) {
-                        p1.setChild(i1, r.nniMovingNode); r.nniMovingNode.setParent(p1);
-                        p2.setChild(i2, r.nniPartnerNode); r.nniPartnerNode.setParent(p2);
-                    }
-                }
-            } else {
-                this.currentVirtualTree = r.oldTree;
-            }
-
-            this.currentSplits.clear();
-            this.currentSplits.putAll(r.oldSplits);
-            this.nodeToRow = new IdentityHashMap<>(r.oldNodeToRow);
-        }
+        undoDeltaStack();
     }
 
     // =========================================================================
@@ -1605,7 +1736,6 @@ public class M3IncrementalMetric implements IncrementalMetric,
             System.arraycopy(rowsol, 0, deltaOldRowsol[d], 0, dim);
             System.arraycopy(colsol, 0, deltaOldColsol[d], 0, dim);
         }
-        deltaOldSplitNode[d] = null;
         deltaOldDistance[d] = currentDistance;
         deltaPointer++;
 
@@ -1683,7 +1813,6 @@ public class M3IncrementalMetric implements IncrementalMetric,
             System.arraycopy(rowsol, 0, deltaOldRowsol[d], 0, dim);
             System.arraycopy(colsol, 0, deltaOldColsol[d], 0, dim);
         }
-        deltaOldSplitNode[d] = null;
         deltaOldDistance[d] = currentDistance;
         deltaPointer++;
 
@@ -1742,43 +1871,6 @@ public class M3IncrementalMetric implements IncrementalMetric,
         union.or(leftBits);
         union.or(rightBits);
         return union;
-    }
-
-    private double pushUnchangedState() {
-        history.push(new StateRecord(assigncost, rowsol, colsol, u, v, currentDistance, currentVirtualTree, currentT1TripletCount, currentSplits, nodeToRow, null, null));
-        return this.currentDistance;
-    }
-
-    private static class StateRecord {
-        int[][] oldAssigncost;
-        int[] rowsol, colsol, u, v;
-        double distance;
-        Tree oldTree;
-        int[] oldTripletCount;
-        Map<Node, BitSet> oldSplits;
-        Map<Node, Integer> oldNodeToRow;
-        Node nniMovingNode;
-        Node nniPartnerNode;
-
-        StateRecord(int[][] assigncost, int[] rs, int[] cs, int[] u, int[] v, double d, Tree oldTree,
-                    int[] tc, Map<Node, BitSet> currentSplits, Map<Node, Integer> nodeToRow,
-                    Node nniMovingNode, Node nniPartnerNode) {
-            this.oldAssigncost = new int[assigncost.length][];
-            for (int i = 0; i < assigncost.length; i++) {
-                this.oldAssigncost[i] = assigncost[i].clone();
-            }
-            this.rowsol = rs.clone();
-            this.colsol = cs.clone();
-            this.u = u.clone();
-            this.v = v.clone();
-            this.distance = d;
-            this.oldTree = oldTree;
-            this.oldTripletCount = tc.clone();
-            this.oldSplits = new IdentityHashMap<>(currentSplits);
-            this.oldNodeToRow = new IdentityHashMap<>(nodeToRow);
-            this.nniMovingNode = nniMovingNode;
-            this.nniPartnerNode = nniPartnerNode;
-        }
     }
 
     private static BitSet getLeaves(Node n, IdGroup idGroup) {
@@ -1940,12 +2032,13 @@ public class M3IncrementalMetric implements IncrementalMetric,
     public void undoSprPrune(Node pruneNode) { this.activePruneNode = null; }
 
     @Override public double getCurrentDistance() { return this.currentDistance; }
-    @Override public void commit() { history.clear(); deltaPointer = 0; }
+    @Override public void commit() { deltaPointer = 0; }
     @Override public double getDistance(Tree t1, Tree t2, int... indexes) { return mtMetricFull.getDistance(t1, t2, indexes); }
     @Override public String getName() { return "Accelerated " + mtMetricFull.getName(); }
     @Override public String getCommandLineName() { return mtMetricFull.getCommandLineName(); }
     @Override public void setCommandLineName(String cln) { mtMetricFull.setCommandLineName(cln); }
-    @Override public void setName(String name) { mtMetricFull.setName(name); }
+    @Override public void setName(String name) { mpMetricSetNameFallback(name); }
+    private void mpMetricSetNameFallback(String name) { mtMetricFull.setName(name); }
     @Override public String getDescription() { return mtMetricFull.getDescription(); }
     @Override public void setDescription(String d) { mtMetricFull.setDescription(d); }
     @Override public void initData() { mtMetricFull.initData(); }
