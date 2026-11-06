@@ -16,8 +16,9 @@ import treecmp.heuristics.ecr.acc.Ecr3IncrementalMetric;
 import treecmp.heuristics.moves.NniMove;
 import treecmp.heuristics.nni.acc.NniIncrementalMetric;
 import treecmp.heuristics.spr.UsprUtils;
+import treecmp.heuristics.spr.acc.SprIncrementalMetric;
 import treecmp.heuristics.tbr.UTbrUtils;
-import treecmp.heuristics.tbr.acc.RootedTbrMetric;
+import treecmp.heuristics.tbr.acc.TbrIncrementalMetric;
 import treecmp.metrics.IncrementalMetric;
 import treecmp.metrics.topological.MatchingTripletMetric;
 
@@ -27,7 +28,8 @@ public class M3IncrementalMetric implements IncrementalMetric,
         NniIncrementalMetric,
         Ecr2IncrementalMetric,
         Ecr3IncrementalMetric,
-        RootedTbrMetric {
+        SprIncrementalMetric,
+        TbrIncrementalMetric {
 
     private Tree originalBaseTree;
     private Tree baseTree;
@@ -38,6 +40,9 @@ public class M3IncrementalMetric implements IncrementalMetric,
     private boolean baseSigToRowInitialized = false;
 
     private double currentDistance;
+    private double bestSeenInCurrentScan = Double.POSITIVE_INFINITY;
+    private boolean enableTriangleLowerBoundPruning = true;
+
     private int dim;
     private int intT1Num;
     private int intT2Num;
@@ -47,7 +52,6 @@ public class M3IncrementalMetric implements IncrementalMetric,
     private int allocatedN = -1;
 
     private IdGroup baseIdGroup;
-    private int[][] targetLcaMatrix;
     private int[] targetIdToCol;
 
     private Map<Node, BitSet> baseSplits;
@@ -157,6 +161,10 @@ public class M3IncrementalMetric implements IncrementalMetric,
 
     public BitSet getSplit(Node n) {
         return getSplitForNode(n);
+    }
+
+    public void setEnableTriangleLowerBoundPruning(boolean enable) {
+        this.enableTriangleLowerBoundPruning = enable;
     }
 
     @Override
@@ -360,8 +368,6 @@ public class M3IncrementalMetric implements IncrementalMetric,
                 for (int i = 0; i < intT2Num; i++) {
                     this.t2IntTripletCount[i] = countTriplets(this.targetTree.getInternalNode(i), cSize2);
                 }
-
-                this.targetLcaMatrix = TreeCmpUtils.calcLcaMatrix(this.targetTree, this.baseIdGroup);
             }
 
             for (int i = 0; i < intT1Num; i++) {
@@ -394,9 +400,11 @@ public class M3IncrementalMetric implements IncrementalMetric,
 
             int rawMetric = LapSolver.lap(dim, lapCostScratch, rowsol, colsol, this.u, this.v);
             this.currentDistance = 0.5 * rawMetric;
+            this.bestSeenInCurrentScan = this.currentDistance;
 
         } else {
             this.currentDistance = 0;
+            this.bestSeenInCurrentScan = 0;
         }
     }
 
@@ -1377,6 +1385,59 @@ public class M3IncrementalMetric implements IncrementalMetric,
     }
 
     // =========================================================================
+    // O(1) OGRANICZENIE Z NIERÓWNOŚCI TRÓJKĄTA DLA NNI (LEMAT O PERTURBACJI M3)
+    // =========================================================================
+
+    /**
+     * Wylicza w czasie O(1) dokładną odległość M3 pomiędzy bieżącym drzewem a drzewem
+     * po ruchu uNNI: min( |A|*|B|*(|C|+|D|), |C|*|D|*(|A|+|B|) ), co stanowi ścisłe
+     * górne ograniczenie zmiany odległości względem dowolnego drzewa docelowego T2.
+     */
+    public double getNniMaxDelta(NniMove move) {
+        ensureVirtualTreeInitialized();
+        Node virtMoving = getVirtualNode(move.movingSubtree);
+        Node virtPartner = getVirtualNode(move.swapPartner);
+        if (virtMoving == null || virtPartner == null) return 0.0;
+        Node p1 = virtMoving.getParent();
+        Node p2 = virtPartner.getParent();
+        if (p1 == null || p2 == null || p1 == p2) return 0.0;
+        return computeNniMaxDeltaInternal(virtMoving, virtPartner, p1, p2);
+    }
+
+    private double computeNniMaxDeltaInternal(Node virtMoving, Node virtPartner, Node p1, Node p2) {
+        BitSet bsB = getSplitForNode(virtMoving);
+        BitSet bsC = getSplitForNode(virtPartner);
+        if (bsB == null || bsC == null) return Double.POSITIVE_INFINITY;
+
+        int cardB = bsB.cardinality();
+        int cardC = bsC.cardinality();
+        int cardA = -1;
+        int cardD = -1;
+
+        if (p1.getParent() == p2) {
+            BitSet bsP1 = getSplitForNode(p1);
+            if (bsP1 != null) {
+                cardA = bsP1.cardinality() - cardB;
+                cardD = N - bsP1.cardinality() - cardC;
+            }
+        } else if (p2.getParent() == p1) {
+            BitSet bsP2 = getSplitForNode(p2);
+            if (bsP2 != null) {
+                cardD = bsP2.cardinality() - cardC;
+                cardA = N - bsP2.cardinality() - cardB;
+            }
+        }
+
+        if (cardA <= 0 || cardB <= 0 || cardC <= 0 || cardD <= 0) {
+            return Double.POSITIVE_INFINITY;
+        }
+
+        long term1 = (long) cardA * cardB * (cardC + cardD);
+        long term2 = (long) cardC * cardD * (cardA + cardB);
+        return (double) Math.min(term1, term2);
+    }
+
+    // =========================================================================
     // SPR & NNI (100% ZERO-ALLOCATION NA STOSIE DELTA!)
     // =========================================================================
 
@@ -1500,6 +1561,33 @@ public class M3IncrementalMetric implements IncrementalMetric,
         for (int i = 0; i < chCount; i++) {
             b.or(getSplitForNode(n.getChild(i)));
         }
+    }
+
+    /**
+     * Ewaluacja ruchu NNI z jawnym progiem odcięcia (Branch-and-Bound) w oparciu o lemat.
+     */
+    /**
+     * Wariant z jawnym progiem dla heurystyk Branch-and-Bound.
+     * Jeśli ruch na pewno nie pobije bestThreshold, zwraca natychmiast Double.POSITIVE_INFINITY
+     * bez dotykania stosu delta i bez modyfikacji drzewa.
+     */
+    public double applyNni(NniMove move, double bestThreshold) {
+        if (enableTriangleLowerBoundPruning) {
+            ensureVirtualTreeInitialized();
+            Node virtMoving = getVirtualNode(move.movingSubtree);
+            Node virtPartner = getVirtualNode(move.swapPartner);
+            if (virtMoving != null && virtPartner != null) {
+                Node p1 = virtMoving.getParent();
+                Node p2 = virtPartner.getParent();
+                if (p1 != null && p2 != null && p1 != p2) {
+                    double maxDelta = computeNniMaxDeltaInternal(virtMoving, virtPartner, p1, p2);
+                    if (this.currentDistance - maxDelta >= bestThreshold) {
+                        return Double.POSITIVE_INFINITY;
+                    }
+                }
+            }
+        }
+        return applyNni(move);
     }
 
     @Override
@@ -1649,7 +1737,9 @@ public class M3IncrementalMetric implements IncrementalMetric,
 
     @Override
     public double commit2sEcrMove(Node top, Node m1, Node m2, Node[] b, SubtreeEcr2Utils.TopologyTemplate2sECR template) {
-        return apply2sEcrDelta(top, m1, m2, b, template, true);
+        double dist = apply2sEcrDelta(top, m1, m2, b, template, true);
+        this.bestSeenInCurrentScan = dist;
+        return dist;
     }
 
     private double apply2sEcrDelta(Node top, Node m1, Node m2, Node[] b, SubtreeEcr2Utils.TopologyTemplate2sECR template, boolean updateSplits) {
@@ -1773,7 +1863,9 @@ public class M3IncrementalMetric implements IncrementalMetric,
 
     @Override
     public double commit3sEcrMove(List<Node> cluster, Node[] b, SubtreeEcr3Utils.TopologyTemplate3sECR template) {
-        return apply3sEcrDelta(cluster, b, template, true);
+        double dist = apply3sEcrDelta(cluster, b, template, true);
+        this.bestSeenInCurrentScan = dist;
+        return dist;
     }
 
     private double apply3sEcrDelta(List<Node> cluster, Node[] b, SubtreeEcr3Utils.TopologyTemplate3sECR template, boolean updateSplits) {
@@ -2032,7 +2124,7 @@ public class M3IncrementalMetric implements IncrementalMetric,
     public void undoSprPrune(Node pruneNode) { this.activePruneNode = null; }
 
     @Override public double getCurrentDistance() { return this.currentDistance; }
-    @Override public void commit() { deltaPointer = 0; }
+    @Override public void commit() { deltaPointer = 0; this.bestSeenInCurrentScan = this.currentDistance; }
     @Override public double getDistance(Tree t1, Tree t2, int... indexes) { return mtMetricFull.getDistance(t1, t2, indexes); }
     @Override public String getName() { return "Accelerated " + mtMetricFull.getName(); }
     @Override public String getCommandLineName() { return mtMetricFull.getCommandLineName(); }
