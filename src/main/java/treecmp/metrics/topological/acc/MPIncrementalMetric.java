@@ -131,6 +131,46 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
         return getBaseSplit(n);
     }
 
+    private boolean enableTriangleLowerBoundPruning = true;
+
+    public void setEnableTriangleLowerBoundPruning(boolean enable) {
+        this.enableTriangleLowerBoundPruning = enable;
+    }
+
+    /**
+     * Wylicza w czasie O(1) dokladna odleglosc Matching Pair pomiedzy T1 a T1' po ruchu rNNI (Lemat 1):
+     * min( |A|*(|B| + |C|), |B|*|C| )
+     */
+    public double computeMpNniMaxDelta(Node p1, Node p2, Node moving, Node partner) {
+        // Identyfikacja wezla wyzszego (rodzic u) oraz nizszego (dziecko v)
+        Node u = (p2.getParent() == p1) ? p1 : ((p1.getParent() == p2) ? p2 : null);
+        Node v = (u == p1) ? p2 : p1;
+        if (u == null || v == null) return Double.POSITIVE_INFINITY;
+
+        // Poddrzewo B to dziecko v biorace udzial w zamianie
+        Node subB = (v == p1) ? moving : partner;
+        // Poddrzewo C to rodzenstwo v (dziecko u biorace udzial w zamianie)
+        Node subC = (u == p1) ? moving : partner;
+
+        BitSet bsB = getSplitForNode(subB);
+        BitSet bsC = getSplitForNode(subC);
+        BitSet bsV = getSplitForNode(v);
+        if (bsB == null || bsC == null || bsV == null) return Double.POSITIVE_INFINITY;
+
+        int cardB = bsB.cardinality();
+        int cardC = bsC.cardinality();
+        int cardV = bsV.cardinality();
+        int cardA = cardV - cardB; // Drugie dziecko wezla v, ktore nie ulega zamianie
+
+        if (cardA <= 0 || cardB <= 0 || cardC <= 0) {
+            return Double.POSITIVE_INFINITY;
+        }
+
+        long opt1 = (long) cardA * (cardB + cardC);
+        long opt2 = (long) cardB * cardC;
+        return (double) Math.min(opt1, opt2);
+    }
+
     public double evaluateExactTbrDistance(Node pruneNode, Node rerootNode, Node targetNode) {
         if (pruneNode == null || targetNode == null || this.targetTree == null) {
             return Double.POSITIVE_INFINITY;
@@ -1226,6 +1266,30 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
         }
     }
 
+    /**
+     * Ewaluacja rNNI z jawnym odcieciem Branch-and-Bound w oparciu o nierownosc trojkata (Twierdzenie 2).
+     */
+    public double applyNni(NniMove move, double bestThreshold) {
+        if (enableTriangleLowerBoundPruning) {
+            ensureVirtualTreeInitialized();
+            Node virtMoving = getVirtualNode(move.movingSubtree);
+            Node virtPartner = getVirtualNode(move.swapPartner);
+            if (virtMoving != null && virtPartner != null) {
+                Node p1 = virtMoving.getParent();
+                Node p2 = virtPartner.getParent();
+                if (p1 != null && p2 != null && p1 != p2) {
+                    double maxDelta = computeMpNniMaxDelta(p1, p2, virtMoving, virtPartner);
+                    // Jezeli dolne ograniczenie odleglosci nie ma szans pobic bestThreshold,
+                    // odrzucamy ruch natychmiast w O(1) bez alokacji i bez uruchamiania LAP.
+                    if (this.currentDistance - maxDelta >= bestThreshold) {
+                        return Double.POSITIVE_INFINITY;
+                    }
+                }
+            }
+        }
+        return applyNni(move);
+    }
+
     @Override
     public double applyNni(NniMove move) {
         ensureVirtualTreeInitialized();
@@ -1609,8 +1673,27 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
         else for (int i = 0; i < n.getChildCount(); i++) populate(n.getChild(i), idGroup, bs);
     }
 
+    @Override
+    public void commit() {
+        this.deltaPointer = 0;
+        this.activePruneNode = null;
+        if (this.currentPrunedLeaves != null) {
+            this.currentPrunedLeaves.clear();
+        }
+
+        // Utrwalenie biezacych klastrow jako nowego stanu bazowego pod kolejne fazy (np. TBR/ECR)
+        for (Map.Entry<Node, BitSet> entry : currentSplits.entrySet()) {
+            BitSet baseBs = baseSplits.get(entry.getKey());
+            if (baseBs != null) {
+                baseBs.clear();
+                baseBs.or(entry.getValue());
+            } else {
+                baseSplits.put(entry.getKey(), (BitSet) entry.getValue().clone());
+            }
+        }
+    }
+
     @Override public double getCurrentDistance() { return this.currentDistance; }
-    @Override public void commit() { deltaPointer = 0; }
     @Override public double getDistance(Tree t1, Tree t2, int... indexes) { return mpMetricFull.getDistance(t1, t2, indexes); }
     @Override public String getName() { return "Accelerated " + mpMetricFull.getName(); }
     @Override public String getCommandLineName() { return mpMetricFull.getCommandLineName(); }
