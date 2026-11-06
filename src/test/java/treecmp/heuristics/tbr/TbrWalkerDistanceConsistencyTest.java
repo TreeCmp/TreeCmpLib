@@ -4,10 +4,8 @@ import org.junit.jupiter.api.Test;
 import pal.tree.SimpleTree;
 import pal.tree.Tree;
 import treecmp.common.TreeCmpException;
-import treecmp.heuristics.tbr.TbrUtils;
-import treecmp.heuristics.tbr.UTbrUtils;
 import treecmp.heuristics.tbr.acc.IncrementalTbrWalker;
-import treecmp.heuristics.tbr.acc.RootedTbrMetric;
+import treecmp.heuristics.tbr.acc.TbrIncrementalMetric;
 import treecmp.heuristics.tbr.acc.TbrNeighborhoodWalker;
 import treecmp.heuristics.tbr.acc.UtbrNeighborhoodWalker;
 import treecmp.metrics.IncrementalMetric;
@@ -179,7 +177,7 @@ public class TbrWalkerDistanceConsistencyTest {
             IncrementalTbrWalker walker = new IncrementalTbrWalker();
             TbrUtils tbrUtils = new TbrUtils();
 
-            walker.walk(t1, (RootedTbrMetric) inc, (actualDist, pruneNode, rerootNode, targetNode) -> {
+            walker.walk(t1, (TbrIncrementalMetric) inc, (actualDist, pruneNode, rerootNode, targetNode) -> {
                 Tree physicalTree = tbrUtils.createTbrTree(t1, pruneNode, rerootNode, targetNode);
                 if (physicalTree != null) {
                     assignNumbers(physicalTree);

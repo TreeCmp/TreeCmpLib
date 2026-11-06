@@ -2,14 +2,14 @@ package treecmp.metrics.topological.acc;
 
 import pal.tree.Node;
 import pal.tree.Tree;
-import treecmp.heuristics.spr.acc.RootedSprIncrementalMetric;
-import treecmp.heuristics.tbr.acc.RootedTbrMetric;
+import treecmp.heuristics.spr.acc.SprIncrementalMetric;
+import treecmp.heuristics.tbr.acc.TbrIncrementalMetric;
 
 import java.util.*;
 
 public class RFClusterIncrementalMetric extends BaseRFIncrementalMetric implements
-        RootedSprIncrementalMetric,
-        RootedTbrMetric {
+        SprIncrementalMetric,
+        TbrIncrementalMetric {
 
     private Tree baseTreeRef;
     private Tree targetTreeRef;

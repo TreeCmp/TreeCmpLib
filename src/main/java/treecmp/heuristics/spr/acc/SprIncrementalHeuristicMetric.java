@@ -40,9 +40,9 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
 
     @Override
     protected void searchNeighborhood(Tree currentTree) {
-        RootedSprIncrementalMetric activeMetric = (primaryMetric != null)
-                ? (RootedSprIncrementalMetric) primaryMetric
-                : (RootedSprIncrementalMetric) this.incMetric;
+        SprIncrementalMetric activeMetric = (primaryMetric != null)
+                ? (SprIncrementalMetric) primaryMetric
+                : (SprIncrementalMetric) this.incMetric;
 
         this.tiedMoves.clear();
         this.bestMove = null;

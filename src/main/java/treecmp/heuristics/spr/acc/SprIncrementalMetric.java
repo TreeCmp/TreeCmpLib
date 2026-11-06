@@ -3,7 +3,7 @@ package treecmp.heuristics.spr.acc;
 import pal.tree.Node;
 import treecmp.metrics.IncrementalMetric;
 
-public interface RootedSprIncrementalMetric extends IncrementalMetric {
+public interface SprIncrementalMetric extends IncrementalMetric {
     void setPrunedState(Node pruneNode, Node wanderingSource);
     void revertPrunedState(Node pruneNode, Node wanderingSource);
     void setTargetRoot(Node pruneNode, Node wanderingSource);

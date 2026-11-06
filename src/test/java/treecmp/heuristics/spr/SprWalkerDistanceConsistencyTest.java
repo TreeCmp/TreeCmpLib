@@ -3,19 +3,14 @@ package treecmp.heuristics.spr;
 import org.junit.jupiter.api.Test;
 import pal.tree.Tree;
 import treecmp.common.TreeCmpException;
-import treecmp.heuristics.spr.SprUtils;
-import treecmp.heuristics.spr.SprVisitor;
-import treecmp.heuristics.spr.UsprUtils;
 import treecmp.heuristics.spr.acc.IncrementalSprWalker;
 import treecmp.heuristics.spr.acc.IncrementalUsprWalker;
-import treecmp.heuristics.spr.acc.RootedSprIncrementalMetric;
+import treecmp.heuristics.spr.acc.SprIncrementalMetric;
 import treecmp.metrics.IncrementalMetric;
 import treecmp.metrics.Metric;
 import treecmp.metrics.topological.MatchingClusterMetric;
-import treecmp.metrics.topological.MatchingPairMetric;
 import treecmp.metrics.topological.MatchingSplitMetric;
 import treecmp.metrics.topological.acc.MCIncrementalMetric;
-import treecmp.metrics.topological.acc.MPIncrementalMetric;
 import treecmp.metrics.topological.acc.MSIncrementalMetric;
 import treecmp.util.TestTreeFactory;
 
@@ -84,7 +79,7 @@ public class SprWalkerDistanceConsistencyTest {
             }
         };
 
-        walker.walk(t1, (RootedSprIncrementalMetric) incMetric, strictAuditor);
+        walker.walk(t1, (SprIncrementalMetric) incMetric, strictAuditor);
     }
 
     private void verifyUnrootedWalkerConsistency(IncrementalUsprWalker walker, IncrementalMetric incMetric, Metric classicMetric) {

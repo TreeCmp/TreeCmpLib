@@ -14,8 +14,8 @@ import treecmp.heuristics.ecr.acc.Ecr2IncrementalMetric;
 import treecmp.heuristics.ecr.acc.Ecr3IncrementalMetric;
 import treecmp.heuristics.moves.NniMove;
 import treecmp.heuristics.nni.acc.NniIncrementalMetric;
-import treecmp.heuristics.spr.acc.RootedSprIncrementalMetric;
-import treecmp.heuristics.tbr.acc.RootedTbrMetric;
+import treecmp.heuristics.spr.acc.SprIncrementalMetric;
+import treecmp.heuristics.tbr.acc.TbrIncrementalMetric;
 import treecmp.metrics.IncrementalMetric;
 import treecmp.metrics.BaseMetric;
 import treecmp.metrics.topological.MatchingPairMetric;
@@ -24,8 +24,8 @@ import java.util.*;
 
 public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric,
         NniIncrementalMetric,
-        RootedSprIncrementalMetric,
-        RootedTbrMetric,
+        SprIncrementalMetric,
+        TbrIncrementalMetric,
         Ecr2IncrementalMetric,
         Ecr3IncrementalMetric {
 

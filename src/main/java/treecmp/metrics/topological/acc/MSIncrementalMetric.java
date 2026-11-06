@@ -15,7 +15,7 @@ import treecmp.heuristics.moves.NniMove;
 import treecmp.heuristics.nni.acc.NniIncrementalMetric;
 import treecmp.heuristics.spr.UsprUtils;
 import treecmp.heuristics.tbr.UTbrUtils;
-import treecmp.heuristics.tbr.acc.RootedTbrMetric;
+import treecmp.heuristics.tbr.acc.TbrIncrementalMetric;
 import treecmp.metrics.IncrementalMetric;
 import treecmp.metrics.topological.MatchingSplitMetric;
 
@@ -25,7 +25,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
         NniIncrementalMetric,
         Ecr2IncrementalMetric,
         Ecr3IncrementalMetric,
-        RootedTbrMetric {
+        TbrIncrementalMetric {
 
     private Tree baseTree;
     private Tree targetTree;

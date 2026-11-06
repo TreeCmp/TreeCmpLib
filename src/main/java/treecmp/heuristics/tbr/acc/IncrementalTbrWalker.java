@@ -20,7 +20,7 @@ public class IncrementalTbrWalker {
         void visit(double distance, Node pruneNode, Node rerootNode, Node targetNode);
     }
 
-    public void walk(Tree baseTree, RootedTbrMetric metric, TbrVisitor visitor) {
+    public void walk(Tree baseTree, TbrIncrementalMetric metric, TbrVisitor visitor) {
         allNodesBuf.clear();
         collectNodes(baseTree.getRoot(), allNodesBuf);
         Node root = baseTree.getRoot();
@@ -46,7 +46,7 @@ public class IncrementalTbrWalker {
     }
 
     private void dfsReroot(Node currentReroot, Node pruneNode, Node wanderingSource, Node root,
-                           RootedTbrMetric metric, TbrVisitor visitor) {
+                           TbrIncrementalMetric metric, TbrVisitor visitor) {
         // A. Ewaluacja wpięcia w korzeniu T2 dla ustalonego currentReroot
         if (isValidMove(pruneNode, currentReroot, root)) {
             visitor.visit(metric.getCurrentDistance(), pruneNode, currentReroot, root);
@@ -90,7 +90,7 @@ public class IncrementalTbrWalker {
     }
 
     private void dfsTarget(Node parentTarget, Node targetNode, Node pruneNode, Node rerootNode,
-                           Node wanderingSource, RootedTbrMetric metric, TbrVisitor visitor) {
+                           Node wanderingSource, TbrIncrementalMetric metric, TbrVisitor visitor) {
         metric.moveTargetDown(parentTarget, targetNode, pruneNode, rerootNode, wanderingSource);
 
         if (isValidMove(pruneNode, rerootNode, targetNode)) {

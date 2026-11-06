@@ -61,8 +61,8 @@ public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
             this.bestRerootNode = null;
             this.bestTargetNode = null;
 
-            if (activeMetric instanceof RootedTbrMetric) {
-                incrementalWalker.walk(currentTree, (RootedTbrMetric) activeMetric,
+            if (activeMetric instanceof TbrIncrementalMetric) {
+                incrementalWalker.walk(currentTree, (TbrIncrementalMetric) activeMetric,
                         (dist, prune, reroot, target) -> {
                             if (dist < this.bestDist - 1e-9) {
                                 this.bestDist = dist;
@@ -91,8 +91,8 @@ public class TbrIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
                 this.tiedMoves.add(winningMove);
             }
         } else {
-            if (activeMetric instanceof RootedTbrMetric) {
-                incrementalWalker.walk(currentTree, (RootedTbrMetric) activeMetric,
+            if (activeMetric instanceof TbrIncrementalMetric) {
+                incrementalWalker.walk(currentTree, (TbrIncrementalMetric) activeMetric,
                         (dist, prune, reroot, target) -> {
                             if (dist <= this.bestDist + 1e-9) {
                                 checkImprovementWithTies(dist, new TbrMove(prune, reroot, target));

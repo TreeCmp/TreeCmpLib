@@ -17,7 +17,7 @@ public class IncrementalSprWalker {
     private final SprUtils sprUtils = new SprUtils();
     private final List<Node> reusableNodes = new ArrayList<>(512);
 
-    public void walk(Tree baseTree, RootedSprIncrementalMetric metric, SprVisitor visitor) {
+    public void walk(Tree baseTree, SprIncrementalMetric metric, SprVisitor visitor) {
         reusableNodes.clear();
         collectNodes(baseTree.getRoot(), reusableNodes);
         Node root = baseTree.getRoot();
@@ -48,7 +48,7 @@ public class IncrementalSprWalker {
     }
 
     private void dfsPrunedTree(Node parentTarget, Node targetNode, Node pruneNode, Node pParent,
-                               Node wanderingSource, RootedSprIncrementalMetric metric, SprVisitor visitor) {
+                               Node wanderingSource, SprIncrementalMetric metric, SprVisitor visitor) {
         metric.moveTargetDown(parentTarget, targetNode, pruneNode, wanderingSource);
 
         if (sprUtils.isValidSprMove(pruneNode, targetNode)) {
@@ -65,7 +65,7 @@ public class IncrementalSprWalker {
      * oraz zapadniętego węzła rodzica (pParent).
      */
     private void explorePrunedChildren(Node n, Node pruneNode, Node pParent,
-                                       Node wanderingSource, RootedSprIncrementalMetric metric, SprVisitor visitor) {
+                                       Node wanderingSource, SprIncrementalMetric metric, SprVisitor visitor) {
         int childCount = n.getChildCount();
 
         if (n == pParent) {

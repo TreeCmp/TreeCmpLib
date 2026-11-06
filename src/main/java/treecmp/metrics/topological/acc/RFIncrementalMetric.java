@@ -2,11 +2,11 @@ package treecmp.metrics.topological.acc;
 
 import pal.tree.Node;
 import pal.tree.Tree;
-import treecmp.heuristics.tbr.acc.RootedTbrMetric;
+import treecmp.heuristics.tbr.acc.TbrIncrementalMetric;
 
 import java.util.*;
 
-public class RFIncrementalMetric extends BaseRFIncrementalMetric implements RootedTbrMetric {
+public class RFIncrementalMetric extends BaseRFIncrementalMetric implements TbrIncrementalMetric {
 
     protected Tree baseTreeRef;
     protected Tree targetTreeRef;

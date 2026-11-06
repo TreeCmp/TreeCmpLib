@@ -3,7 +3,7 @@ package treecmp.heuristics.tbr.acc;
 import pal.tree.Node;
 import treecmp.metrics.IncrementalMetric;
 
-public interface RootedTbrMetric extends IncrementalMetric {
+public interface TbrIncrementalMetric extends IncrementalMetric {
     void setPrunedState(Node pruneNode, Node wanderingSource);
     void revertPrunedState(Node pruneNode, Node wanderingSource);
     void setTargetRoot(Node pruneNode, Node rerootNode, Node wanderingSource);
