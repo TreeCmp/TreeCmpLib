@@ -17,6 +17,7 @@ import treecmp.heuristics.moves.NniMove;
 import treecmp.heuristics.nni.acc.NniIncrementalMetric;
 import treecmp.heuristics.spr.UsprUtils;
 import treecmp.heuristics.spr.acc.SprIncrementalMetric;
+import treecmp.heuristics.spr.acc.UsprIncrementalMetric;
 import treecmp.heuristics.tbr.UTbrUtils;
 import treecmp.heuristics.tbr.acc.TbrIncrementalMetric;
 import treecmp.metrics.IncrementalMetric;
@@ -28,7 +29,7 @@ public class M3IncrementalMetric implements IncrementalMetric,
         NniIncrementalMetric,
         Ecr2IncrementalMetric,
         Ecr3IncrementalMetric,
-        SprIncrementalMetric,
+        UsprIncrementalMetric,
         TbrIncrementalMetric {
 
     private Tree originalBaseTree;
@@ -159,12 +160,38 @@ public class M3IncrementalMetric implements IncrementalMetric,
     private int[] scratchSavedColsol;
     private int[][] cachedKArrays;
 
-    public BitSet getSplit(Node n) {
-        return getSplitForNode(n);
+    @Override
+    public BitSet getPruneMask(Node pruneNode) {
+        return getSplitForNode(pruneNode);
     }
 
-    public void setEnableTriangleLowerBoundPruning(boolean enable) {
-        this.enableTriangleLowerBoundPruning = enable;
+    @Override
+    public void applySprPrune(Node pruneNode) {
+        this.activePruneNode = pruneNode;
+    }
+
+    @Override
+    public void undoSprPrune(Node pruneNode) {
+        this.activePruneNode = null;
+    }
+
+    @Override
+    public boolean applyRadialStep(Node currentNode, Node previousNode, BitSet pruneMask) {
+        boolean movingUp = (currentNode == previousNode.getParent());
+        Node nodeToUpdate = movingUp ? previousNode : currentNode;
+        BitSet bitsOut = movingUp ? pruneMask : null;
+        BitSet bitsIn = movingUp ? null : pruneMask;
+        return applyNniStep(nodeToUpdate, bitsOut, bitsIn);
+    }
+
+    @Override
+    public void undoRadialStep() {
+        undoNniStep();
+    }
+
+    @Override
+    public double evaluateCurrentRegraft(Node targetNode, Node pruneParent, BitSet pruneMask, Node pruneNode) {
+        return getFixedDistanceForRegraft(targetNode, pruneParent, pruneMask, pruneNode);
     }
 
     @Override
@@ -2119,9 +2146,6 @@ public class M3IncrementalMetric implements IncrementalMetric,
 
         return cSets;
     }
-
-    public void applySprPrune(Node pruneNode) { this.activePruneNode = pruneNode; }
-    public void undoSprPrune(Node pruneNode) { this.activePruneNode = null; }
 
     @Override public double getCurrentDistance() { return this.currentDistance; }
     @Override public void commit() { deltaPointer = 0; this.bestSeenInCurrentScan = this.currentDistance; }

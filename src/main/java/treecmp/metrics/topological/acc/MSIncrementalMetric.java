@@ -7,6 +7,7 @@ import pal.tree.Tree;
 import pal.tree.TreeUtils;
 import treecmp.common.AlignInfo;
 import treecmp.common.LapSolver;
+import treecmp.common.TreeCmpUtils;
 import treecmp.heuristics.ecr.SubtreeEcr2Utils;
 import treecmp.heuristics.ecr.SubtreeEcr3Utils;
 import treecmp.heuristics.ecr.acc.Ecr2IncrementalMetric;
@@ -14,6 +15,8 @@ import treecmp.heuristics.ecr.acc.Ecr3IncrementalMetric;
 import treecmp.heuristics.moves.NniMove;
 import treecmp.heuristics.nni.acc.NniIncrementalMetric;
 import treecmp.heuristics.spr.UsprUtils;
+import treecmp.heuristics.spr.acc.SprIncrementalMetric;
+import treecmp.heuristics.spr.acc.UsprIncrementalMetric;
 import treecmp.heuristics.tbr.UTbrUtils;
 import treecmp.heuristics.tbr.acc.TbrIncrementalMetric;
 import treecmp.metrics.IncrementalMetric;
@@ -25,11 +28,15 @@ public class MSIncrementalMetric implements IncrementalMetric,
         NniIncrementalMetric,
         Ecr2IncrementalMetric,
         Ecr3IncrementalMetric,
+        UsprIncrementalMetric,
         TbrIncrementalMetric {
 
     private Tree baseTree;
     private Tree targetTree;
+    private Tree lastTargetTree;
     private double currentDistance;
+    private boolean enableTriangleLowerBoundPruning = true;
+    private boolean useTreeDpForRowCosts = false;
     private IdGroup idGroup;
     private int N;
 
@@ -38,16 +45,18 @@ public class MSIncrementalMetric implements IncrementalMetric,
     private final UsprUtils usprUtils = new UsprUtils();
 
     private int dim;
+    private int allocatedDim = -1;
+    private int allocatedN = -1;
     private short[][] assigncost;
     private int[] rowsol;
     private int[] colsol;
     private int[] u;
     private int[] v;
 
-    private Map<Node, BitSet> baseSplits;
-    private Map<Node, BitSet> currentSplits;
-    private Map<Node, BitSet> targetSplits;
-    private Map<Node, Integer> nodeToRow;
+    private Map< Node, BitSet > baseSplits;
+    private Map< Node, BitSet > currentSplits;
+    private Map< Node, BitSet > targetSplits;
+    private Map< Node, Integer > nodeToRow;
 
     private Node[] rowToNode;
     private Node[] colToNode;
@@ -55,21 +64,18 @@ public class MSIncrementalMetric implements IncrementalMetric,
     private BitSet currentPrunedLeaves;
     private Node currentRootBranch;
 
-    private final Stack<short[][]> costHistory = new Stack<>();
-    private final Stack<int[]> rowsolHistory = new Stack<>();
-    private final Stack<int[]> colsolHistory = new Stack<>();
-    private final Stack<int[]> uHistory = new Stack<>();
-    private final Stack<int[]> vHistory = new Stack<>();
-    private final Stack<Double> distanceHistory = new Stack<>();
-    private final Stack<Map<Node, BitSet>> splitHistory = new Stack<>();
-    private final Stack<Integer> nniPushCountHistory = new Stack<>();
+    private final Stack< short[][] > costHistory = new Stack< >();
+    private final Stack< int[] > rowsolHistory = new Stack< >();
+    private final Stack< int[] > colsolHistory = new Stack< >();
+    private final Stack< int[] > uHistory = new Stack< >();
+    private final Stack< int[] > vHistory = new Stack< >();
+    private final Stack< Double > distanceHistory = new Stack< >();
+    private final Stack< Map< Node, BitSet > > splitHistory = new Stack< >();
 
     // =========================================================================
-    // PREALOKOWANY STOS DELTA (ZERO-ALLOCATION DLA NNI, SPR, ECR, TBR)
+    // PREALOKOWANY STOS DELTA O ZREDUKOWANEJ PAMIĘCI O(N^2) (NNI, SPR, ECR, TBR)
     // =========================================================================
     private int deltaMaxDepth = 0;
-    private int allocatedDim = -1;
-    private int allocatedN = -1;
     private int deltaPointer = 0;
     private int[] deltaRowsCount;
     private int[][] deltaRows;
@@ -91,12 +97,26 @@ public class MSIncrementalMetric implements IncrementalMetric,
     private int ecr3NextClusterIdx = 1;
     private int ecr3UpdateCount = 0;
 
-    // PREALOKOWANE BUFORY I STRUKTURY DLA ZERO-ALLOCATION uTBR (STATYCZNY)
-    private final Map<BitSet, Integer> splitToRow = new HashMap<>();
+    // PREALOKOWANE BUFORY I STRUKTURY DLA ZERO-ALLOCATION uTBR / uSPR
+    private final Map< BitSet, Integer > splitToRow = new HashMap< >();
+    private boolean splitToRowInitialized = false;
 
     private int numWords;
     private long[][] targetSplitWords;
+    private short[] targetNullRowCosts;
+    private int[] targetCladeSizes;
     private long[] scratchAddWords;
+
+    // Struktury do szybkiego przejścia O(N) po T2 (Tree DP indeksowane pozycją post-order)
+    private int postOrderT2Count;
+    private int[] t2PostOrderChild0;
+    private int[] t2PostOrderChild1;
+    private int[] t2PostOrderFirstChild;
+    private int[] t2PostOrderChildCount;
+    private int[] t2PostOrderChildrenFlat;
+    private int[] t2PostOrderLeafId;
+    private int[] t2PostOrderCol;
+    private int[] t2CountA;
 
     private short[][] scratchSavedOldRows;
     private int[] scratchSavedU;
@@ -109,20 +129,16 @@ public class MSIncrementalMetric implements IncrementalMetric,
     private Node[] pathBuf;
     private BitSet[] bitSetPool;
     private int poolIdx = 0;
-    private final List<BitSet> rawRemoved = new ArrayList<>(32);
-    private final List<BitSet> rawAdded = new ArrayList<>(32);
-    private final List<BitSet> toRemove = new ArrayList<>(16);
-    private final List<BitSet> toAdd = new ArrayList<>(16);
+    private final List< BitSet > rawRemoved = new ArrayList< >(32);
+    private final List< BitSet > rawAdded = new ArrayList< >(32);
+    private final List< BitSet > toRemove = new ArrayList< >(16);
+    private final List< BitSet > toAdd = new ArrayList< >(16);
 
-    // Bufory dla fallbacku
+    // Bufory dla fallbacku drzewa tymczasowego
     private BitSet[] tempTreeSplits;
     private BitSet[] scratchNewSplits;
     private boolean[] scratchRowUsed;
     private BitSet scratchCanonical;
-
-    public BitSet getSplit(Node n) {
-        return getSplitBits(n);
-    }
 
     private int getNodeIndex(Node node) {
         return node.isLeaf() ? node.getNumber() : (N + node.getNumber());
@@ -139,9 +155,11 @@ public class MSIncrementalMetric implements IncrementalMetric,
 
     private void canonicalizeInto(BitSet src, BitSet dest) {
         dest.clear();
-        dest.or(src);
-        if (dest.get(0)) {
-            dest.flip(0, N);
+        if (src != null) {
+            dest.or(src);
+            if (dest.get(0)) {
+                dest.flip(0, N);
+            }
         }
     }
 
@@ -173,6 +191,22 @@ public class MSIncrementalMetric implements IncrementalMetric,
         BitSet bs = bitSetPool[poolIdx++];
         bs.clear();
         return bs;
+    }
+
+    private void ensureSplitToRowInitialized() {
+        if (!splitToRowInitialized) {
+            splitToRow.clear();
+            for (int i = 0; i < dim; i++) {
+                Node n1 = rowToNode[i];
+                if (n1 != null) {
+                    BitSet bs = currentSplits.get(n1);
+                    if (bs != null && isNonTrivialSplit(bs)) {
+                        splitToRow.put(canonicalizeSplit(bs), i);
+                    }
+                }
+            }
+            splitToRowInitialized = true;
+        }
     }
 
     private Node findLca(Node a, Node b) {
@@ -230,6 +264,8 @@ public class MSIncrementalMetric implements IncrementalMetric,
 
         BitSet LP = getSplitBits(pruneNode);
         if (LP == null) return Double.POSITIVE_INFINITY;
+
+        ensureSplitToRowInitialized();
 
         poolIdx = 0;
         rawRemoved.clear();
@@ -419,19 +455,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
         for (int i = 0; i < k; i++) {
             int r = scratchChangedRows[i];
             System.arraycopy(assigncost[r], 0, scratchSavedOldRows[i], 0, dim);
-
-            BitSet add = toAdd.get(i);
-            fillWordsFromBitSet(add, scratchAddWords);
-
-            short[] costRow = assigncost[r];
-            for (int j = 0; j < dim; j++) {
-                long[] tWords = targetSplitWords[j];
-                int diff = 0;
-                for (int w = 0; w < numWords; w++) {
-                    diff += Long.bitCount(scratchAddWords[w] ^ tWords[w]);
-                }
-                costRow[j] = (short) Math.min(diff, N - diff);
-            }
+            computeRowCostsFast(r, toAdd.get(i));
         }
 
         int[] changedRowsParam = (k < cachedKArrays.length) ? cachedKArrays[k] : new int[k];
@@ -451,7 +475,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
     }
 
     // =========================================================================
-    // BEZPIECZNY FALLBACK
+    // CIEPŁY START LAP DLA DRZEW TYMCZASOWYCH (FALLBACK TBR / uSPR)
     // =========================================================================
 
     private double evaluateViaTempTree(Node pruneNode, Node rerootNode, Node targetNode) {
@@ -472,13 +496,26 @@ public class MSIncrementalMetric implements IncrementalMetric,
         } catch (Exception e) {
             return Double.POSITIVE_INFINITY;
         }
+        return evaluateTempTreeDistance(tempTree);
+    }
+
+    private double evaluateTempTreeDistance(Tree tempTree) {
         if (tempTree == null) return Double.POSITIVE_INFINITY;
 
         if (tempTree instanceof SimpleTree) {
-            pal.tree.TreeUtils.computeParentPointers(tempTree.getRoot());
+            TreeUtils.computeParentPointers(tempTree.getRoot());
             ((SimpleTree) tempTree).createNodeList();
         }
 
+        if (deltaPointer != 0) {
+            try {
+                return msMetricFull.getDistance(tempTree, this.targetTree);
+            } catch (Exception ignored) {
+                return Double.POSITIVE_INFINITY;
+            }
+        }
+
+        ensureSplitToRowInitialized();
         computeTempTreeSplits(tempTree.getRoot());
 
         Arrays.fill(scratchRowUsed, 0, dim, false);
@@ -535,19 +572,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
         for (int i = 0; i < k; i++) {
             int r = scratchChangedRows[i];
             System.arraycopy(assigncost[r], 0, scratchSavedOldRows[i], 0, dim);
-
-            BitSet add = scratchNewSplits[i];
-            fillWordsFromBitSet(add, scratchAddWords);
-
-            short[] costRow = assigncost[r];
-            for (int j = 0; j < dim; j++) {
-                long[] tWords = targetSplitWords[j];
-                int diff = 0;
-                for (int w = 0; w < numWords; w++) {
-                    diff += Long.bitCount(scratchAddWords[w] ^ tWords[w]);
-                }
-                costRow[j] = (short) Math.min(diff, N - diff);
-            }
+            computeRowCostsFast(r, scratchNewSplits[i]);
         }
 
         int[] changedRowsParam = (k < cachedKArrays.length) ? cachedKArrays[k] : new int[k];
@@ -590,7 +615,11 @@ public class MSIncrementalMetric implements IncrementalMetric,
         return evaluateExactUTbrDistance(pruneNode, rerootNode, targetNode, movingBits);
     }
 
-    private void ensureDeltaCapacity() {
+    // =========================================================================
+    // ZARZĄDZANIE STOSAMI DELTA
+    // =========================================================================
+
+    private void ensureDeltaCapacity(int requiredRows) {
         if (deltaPointer >= deltaMaxDepth) {
             int newDepth = deltaMaxDepth * 2;
             deltaRowsCount = Arrays.copyOf(deltaRowsCount, newDepth);
@@ -606,23 +635,36 @@ public class MSIncrementalMetric implements IncrementalMetric,
 
             for (int d = deltaMaxDepth; d < newDepth; d++) {
                 deltaRows[d] = new int[dim];
-                deltaOldRows[d] = new short[dim][dim];
+                deltaOldRows[d] = new short[4][dim];
                 deltaOldU[d] = new int[dim];
                 deltaOldV[d] = new int[dim];
                 deltaOldRowsol[d] = new int[dim];
                 deltaOldColsol[d] = new int[dim];
-                deltaOldSplitsNode[d] = new Node[dim];
-                deltaOldSplitsBits[d] = new BitSet[dim];
-                for (int r = 0; r < dim; r++) {
+                deltaOldSplitsNode[d] = new Node[4];
+                deltaOldSplitsBits[d] = new BitSet[4];
+                for (int r = 0; r < 4; r++) {
                     deltaOldSplitsBits[d][r] = new BitSet(N);
                 }
             }
             deltaMaxDepth = newDepth;
         }
+
+        if (deltaOldRows[deltaPointer].length < requiredRows) {
+            int newSlots = Math.max(requiredRows, dim);
+            deltaOldRows[deltaPointer] = new short[newSlots][dim];
+            deltaOldSplitsNode[deltaPointer] = new Node[newSlots];
+            BitSet[] oldBits = deltaOldSplitsBits[deltaPointer];
+            BitSet[] newBits = new BitSet[newSlots];
+            System.arraycopy(oldBits, 0, newBits, 0, oldBits.length);
+            for (int r = oldBits.length; r < newSlots; r++) {
+                newBits[r] = new BitSet(N);
+            }
+            deltaOldSplitsBits[deltaPointer] = newBits;
+        }
     }
 
     private void pushEmptyDelta() {
-        ensureDeltaCapacity();
+        ensureDeltaCapacity(0);
         int d = deltaPointer;
         deltaRowsCount[d] = 0;
         deltaOldDistance[d] = currentDistance;
@@ -636,7 +678,6 @@ public class MSIncrementalMetric implements IncrementalMetric,
 
         if (baseTree != null && targetTree != null) {
             clearHistory();
-            this.idGroup = TreeUtils.getLeafIdGroup(baseTree);
             this.N = baseTree.getExternalNodeCount();
 
             int size1 = baseTree.getInternalNodeCount() - 1;
@@ -644,8 +685,17 @@ public class MSIncrementalMetric implements IncrementalMetric,
             this.dim = Math.max(size1, size2);
             this.numWords = (N + 63) >>> 6;
 
-            int depth = Math.max(128, N * 4);
-            boolean needRealloc = (this.dim != this.allocatedDim) || (this.N != this.allocatedN) || (this.assigncost == null);
+            boolean sameTarget = (targetTree == this.lastTargetTree)
+                    && (this.dim == this.allocatedDim)
+                    && (this.N == this.allocatedN)
+                    && (this.idGroup != null);
+            if (!sameTarget) {
+                this.idGroup = TreeUtils.getLeafIdGroup(baseTree);
+            }
+
+            boolean needRealloc = (this.dim != this.allocatedDim)
+                    || (this.N != this.allocatedN)
+                    || (this.assigncost == null);
 
             if (needRealloc) {
                 this.assigncost = new short[dim][dim];
@@ -656,6 +706,8 @@ public class MSIncrementalMetric implements IncrementalMetric,
 
                 this.scratchAddWords = new long[numWords];
                 this.targetSplitWords = new long[dim][numWords];
+                this.targetNullRowCosts = new short[dim];
+                this.targetCladeSizes = new int[dim];
 
                 int maxK = Math.max(64, dim + 1);
                 this.cachedKArrays = new int[maxK][];
@@ -670,19 +722,26 @@ public class MSIncrementalMetric implements IncrementalMetric,
                 this.scratchSavedColsol = new int[dim];
                 this.scratchChangedRows = new int[dim];
 
+                int depth = Math.max(128, N * 4);
                 this.deltaMaxDepth = depth;
                 this.deltaRowsCount = new int[depth];
                 this.deltaRows = new int[depth][dim];
-                this.deltaOldRows = new short[depth][dim][dim];
+                this.deltaOldRows = new short[depth][][];
                 this.deltaOldU = new int[depth][dim];
                 this.deltaOldV = new int[depth][dim];
                 this.deltaOldRowsol = new int[depth][dim];
                 this.deltaOldColsol = new int[depth][dim];
                 this.deltaOldDistance = new double[depth];
-                this.deltaOldSplitsNode = new Node[depth][dim];
-                this.deltaOldSplitsBits = new BitSet[depth][dim];
+                this.deltaOldSplitsNode = new Node[depth][];
+                this.deltaOldSplitsBits = new BitSet[depth][];
+
+                int baseRowSlots = Math.max(4, dim);
                 for (int d = 0; d < depth; d++) {
-                    for (int r = 0; r < dim; r++) {
+                    int rowSlots = (d < 2) ? baseRowSlots : 4;
+                    this.deltaOldRows[d] = new short[rowSlots][dim];
+                    this.deltaOldSplitsNode[d] = new Node[rowSlots];
+                    this.deltaOldSplitsBits[d] = new BitSet[rowSlots];
+                    for (int r = 0; r < rowSlots; r++) {
                         this.deltaOldSplitsBits[d][r] = new BitSet(N);
                     }
                 }
@@ -693,7 +752,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
                     this.bitSetPool[i] = new BitSet(N);
                 }
 
-                int maxTreeNodes = N * 2 + 10;
+                int maxTreeNodes = N * 2 + 16;
                 this.pathBuf = new Node[maxTreeNodes];
                 this.tempTreeSplits = new BitSet[maxTreeNodes];
                 for (int i = 0; i < maxTreeNodes; i++) {
@@ -717,41 +776,39 @@ public class MSIncrementalMetric implements IncrementalMetric,
                     this.scratchPruneBitSets[i] = new BitSet(N);
                 }
 
+                int expectedMapSize = (N * 2 + 5) * 4 / 3;
                 this.rowToNode = new Node[dim];
                 this.colToNode = new Node[dim];
-                this.baseSplits = new IdentityHashMap<>(N * 2);
-                this.currentSplits = new IdentityHashMap<>(N * 2);
-                this.targetSplits = new IdentityHashMap<>(N * 2);
-                this.nodeToRow = new IdentityHashMap<>(N * 2);
+                this.baseSplits = new IdentityHashMap< >(expectedMapSize);
+                this.currentSplits = new IdentityHashMap< >(expectedMapSize);
+                this.targetSplits = new IdentityHashMap< >(expectedMapSize);
+                this.nodeToRow = new IdentityHashMap< >(expectedMapSize);
 
                 this.allocatedDim = this.dim;
                 this.allocatedN = this.N;
+                sameTarget = false;
             } else {
                 for (int i = 0; i < dim; i++) {
                     Arrays.fill(this.assigncost[i], (short) 0);
-                    Arrays.fill(this.targetSplitWords[i], 0L);
                 }
                 Arrays.fill(this.rowsol, 0);
                 Arrays.fill(this.colsol, 0);
                 Arrays.fill(this.u, 0);
                 Arrays.fill(this.v, 0);
                 Arrays.fill(this.rowToNode, null);
-                Arrays.fill(this.colToNode, null);
                 this.baseSplits.clear();
                 this.currentSplits.clear();
-                this.targetSplits.clear();
                 this.nodeToRow.clear();
             }
 
             this.deltaPointer = 0;
             this.poolIdx = 0;
+            this.splitToRowInitialized = false;
 
             extractSplits(baseTree.getRoot(), idGroup, this.baseSplits, N, false);
-            for (Map.Entry<Node, BitSet> e : baseSplits.entrySet()) {
+            for (Map.Entry< Node, BitSet > e : baseSplits.entrySet()) {
                 currentSplits.put(e.getKey(), (BitSet) e.getValue().clone());
             }
-
-            extractSplits(targetTree.getRoot(), idGroup, this.targetSplits, N, true);
 
             int r = 0;
             for (int i = 0; i < baseTree.getInternalNodeCount(); i++) {
@@ -764,44 +821,102 @@ public class MSIncrementalMetric implements IncrementalMetric,
                 }
             }
 
-            int c = 0;
-            for (int j = 0; j < targetTree.getInternalNodeCount(); j++) {
-                Node n = targetTree.getInternalNode(j);
-                if (n.isRoot()) continue;
-                if (c < dim) {
-                    colToNode[c] = n;
-                    c++;
+            if (!sameTarget) {
+                this.targetSplits.clear();
+                Arrays.fill(this.colToNode, null);
+                Arrays.fill(this.targetNullRowCosts, (short) 0);
+                Arrays.fill(this.targetCladeSizes, 0);
+                for (int j = 0; j < dim; j++) {
+                    Arrays.fill(this.targetSplitWords[j], 0L);
                 }
-            }
 
-            for (int j = 0; j < dim; j++) {
-                Node n2 = colToNode[j];
-                if (n2 != null) {
-                    BitSet bs = targetSplits.get(n2);
-                    if (bs != null) {
-                        fillWordsFromBitSet(bs, targetSplitWords[j]);
+                Map< Node, BitSet > unpolarizedTargetClades = new IdentityHashMap< >(targetTree.getInternalNodeCount() * 2);
+                extractSplitsWithClades(targetTree.getRoot(), idGroup, this.targetSplits, unpolarizedTargetClades, N);
+
+                Map< Node, Integer > targetNodeToCol = new IdentityHashMap< >(targetTree.getInternalNodeCount() * 2);
+                int c = 0;
+                for (int j = 0; j < targetTree.getInternalNodeCount(); j++) {
+                    Node n = targetTree.getInternalNode(j);
+                    if (n.isRoot()) continue;
+                    if (c < dim) {
+                        colToNode[c] = n;
+                        targetNodeToCol.put(n, c);
+                        c++;
                     }
                 }
-            }
 
-            buildInitialCostMatrix(N);
-            this.currentDistance = LapSolver.lapShort(dim, assigncost, rowsol, colsol, u, v);
-
-            this.splitToRow.clear();
-            for (int i = 0; i < dim; i++) {
-                Node n1 = rowToNode[i];
-                if (n1 != null && currentSplits.containsKey(n1)) {
-                    BitSet canonical = canonicalizeSplit(currentSplits.get(n1));
-                    this.splitToRow.put(canonical, i);
+                for (int j = 0; j < dim; j++) {
+                    Node n2 = colToNode[j];
+                    if (n2 != null) {
+                        BitSet bs = targetSplits.get(n2);
+                        if (bs != null) {
+                            fillWordsFromBitSet(bs, targetSplitWords[j]);
+                            int card = bs.cardinality();
+                            targetNullRowCosts[j] = (short) Math.min(card, N - card);
+                        }
+                        BitSet cladeBs = unpolarizedTargetClades.get(n2);
+                        if (cladeBs != null) {
+                            targetCladeSizes[j] = cladeBs.cardinality();
+                        }
+                    }
                 }
+
+                Node[] postOrderT2 = TreeCmpUtils.getNodesInPostOrder(targetTree);
+                this.postOrderT2Count = postOrderT2.length;
+                if (this.t2PostOrderChild0 == null || this.t2PostOrderChild0.length < postOrderT2Count) {
+                    this.t2PostOrderChild0 = new int[postOrderT2Count];
+                    this.t2PostOrderChild1 = new int[postOrderT2Count];
+                    this.t2PostOrderFirstChild = new int[postOrderT2Count];
+                    this.t2PostOrderChildCount = new int[postOrderT2Count];
+                    this.t2PostOrderChildrenFlat = new int[postOrderT2Count];
+                    this.t2PostOrderLeafId = new int[postOrderT2Count];
+                    this.t2PostOrderCol = new int[postOrderT2Count];
+                    this.t2CountA = new int[postOrderT2Count];
+                }
+
+                Map< Node, Integer > nodeToPostOrder = new IdentityHashMap< >(postOrderT2Count * 2);
+                for (int i = 0; i < postOrderT2Count; i++) {
+                    nodeToPostOrder.put(postOrderT2[i], i);
+                }
+
+                int flatChildPtr = 0;
+                for (int i = 0; i < postOrderT2Count; i++) {
+                    Node n = postOrderT2[i];
+                    if (n.isLeaf()) {
+                        t2PostOrderLeafId[i] = idGroup.whichIdNumber(n.getIdentifier().getName());
+                        t2PostOrderCol[i] = -1;
+                        t2PostOrderChild0[i] = -1;
+                        t2PostOrderChild1[i] = -1;
+                        t2PostOrderFirstChild[i] = -1;
+                        t2PostOrderChildCount[i] = 0;
+                    } else {
+                        t2PostOrderLeafId[i] = -1;
+                        Integer colIdx = targetNodeToCol.get(n);
+                        t2PostOrderCol[i] = (colIdx != null) ? colIdx : -1;
+                        int chCount = n.getChildCount();
+                        t2PostOrderChildCount[i] = chCount;
+                        t2PostOrderChild0[i] = (chCount > 0) ? nodeToPostOrder.get(n.getChild(0)) : -1;
+                        t2PostOrderChild1[i] = (chCount > 1) ? nodeToPostOrder.get(n.getChild(1)) : -1;
+                        t2PostOrderFirstChild[i] = flatChildPtr;
+                        for (int k = 0; k < chCount; k++) {
+                            t2PostOrderChildrenFlat[flatChildPtr++] = nodeToPostOrder.get(n.getChild(k));
+                        }
+                    }
+                }
+
+                this.lastTargetTree = targetTree;
             }
+
+            buildInitialCostMatrix();
+            this.currentDistance = LapSolver.lapShort(dim, assigncost, rowsol, colsol, u, v);
         } else {
             this.currentDistance = 0;
             this.splitToRow.clear();
+            this.splitToRowInitialized = false;
         }
     }
 
-    private BitSet extractSplits(Node node, IdGroup idGroup, Map<Node, BitSet> map, int numLeaves, boolean polarize) {
+    private BitSet extractSplits(Node node, IdGroup idGroup, Map< Node, BitSet > map, int numLeaves, boolean polarize) {
         BitSet bs = new BitSet(numLeaves);
         if (node.isLeaf()) {
             int id = idGroup.whichIdNumber(node.getIdentifier().getName());
@@ -821,11 +936,57 @@ public class MSIncrementalMetric implements IncrementalMetric,
         return bs;
     }
 
+    private BitSet extractSplitsWithClades(Node node, IdGroup idGroup, Map< Node, BitSet > polarizedMap, Map< Node, BitSet > unpolarizedMap, int numLeaves) {
+        BitSet bs = new BitSet(numLeaves);
+        if (node.isLeaf()) {
+            int id = idGroup.whichIdNumber(node.getIdentifier().getName());
+            if (id >= 0) bs.set(id);
+            polarizedMap.put(node, (BitSet) bs.clone());
+            unpolarizedMap.put(node, bs);
+            return bs;
+        } else {
+            for (int i = 0; i < node.getChildCount(); i++) {
+                bs.or(extractSplitsWithClades(node.getChild(i), idGroup, polarizedMap, unpolarizedMap, numLeaves));
+            }
+        }
+        unpolarizedMap.put(node, bs);
+        BitSet splitToSave = (BitSet) bs.clone();
+        if (splitToSave.get(0)) {
+            splitToSave.flip(0, numLeaves);
+        }
+        polarizedMap.put(node, splitToSave);
+        return bs;
+    }
+
     private void computeRowCostsFast(int r, BitSet split) {
+        short[] costRow = assigncost[r];
+        if (split == null || split.isEmpty()) {
+            System.arraycopy(targetNullRowCosts, 0, costRow, 0, dim);
+            return;
+        }
+
+        if (useTreeDpForRowCosts || numWords > 8) {
+            computeRowCostsTreeDp(r, split);
+            return;
+        }
+
         canonicalizeInto(split, scratchCanonical);
+        if (scratchCanonical.isEmpty()) {
+            System.arraycopy(targetNullRowCosts, 0, costRow, 0, dim);
+            return;
+        }
+
         fillWordsFromBitSet(scratchCanonical, scratchAddWords);
 
-        short[] costRow = assigncost[r];
+        if (numWords == 1) {
+            long w0 = scratchAddWords[0];
+            for (int j = 0; j < dim; j++) {
+                int diff = Long.bitCount(w0 ^ targetSplitWords[j][0]);
+                costRow[j] = (short) Math.min(diff, N - diff);
+            }
+            return;
+        }
+
         for (int j = 0; j < dim; j++) {
             long[] tWords = targetSplitWords[j];
             int diff = 0;
@@ -836,19 +997,65 @@ public class MSIncrementalMetric implements IncrementalMetric,
         }
     }
 
-    private void buildInitialCostMatrix(int numLeaves) {
+    /**
+     * Wyliczanie wiersza macierzy kosztów MS w czasie O(N) za pomocą przejścia post-order Tree DP po T2.
+     */
+    private void computeRowCostsTreeDp(int r, BitSet split) {
+        int card = split.cardinality();
+        if (card == 0 || card == N) {
+            System.arraycopy(targetNullRowCosts, 0, assigncost[r], 0, dim);
+            return;
+        }
+
+        short nullCost = (short) Math.min(card, N - card);
+        short[] costRow = assigncost[r];
+
+        for (int i = 0; i < postOrderT2Count; i++) {
+            int leafId = t2PostOrderLeafId[i];
+            if (leafId >= 0) {
+                t2CountA[i] = split.get(leafId) ? 1 : 0;
+            } else {
+                int chCount = t2PostOrderChildCount[i];
+                int sumA;
+                if (chCount == 2) {
+                    sumA = t2CountA[t2PostOrderChild0[i]] + t2CountA[t2PostOrderChild1[i]];
+                } else {
+                    sumA = 0;
+                    int first = t2PostOrderFirstChild[i];
+                    for (int k = 0; k < chCount; k++) {
+                        sumA += t2CountA[t2PostOrderChildrenFlat[first + k]];
+                    }
+                }
+                t2CountA[i] = sumA;
+
+                int col = t2PostOrderCol[i];
+                if (col >= 0) {
+                    int diff = card + targetCladeSizes[col] - (sumA << 1);
+                    costRow[col] = (short) Math.min(diff, N - diff);
+                }
+            }
+        }
+
+        for (int j = 0; j < dim; j++) {
+            if (colToNode[j] == null) {
+                costRow[j] = nullCost;
+            }
+        }
+    }
+
+    private void buildInitialCostMatrix() {
         for (int i = 0; i < dim; i++) {
             Node n1 = rowToNode[i];
             if (n1 != null && currentSplits.containsKey(n1)) {
                 computeRowCostsFast(i, currentSplits.get(n1));
             } else {
-                computeRowCostsFast(i, new BitSet(numLeaves));
+                System.arraycopy(targetNullRowCosts, 0, assigncost[i], 0, dim);
             }
         }
     }
 
     private void updateSingleRowAndSave(int r, BitSet newSplit) {
-        ensureDeltaCapacity();
+        ensureDeltaCapacity(1);
         int d = deltaPointer;
         deltaRows[d][0] = r;
         System.arraycopy(assigncost[r], 0, deltaOldRows[d][0], 0, dim);
@@ -889,7 +1096,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
     }
 
     private void updateTwoRowsAndSave(int r1, BitSet s1, int r2, BitSet s2) {
-        ensureDeltaCapacity();
+        ensureDeltaCapacity(2);
         int d = deltaPointer;
         deltaRows[d][0] = r1;
         deltaRows[d][1] = r2;
@@ -902,7 +1109,9 @@ public class MSIncrementalMetric implements IncrementalMetric,
             deltaOldSplitsBits[d][0].clear();
             BitSet b = currentSplits.get(n1);
             if (b != null) deltaOldSplitsBits[d][0].or(b);
-        } else deltaOldSplitsNode[d][0] = null;
+        } else {
+            deltaOldSplitsNode[d][0] = null;
+        }
 
         Node n2 = rowToNode[r2];
         if (n2 != null && currentSplits.containsKey(n2)) {
@@ -910,7 +1119,9 @@ public class MSIncrementalMetric implements IncrementalMetric,
             deltaOldSplitsBits[d][1].clear();
             BitSet b = currentSplits.get(n2);
             if (b != null) deltaOldSplitsBits[d][1].or(b);
-        } else deltaOldSplitsNode[d][1] = null;
+        } else {
+            deltaOldSplitsNode[d][1] = null;
+        }
 
         deltaRowsCount[d] = 2;
         System.arraycopy(u, 0, deltaOldU[d], 0, dim);
@@ -947,7 +1158,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
             pushEmptyDelta();
             return;
         }
-        ensureDeltaCapacity();
+        ensureDeltaCapacity(count);
         int d = deltaPointer;
 
         for (int i = 0; i < count; i++) {
@@ -1299,8 +1510,41 @@ public class MSIncrementalMetric implements IncrementalMetric,
     }
 
     // =========================================================================
-    // NNI, SPR & ECR (100% ZERO-ALLOCATION)
+    // O(1) OGRANICZENIE Z NIERÓWNOŚCI TRÓJKĄTA ORAZ NNI, SPR & ECR
     // =========================================================================
+
+    /**
+     * Wylicza w czasie O(1) dokładną odległość MS pomiędzy bieżącym drzewem a drzewem
+     * po ruchu uNNI: min(|B| + |C|, N - (|B| + |C|)).
+     */
+    public double getNniMaxDelta(NniMove move) {
+        if (move == null || move.movingSubtree == null || move.swapPartner == null) {
+            return Double.POSITIVE_INFINITY;
+        }
+        BitSet splitA = getSplitBits(move.movingSubtree);
+        BitSet splitB = getSplitBits(move.swapPartner);
+        if (splitA == null || splitB == null) {
+            return Double.POSITIVE_INFINITY;
+        }
+        int sumCard = splitA.cardinality() + splitB.cardinality();
+        if (!splitA.intersects(splitB)) {
+            return Math.min(sumCard, N - sumCard);
+        }
+        return sumCard;
+    }
+
+    /**
+     * Ewaluacja uNNI z jawnym odcięciem Branch-and-Bound w czasie O(1).
+     */
+    public double applyNni(NniMove move, double bestThreshold) {
+        if (enableTriangleLowerBoundPruning) {
+            double maxDelta = getNniMaxDelta(move);
+            if (this.currentDistance - maxDelta >= bestThreshold) {
+                return Double.POSITIVE_INFINITY;
+            }
+        }
+        return applyNni(move);
+    }
 
     public boolean applyNniStep(Node nodeToUpdate, BitSet bitsOut, BitSet bitsIn) {
         Integer rIndex = nodeToRow.get(nodeToUpdate);
@@ -1335,19 +1579,15 @@ public class MSIncrementalMetric implements IncrementalMetric,
             tbrScratch1.xor(getSplitBits(nodeB));
 
             updateSingleRowAndSave(rIndex, tbrScratch1);
-            nniPushCountHistory.push(1);
         } else {
-            nniPushCountHistory.push(0);
+            pushEmptyDelta();
         }
         return this.currentDistance;
     }
 
     @Override
     public void undoNni(NniMove move) {
-        int pushes = nniPushCountHistory.isEmpty() ? 0 : nniPushCountHistory.pop();
-        for (int i = 0; i < pushes; i++) {
-            undoDeltaStack();
-        }
+        undoDeltaStack();
     }
 
     public void applySprPrune(Node pruneNode) { saveCurrentStateToHistory(); }
@@ -1366,12 +1606,12 @@ public class MSIncrementalMetric implements IncrementalMetric,
     }
 
     public double evaluateSprRegraft(Node pruneNode, Node targetNode) {
-        Tree neighbor = usprUtils.createUsprTree(baseTree, pruneNode, targetNode);
+        if (pruneNode == null || targetNode == null || this.baseTree == null || this.targetTree == null) {
+            return Double.POSITIVE_INFINITY;
+        }
         try {
-            if (neighbor instanceof pal.tree.SimpleTree) {
-                ((pal.tree.SimpleTree) neighbor).createNodeList();
-            }
-            return msMetricFull.getDistance(neighbor, targetTree);
+            Tree neighbor = usprUtils.createUsprTree(baseTree, pruneNode, targetNode);
+            return evaluateTempTreeDistance(neighbor);
         } catch (Exception e) {
             return Double.POSITIVE_INFINITY;
         }
@@ -1417,14 +1657,14 @@ public class MSIncrementalMetric implements IncrementalMetric,
     }
 
     @Override
-    public double evaluate3sEcrMove(List<Node> cluster, Node[] b, SubtreeEcr3Utils.TopologyTemplate3sECR template) {
+    public double evaluate3sEcrMove(List< Node > cluster, Node[] b, SubtreeEcr3Utils.TopologyTemplate3sECR template) {
         double dist = commit3sEcrMove(cluster, b, template);
         undoDeltaStack();
         return dist;
     }
 
     @Override
-    public double commit3sEcrMove(List<Node> cluster, Node[] b, SubtreeEcr3Utils.TopologyTemplate3sECR template) {
+    public double commit3sEcrMove(List< Node > cluster, Node[] b, SubtreeEcr3Utils.TopologyTemplate3sECR template) {
         poolIdx = 0;
         for (int i = 0; i < 5; i++) {
             ecr3BBits[i] = getSplitBits(b[i]);
@@ -1440,7 +1680,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
         return this.currentDistance;
     }
 
-    private BitSet compute3sEcrTemplateBitsFast(SubtreeEcr3Utils.TopologyTemplate3sECR temp, Node currentInternal, List<Node> cluster, Node topNode) {
+    private BitSet compute3sEcrTemplateBitsFast(SubtreeEcr3Utils.TopologyTemplate3sECR temp, Node currentInternal, List< Node > cluster, Node topNode) {
         BitSet myBits = getScratchBitSet();
 
         if (temp.left.leafIndex != -1) {
@@ -1466,10 +1706,19 @@ public class MSIncrementalMetric implements IncrementalMetric,
         if (currentInternal != topNode) {
             Integer r = nodeToRow.get(currentInternal);
             if (r != null) {
-                scratchPruneRows[ecr3UpdateCount] = r;
-                scratchPruneBitSets[ecr3UpdateCount].clear();
-                scratchPruneBitSets[ecr3UpdateCount].or(myBits);
-                ecr3UpdateCount++;
+                int slot = ecr3UpdateCount;
+                for (int i = 0; i < ecr3UpdateCount; i++) {
+                    if (scratchPruneRows[i] == r) {
+                        slot = i;
+                        break;
+                    }
+                }
+                scratchPruneRows[slot] = r;
+                scratchPruneBitSets[slot].clear();
+                scratchPruneBitSets[slot].or(myBits);
+                if (slot == ecr3UpdateCount) {
+                    ecr3UpdateCount++;
+                }
             }
         }
 
@@ -1488,14 +1737,14 @@ public class MSIncrementalMetric implements IncrementalMetric,
         vHistory.push(this.v.clone());
         distanceHistory.push(this.currentDistance);
 
-        IdentityHashMap<Node, BitSet> splitsCopy = new IdentityHashMap<>();
-        for (Map.Entry<Node, BitSet> entry : currentSplits.entrySet()) {
+        IdentityHashMap< Node, BitSet > splitsCopy = new IdentityHashMap< >();
+        for (Map.Entry< Node, BitSet > entry : currentSplits.entrySet()) {
             splitsCopy.put(entry.getKey(), (BitSet) entry.getValue().clone());
         }
         splitHistory.push(clustersCopy(splitsCopy));
     }
 
-    private Map<Node, BitSet> clustersCopy(Map<Node, BitSet> map) {
+    private Map< Node, BitSet > clustersCopy(Map< Node, BitSet > map) {
         return map;
     }
 
@@ -1508,12 +1757,56 @@ public class MSIncrementalMetric implements IncrementalMetric,
         distanceHistory.clear();
         splitHistory.clear();
         deltaPointer = 0;
-        nniPushCountHistory.clear();
+        poolIdx = 0;
         splitToRow.clear();
+        splitToRowInitialized = false;
     }
 
-    @Override public double getCurrentDistance() { return this.currentDistance; }
-    @Override public void commit() { clearHistory(); }
+    @Override
+    public double getCurrentDistance() {
+        return this.currentDistance;
+    }
+
+    @Override
+    public void commit() {
+        clearHistory();
+        if (this.baseSplits != null && this.currentSplits != null) {
+            for (Map.Entry< Node, BitSet > entry : this.currentSplits.entrySet()) {
+                BitSet baseBs = this.baseSplits.get(entry.getKey());
+                if (baseBs != null) {
+                    baseBs.clear();
+                    baseBs.or(entry.getValue());
+                } else {
+                    this.baseSplits.put(entry.getKey(), (BitSet) entry.getValue().clone());
+                }
+            }
+        }
+    }
+
+    @Override
+    public BitSet getPruneMask(Node pruneNode) {
+        return getBaseSplitBits(pruneNode);
+    }
+
+    @Override
+    public boolean applyRadialStep(Node currentNode, Node previousNode, BitSet pruneMask) {
+        boolean movingUp = (currentNode == previousNode.getParent());
+        Node nodeToUpdate = movingUp ? previousNode : currentNode;
+        BitSet bitsOut = movingUp ? pruneMask : null;
+        BitSet bitsIn = movingUp ? null : pruneMask;
+        return applyNniStep(nodeToUpdate, bitsOut, bitsIn);
+    }
+
+    @Override
+    public void undoRadialStep() {
+        undoNniStep();
+    }
+
+    @Override
+    public double evaluateCurrentRegraft(Node targetNode, Node pruneParent, BitSet pruneMask, Node pruneNode) {
+        return getFixedDistanceForRegraft(targetNode, pruneParent, pruneMask, pruneNode);
+    }
+
     @Override public double getDistance(Tree t1, Tree t2, int... indexes) { return msMetricFull.getDistance(t1, t2, indexes); }
     @Override public String getName() { return "Accelerated " + msMetricFull.getName(); }
     @Override public String getCommandLineName() { return msMetricFull.getCommandLineName(); }

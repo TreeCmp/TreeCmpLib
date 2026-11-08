@@ -24,9 +24,8 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
     protected IncrementalMetric primaryMetric;
     private int sprStepsCount = 0;
 
-    private final List<Tree> stepBaseTrees = new ArrayList<>();
-    private final List<TreeMove> stepMoves = new ArrayList<>();
-    private final List<TreeMove> fallbackImprovingMoves = new ArrayList<>();
+    private final List< Tree > stepBaseTrees = new ArrayList< >();
+    private final List< TreeMove > stepMoves = new ArrayList< >();
 
     public UsprIncrementalHeuristicMetric(IncrementalMetric metric, IncrementalMetric primaryMetric, String metricShortName) {
         super(false, metric);
@@ -42,7 +41,10 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
 
     @Override
     protected void searchNeighborhood(Tree currentTree) {
-        IncrementalMetric activeMetric = primaryMetric != null ? primaryMetric : this.incMetric;
+        UsprIncrementalMetric activeMetric = (primaryMetric != null)
+                ? (UsprIncrementalMetric) primaryMetric
+                : (UsprIncrementalMetric) this.incMetric;
+
         this.tiedMoves.clear();
         this.bestMove = null;
         this.improved = false;
@@ -51,19 +53,11 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
         final boolean allowPlateau = (this.primaryMetric != null);
 
         unrootedWalker.walk(currentTree, activeMetric, (currentDist, movingNode, targetNode) -> {
-            if (!allowPlateau) {
-                if (currentDist < this.bestDist - 1e-9) {
-                    this.bestDist = currentDist;
-                    this.tiedMoves.clear();
-                    SprMove move = new SprMove(movingNode, targetNode);
-                    this.tiedMoves.add(move);
-                    this.bestMove = move;
-                    this.improved = true;
-                }
-            } else {
-                if (currentDist <= this.bestDist + 1e-9) {
-                    checkImprovementWithTies(currentDist, new SprMove(movingNode, targetNode));
-                }
+            if (!allowPlateau && currentDist >= initialDist - 1e-9) {
+                return;
+            }
+            if (currentDist <= this.bestDist + 1e-9) {
+                checkImprovementWithTies(currentDist, new SprMove(movingNode, targetNode));
             }
         });
     }
@@ -149,48 +143,23 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
 
             TreeMove bestMove = null;
             Tree bestCandidateTree = null;
-            double verifiedNewDist = Double.POSITIVE_INFINITY;
             double nextSecDist = currentSecDist;
             boolean isPlateau = Math.abs(this.bestDist - currentDist) <= 1e-9;
 
             if (primaryMetric == null) {
                 if (this.bestDist < currentDist - 1e-9) {
-                    for (int i = 0; i < this.tiedMoves.size(); i++) {
-                        TreeMove candMove = this.tiedMoves.get(i);
-                        Tree candTree = applyPhysicalMove(currentTree, candMove);
-                        if (candTree == null || candTree == currentTree) {
-                            continue;
-                        }
-                        activeMetric.initCalculationState(candTree, targetTree);
-                        double d = activeMetric.getCurrentDistance();
-                        if (Math.abs(d - this.bestDist) <= 1e-9) {
-                            bestMove = candMove;
-                            bestCandidateTree = candTree;
-                            verifiedNewDist = d;
-                            break;
-                        } else if (d < currentDist - 1e-9 && d < verifiedNewDist - 1e-9) {
-                            bestMove = candMove;
-                            bestCandidateTree = candTree;
-                            verifiedNewDist = d;
-                        }
-                    }
-
-                    if (bestMove == null) {
-                        for (int i = 0; i < this.fallbackImprovingMoves.size(); i++) {
-                            TreeMove candMove = this.fallbackImprovingMoves.get(i);
-                            Tree candTree = applyPhysicalMove(currentTree, candMove);
-                            if (candTree == null || candTree == currentTree) {
-                                continue;
-                            }
-                            activeMetric.initCalculationState(candTree, targetTree);
-                            double d = activeMetric.getCurrentDistance();
-                            if (d < currentDist - 1e-9 && d < verifiedNewDist - 1e-9) {
-                                bestMove = candMove;
-                                bestCandidateTree = candTree;
-                                verifiedNewDist = d;
-                                break;
+                    if (this.tiedMoves.size() > 1) {
+                        double lowestNniCost = Double.POSITIVE_INFINITY;
+                        for (int i = 0; i < this.tiedMoves.size(); i++) {
+                            TreeMove move = this.tiedMoves.get(i);
+                            double cost = move.getNniEquivalentCost();
+                            if (cost < lowestNniCost) {
+                                lowestNniCost = cost;
+                                bestMove = move;
                             }
                         }
+                    } else {
+                        bestMove = this.tiedMoves.get(0);
                     }
                 } else {
                     break;
@@ -251,24 +220,15 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
                 break;
             }
 
-            double newDist;
-            if (primaryMetric == null && verifiedNewDist < Double.POSITIVE_INFINITY) {
-                newDist = verifiedNewDist;
-            } else {
-                activeMetric.initCalculationState(nextTree, targetTree);
-                newDist = activeMetric.getCurrentDistance();
-            }
+            activeMetric.initCalculationState(nextTree, targetTree);
+            double newDist = activeMetric.getCurrentDistance();
 
             if (newDist > currentDist + 1e-9) {
                 break;
             }
             if (Math.abs(newDist - currentDist) <= 1e-9) {
-                if (primaryMetric == null) {
-                    if (this.bestDist < currentDist - 1e-9) {
-                        bestMove = this.tiedMoves.get(0);
-                    } else {
-                        break;
-                    }
+                if (primaryMetric == null || nextSecDist >= currentSecDist - 1e-9) {
+                    break;
                 }
             }
 
@@ -300,11 +260,11 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
     }
 
     @Override
-    public List<Tree> getLastOptimumTrajectory(Tree startTree) {
+    public List< Tree > getLastOptimumTrajectory(Tree startTree) {
         if (this.fullOptimumTrajectory.isEmpty() && !this.stepMoves.isEmpty()) {
             for (int i = 0; i < this.stepMoves.size(); i++) {
                 try {
-                    List<Tree> stepTraj = this.stepMoves.get(i).getNniTrajectory(this.stepBaseTrees.get(i));
+                    List< Tree > stepTraj = this.stepMoves.get(i).getNniTrajectory(this.stepBaseTrees.get(i));
                     if (stepTraj != null && !stepTraj.isEmpty()) {
                         this.fullOptimumTrajectory.addAll(stepTraj);
                     }
@@ -313,7 +273,7 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
             }
         }
         if (this.fullOptimumTrajectory != null && !this.fullOptimumTrajectory.isEmpty()) {
-            return new ArrayList<>(this.fullOptimumTrajectory);
+            return new ArrayList< >(this.fullOptimumTrajectory);
         }
         if (this.lastOptimumTree != null) {
             return Collections.singletonList(this.lastOptimumTree);

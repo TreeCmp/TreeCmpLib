@@ -8,6 +8,7 @@ import treecmp.heuristics.ecr.acc.Ecr2IncrementalMetric;
 import treecmp.heuristics.ecr.acc.Ecr3IncrementalMetric;
 import treecmp.heuristics.moves.NniMove;
 import treecmp.heuristics.nni.acc.NniIncrementalMetric;
+import treecmp.heuristics.spr.acc.UsprIncrementalMetric;
 import treecmp.metrics.BaseMetric;
 import treecmp.metrics.IncrementalMetric;
 
@@ -16,29 +17,29 @@ import java.util.*;
 public abstract class BaseRFIncrementalMetric extends BaseMetric implements
         IncrementalMetric,
         NniIncrementalMetric,
+        UsprIncrementalMetric,
         Ecr2IncrementalMetric,
         Ecr3IncrementalMetric {
 
-    // Struktury statyczne (zbudowane raz na starcie)
-    protected final Set<BitSet> targetSplits = new HashSet<>();
-    protected final Map<Node, BitSet> nodeBitSets = new IdentityHashMap<>();
+    protected final Set< BitSet > targetSplits = new HashSet< >();
+    protected final Map< Node, BitSet > nodeBitSets = new IdentityHashMap< >();
     protected BitSet allLeavesMask;
+    protected int N;
 
-    // Śledzi aktualny wirtualny split węzła w trakcie przeszukiwania otoczenia
-    protected final Map<Node, BitSet> activeVirtualSplits = new HashMap<>();
+    protected final Map< Node, BitSet > activeVirtualSplits = new IdentityHashMap< >();
 
-    // Stosy pamiętające stan sprzed każdego ruchu
-    protected final Stack<Integer> sharedSplitsHistory = new Stack<>();
-    protected final Stack<Node> movingNodeHistory = new Stack<>();
-    protected final Stack<BitSet> activeSplitHistory = new Stack<>();
-    protected final Stack<Integer> operationNodeCountHistory = new Stack<>();
+    protected final Stack< Integer > sharedSplitsHistory = new Stack< >();
+    protected final Stack< Node > movingNodeHistory = new Stack< >();
+    protected final Stack< BitSet > activeSplitHistory = new Stack< >();
+    protected final Stack< Integer > operationNodeCountHistory = new Stack< >();
 
     protected int sharedSplitsCount;
     protected int totalInternalSplits;
     protected double currentDistance;
 
-    // Śledzi głębokość odcięcia dla przejścia uSPR
-    protected final Stack<Integer> sprPruneDepths = new Stack<>();
+    protected final Stack< Integer > sprPruneDepths = new Stack< >();
+    private BitSet scratchNorm;
+    private BitSet scratchRegraft;
 
     protected abstract BitSet normalizeSplit(BitSet rawSplit);
 
@@ -57,15 +58,21 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements
         operationNodeCountHistory.clear();
         sprPruneDepths.clear();
 
-        Map<String, Integer> leafMapping = createLeafMapping(baseTree);
+        Map< String, Integer > leafMapping = createLeafMapping(baseTree);
         int leafCount = leafMapping.size();
+        this.N = leafCount;
 
         this.allLeavesMask = new BitSet(leafCount);
         this.allLeavesMask.set(0, leafCount);
 
+        if (this.scratchNorm == null || this.scratchNorm.size() < leafCount) {
+            this.scratchNorm = new BitSet(leafCount);
+            this.scratchRegraft = new BitSet(leafCount);
+        }
+
         extractAndStoreSplits(targetTree, leafMapping, targetSplits, false);
 
-        Set<BitSet> baseSplits = new HashSet<>();
+        Set< BitSet > baseSplits = new HashSet< >();
         extractAndStoreSplits(baseTree, leafMapping, baseSplits, true);
 
         sharedSplitsCount = 0;
@@ -79,10 +86,6 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements
         updateCurrentDistance();
     }
 
-    // =========================================================================
-    // NNI / KROK PRZYROSTOWY O(1)
-    // =========================================================================
-
     public double applyNniStep(Node nodeToUpdate, BitSet bitsOut, BitSet bitsIn) {
         if (nodeToUpdate == null) return this.currentDistance;
 
@@ -95,7 +98,7 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements
         sharedSplitsHistory.push(sharedSplitsCount);
         movingNodeHistory.push(nodeToUpdate);
         operationNodeCountHistory.push(1);
-        activeSplitHistory.push(oldBSInVirtual);
+        activeSplitHistory.push(oldBSInVirtual != null ? (BitSet) oldBSInVirtual.clone() : null);
 
         if (isShared(currentBS)) sharedSplitsCount--;
 
@@ -166,15 +169,17 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements
 
     public BitSet getCluster(Node node) {
         if (node == null) return null;
-        return activeVirtualSplits.getOrDefault(node, nodeBitSets.get(node));
+        BitSet virt = activeVirtualSplits.get(node);
+        return (virt != null) ? virt : nodeBitSets.get(node);
     }
 
     public boolean isShared(BitSet bs) {
-        if (bs == null) return false;
-        BitSet norm = normalizeSplit((BitSet) bs.clone());
+        if (bs == null || bs.isEmpty()) return false;
+        scratchNorm.clear();
+        scratchNorm.or(bs);
+        BitSet norm = normalizeSplit(scratchNorm);
         int card = norm.cardinality();
-        int total = allLeavesMask.cardinality();
-        if (isNonTrivial(card, total)) {
+        if (isNonTrivial(card, N)) {
             return targetSplits.contains(norm);
         }
         return false;
@@ -190,10 +195,10 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements
         this.currentDistance = (totalInternalSplits + targetSplits.size() - 2.0 * sharedSplitsCount) / 2.0;
     }
 
-    protected Map<String, Integer> createLeafMapping(Tree tree) {
-        Map<String, Integer> mapping = new HashMap<>();
+    protected Map< String, Integer > createLeafMapping(Tree tree) {
+        Map< String, Integer > mapping = new HashMap< >();
         int index = 0;
-        Stack<Node> stack = new Stack<>();
+        Stack< Node > stack = new Stack< >();
         stack.push(tree.getRoot());
         while (!stack.isEmpty()) {
             Node n = stack.pop();
@@ -206,11 +211,11 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements
         return mapping;
     }
 
-    protected void extractAndStoreSplits(Tree tree, Map<String, Integer> leafMap, Set<BitSet> store, boolean fillCache) {
+    protected void extractAndStoreSplits(Tree tree, Map< String, Integer > leafMap, Set< BitSet > store, boolean fillCache) {
         buildNodeBitSetsRec(tree.getRoot(), leafMap, store, fillCache);
     }
 
-    private BitSet buildNodeBitSetsRec(Node node, Map<String, Integer> leafMap, Set<BitSet> store, boolean fillCache) {
+    private BitSet buildNodeBitSetsRec(Node node, Map< String, Integer > leafMap, Set< BitSet > store, boolean fillCache) {
         BitSet bs = new BitSet();
         if (node.isLeaf()) {
             String name = node.getIdentifier().getName();
@@ -239,9 +244,15 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements
     }
 
     // =========================================================================
-    // METODY PRZEJŚCIA DLA WĘDROWCA uSPR
+    // KONTRAKT UsprIncrementalMetric (uSPR)
     // =========================================================================
 
+    @Override
+    public BitSet getPruneMask(Node pruneNode) {
+        return getCluster(pruneNode);
+    }
+
+    @Override
     public void applySprPrune(Node pruneNode) {
         if (pruneNode == null) {
             sprPruneDepths.push(0);
@@ -261,12 +272,29 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements
         sprPruneDepths.push(pruneDepth);
     }
 
+    @Override
     public void undoSprPrune(Node pruneNode) {
         if (sprPruneDepths.isEmpty()) return;
         int depth = sprPruneDepths.pop();
         for (int i = 0; i < depth; i++) {
             undoNniStep();
         }
+    }
+
+    @Override
+    public boolean applyRadialStep(Node currentNode, Node previousNode, BitSet pruneMask) {
+        // Dla RF stan po wycięciu jest w pełni określony przez applySprPrune
+        return false;
+    }
+
+    @Override
+    public void undoRadialStep() {
+        // No-op dla RF
+    }
+
+    @Override
+    public double evaluateCurrentRegraft(Node targetNode, Node pruneParent, BitSet pruneMask, Node pruneNode) {
+        return evaluateSprRegraft(pruneNode, targetNode);
     }
 
     public double evaluateSprRegraft(Node pruneNode, Node targetNode) {
@@ -281,9 +309,10 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements
 
         BitSet targetBits = getCluster(targetNode);
         if (targetBits != null) {
-            BitSet newNodeBits = (BitSet) targetBits.clone();
-            newNodeBits.or(movingBits);
-            if (isShared(newNodeBits)) virtualShared++;
+            scratchRegraft.clear();
+            scratchRegraft.or(targetBits);
+            if (movingBits != null) scratchRegraft.or(movingBits);
+            if (isShared(scratchRegraft)) virtualShared++;
         }
 
         return (totalInternalSplits + targetSplits.size() - 2.0 * virtualShared) / 2.0;
@@ -299,7 +328,7 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements
     }
 
     // =========================================================================
-    // 2-sECR O(1)
+    // 2-sECR O(1) & 3-sECR O(1)
     // =========================================================================
 
     @Override
@@ -345,19 +374,17 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements
         sharedSplitsHistory.push(sharedSplitsCount);
         operationNodeCountHistory.push(2);
 
-        // Modyfikacja m1
         BitSet oldM1InVirtual = activeVirtualSplits.get(m1);
         movingNodeHistory.push(m1);
-        activeSplitHistory.push(oldM1InVirtual);
+        activeSplitHistory.push(oldM1InVirtual != null ? (BitSet) oldM1InVirtual.clone() : null);
         BitSet currentM1 = (oldM1InVirtual != null) ? oldM1InVirtual : nodeBitSets.get(m1);
         if (isShared(currentM1)) this.sharedSplitsCount--;
         if (isShared(newM1)) this.sharedSplitsCount++;
         activeVirtualSplits.put(m1, newM1);
 
-        // Modyfikacja m2
         BitSet oldM2InVirtual = activeVirtualSplits.get(m2);
         movingNodeHistory.push(m2);
-        activeSplitHistory.push(oldM2InVirtual);
+        activeSplitHistory.push(oldM2InVirtual != null ? (BitSet) oldM2InVirtual.clone() : null);
         BitSet currentM2 = (oldM2InVirtual != null) ? oldM2InVirtual : nodeBitSets.get(m2);
         if (isShared(currentM2)) this.sharedSplitsCount--;
         if (isShared(newM2)) this.sharedSplitsCount++;
@@ -367,19 +394,15 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements
         return this.currentDistance;
     }
 
-    // =========================================================================
-    // 3-sECR O(1)
-    // =========================================================================
-
     @Override
-    public double evaluate3sEcrMove(List<Node> cluster, Node[] boundarySubtrees, TopologyTemplate3sECR newTopology) {
+    public double evaluate3sEcrMove(List< Node > cluster, Node[] boundarySubtrees, TopologyTemplate3sECR newTopology) {
         double evaluatedDistance = commit3sEcrMove(cluster, boundarySubtrees, newTopology);
         undoNniStep();
         return evaluatedDistance;
     }
 
     @Override
-    public double commit3sEcrMove(List<Node> cluster, Node[] boundarySubtrees, TopologyTemplate3sECR newTopology) {
+    public double commit3sEcrMove(List< Node > cluster, Node[] boundarySubtrees, TopologyTemplate3sECR newTopology) {
         Node top = cluster.get(0);
         BitSet topCluster = getCluster(top);
         BitSet[] sBits = new BitSet[5];
@@ -397,17 +420,17 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements
 
         Node[] available = cluster.toArray(new Node[0]);
         int[] idxArr = {1};
-        Map<Node, BitSet> newClusters = new LinkedHashMap<>();
+        Map< Node, BitSet > newClusters = new LinkedHashMap< >();
         compute3sEcrTemplateBits(newTopology, available[0], available, idxArr, sBits, newClusters);
 
         sharedSplitsHistory.push(sharedSplitsCount);
         operationNodeCountHistory.push(newClusters.size());
 
-        for (Map.Entry<Node, BitSet> entry : newClusters.entrySet()) {
+        for (Map.Entry< Node, BitSet > entry : newClusters.entrySet()) {
             Node n = entry.getKey();
             BitSet oldBSInVirtual = activeVirtualSplits.get(n);
             movingNodeHistory.push(n);
-            activeSplitHistory.push(oldBSInVirtual);
+            activeSplitHistory.push(oldBSInVirtual != null ? (BitSet) oldBSInVirtual.clone() : null);
 
             BitSet currentBS = (oldBSInVirtual != null) ? oldBSInVirtual : nodeBitSets.get(n);
             if (isShared(currentBS)) this.sharedSplitsCount--;
@@ -426,7 +449,7 @@ public abstract class BaseRFIncrementalMetric extends BaseMetric implements
                                             Node[] available,
                                             int[] idxArr,
                                             BitSet[] sBits,
-                                            Map<Node, BitSet> updates) {
+                                            Map< Node, BitSet > updates) {
         BitSet leftBits;
         if (temp.left.leafIndex != -1) {
             leftBits = sBits[temp.left.leafIndex];

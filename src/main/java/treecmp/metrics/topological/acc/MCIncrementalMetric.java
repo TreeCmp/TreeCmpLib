@@ -1,11 +1,13 @@
 package treecmp.metrics.topological.acc;
 
-import pal.tree.Node;
-import pal.tree.Tree;
 import pal.misc.IdGroup;
+import pal.tree.Node;
+import pal.tree.SimpleTree;
+import pal.tree.Tree;
 import pal.tree.TreeUtils;
 import treecmp.common.AlignInfo;
 import treecmp.common.LapSolver;
+import treecmp.common.TreeCmpUtils;
 import treecmp.heuristics.ecr.SubtreeEcr2Utils;
 import treecmp.heuristics.ecr.SubtreeEcr3Utils;
 import treecmp.heuristics.ecr.acc.Ecr2IncrementalMetric;
@@ -14,6 +16,7 @@ import treecmp.heuristics.moves.NniMove;
 import treecmp.heuristics.nni.acc.NniIncrementalMetric;
 import treecmp.heuristics.spr.SprUtils;
 import treecmp.heuristics.spr.acc.SprIncrementalMetric;
+import treecmp.heuristics.tbr.TbrUtils;
 import treecmp.heuristics.tbr.acc.TbrIncrementalMetric;
 import treecmp.metrics.IncrementalMetric;
 import treecmp.metrics.topological.MatchingClusterMetric;
@@ -31,10 +34,14 @@ public class MCIncrementalMetric implements IncrementalMetric,
     private Tree targetTree;
     private Tree lastTargetTree;
     private double currentDistance;
+    private boolean enableTriangleLowerBoundPruning = true;
+    private boolean useTreeDpForRowCosts = false;
     private IdGroup idGroup;
     private int N;
 
     private final MatchingClusterMetric mcMetricFull = new MatchingClusterMetric();
+    private final TbrUtils tbrUtils = new TbrUtils();
+    private final SprUtils sprUtils = new SprUtils();
 
     private int dim;
     private int allocatedDim = -1;
@@ -45,6 +52,7 @@ public class MCIncrementalMetric implements IncrementalMetric,
     private int[] u;
     private int[] v;
 
+    private Map<Node, BitSet> baseClusters;
     private Map<Node, BitSet> currentClusters;
     private Map<Node, BitSet> targetClusters;
     private Map<Node, Integer> nodeToRow;
@@ -58,6 +66,17 @@ public class MCIncrementalMetric implements IncrementalMetric,
     private short[] targetNullRowCosts;
     private long[] scratchWords;
 
+    // Struktury do szybkiego przejścia O(N) po T2 (Tree DP indeksowane pozycją post-order)
+    private int postOrderT2Count;
+    private int[] t2PostOrderChild0;
+    private int[] t2PostOrderChild1;
+    private int[] t2PostOrderFirstChild;
+    private int[] t2PostOrderChildCount;
+    private int[] t2PostOrderChildrenFlat;
+    private int[] t2PostOrderLeafId;
+    private int[] t2PostOrderCol;
+    private int[] t2CountA;
+
     private final Stack<short[][]> costHistory = new Stack<>();
     private final Stack<int[]> rowsolHistory = new Stack<>();
     private final Stack<int[]> colsolHistory = new Stack<>();
@@ -65,15 +84,12 @@ public class MCIncrementalMetric implements IncrementalMetric,
     private final Stack<int[]> vHistory = new Stack<>();
     private final Stack<Double> distanceHistory = new Stack<>();
     private final Stack<Map<Node, BitSet>> clusterHistory = new Stack<>();
-    private final Stack<Integer> nniPushCountHistory = new Stack<>();
-
-    private final treecmp.heuristics.tbr.TbrUtils tbrUtils = new treecmp.heuristics.tbr.TbrUtils();
 
     private BitSet currentPrunedLeaves;
     private BitSet fullTreeLeaves;
 
     // =========================================================================
-    // PREALOKOWANY STOS DELTA (ZERO-ALLOCATION W 2D-DFS TBR, NNI, ECR)
+    // PREALOKOWANY STOS DELTA O ZREDUKOWANEJ PAMIĘCI O(N^2) (2D-DFS TBR, NNI, ECR)
     // =========================================================================
     private int deltaMaxDepth = 0;
     private int deltaPointer = 0;
@@ -94,6 +110,57 @@ public class MCIncrementalMetric implements IncrementalMetric,
     private int[] scratchPruneRows;
     private BitSet[] scratchPruneBitSets;
 
+    // Prealokowane bufory dla bezalokacyjnego 3s-ECR
+    private BitSet[] bitSetPool;
+    private int poolIdx = 0;
+    private final BitSet[] ecr3BBits = new BitSet[5];
+    private int ecr3NextClusterIdx = 1;
+    private int ecr3UpdateCount = 0;
+
+    // Prealokowane bufory dla ciepłego startu LAP (SPR / TBR fallback & getFixedDistanceForRegraft)
+    private final Map<BitSet, Integer> clusterToRow = new HashMap<>();
+    private boolean clusterToRowInitialized = false;
+    private short[][] scratchSavedOldRows;
+    private int[] scratchSavedU;
+    private int[] scratchSavedV;
+    private int[] scratchSavedRowsol;
+    private int[] scratchSavedColsol;
+    private int[] scratchChangedRows;
+    private BitSet[] tempTreeClusters;
+    private BitSet[] scratchNewClusters;
+    private boolean[] scratchRowUsed;
+
+    public void setEnableTriangleLowerBoundPruning(boolean enable) {
+        this.enableTriangleLowerBoundPruning = enable;
+    }
+
+    public void setUseTreeDpForRowCosts(boolean useTreeDp) {
+        this.useTreeDpForRowCosts = useTreeDp;
+    }
+
+    public BitSet getSplit(Node n) {
+        return getCluster(n);
+    }
+
+    private int getNodeIndex(Node node) {
+        return node.isLeaf() ? node.getNumber() : (N + node.getNumber());
+    }
+
+    private BitSet getScratchBitSet() {
+        if (poolIdx >= bitSetPool.length) {
+            int newCap = bitSetPool.length * 2;
+            BitSet[] newPool = new BitSet[newCap];
+            System.arraycopy(bitSetPool, 0, newPool, 0, bitSetPool.length);
+            for (int i = bitSetPool.length; i < newCap; i++) {
+                newPool[i] = new BitSet(N);
+            }
+            bitSetPool = newPool;
+        }
+        BitSet bs = bitSetPool[poolIdx++];
+        bs.clear();
+        return bs;
+    }
+
     @Override
     public void initCalculationState(Tree baseTree, Tree targetTree) {
         this.baseTree = baseTree;
@@ -108,12 +175,17 @@ public class MCIncrementalMetric implements IncrementalMetric,
             this.dim = Math.max(size1, size2);
             this.numWords = (N + 63) >>> 6;
 
-            boolean sameTarget = (targetTree == this.lastTargetTree) && (this.dim == this.allocatedDim) && (this.N == this.allocatedN) && (this.idGroup != null);
+            boolean sameTarget = (targetTree == this.lastTargetTree)
+                    && (this.dim == this.allocatedDim)
+                    && (this.N == this.allocatedN)
+                    && (this.idGroup != null);
             if (!sameTarget) {
                 this.idGroup = TreeUtils.getLeafIdGroup(baseTree);
             }
 
-            boolean needRealloc = (this.dim != this.allocatedDim) || (this.N != this.allocatedN) || (this.assigncost == null);
+            boolean needRealloc = (this.dim != this.allocatedDim)
+                    || (this.N != this.allocatedN)
+                    || (this.assigncost == null);
 
             if (needRealloc) {
                 this.assigncost = new short[dim][dim];
@@ -132,23 +204,54 @@ public class MCIncrementalMetric implements IncrementalMetric,
                     this.cachedKArrays[i] = new int[i];
                 }
 
+                this.scratchSavedOldRows = new short[dim][dim];
+                this.scratchSavedU = new int[dim];
+                this.scratchSavedV = new int[dim];
+                this.scratchSavedRowsol = new int[dim];
+                this.scratchSavedColsol = new int[dim];
+                this.scratchChangedRows = new int[dim];
+
                 int depth = Math.max(128, N * 4);
                 this.deltaMaxDepth = depth;
                 this.deltaRowsCount = new int[depth];
                 this.deltaRows = new int[depth][dim];
-                this.deltaOldRows = new short[depth][dim][dim];
+                this.deltaOldRows = new short[depth][][];
                 this.deltaOldU = new int[depth][dim];
                 this.deltaOldV = new int[depth][dim];
                 this.deltaOldRowsol = new int[depth][dim];
                 this.deltaOldColsol = new int[depth][dim];
                 this.deltaOldDistance = new double[depth];
-                this.deltaOldClustNode = new Node[depth][dim];
-                this.deltaOldClustBits = new BitSet[depth][dim];
+                this.deltaOldClustNode = new Node[depth][];
+                this.deltaOldClustBits = new BitSet[depth][];
+
+                int baseRowSlots = Math.max(4, dim);
                 for (int d = 0; d < depth; d++) {
-                    for (int r = 0; r < dim; r++) {
+                    int rowSlots = (d < 2) ? baseRowSlots : 4;
+                    this.deltaOldRows[d] = new short[rowSlots][dim];
+                    this.deltaOldClustNode[d] = new Node[rowSlots];
+                    this.deltaOldClustBits[d] = new BitSet[rowSlots];
+                    for (int r = 0; r < rowSlots; r++) {
                         this.deltaOldClustBits[d][r] = new BitSet(N);
                     }
                 }
+
+                int maxPoolSize = Math.max(128, N * 4);
+                this.bitSetPool = new BitSet[maxPoolSize];
+                for (int i = 0; i < maxPoolSize; i++) {
+                    this.bitSetPool[i] = new BitSet(N);
+                }
+
+                int maxTreeNodes = N * 2 + 16;
+                this.tempTreeClusters = new BitSet[maxTreeNodes];
+                for (int i = 0; i < maxTreeNodes; i++) {
+                    this.tempTreeClusters[i] = new BitSet(N);
+                }
+
+                this.scratchNewClusters = new BitSet[dim + 5];
+                for (int i = 0; i < scratchNewClusters.length; i++) {
+                    this.scratchNewClusters[i] = new BitSet(N);
+                }
+                this.scratchRowUsed = new boolean[dim + 5];
 
                 this.tbrScratch1 = new BitSet(N);
                 this.tbrScratch2 = new BitSet(N);
@@ -163,6 +266,7 @@ public class MCIncrementalMetric implements IncrementalMetric,
                 }
 
                 int expectedMapSize = (N * 2 + 5) * 4 / 3;
+                this.baseClusters = new IdentityHashMap<>(expectedMapSize);
                 this.currentClusters = new IdentityHashMap<>(expectedMapSize);
                 this.targetClusters = new IdentityHashMap<>(expectedMapSize);
                 this.nodeToRow = new IdentityHashMap<>(expectedMapSize);
@@ -181,13 +285,19 @@ public class MCIncrementalMetric implements IncrementalMetric,
                 Arrays.fill(this.u, 0);
                 Arrays.fill(this.v, 0);
                 Arrays.fill(this.rowToNode, null);
+                this.baseClusters.clear();
                 this.currentClusters.clear();
                 this.nodeToRow.clear();
             }
 
             this.deltaPointer = 0;
+            this.poolIdx = 0;
+            this.clusterToRowInitialized = false;
 
-            extractClusters(baseTree.getRoot(), idGroup, this.currentClusters);
+            extractClusters(baseTree.getRoot(), idGroup, this.baseClusters);
+            for (Map.Entry<Node, BitSet> e : this.baseClusters.entrySet()) {
+                this.currentClusters.put(e.getKey(), (BitSet) e.getValue().clone());
+            }
 
             int r = 0;
             for (int i = 0; i < baseTree.getInternalNodeCount(); i++) {
@@ -209,11 +319,13 @@ public class MCIncrementalMetric implements IncrementalMetric,
 
                 extractClusters(targetTree.getRoot(), idGroup, this.targetClusters);
 
+                Map<Node, Integer> targetNodeToCol = new IdentityHashMap<>(targetTree.getInternalNodeCount() * 2);
                 int c = 0;
                 for (int j = 0; j < targetTree.getInternalNodeCount(); j++) {
                     Node n = targetTree.getInternalNode(j);
                     if (!n.isRoot() && c < dim) {
                         colToNode[c] = n;
+                        targetNodeToCol.put(n, c);
                         c++;
                     }
                 }
@@ -228,6 +340,50 @@ public class MCIncrementalMetric implements IncrementalMetric,
                         }
                     }
                 }
+
+                Node[] postOrderT2 = TreeCmpUtils.getNodesInPostOrder(targetTree);
+                this.postOrderT2Count = postOrderT2.length;
+                if (this.t2PostOrderChild0 == null || this.t2PostOrderChild0.length < postOrderT2Count) {
+                    this.t2PostOrderChild0 = new int[postOrderT2Count];
+                    this.t2PostOrderChild1 = new int[postOrderT2Count];
+                    this.t2PostOrderFirstChild = new int[postOrderT2Count];
+                    this.t2PostOrderChildCount = new int[postOrderT2Count];
+                    this.t2PostOrderChildrenFlat = new int[postOrderT2Count];
+                    this.t2PostOrderLeafId = new int[postOrderT2Count];
+                    this.t2PostOrderCol = new int[postOrderT2Count];
+                    this.t2CountA = new int[postOrderT2Count];
+                }
+
+                Map<Node, Integer> nodeToPostOrder = new IdentityHashMap<>(postOrderT2Count * 2);
+                for (int i = 0; i < postOrderT2Count; i++) {
+                    nodeToPostOrder.put(postOrderT2[i], i);
+                }
+
+                int flatChildPtr = 0;
+                for (int i = 0; i < postOrderT2Count; i++) {
+                    Node n = postOrderT2[i];
+                    if (n.isLeaf()) {
+                        t2PostOrderLeafId[i] = idGroup.whichIdNumber(n.getIdentifier().getName());
+                        t2PostOrderCol[i] = -1;
+                        t2PostOrderChild0[i] = -1;
+                        t2PostOrderChild1[i] = -1;
+                        t2PostOrderFirstChild[i] = -1;
+                        t2PostOrderChildCount[i] = 0;
+                    } else {
+                        t2PostOrderLeafId[i] = -1;
+                        Integer colIdx = targetNodeToCol.get(n);
+                        t2PostOrderCol[i] = (colIdx != null) ? colIdx : -1;
+                        int chCount = n.getChildCount();
+                        t2PostOrderChildCount[i] = chCount;
+                        t2PostOrderChild0[i] = (chCount > 0) ? nodeToPostOrder.get(n.getChild(0)) : -1;
+                        t2PostOrderChild1[i] = (chCount > 1) ? nodeToPostOrder.get(n.getChild(1)) : -1;
+                        t2PostOrderFirstChild[i] = flatChildPtr;
+                        for (int k = 0; k < chCount; k++) {
+                            t2PostOrderChildrenFlat[flatChildPtr++] = nodeToPostOrder.get(n.getChild(k));
+                        }
+                    }
+                }
+
                 this.lastTargetTree = targetTree;
             }
 
@@ -235,6 +391,22 @@ public class MCIncrementalMetric implements IncrementalMetric,
             this.currentDistance = LapSolver.lapShort(dim, assigncost, rowsol, colsol, u, v);
         } else {
             this.currentDistance = 0;
+        }
+    }
+
+    private void ensureClusterToRowInitialized() {
+        if (!clusterToRowInitialized) {
+            clusterToRow.clear();
+            for (int i = 0; i < dim; i++) {
+                Node n1 = rowToNode[i];
+                if (n1 != null) {
+                    BitSet bs = currentClusters.get(n1);
+                    if (bs != null && !bs.isEmpty() && bs.cardinality() < N) {
+                        clusterToRow.put((BitSet) bs.clone(), i);
+                    }
+                }
+            }
+            clusterToRowInitialized = true;
         }
     }
 
@@ -263,12 +435,37 @@ public class MCIncrementalMetric implements IncrementalMetric,
     }
 
     private void computeRowCostsFast(int r, BitSet cluster) {
+        short[] costRow = assigncost[r];
+        if (cluster == null || cluster.isEmpty()) {
+            System.arraycopy(targetNullRowCosts, 0, costRow, 0, dim);
+            return;
+        }
+
+        if (useTreeDpForRowCosts || numWords > 8) {
+            computeRowCostsTreeDp(r, cluster);
+            return;
+        }
+
         fillWordsFromBitSet(cluster, scratchWords);
+
+        if (numWords == 1) {
+            long w0 = scratchWords[0];
+            short card = (short) Long.bitCount(w0);
+            for (int j = 0; j < dim; j++) {
+                if (colToNode[j] != null) {
+                    costRow[j] = (short) Long.bitCount(w0 ^ targetClusterWords[j][0]);
+                } else {
+                    costRow[j] = card;
+                }
+            }
+            return;
+        }
+
         int card = 0;
         for (int w = 0; w < numWords; w++) {
             card += Long.bitCount(scratchWords[w]);
         }
-        short[] costRow = assigncost[r];
+        short shortCard = (short) card;
         for (int j = 0; j < dim; j++) {
             if (colToNode[j] != null) {
                 long[] tWords = targetClusterWords[j];
@@ -278,7 +475,47 @@ public class MCIncrementalMetric implements IncrementalMetric,
                 }
                 costRow[j] = (short) diff;
             } else {
-                costRow[j] = (short) card;
+                costRow[j] = shortCard;
+            }
+        }
+    }
+
+    /**
+     * Wyliczanie wiersza macierzy kosztów w czasie O(N) za pomocą przejścia post-order Tree DP po T2.
+     */
+    private void computeRowCostsTreeDp(int r, BitSet cluster) {
+        int card = cluster.cardinality();
+        short shortCard = (short) card;
+        short[] costRow = assigncost[r];
+
+        for (int i = 0; i < postOrderT2Count; i++) {
+            int leafId = t2PostOrderLeafId[i];
+            if (leafId >= 0) {
+                t2CountA[i] = cluster.get(leafId) ? 1 : 0;
+            } else {
+                int chCount = t2PostOrderChildCount[i];
+                int sumA;
+                if (chCount == 2) {
+                    sumA = t2CountA[t2PostOrderChild0[i]] + t2CountA[t2PostOrderChild1[i]];
+                } else {
+                    sumA = 0;
+                    int first = t2PostOrderFirstChild[i];
+                    for (int k = 0; k < chCount; k++) {
+                        sumA += t2CountA[t2PostOrderChildrenFlat[first + k]];
+                    }
+                }
+                t2CountA[i] = sumA;
+
+                int col = t2PostOrderCol[i];
+                if (col >= 0) {
+                    costRow[col] = (short) (card + targetNullRowCosts[col] - (sumA << 1));
+                }
+            }
+        }
+
+        for (int j = 0; j < dim; j++) {
+            if (colToNode[j] == null) {
+                costRow[j] = shortCard;
             }
         }
     }
@@ -307,18 +544,181 @@ public class MCIncrementalMetric implements IncrementalMetric,
         return null;
     }
 
-    public double evaluateExactTbrDistance(Node pruneNode, Node rerootNode, Node targetNode, BitSet movingBits) {
-        Tree tempTree = tbrUtils.createTbrTree(this.baseTree, pruneNode, rerootNode, targetNode);
-        if (tempTree != null) {
-            if (tempTree instanceof pal.tree.SimpleTree) {
-                ((pal.tree.SimpleTree) tempTree).createNodeList();
-            }
-            return mcMetricFull.getDistance(tempTree, this.targetTree);
-        }
-        return Double.POSITIVE_INFINITY;
+    public BitSet getBaseCluster(Node n) {
+        BitSet bs = baseClusters.get(n);
+        if (bs != null) return bs;
+        return getCluster(n);
     }
 
-    private void ensureDeltaCapacity() {
+    // =========================================================================
+    // CIEPŁY START LAP DLA DRZEW TYMCZASOWYCH (SPR / TBR)
+    // =========================================================================
+
+    private void computeTempTreeClusters(Node node) {
+        int idx = getNodeIndex(node);
+        BitSet bs = tempTreeClusters[idx];
+        bs.clear();
+        if (node.isLeaf()) {
+            int id = idGroup.whichIdNumber(node.getIdentifier().getName());
+            if (id >= 0) bs.set(id);
+        } else {
+            for (int i = 0; i < node.getChildCount(); i++) {
+                Node child = node.getChild(i);
+                computeTempTreeClusters(child);
+                bs.or(tempTreeClusters[getNodeIndex(child)]);
+            }
+        }
+    }
+
+    private double evaluateTempTreeDistance(Tree tempTree) {
+        if (tempTree == null) return Double.POSITIVE_INFINITY;
+        if (tempTree instanceof SimpleTree) {
+            TreeUtils.computeParentPointers(tempTree.getRoot());
+            ((SimpleTree) tempTree).createNodeList();
+        }
+
+        if (deltaPointer != 0) {
+            try {
+                return mcMetricFull.getDistance(tempTree, this.targetTree);
+            } catch (Exception e) {
+                return Double.POSITIVE_INFINITY;
+            }
+        }
+
+        ensureClusterToRowInitialized();
+        computeTempTreeClusters(tempTree.getRoot());
+
+        Arrays.fill(scratchRowUsed, 0, dim, false);
+        int newClusterCount = 0;
+
+        int intCount = tempTree.getInternalNodeCount();
+        for (int i = 0; i < intCount; i++) {
+            Node n = tempTree.getInternalNode(i);
+            if (n.isRoot()) continue;
+
+            BitSet bs = tempTreeClusters[getNodeIndex(n)];
+            if (bs.isEmpty() || bs.cardinality() >= N) continue;
+
+            Integer r = clusterToRow.get(bs);
+            if (r != null && r < dim && !scratchRowUsed[r]) {
+                scratchRowUsed[r] = true;
+            } else {
+                scratchNewClusters[newClusterCount].clear();
+                scratchNewClusters[newClusterCount].or(bs);
+                newClusterCount++;
+            }
+        }
+
+        if (newClusterCount == 0) {
+            return this.currentDistance;
+        }
+
+        int k = 0;
+        for (int r = 0; r < dim; r++) {
+            if (!scratchRowUsed[r] && rowToNode[r] != null) {
+                scratchChangedRows[k++] = r;
+            }
+        }
+
+        if (k != newClusterCount) {
+            try {
+                return mcMetricFull.getDistance(tempTree, this.targetTree);
+            } catch (Exception e) {
+                return Double.POSITIVE_INFINITY;
+            }
+        }
+
+        System.arraycopy(u, 0, scratchSavedU, 0, dim);
+        System.arraycopy(v, 0, scratchSavedV, 0, dim);
+        System.arraycopy(rowsol, 0, scratchSavedRowsol, 0, dim);
+        System.arraycopy(colsol, 0, scratchSavedColsol, 0, dim);
+
+        for (int i = 0; i < k; i++) {
+            int r = scratchChangedRows[i];
+            System.arraycopy(assigncost[r], 0, scratchSavedOldRows[i], 0, dim);
+            computeRowCostsFast(r, scratchNewClusters[i]);
+        }
+
+        int[] changedRowsParam = (k < cachedKArrays.length) ? cachedKArrays[k] : new int[k];
+        System.arraycopy(scratchChangedRows, 0, changedRowsParam, 0, k);
+
+        double newDistance = LapSolver.lapShortUpdate(dim, assigncost, rowsol, colsol, u, v, changedRowsParam);
+
+        for (int i = 0; i < k; i++) {
+            System.arraycopy(scratchSavedOldRows[i], 0, assigncost[scratchChangedRows[i]], 0, dim);
+        }
+        System.arraycopy(scratchSavedU, 0, u, 0, dim);
+        System.arraycopy(scratchSavedV, 0, v, 0, dim);
+        System.arraycopy(scratchSavedRowsol, 0, rowsol, 0, dim);
+        System.arraycopy(scratchSavedColsol, 0, colsol, 0, dim);
+
+        return newDistance;
+    }
+
+    public double evaluateExactTbrDistance(Node pruneNode, Node rerootNode, Node targetNode, BitSet movingBits) {
+        if (pruneNode == null || rerootNode == null || targetNode == null || this.targetTree == null || this.baseTree == null) {
+            return Double.POSITIVE_INFINITY;
+        }
+        try {
+            Tree tempTree = tbrUtils.createTbrTree(this.baseTree, pruneNode, rerootNode, targetNode);
+            return evaluateTempTreeDistance(tempTree);
+        } catch (Exception e) {
+            return Double.POSITIVE_INFINITY;
+        }
+    }
+
+    /**
+     * Bezalokacyjna ewaluacja punktu wpięcia rSPR w czasie O(N^2) z ciepłym startem LAP.
+     */
+    public double getFixedDistanceForRegraft(Node targetNode, Node wanderingSource, BitSet pruneMask, Node pruneNode) {
+        Node resolvedWandering = resolveWandering(wanderingSource, pruneNode);
+        Integer r_w = nodeToRow.get(resolvedWandering);
+        if (r_w == null || targetNode == null) {
+            return evaluateSprRegraft(pruneNode, targetNode);
+        }
+
+        tbrScratch1.clear();
+        if (targetNode.isRoot()) {
+            tbrScratch1.or(fullTreeLeaves);
+            tbrScratch1.andNot(pruneMask);
+        } else {
+            BitSet origT = getBaseCluster(targetNode);
+            if (origT == null) {
+                return evaluateSprRegraft(pruneNode, targetNode);
+            }
+            tbrScratch1.or(origT);
+            tbrScratch1.or(pruneMask);
+        }
+        if (tbrScratch1.cardinality() == N) {
+            tbrScratch1.clear();
+        }
+
+        System.arraycopy(assigncost[r_w], 0, scratchSavedOldRows[0], 0, dim);
+        System.arraycopy(u, 0, scratchSavedU, 0, dim);
+        System.arraycopy(v, 0, scratchSavedV, 0, dim);
+        System.arraycopy(rowsol, 0, scratchSavedRowsol, 0, dim);
+        System.arraycopy(colsol, 0, scratchSavedColsol, 0, dim);
+
+        computeRowCostsFast(r_w, tbrScratch1);
+
+        int[] changedRowsParam = cachedKArrays[1];
+        changedRowsParam[0] = r_w;
+        double fixedDist = LapSolver.lapShortUpdate(dim, assigncost, rowsol, colsol, u, v, changedRowsParam);
+
+        System.arraycopy(scratchSavedOldRows[0], 0, assigncost[r_w], 0, dim);
+        System.arraycopy(scratchSavedU, 0, u, 0, dim);
+        System.arraycopy(scratchSavedV, 0, v, 0, dim);
+        System.arraycopy(scratchSavedRowsol, 0, rowsol, 0, dim);
+        System.arraycopy(scratchSavedColsol, 0, colsol, 0, dim);
+
+        return fixedDist;
+    }
+
+    // =========================================================================
+    // ZARZĄDZANIE STOSAMI DELTA
+    // =========================================================================
+
+    private void ensureDeltaCapacity(int requiredRows) {
         if (deltaPointer >= deltaMaxDepth) {
             int newDepth = deltaMaxDepth * 2;
             deltaRowsCount = Arrays.copyOf(deltaRowsCount, newDepth);
@@ -334,23 +734,36 @@ public class MCIncrementalMetric implements IncrementalMetric,
 
             for (int d = deltaMaxDepth; d < newDepth; d++) {
                 deltaRows[d] = new int[dim];
-                deltaOldRows[d] = new short[dim][dim];
+                deltaOldRows[d] = new short[4][dim];
                 deltaOldU[d] = new int[dim];
                 deltaOldV[d] = new int[dim];
                 deltaOldRowsol[d] = new int[dim];
                 deltaOldColsol[d] = new int[dim];
-                deltaOldClustNode[d] = new Node[dim];
-                deltaOldClustBits[d] = new BitSet[dim];
-                for (int r = 0; r < dim; r++) {
+                deltaOldClustNode[d] = new Node[4];
+                deltaOldClustBits[d] = new BitSet[4];
+                for (int r = 0; r < 4; r++) {
                     deltaOldClustBits[d][r] = new BitSet(N);
                 }
             }
             deltaMaxDepth = newDepth;
         }
+
+        if (deltaOldRows[deltaPointer].length < requiredRows) {
+            int newSlots = Math.max(requiredRows, dim);
+            deltaOldRows[deltaPointer] = new short[newSlots][dim];
+            deltaOldClustNode[deltaPointer] = new Node[newSlots];
+            BitSet[] oldBits = deltaOldClustBits[deltaPointer];
+            BitSet[] newBits = new BitSet[newSlots];
+            System.arraycopy(oldBits, 0, newBits, 0, oldBits.length);
+            for (int r = oldBits.length; r < newSlots; r++) {
+                newBits[r] = new BitSet(N);
+            }
+            deltaOldClustBits[deltaPointer] = newBits;
+        }
     }
 
     private void pushEmptyDelta() {
-        ensureDeltaCapacity();
+        ensureDeltaCapacity(0);
         int d = deltaPointer;
         deltaRowsCount[d] = 0;
         deltaOldDistance[d] = currentDistance;
@@ -358,7 +771,7 @@ public class MCIncrementalMetric implements IncrementalMetric,
     }
 
     private void updateSingleRowAndSave(int r, BitSet newCluster) {
-        ensureDeltaCapacity();
+        ensureDeltaCapacity(1);
         int d = deltaPointer;
         deltaRows[d][0] = r;
         System.arraycopy(assigncost[r], 0, deltaOldRows[d][0], 0, dim);
@@ -396,7 +809,7 @@ public class MCIncrementalMetric implements IncrementalMetric,
     }
 
     private void updateTwoRowsAndSave(int r1, BitSet c1, int r2, BitSet c2) {
-        ensureDeltaCapacity();
+        ensureDeltaCapacity(2);
         int d = deltaPointer;
         deltaRows[d][0] = r1;
         deltaRows[d][1] = r2;
@@ -409,10 +822,15 @@ public class MCIncrementalMetric implements IncrementalMetric,
             BitSet b1 = currentClusters.get(n1);
             deltaOldClustBits[d][0].clear();
             if (b1 != null) deltaOldClustBits[d][0].or(b1);
-            if (b1 == null) { b1 = new BitSet(N); currentClusters.put(n1, b1); }
+            if (b1 == null) {
+                b1 = new BitSet(N);
+                currentClusters.put(n1, b1);
+            }
             b1.clear();
             b1.or(c1);
-        } else deltaOldClustNode[d][0] = null;
+        } else {
+            deltaOldClustNode[d][0] = null;
+        }
 
         Node n2 = rowToNode[r2];
         if (n2 != null) {
@@ -420,10 +838,15 @@ public class MCIncrementalMetric implements IncrementalMetric,
             BitSet b2 = currentClusters.get(n2);
             deltaOldClustBits[d][1].clear();
             if (b2 != null) deltaOldClustBits[d][1].or(b2);
-            if (b2 == null) { b2 = new BitSet(N); currentClusters.put(n2, b2); }
+            if (b2 == null) {
+                b2 = new BitSet(N);
+                currentClusters.put(n2, b2);
+            }
             b2.clear();
             b2.or(c2);
-        } else deltaOldClustNode[d][1] = null;
+        } else {
+            deltaOldClustNode[d][1] = null;
+        }
 
         deltaRowsCount[d] = 2;
         System.arraycopy(u, 0, deltaOldU[d], 0, dim);
@@ -447,7 +870,7 @@ public class MCIncrementalMetric implements IncrementalMetric,
             pushEmptyDelta();
             return;
         }
-        ensureDeltaCapacity();
+        ensureDeltaCapacity(count);
         int d = deltaPointer;
 
         for (int i = 0; i < count; i++) {
@@ -493,21 +916,6 @@ public class MCIncrementalMetric implements IncrementalMetric,
         int[] changedRowsParam = (count < cachedKArrays.length) ? cachedKArrays[count] : new int[count];
         System.arraycopy(rows, 0, changedRowsParam, 0, count);
         this.currentDistance = LapSolver.lapShortUpdate(dim, assigncost, rowsol, colsol, u, v, changedRowsParam);
-    }
-
-    private void updateRowSafelyAndSave(Map<Integer, BitSet> rowUpdates) {
-        if (rowUpdates == null || rowUpdates.isEmpty()) {
-            pushEmptyDelta();
-            return;
-        }
-        int count = 0;
-        for (Map.Entry<Integer, BitSet> entry : rowUpdates.entrySet()) {
-            scratchPruneRows[count] = entry.getKey();
-            scratchPruneBitSets[count].clear();
-            scratchPruneBitSets[count].or(entry.getValue());
-            count++;
-        }
-        updateMultipleRowsAndSave(count, scratchPruneRows, scratchPruneBitSets);
     }
 
     private void undoDeltaStack() {
@@ -690,8 +1098,50 @@ public class MCIncrementalMetric implements IncrementalMetric,
     }
 
     // =========================================================================
-    // NNI, SPR & ECR
+    // O(1) OGRANICZENIE Z NIERÓWNOŚCI TRÓJKĄTA ORAZ NNI, SPR & ECR
     // =========================================================================
+
+    /**
+     * Wylicza w czasie O(1) dokładne ograniczenie górne na zmianę odległości MC
+     * po ruchu rNNI (|B| + |C| dla standardowego rNNI).
+     */
+    public double getNniMaxDelta(NniMove move) {
+        if (move == null || move.movingSubtree == null || move.swapPartner == null) {
+            return Double.POSITIVE_INFINITY;
+        }
+        Node nodeA = move.movingSubtree;
+        Node nodeB = move.swapPartner;
+        Node pA = nodeA.getParent();
+        Node pB = nodeB.getParent();
+        if (pA == null || pB == null || pA == pB) {
+            return 0.0;
+        }
+
+        BitSet clusterA = getCluster(nodeA);
+        BitSet clusterB = getCluster(nodeB);
+        if (clusterA == null || clusterB == null) {
+            return Double.POSITIVE_INFINITY;
+        }
+
+        int delta = clusterA.cardinality() + clusterB.cardinality();
+        if (pA.getParent() == pB || pB.getParent() == pA) {
+            return delta;
+        }
+        return 2.0 * delta;
+    }
+
+    /**
+     * Ewaluacja rNNI z jawnym odcięciem Branch-and-Bound w czasie O(1).
+     */
+    public double applyNni(NniMove move, double bestThreshold) {
+        if (enableTriangleLowerBoundPruning) {
+            double maxDelta = getNniMaxDelta(move);
+            if (this.currentDistance - maxDelta >= bestThreshold) {
+                return Double.POSITIVE_INFINITY;
+            }
+        }
+        return applyNni(move);
+    }
 
     @Override
     public double applyNni(NniMove move) {
@@ -704,25 +1154,46 @@ public class MCIncrementalMetric implements IncrementalMetric,
         BitSet clusterA = getCluster(nodeA);
         BitSet clusterB = getCluster(nodeB);
 
-        int pushes = 0;
         if (pA.getParent() == pB) {
-            if (applyNniStep(pA, clusterA, clusterB)) pushes++;
+            if (!applyNniStep(pA, clusterA, clusterB)) {
+                pushEmptyDelta();
+            }
         } else if (pB.getParent() == pA) {
-            if (applyNniStep(pB, clusterB, clusterA)) pushes++;
+            if (!applyNniStep(pB, clusterB, clusterA)) {
+                pushEmptyDelta();
+            }
         } else {
-            if (applyNniStep(pA, clusterA, clusterB)) pushes++;
-            if (applyNniStep(pB, clusterB, clusterA)) pushes++;
+            Integer rA = nodeToRow.get(pA);
+            Integer rB = nodeToRow.get(pB);
+
+            if (rA != null && rB != null && !rA.equals(rB)) {
+                tbrScratch1.clear();
+                tbrScratch1.or(currentClusters.get(pA));
+                if (clusterA != null) tbrScratch1.andNot(clusterA);
+                if (clusterB != null) tbrScratch1.or(clusterB);
+                if (tbrScratch1.cardinality() == N) tbrScratch1.clear();
+
+                tbrScratch2.clear();
+                tbrScratch2.or(currentClusters.get(pB));
+                if (clusterB != null) tbrScratch2.andNot(clusterB);
+                if (clusterA != null) tbrScratch2.or(clusterA);
+                if (tbrScratch2.cardinality() == N) tbrScratch2.clear();
+
+                updateTwoRowsAndSave(rA, tbrScratch1, rB, tbrScratch2);
+            } else if (rA != null) {
+                applyNniStep(pA, clusterA, clusterB);
+            } else if (rB != null) {
+                applyNniStep(pB, clusterB, clusterA);
+            } else {
+                pushEmptyDelta();
+            }
         }
-        nniPushCountHistory.push(pushes);
         return this.currentDistance;
     }
 
     @Override
     public void undoNni(NniMove move) {
-        int pushes = nniPushCountHistory.isEmpty() ? 0 : nniPushCountHistory.pop();
-        for (int i = 0; i < pushes; i++) {
-            undoDeltaStack();
-        }
+        undoDeltaStack();
     }
 
     public boolean applyNniStep(Node nodeToUpdate, BitSet bitsOut, BitSet bitsIn) {
@@ -760,14 +1231,15 @@ public class MCIncrementalMetric implements IncrementalMetric,
     }
 
     public double evaluateSprRegraft(Node pruneNode, Node targetNode) {
-        Tree tempTree = new SprUtils().createSprTree(this.baseTree, pruneNode, targetNode);
-        if (tempTree != null) {
-            if (tempTree instanceof pal.tree.SimpleTree) {
-                ((pal.tree.SimpleTree) tempTree).createNodeList();
-            }
-            return mcMetricFull.getDistance(tempTree, this.targetTree);
+        if (pruneNode == null || targetNode == null || this.baseTree == null || this.targetTree == null) {
+            return Double.POSITIVE_INFINITY;
         }
-        return Double.POSITIVE_INFINITY;
+        try {
+            Tree tempTree = sprUtils.createSprTree(this.baseTree, pruneNode, targetNode);
+            return evaluateTempTreeDistance(tempTree);
+        } catch (Exception e) {
+            return Double.POSITIVE_INFINITY;
+        }
     }
 
     @Override
@@ -821,45 +1293,63 @@ public class MCIncrementalMetric implements IncrementalMetric,
 
     @Override
     public double commit3sEcrMove(List<Node> cluster, Node[] b, SubtreeEcr3Utils.TopologyTemplate3sECR template) {
-        Map<Integer, BitSet> updates = new HashMap<>();
-        BitSet[] bBits = new BitSet[5];
+        poolIdx = 0;
         for (int i = 0; i < 5; i++) {
-            bBits[i] = getCluster(b[i]);
+            ecr3BBits[i] = getCluster(b[i]);
         }
 
-        Node[] available = cluster.toArray(new Node[0]);
-        int[] idxArr = {1};
+        ecr3NextClusterIdx = 1;
+        ecr3UpdateCount = 0;
 
-        compute3sEcrTemplateBits(template, available[0], available, idxArr, bBits, updates);
+        Node top = cluster.get(0);
+        compute3sEcrTemplateBitsFast(template, top, cluster, top);
 
-        updateRowSafelyAndSave(updates);
+        updateMultipleRowsAndSave(ecr3UpdateCount, scratchPruneRows, scratchPruneBitSets);
         return this.currentDistance;
     }
 
-    private BitSet compute3sEcrTemplateBits(SubtreeEcr3Utils.TopologyTemplate3sECR temp, Node currentInternal, Node[] available, int[] idxArr, BitSet[] bBits, Map<Integer, BitSet> updates) {
-        BitSet myBits = new BitSet(N);
+    private BitSet compute3sEcrTemplateBitsFast(SubtreeEcr3Utils.TopologyTemplate3sECR temp, Node currentInternal, List<Node> cluster, Node topNode) {
+        BitSet myBits = getScratchBitSet();
 
         if (temp.left.leafIndex != -1) {
-            myBits.or(bBits[temp.left.leafIndex]);
+            myBits.or(ecr3BBits[temp.left.leafIndex]);
         } else {
-            Node nextInternal = available[idxArr[0]++];
-            BitSet leftBits = compute3sEcrTemplateBits(temp.left, nextInternal, available, idxArr, bBits, updates);
+            int clusterSize = cluster.size();
+            int nextIdx = (ecr3NextClusterIdx < clusterSize) ? ecr3NextClusterIdx++ : clusterSize - 1;
+            Node nextInternal = cluster.get(nextIdx);
+            BitSet leftBits = compute3sEcrTemplateBitsFast(temp.left, nextInternal, cluster, topNode);
             myBits.or(leftBits);
         }
 
         if (temp.right.leafIndex != -1) {
-            myBits.or(bBits[temp.right.leafIndex]);
+            myBits.or(ecr3BBits[temp.right.leafIndex]);
         } else {
-            Node nextInternal = available[idxArr[0]++];
-            BitSet rightBits = compute3sEcrTemplateBits(temp.right, nextInternal, available, idxArr, bBits, updates);
+            int clusterSize = cluster.size();
+            int nextIdx = (ecr3NextClusterIdx < clusterSize) ? ecr3NextClusterIdx++ : clusterSize - 1;
+            Node nextInternal = cluster.get(nextIdx);
+            BitSet rightBits = compute3sEcrTemplateBitsFast(temp.right, nextInternal, cluster, topNode);
             myBits.or(rightBits);
         }
 
-        if (currentInternal != available[0]) {
+        if (currentInternal != topNode) {
             Integer r = nodeToRow.get(currentInternal);
             if (r != null) {
-                if (myBits.cardinality() == N) myBits.clear();
-                updates.put(r, myBits);
+                int slot = ecr3UpdateCount;
+                for (int i = 0; i < ecr3UpdateCount; i++) {
+                    if (scratchPruneRows[i] == r) {
+                        slot = i;
+                        break;
+                    }
+                }
+                scratchPruneRows[slot] = r;
+                BitSet dest = scratchPruneBitSets[slot];
+                dest.clear();
+                if (myBits.cardinality() != N) {
+                    dest.or(myBits);
+                }
+                if (slot == ecr3UpdateCount) {
+                    ecr3UpdateCount++;
+                }
             }
         }
 
@@ -875,7 +1365,9 @@ public class MCIncrementalMetric implements IncrementalMetric,
         distanceHistory.clear();
         clusterHistory.clear();
         deltaPointer = 0;
-        nniPushCountHistory.clear();
+        poolIdx = 0;
+        clusterToRow.clear();
+        clusterToRowInitialized = false;
     }
 
     private void saveCurrentStateToHistory() {
@@ -898,8 +1390,27 @@ public class MCIncrementalMetric implements IncrementalMetric,
         clusterHistory.push(clustersCopy);
     }
 
-    @Override public double getCurrentDistance() { return this.currentDistance; }
-    @Override public void commit() { clearHistory(); }
+    @Override
+    public double getCurrentDistance() {
+        return this.currentDistance;
+    }
+
+    @Override
+    public void commit() {
+        clearHistory();
+        if (this.baseClusters != null && this.currentClusters != null) {
+            for (Map.Entry<Node, BitSet> entry : this.currentClusters.entrySet()) {
+                BitSet baseBs = this.baseClusters.get(entry.getKey());
+                if (baseBs != null) {
+                    baseBs.clear();
+                    baseBs.or(entry.getValue());
+                } else {
+                    this.baseClusters.put(entry.getKey(), (BitSet) entry.getValue().clone());
+                }
+            }
+        }
+    }
+
     @Override public double getDistance(Tree t1, Tree t2, int... indexes) { return mcMetricFull.getDistance(t1, t2, indexes); }
     @Override public String getName() { return "Accelerated " + mcMetricFull.getName(); }
     @Override public String getCommandLineName() { return mcMetricFull.getCommandLineName(); }
