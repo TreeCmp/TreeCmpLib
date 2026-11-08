@@ -19,14 +19,14 @@ public class UtbrNeighborhoodWalker {
     private final List<Node> allNodesBuf = new ArrayList<>();
 
     public void walk(Tree baseTree, IncrementalMetric metric, UtbrVisitor visitor) {
-        if (metric instanceof TbrIncrementalMetric) {
-            walkFast2dDfs(baseTree, (TbrIncrementalMetric) metric, visitor);
+        if (metric instanceof UtbrIncrementalMetric) {
+            walkFast2dDfs(baseTree, (UtbrIncrementalMetric) metric, visitor);
             return;
         }
         walkFallback(baseTree, metric, visitor);
     }
 
-    private void walkFast2dDfs(Tree baseTree, TbrIncrementalMetric metric, UtbrVisitor visitor) {
+    private void walkFast2dDfs(Tree baseTree, UtbrIncrementalMetric metric, UtbrVisitor visitor) {
         allNodesBuf.clear();
         collectSubtreeNodes(baseTree.getRoot(), allNodesBuf);
         Node root = baseTree.getRoot();
@@ -50,7 +50,7 @@ public class UtbrNeighborhoodWalker {
     }
 
     private void dfsReroot(Node currentReroot, Node pruneNode, Node wanderingSource, Node root,
-                           TbrIncrementalMetric metric, UtbrVisitor visitor) {
+                           UtbrIncrementalMetric metric, UtbrVisitor visitor) {
         // A. Ewaluacja wpięcia w korzeniu T2
         if (isValidMove(pruneNode, currentReroot, root)) {
             visitor.visit(metric.getCurrentDistance(), pruneNode, currentReroot, root);
@@ -85,7 +85,7 @@ public class UtbrNeighborhoodWalker {
     }
 
     private void dfsTarget(Node parentTarget, Node targetNode, Node pruneNode, Node currentReroot,
-                           Node wanderingSource, TbrIncrementalMetric metric, UtbrVisitor visitor) {
+                           Node wanderingSource, UtbrIncrementalMetric metric, UtbrVisitor visitor) {
         metric.moveTargetDown(parentTarget, targetNode, pruneNode, currentReroot, wanderingSource);
 
         if (isValidMove(pruneNode, currentReroot, targetNode)) {

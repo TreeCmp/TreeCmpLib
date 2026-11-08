@@ -16,10 +16,9 @@ import treecmp.heuristics.ecr.acc.Ecr3IncrementalMetric;
 import treecmp.heuristics.moves.NniMove;
 import treecmp.heuristics.nni.acc.NniIncrementalMetric;
 import treecmp.heuristics.spr.UsprUtils;
-import treecmp.heuristics.spr.acc.SprIncrementalMetric;
 import treecmp.heuristics.spr.acc.UsprIncrementalMetric;
 import treecmp.heuristics.tbr.UTbrUtils;
-import treecmp.heuristics.tbr.acc.TbrIncrementalMetric;
+import treecmp.heuristics.tbr.acc.UtbrIncrementalMetric;
 import treecmp.metrics.IncrementalMetric;
 import treecmp.metrics.topological.MatchingTripletMetric;
 
@@ -30,7 +29,7 @@ public class M3IncrementalMetric implements IncrementalMetric,
         Ecr2IncrementalMetric,
         Ecr3IncrementalMetric,
         UsprIncrementalMetric,
-        TbrIncrementalMetric {
+        UtbrIncrementalMetric {
 
     private Tree originalBaseTree;
     private Tree baseTree;

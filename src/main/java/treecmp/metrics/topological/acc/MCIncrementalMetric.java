@@ -17,7 +17,7 @@ import treecmp.heuristics.nni.acc.NniIncrementalMetric;
 import treecmp.heuristics.spr.SprUtils;
 import treecmp.heuristics.spr.acc.SprIncrementalMetric;
 import treecmp.heuristics.tbr.TbrUtils;
-import treecmp.heuristics.tbr.acc.TbrIncrementalMetric;
+import treecmp.heuristics.tbr.acc.RtbrIncrementalMetric;
 import treecmp.metrics.IncrementalMetric;
 import treecmp.metrics.topological.MatchingClusterMetric;
 
@@ -26,7 +26,7 @@ import java.util.*;
 public class MCIncrementalMetric implements IncrementalMetric,
         NniIncrementalMetric,
         SprIncrementalMetric,
-        TbrIncrementalMetric,
+        RtbrIncrementalMetric,
         Ecr2IncrementalMetric,
         Ecr3IncrementalMetric {
 
@@ -1047,24 +1047,22 @@ public class MCIncrementalMetric implements IncrementalMetric,
         undoDeltaStack();
     }
 
-    @Override
-    public void revertPrunedState(Node pruneNode, Node wanderingSource) {
-        undoDeltaStack();
-        undoDeltaStack();
-    }
-
-    @Override
+    // Przeciążenia wsteczne zabezpieczające wywołania z parametrem rerootNode
     public void setTargetRoot(Node pruneNode, Node rerootNode, Node wanderingSource) {
         setTargetRoot(pruneNode, wanderingSource);
     }
 
-    @Override
     public void moveTargetDown(Node parentTarget, Node childTarget, Node pruneNode, Node rerootNode, Node wanderingSource) {
         moveTargetDown(parentTarget, childTarget, pruneNode, wanderingSource);
     }
 
-    @Override
     public void moveTargetUp(Node parentTarget, Node childTarget, Node pruneNode, Node rerootNode, Node wanderingSource) {
+        moveTargetUp(parentTarget, childTarget, pruneNode, wanderingSource);
+    }
+
+    @Override
+    public void revertPrunedState(Node pruneNode, Node wanderingSource) {
+        undoDeltaStack();
         undoDeltaStack();
     }
 

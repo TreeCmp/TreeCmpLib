@@ -15,7 +15,7 @@ import treecmp.heuristics.ecr.acc.Ecr3IncrementalMetric;
 import treecmp.heuristics.moves.NniMove;
 import treecmp.heuristics.nni.acc.NniIncrementalMetric;
 import treecmp.heuristics.spr.acc.SprIncrementalMetric;
-import treecmp.heuristics.tbr.acc.TbrIncrementalMetric;
+import treecmp.heuristics.tbr.acc.RtbrIncrementalMetric;
 import treecmp.metrics.IncrementalMetric;
 import treecmp.metrics.BaseMetric;
 import treecmp.metrics.topological.MatchingPairMetric;
@@ -25,7 +25,7 @@ import java.util.*;
 public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric,
         NniIncrementalMetric,
         SprIncrementalMetric,
-        TbrIncrementalMetric,
+        RtbrIncrementalMetric,
         Ecr2IncrementalMetric,
         Ecr3IncrementalMetric {
 
@@ -980,11 +980,6 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
     }
 
     @Override
-    public void setTargetRoot(Node pruneNode, Node rerootNode, Node wanderingSource) {
-        setTargetRoot(pruneNode, wanderingSource);
-    }
-
-    @Override
     public void moveTargetDown(Node parentTarget, Node childTarget, Node pruneNode, Node wanderingSource) {
         BitSet P = this.currentPrunedLeaves;
         Integer r_floating = getRowForNode(pruneNode.getParent());
@@ -1046,17 +1041,7 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
     }
 
     @Override
-    public void moveTargetDown(Node parentTarget, Node childTarget, Node pruneNode, Node rerootNode, Node wanderingSource) {
-        moveTargetDown(parentTarget, childTarget, pruneNode, wanderingSource);
-    }
-
-    @Override
     public void moveTargetUp(Node parentTarget, Node childTarget, Node pruneNode, Node wanderingSource) {
-        undoDeltaStack();
-    }
-
-    @Override
-    public void moveTargetUp(Node parentTarget, Node childTarget, Node pruneNode, Node rerootNode, Node wanderingSource) {
         undoDeltaStack();
     }
 

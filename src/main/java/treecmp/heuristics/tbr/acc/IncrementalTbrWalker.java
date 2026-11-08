@@ -8,7 +8,7 @@ import java.util.ArrayList;
 import java.util.List;
 
 /**
- * Bezalokacyjny Wędrowiec TBR (2D-DFS 1-NNI).
+ * Bezalokacyjny Wędrowiec rTBR (2D-DFS) dla drzew ukorzenionych.
  */
 public class IncrementalTbrWalker {
 
@@ -20,7 +20,7 @@ public class IncrementalTbrWalker {
         void visit(double distance, Node pruneNode, Node rerootNode, Node targetNode);
     }
 
-    public void walk(Tree baseTree, TbrIncrementalMetric metric, TbrVisitor visitor) {
+    public void walk(Tree baseTree, RtbrIncrementalMetric metric, TbrVisitor visitor) {
         allNodesBuf.clear();
         collectNodes(baseTree.getRoot(), allNodesBuf);
         Node root = baseTree.getRoot();
@@ -34,8 +34,8 @@ public class IncrementalTbrWalker {
             // 1. Bisekcja: odcięcie poddrzewa T1
             metric.setPrunedState(pruneNode, wanderingSource);
 
-            // 2. Inicjalizacja wpięcia w korzeniu T2 (dokładnie raz!)
-            metric.setTargetRoot(pruneNode, pruneNode, wanderingSource);
+            // 2. Inicjalizacja wpięcia w korzeniu T2 (2 argumenty)
+            metric.setTargetRoot(pruneNode, wanderingSource);
 
             // 3. Dwuwymiarowy DFS bez alokacji list pomocniczych
             dfsReroot(pruneNode, pruneNode, wanderingSource, root, metric, visitor);
@@ -46,7 +46,7 @@ public class IncrementalTbrWalker {
     }
 
     private void dfsReroot(Node currentReroot, Node pruneNode, Node wanderingSource, Node root,
-                           TbrIncrementalMetric metric, TbrVisitor visitor) {
+                           RtbrIncrementalMetric metric, TbrVisitor visitor) {
         // A. Ewaluacja wpięcia w korzeniu T2 dla ustalonego currentReroot
         if (isValidMove(pruneNode, currentReroot, root)) {
             visitor.visit(metric.getCurrentDistance(), pruneNode, currentReroot, root);
@@ -90,8 +90,9 @@ public class IncrementalTbrWalker {
     }
 
     private void dfsTarget(Node parentTarget, Node targetNode, Node pruneNode, Node rerootNode,
-                           Node wanderingSource, TbrIncrementalMetric metric, TbrVisitor visitor) {
-        metric.moveTargetDown(parentTarget, targetNode, pruneNode, rerootNode, wanderingSource);
+                           Node wanderingSource, RtbrIncrementalMetric metric, TbrVisitor visitor) {
+        // 4 argumenty: (parentTarget, targetNode, pruneNode, wanderingSource)
+        metric.moveTargetDown(parentTarget, targetNode, pruneNode, wanderingSource);
 
         if (isValidMove(pruneNode, rerootNode, targetNode)) {
             visitor.visit(metric.getCurrentDistance(), pruneNode, rerootNode, targetNode);
@@ -121,7 +122,8 @@ public class IncrementalTbrWalker {
             }
         }
 
-        metric.moveTargetUp(parentTarget, targetNode, pruneNode, rerootNode, wanderingSource);
+        // 4 argumenty: (parentTarget, targetNode, pruneNode, wanderingSource)
+        metric.moveTargetUp(parentTarget, targetNode, pruneNode, wanderingSource);
     }
 
     private boolean isValidMove(Node pruneNode, Node rerootNode, Node targetNode) {

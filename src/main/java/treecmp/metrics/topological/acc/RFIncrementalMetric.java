@@ -2,11 +2,11 @@ package treecmp.metrics.topological.acc;
 
 import pal.tree.Node;
 import pal.tree.Tree;
-import treecmp.heuristics.tbr.acc.TbrIncrementalMetric;
+import treecmp.heuristics.tbr.acc.UtbrIncrementalMetric;
 
 import java.util.*;
 
-public class RFIncrementalMetric extends BaseRFIncrementalMetric implements TbrIncrementalMetric {
+public class RFIncrementalMetric extends BaseRFIncrementalMetric implements UtbrIncrementalMetric {
 
     protected Tree baseTreeRef;
     protected Tree targetTreeRef;
@@ -207,13 +207,6 @@ public class RFIncrementalMetric extends BaseRFIncrementalMetric implements TbrI
     }
 
     @Override
-    public void setTargetRoot(Node pruneNode, Node rerootNode, Node wanderingSource) {
-        deltaSharedStack[deltaSharedPtr] = 0;
-        deltaCountStack[deltaSharedPtr] = 0;
-        deltaSharedPtr++;
-    }
-
-    @Override
     public void moveTargetDown(Node parentTarget, Node childTarget, Node pruneNode, Node rerootNode, Node wanderingSource) {
         if (currentPrunedLeaves == null) {
             deltaSharedStack[deltaSharedPtr] = 0;
@@ -276,11 +269,33 @@ public class RFIncrementalMetric extends BaseRFIncrementalMetric implements TbrI
     }
 
     @Override
+    public void setTargetRoot(Node pruneNode, Node rerootNode, Node wanderingSource) {
+        // Stan bazowy w korzeniu T2 po odcięciu jest w pełni zainicjalizowany przez setPrunedState
+    }
+
+    @Override
+    public void setTargetRoot(Node pruneNode, Node wanderingSource) {
+        setTargetRoot(pruneNode, pruneNode, wanderingSource);
+    }
+
+    @Override
     public void moveTargetUp(Node parentTarget, Node childTarget, Node pruneNode, Node rerootNode, Node wanderingSource) {
-        deltaSharedPtr--;
-        this.sharedSplits -= deltaSharedStack[deltaSharedPtr];
-        this.activeSplitsCount -= deltaCountStack[deltaSharedPtr];
-        this.currentDistance = (this.activeSplitsCount + this.targetSplits.size() - 2.0 * this.sharedSplits) / 2.0;
+        if (deltaSharedPtr > 0) {
+            deltaSharedPtr--;
+            this.sharedSplits -= deltaSharedStack[deltaSharedPtr];
+            this.activeSplitsCount -= deltaCountStack[deltaSharedPtr];
+            this.currentDistance = (this.activeSplitsCount + this.targetSplits.size() - 2.0 * this.sharedSplits) / 2.0;
+        }
+    }
+
+    @Override
+    public void moveTargetUp(Node parentTarget, Node childTarget, Node pruneNode, Node wanderingSource) {
+        moveTargetUp(parentTarget, childTarget, pruneNode, pruneNode, wanderingSource);
+    }
+
+    @Override
+    public void moveTargetDown(Node parentTarget, Node childTarget, Node pruneNode, Node wanderingSource) {
+        moveTargetDown(parentTarget, childTarget, pruneNode, pruneNode, wanderingSource);
     }
 
     @Override

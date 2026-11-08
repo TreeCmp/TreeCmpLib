@@ -3,13 +3,14 @@ package treecmp.metrics.topological.acc;
 import pal.tree.Node;
 import pal.tree.Tree;
 import treecmp.heuristics.spr.acc.SprIncrementalMetric;
-import treecmp.heuristics.tbr.acc.TbrIncrementalMetric;
+import treecmp.heuristics.tbr.acc.RtbrIncrementalMetric;
+import treecmp.heuristics.tbr.acc.UtbrIncrementalMetric;
 
 import java.util.*;
 
 public class RFClusterIncrementalMetric extends BaseRFIncrementalMetric implements
         SprIncrementalMetric,
-        TbrIncrementalMetric {
+        RtbrIncrementalMetric {
 
     private Tree baseTreeRef;
     private Tree targetTreeRef;
@@ -238,95 +239,83 @@ public class RFClusterIncrementalMetric extends BaseRFIncrementalMetric implemen
         setPrunedState(pruneNode, null);
     }
 
-    @Override
-    public void setTargetRoot(Node pruneNode, Node rerootNode, Node wanderingSource) {
-        if (this.currentPruneNode != pruneNode || this.LP == null) {
-            setPrunedState(pruneNode, wanderingSource);
-        }
-        this.currentPruneNode = pruneNode;
-        this.currentRerootNode = rerootNode;
-        this.currentTargetNode = this.rootOfT2;
-        this.deltaTargetPtr = 0;
-
-        if (rerootNode == pruneNode) {
-            this.deltaSharedT1 = 0;
-            this.deltaRerootPtr = 0;
-        }
-        this.deltaSharedT2 = isSharedFast(bsRootT2) ? 1 : 0;
-        updateDistanceFromShared();
-    }
+    // =========================================================================
+    // KONTRAKT TARGET DFS (SPR / TBR) - PEŁNE ZERO-ALLOCATION W CZASIE O(1)
+    // =========================================================================
 
     @Override
     public void setTargetRoot(Node pruneNode, Node wanderingSource) {
-        Node r = (this.currentRerootNode != null) ? this.currentRerootNode : pruneNode;
-        setTargetRoot(pruneNode, r, wanderingSource);
+        this.currentTargetNode = this.rootOfT2;
+        this.deltaSharedT2 = isSharedFast(bsRootT2) ? 1 : 0;
+        this.deltaTargetPtr = 0;
+        updateDistanceFromShared();
     }
 
     public void setTargetRoot(Node pruneNode) {
         setTargetRoot(pruneNode, (Node) null);
     }
 
+    // Przeciążenie wsteczne dla starego kodu z rerootNode
+    public void setTargetRoot(Node pruneNode, Node rerootNode, Node wanderingSource) {
+        setTargetRoot(pruneNode, wanderingSource);
+    }
+
     @Override
-    public void moveTargetDown(Node parentTarget, Node childTarget, Node pruneNode, Node rerootNode, Node wanderingSource) {
-        this.currentTargetNode = childTarget;
-
-        // Gdy p == root, przejście z (rozwiązanego) root na rootOfT2 ustawia stan w korzeniu T2
-        if (childTarget == this.rootOfT2) {
-            int newDeltaT2 = isSharedFast(bsRootT2) ? 1 : 0;
-            int dT2 = newDeltaT2 - this.deltaSharedT2;
-            this.deltaSharedT2 = newDeltaT2;
-            deltaTargetStack[deltaTargetPtr++] = dT2;
-            updateDistanceFromShared();
-            return;
-        }
-
+    public void moveTargetDown(Node parentTarget, Node childTarget, Node pruneNode, Node wanderingSource) {
         int dT2 = 0;
-
-        // 1. Stary klaster parentTarget znika (zastąpiony przez C_T2(parentTarget) U LP, który już istniał)
-        BitSet bsOldParent = (parentTarget == this.rootOfT2) ? this.bsRootT2 : getCT2(parentTarget);
-        if (isSharedFast(bsOldParent)) {
-            dT2--;
+        if (parentTarget == rootOfT2) {
+            if (isSharedFast(bsRootT2)) {
+                dT2--;
+            }
+        } else {
+            BitSet bsParent = getCT2(parentTarget);
+            if (isSharedFast(bsParent)) {
+                dT2--;
+            }
         }
 
-        // 2. Dochodzi nowy klaster wpięcia C_T2(childTarget) U LP
-        BitSet bsChild = getCT2(childTarget);
         scratchTarget.clear();
-        if (bsChild != null) scratchTarget.or(bsChild);
-        scratchTarget.or(LP);
+        BitSet bsChild = getCT2(childTarget);
+        if (bsChild != null) {
+            scratchTarget.or(bsChild);
+        }
+        if (this.LP != null) {
+            scratchTarget.or(this.LP);
+        }
         if (isSharedFast(scratchTarget)) {
             dT2++;
         }
 
         this.deltaSharedT2 += dT2;
         deltaTargetStack[deltaTargetPtr++] = dT2;
+        this.currentTargetNode = childTarget;
         updateDistanceFromShared();
-    }
-
-    @Override
-    public void moveTargetDown(Node parentTarget, Node childTarget, Node pruneNode, Node wanderingSource) {
-        Node r = (this.currentRerootNode != null) ? this.currentRerootNode : pruneNode;
-        moveTargetDown(parentTarget, childTarget, pruneNode, r, wanderingSource);
     }
 
     public void moveTargetDown(Node parentTarget, Node childTarget, Node pruneNode) {
         moveTargetDown(parentTarget, childTarget, pruneNode, (Node) null);
     }
 
-    @Override
-    public void moveTargetUp(Node parentTarget, Node childTarget, Node pruneNode, Node rerootNode, Node wanderingSource) {
-        this.deltaSharedT2 -= deltaTargetStack[--deltaTargetPtr];
-        this.currentTargetNode = parentTarget;
-        updateDistanceFromShared();
+    // Przeciążenie wsteczne dla starego kodu z rerootNode
+    public void moveTargetDown(Node parentTarget, Node childTarget, Node pruneNode, Node rerootNode, Node wanderingSource) {
+        moveTargetDown(parentTarget, childTarget, pruneNode, wanderingSource);
     }
 
     @Override
     public void moveTargetUp(Node parentTarget, Node childTarget, Node pruneNode, Node wanderingSource) {
-        Node r = (this.currentRerootNode != null) ? this.currentRerootNode : pruneNode;
-        moveTargetUp(parentTarget, childTarget, pruneNode, r, wanderingSource);
+        int dT2 = deltaTargetStack[--deltaTargetPtr];
+        this.deltaSharedT2 -= dT2;
+        this.currentTargetNode = parentTarget;
+        updateDistanceFromShared();
     }
 
     public void moveTargetUp(Node parentTarget, Node childTarget, Node pruneNode) {
         moveTargetUp(parentTarget, childTarget, pruneNode, (Node) null);
+    }
+
+    // Przeciążenie wsteczne dla starego kodu z rerootNode
+    public void moveTargetUp(Node parentTarget, Node childTarget, Node pruneNode, Node rerootNode, Node wanderingSource) {
+        moveTargetUp(parentTarget, childTarget, pruneNode, wanderingSource);
     }
 
     @Override
