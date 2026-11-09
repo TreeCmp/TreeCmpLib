@@ -45,6 +45,10 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
     private int allocatedDim = -1;
     private int allocatedN = -1;
 
+    private int[][] targetLcaColMatrix;
+    private int[] leafBufA;
+    private int[] leafBufB;
+
     private IdGroup baseIdGroup;
     private int[] targetIdToCol;
 
@@ -123,6 +127,8 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
     private Node[] deltaNniP2;
     private int[] deltaNniIdx1;
     private int[] deltaNniIdx2;
+
+
 
     private final MatchingPairMetric mpMetricFull = new MatchingPairMetric();
     private final treecmp.heuristics.tbr.TbrUtils tbrUtils = new treecmp.heuristics.tbr.TbrUtils();
@@ -228,6 +234,9 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
 
             if (needRealloc) {
                 this.scratchIntersections = new int[dim];
+                this.leafBufA = new int[N];
+                this.leafBufB = new int[N];
+                this.targetLcaColMatrix = new int[N][N];
 
                 int maxK = Math.max(64, dim + 1);
                 this.cachedKArrays = new int[maxK][];
@@ -239,7 +248,7 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
                 this.deltaMaxDepth = depth;
                 this.deltaRowsCount = new int[depth];
                 this.deltaRows = new int[depth][dim];
-                this.deltaOldRows = new int[depth][dim][dim];
+                this.deltaOldRows = new int[depth][][];
                 this.deltaOldPairCounts = new int[depth][dim];
                 this.deltaOldU = new int[depth][dim];
                 this.deltaOldV = new int[depth][dim];
@@ -258,6 +267,8 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
                 this.deltaNniIdx2 = new int[depth];
 
                 for (int d = 0; d < depth; d++) {
+                    int rowSlots = (d < 2) ? dim : 4;
+                    this.deltaOldRows[d] = new int[rowSlots][dim];
                     this.deltaOldSplitBits[d] = new BitSet(N);
                     this.deltaOldSplitBits2[d] = new BitSet(N);
                 }
@@ -324,6 +335,16 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
                 Arrays.fill(this.targetIdToCol, 0, maxNodesT2, -1);
                 for (int i = 0; i < intT2Num; i++) {
                     this.targetIdToCol[this.targetTree.getInternalNode(i).getNumber()] = i;
+                }
+
+                int[][] rawTargetLca = TreeCmpUtils.calcLcaMatrix(this.targetTree, this.baseIdGroup);
+                for (int i = 0; i < N; i++) {
+                    int[] rawRow = rawTargetLca[i];
+                    int[] colRow = this.targetLcaColMatrix[i];
+                    for (int j = 0; j < N; j++) {
+                        int lcaId = rawRow[j];
+                        colRow[j] = (lcaId >= 0 && lcaId < maxNodesT2) ? this.targetIdToCol[lcaId] : -1;
+                    }
                 }
 
                 Node[] postOrderT2 = TreeCmpUtils.getNodesInPostOrder(this.targetTree);
@@ -398,7 +419,6 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
                 mapOrigToBaseRecursive(baseTree.getRoot(), this.baseTree.getRoot());
             }
 
-            // Inicjalizacja macierzy kosztów w czasie O(N^2) poprzez liniowe Tree DP O(N) na każdy wiersz
             for (int r = 0; r < intT1Num; r++) {
                 Node nBase = this.baseTree.getInternalNode(r);
                 computeNodeRowCostInPlace(r, nBase);
@@ -569,6 +589,10 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
     // =========================================================================
 
     private void ensureDeltaCapacity() {
+        ensureDeltaCapacity(2);
+    }
+
+    private void ensureDeltaCapacity(int requiredRows) {
         if (deltaPointer >= deltaMaxDepth) {
             int newDepth = deltaMaxDepth * 2;
             deltaRowsCount = Arrays.copyOf(deltaRowsCount, newDepth);
@@ -593,7 +617,7 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
 
             for (int d = deltaMaxDepth; d < newDepth; d++) {
                 deltaRows[d] = new int[dim];
-                deltaOldRows[d] = new int[dim][dim];
+                deltaOldRows[d] = new int[4][dim];
                 deltaOldPairCounts[d] = new int[dim];
                 deltaOldU[d] = new int[dim];
                 deltaOldV[d] = new int[dim];
@@ -604,9 +628,182 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
             }
             deltaMaxDepth = newDepth;
         }
+        if (deltaOldRows[deltaPointer].length < requiredRows) {
+            deltaOldRows[deltaPointer] = new int[Math.max(requiredRows, dim)][dim];
+        }
         deltaOldSplitNode[deltaPointer] = null;
         deltaOldSplitNode2[deltaPointer] = null;
         deltaNniMoving[deltaPointer] = null;
+    }
+
+    /**
+     * Hybrydowe, bezalokacyjne obliczanie kosztu wiersza dla węzła binarnego:
+     * - dla małych iloczynów |A|*|B| <= postOrderT2Count używa tablicy LCA w czasie O(|A|*|B|),
+     * - dla dużych poddrzew używa liniowego przejścia Tree DP po T2 w czasie O(N).
+     */
+    private void computeRowCostTwoSets(int row, BitSet setA, BitSet setB) {
+        if (setA == null || setB == null || setA.isEmpty() || setB.isEmpty()) {
+            computeRowCostEmpty(row);
+            return;
+        }
+
+        int totalA = setA.cardinality();
+        int totalB = setB.cardinality();
+        int pairsCount = totalA * totalB;
+        currentT1PairCount[row] = pairsCount;
+        int[] costRow = assigncost[row];
+
+        // Szybka ścieżka O(|A|*|B|) przez tablicę LCA dla małych poddrzew
+        if (pairsCount <= postOrderT2Count) {
+            int lenA = 0;
+            for (int i = setA.nextSetBit(0); i >= 0; i = setA.nextSetBit(i + 1)) {
+                leafBufA[lenA++] = i;
+            }
+            int lenB = 0;
+            for (int i = setB.nextSetBit(0); i >= 0; i = setB.nextSetBit(i + 1)) {
+                leafBufB[lenB++] = i;
+            }
+
+            Arrays.fill(scratchIntersections, 0, intT2Num, 0);
+            for (int i = 0; i < lenA; i++) {
+                int[] lcaColRow = targetLcaColMatrix[leafBufA[i]];
+                for (int j = 0; j < lenB; j++) {
+                    int c = lcaColRow[leafBufB[j]];
+                    if (c >= 0) {
+                        scratchIntersections[c]++;
+                    }
+                }
+            }
+
+            for (int c = 0; c < intT2Num; c++) {
+                costRow[c] = pairsCount + t2IntPairCount[c] - (scratchIntersections[c] << 1);
+            }
+            for (int c = intT2Num; c < dim; c++) {
+                costRow[c] = pairsCount;
+            }
+            return;
+        }
+
+        // Ścieżka O(N) Tree DP dla dużych poddrzew
+        for (int i = 0; i < postOrderT2Count; i++) {
+            int leafId = t2PostOrderLeafId[i];
+
+            if (leafId >= 0) {
+                t2CountA[i] = setA.get(leafId) ? 1 : 0;
+                t2CountB[i] = setB.get(leafId) ? 1 : 0;
+            } else {
+                int chCount = t2PostOrderChildCount[i];
+                int inter = 0;
+                int sumA, sumB;
+
+                if (chCount == 2) {
+                    int c0 = t2PostOrderChild0[i];
+                    int c1 = t2PostOrderChild1[i];
+                    int a1 = t2CountA[c0];
+                    int b1 = t2CountB[c0];
+                    int a2 = t2CountA[c1];
+                    int b2 = t2CountB[c1];
+
+                    inter = a1 * b2 + a2 * b1;
+                    sumA = a1 + a2;
+                    sumB = b1 + b2;
+                } else {
+                    sumA = 0;
+                    sumB = 0;
+                    int first = t2PostOrderFirstChild[i];
+                    for (int k = 0; k < chCount; k++) {
+                        int ck = t2PostOrderChildrenFlat[first + k];
+                        int ak = t2CountA[ck];
+                        int bk = t2CountB[ck];
+                        inter += sumA * bk + sumB * ak;
+                        sumA += ak;
+                        sumB += bk;
+                    }
+                }
+
+                t2CountA[i] = sumA;
+                t2CountB[i] = sumB;
+
+                int col = t2PostOrderCol[i];
+                if (col >= 0) {
+                    costRow[col] = pairsCount + t2IntPairCount[col] - (inter << 1);
+                }
+            }
+        }
+
+        for (int c = intT2Num; c < dim; c++) {
+            costRow[c] = pairsCount;
+        }
+    }
+
+    private void computeRowCostMulti(int row, BitSet[] sets, int count) {
+        if (count < 2) {
+            computeRowCostEmpty(row);
+            return;
+        }
+        if (count == 2) {
+            computeRowCostTwoSets(row, sets[0], sets[1]);
+            return;
+        }
+
+        Arrays.fill(scratchIntersections, 0, intT2Num, 0);
+        int pairsCount = 0;
+        tbrScratch3.clear();
+        int cardUnion = 0;
+        int lenUnion = 0;
+
+        for (int sIdx = 0; sIdx < count; sIdx++) {
+            BitSet setB = sets[sIdx];
+            if (setB == null || setB.isEmpty()) continue;
+
+            int cardB = setB.cardinality();
+            if (cardUnion > 0) {
+                int stepPairs = cardUnion * cardB;
+                pairsCount += stepPairs;
+
+                if (stepPairs <= postOrderT2Count) {
+                    int lenB = 0;
+                    for (int l = setB.nextSetBit(0); l >= 0; l = setB.nextSetBit(l + 1)) {
+                        leafBufB[lenB++] = l;
+                    }
+                    if (lenUnion != cardUnion) {
+                        lenUnion = 0;
+                        for (int l = tbrScratch3.nextSetBit(0); l >= 0; l = tbrScratch3.nextSetBit(l + 1)) {
+                            leafBufA[lenUnion++] = l;
+                        }
+                    }
+                    for (int i = 0; i < lenUnion; i++) {
+                        int[] lcaColRow = targetLcaColMatrix[leafBufA[i]];
+                        for (int j = 0; j < lenB; j++) {
+                            int c = lcaColRow[leafBufB[j]];
+                            if (c >= 0) {
+                                scratchIntersections[c]++;
+                            }
+                        }
+                    }
+                    System.arraycopy(leafBufB, 0, leafBufA, lenUnion, lenB);
+                    lenUnion += lenB;
+                } else {
+                    accumulatePairPermanent(tbrScratch3, setB);
+                }
+            } else {
+                for (int l = setB.nextSetBit(0); l >= 0; l = setB.nextSetBit(l + 1)) {
+                    leafBufA[lenUnion++] = l;
+                }
+            }
+
+            tbrScratch3.or(setB);
+            cardUnion += cardB;
+        }
+
+        currentT1PairCount[row] = pairsCount;
+        int[] costRow = assigncost[row];
+        for (int c = 0; c < intT2Num; c++) {
+            costRow[c] = pairsCount + t2IntPairCount[c] - (scratchIntersections[c] << 1);
+        }
+        for (int c = intT2Num; c < dim; c++) {
+            costRow[c] = pairsCount;
+        }
     }
 
     private void pushEmptyDelta() {
@@ -734,116 +931,6 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
         computeRowCostMulti(row, tbrChildSetsPool, chCount);
     }
 
-    // =========================================================================
-    // AKCELERATOR KOSZTU WIERSZA O(N) POPRZEZ DRZEWNE DP I PERMANENT 2x2
-    // =========================================================================
-
-    /**
-     * Bezalokacyjne obliczanie kosztu wiersza w czasie O(N) dla węzła binarnego
-     * przy użyciu programowania dynamicznego post-order po T2 oraz permanentu 2x2.
-     */
-    private void computeRowCostTwoSets(int row, BitSet setA, BitSet setB) {
-        if (setA == null || setB == null || setA.isEmpty() || setB.isEmpty()) {
-            computeRowCostEmpty(row);
-            return;
-        }
-
-        int totalA = setA.cardinality();
-        int totalB = setB.cardinality();
-        int pairsCount = totalA * totalB;
-        currentT1PairCount[row] = pairsCount;
-        int[] costRow = assigncost[row];
-
-        for (int i = 0; i < postOrderT2Count; i++) {
-            int leafId = t2PostOrderLeafId[i];
-
-            if (leafId >= 0) {
-                t2CountA[i] = setA.get(leafId) ? 1 : 0;
-                t2CountB[i] = setB.get(leafId) ? 1 : 0;
-            } else {
-                int chCount = t2PostOrderChildCount[i];
-                int inter = 0;
-                int sumA, sumB;
-
-                if (chCount == 2) {
-                    int c0 = t2PostOrderChild0[i];
-                    int c1 = t2PostOrderChild1[i];
-                    int a1 = t2CountA[c0];
-                    int b1 = t2CountB[c0];
-                    int a2 = t2CountA[c1];
-                    int b2 = t2CountB[c1];
-
-                    inter = a1 * b2 + a2 * b1;
-                    sumA = a1 + a2;
-                    sumB = b1 + b2;
-                } else {
-                    sumA = 0;
-                    sumB = 0;
-                    int first = t2PostOrderFirstChild[i];
-                    for (int k = 0; k < chCount; k++) {
-                        int ck = t2PostOrderChildrenFlat[first + k];
-                        int ak = t2CountA[ck];
-                        int bk = t2CountB[ck];
-                        inter += sumA * bk + sumB * ak;
-                        sumA += ak;
-                        sumB += bk;
-                    }
-                }
-
-                t2CountA[i] = sumA;
-                t2CountB[i] = sumB;
-
-                int col = t2PostOrderCol[i];
-                if (col >= 0) {
-                    costRow[col] = pairsCount + t2IntPairCount[col] - (inter << 1);
-                }
-            }
-        }
-
-        for (int c = intT2Num; c < dim; c++) {
-            costRow[c] = pairsCount;
-        }
-    }
-
-    private void computeRowCostMulti(int row, BitSet[] sets, int count) {
-        if (count < 2) {
-            computeRowCostEmpty(row);
-            return;
-        }
-        if (count == 2) {
-            computeRowCostTwoSets(row, sets[0], sets[1]);
-            return;
-        }
-
-        Arrays.fill(scratchIntersections, 0, intT2Num, 0);
-        int pairsCount = 0;
-        tbrScratch3.clear();
-        int cardUnion = 0;
-
-        for (int sIdx = 0; sIdx < count; sIdx++) {
-            BitSet setB = sets[sIdx];
-            if (setB == null || setB.isEmpty()) continue;
-
-            int cardB = setB.cardinality();
-            if (cardUnion > 0) {
-                pairsCount += cardUnion * cardB;
-                accumulatePairPermanent(tbrScratch3, setB);
-            }
-
-            tbrScratch3.or(setB);
-            cardUnion += cardB;
-        }
-
-        currentT1PairCount[row] = pairsCount;
-        int[] costRow = assigncost[row];
-        for (int c = 0; c < intT2Num; c++) {
-            costRow[c] = pairsCount + t2IntPairCount[c] - (scratchIntersections[c] << 1);
-        }
-        for (int c = intT2Num; c < dim; c++) {
-            costRow[c] = pairsCount;
-        }
-    }
-
     private void accumulatePairPermanent(BitSet setA, BitSet setB) {
         for (int i = 0; i < postOrderT2Count; i++) {
             int leafId = t2PostOrderLeafId[i];
@@ -902,7 +989,7 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
         this.currentPrunedLeaves.or(getBaseSplit(pruneNode));
         BitSet P = this.currentPrunedLeaves;
 
-        ensureDeltaCapacity();
+        ensureDeltaCapacity(dim);
         int d = deltaPointer;
         int count = 0;
 

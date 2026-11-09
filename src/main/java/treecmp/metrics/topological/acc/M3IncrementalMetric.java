@@ -167,11 +167,96 @@ public class M3IncrementalMetric implements IncrementalMetric,
     @Override
     public void applySprPrune(Node pruneNode) {
         this.activePruneNode = pruneNode;
+        Node pParent = (pruneNode != null) ? pruneNode.getParent() : null;
+        Integer rFloating = getRowForNode(pParent);
+        if (rFloating != null) {
+            updateSingleRowFast(rFloating, null);
+        } else {
+            pushEmptyDelta();
+        }
     }
 
     @Override
     public void undoSprPrune(Node pruneNode) {
+        undoDeltaStack();
         this.activePruneNode = null;
+    }
+
+    public boolean applyNniStep(Node nodeToUpdate, BitSet bitsOut, BitSet bitsIn) {
+        Node vNode = nodeToUpdate;
+        Node uNode = vNode.getParent();
+        Node floatingNode = (activePruneNode != null) ? activePruneNode.getParent() : null;
+
+        Integer rVIndex = (vNode != floatingNode) ? getRowForNode(vNode) : null;
+        Integer rUIndex = (uNode != floatingNode) ? getRowForNode(uNode) : null;
+
+        if (rVIndex == null && rUIndex == null) {
+            ensureDeltaCapacity(0);
+            int d = deltaPointer;
+            deltaRowsCount[d] = 0;
+            deltaOldDistance[d] = currentDistance;
+            BitSet oldSplitV = getSplitForNode(vNode);
+            deltaOldSplitNode[d] = vNode;
+            deltaOldSplitBits[d].clear();
+            if (oldSplitV != null) deltaOldSplitBits[d].or(oldSplitV);
+            deltaPointer++;
+            if (bitsOut != null) oldSplitV.andNot(bitsOut);
+            if (bitsIn != null) oldSplitV.or(bitsIn);
+            return true;
+        }
+
+        int count = 0;
+        if (rVIndex != null) count++;
+        if (rUIndex != null && !rUIndex.equals(rVIndex)) count++;
+
+        ensureDeltaCapacity(count);
+        int d = deltaPointer;
+        deltaRowsCount[d] = count;
+
+        int idx = 0;
+        if (rVIndex != null) {
+            deltaRows[d][idx] = rVIndex;
+            System.arraycopy(assigncost[rVIndex], 0, deltaOldRows[d][idx], 0, dim);
+            deltaOldTripletCounts[d][idx] = currentT1TripletCount[rVIndex];
+            idx++;
+        }
+        if (rUIndex != null && !rUIndex.equals(rVIndex)) {
+            deltaRows[d][idx] = rUIndex;
+            System.arraycopy(assigncost[rUIndex], 0, deltaOldRows[d][idx], 0, dim);
+            deltaOldTripletCounts[d][idx] = currentT1TripletCount[rUIndex];
+            idx++;
+        }
+
+        System.arraycopy(this.u, 0, deltaOldU[d], 0, dim);
+        System.arraycopy(this.v, 0, deltaOldV[d], 0, dim);
+        System.arraycopy(this.rowsol, 0, deltaOldRowsol[d], 0, dim);
+        System.arraycopy(this.colsol, 0, deltaOldColsol[d], 0, dim);
+        deltaOldDistance[d] = currentDistance;
+
+        BitSet oldSplitV = getSplitForNode(vNode);
+        deltaOldSplitNode[d] = vNode;
+        deltaOldSplitBits[d].clear();
+        if (oldSplitV != null) {
+            deltaOldSplitBits[d].or(oldSplitV);
+        }
+        deltaPointer++;
+
+        if (bitsOut != null) oldSplitV.andNot(bitsOut);
+        if (bitsIn != null) oldSplitV.or(bitsIn);
+
+        if (rVIndex != null) computeNodeRowCostInPlace(rVIndex, vNode);
+        if (rUIndex != null && !rUIndex.equals(rVIndex)) computeNodeRowCostInPlace(rUIndex, uNode);
+
+        if (count > 0) {
+            int[] changedRowsParam = cachedKArrays[count];
+            for (int i = 0; i < count; i++) {
+                changedRowsParam[i] = deltaRows[d][i];
+            }
+            int rawMetric = LapSolver.lapUpdate(dim, assigncost, rowsol, colsol, this.u, this.v, changedRowsParam);
+            this.currentDistance = 0.5 * rawMetric;
+        }
+
+        return true;
     }
 
     @Override
@@ -1461,73 +1546,6 @@ public class M3IncrementalMetric implements IncrementalMetric,
         long term1 = (long) cardA * cardB * (cardC + cardD);
         long term2 = (long) cardC * cardD * (cardA + cardB);
         return (double) Math.min(term1, term2);
-    }
-
-    // =========================================================================
-    // SPR & NNI (100% ZERO-ALLOCATION NA STOSIE DELTA!)
-    // =========================================================================
-
-    public boolean applyNniStep(Node nodeToUpdate, BitSet bitsOut, BitSet bitsIn) {
-        Node vNode = nodeToUpdate;
-        Node uNode = vNode.getParent();
-
-        Integer rVIndex = getRowForNode(vNode);
-        Integer rUIndex = getRowForNode(uNode);
-
-        if (rVIndex == null && rUIndex == null) return false;
-
-        int count = 0;
-        if (rVIndex != null) count++;
-        if (rUIndex != null && !rUIndex.equals(rVIndex)) count++;
-
-        ensureDeltaCapacity(count);
-        int d = deltaPointer;
-        deltaRowsCount[d] = count;
-
-        int idx = 0;
-        if (rVIndex != null) {
-            deltaRows[d][idx] = rVIndex;
-            System.arraycopy(assigncost[rVIndex], 0, deltaOldRows[d][idx], 0, dim);
-            deltaOldTripletCounts[d][idx] = currentT1TripletCount[rVIndex];
-            idx++;
-        }
-        if (rUIndex != null && !rUIndex.equals(rVIndex)) {
-            deltaRows[d][idx] = rUIndex;
-            System.arraycopy(assigncost[rUIndex], 0, deltaOldRows[d][idx], 0, dim);
-            deltaOldTripletCounts[d][idx] = currentT1TripletCount[rUIndex];
-            idx++;
-        }
-
-        System.arraycopy(this.u, 0, deltaOldU[d], 0, dim);
-        System.arraycopy(this.v, 0, deltaOldV[d], 0, dim);
-        System.arraycopy(this.rowsol, 0, deltaOldRowsol[d], 0, dim);
-        System.arraycopy(this.colsol, 0, deltaOldColsol[d], 0, dim);
-        deltaOldDistance[d] = currentDistance;
-
-        BitSet oldSplitV = getSplitForNode(vNode);
-        deltaOldSplitNode[d] = vNode;
-        deltaOldSplitBits[d].clear();
-        if (oldSplitV != null) {
-            deltaOldSplitBits[d].or(oldSplitV);
-        }
-        deltaPointer++;
-
-        if (bitsOut != null) oldSplitV.andNot(bitsOut);
-        if (bitsIn != null) oldSplitV.or(bitsIn);
-
-        if (rVIndex != null) computeNodeRowCostInPlace(rVIndex, vNode);
-        if (rUIndex != null && !rUIndex.equals(rVIndex)) computeNodeRowCostInPlace(rUIndex, uNode);
-
-        if (count > 0) {
-            int[] changedRowsParam = cachedKArrays[count];
-            for (int i = 0; i < count; i++) {
-                changedRowsParam[i] = deltaRows[d][i];
-            }
-            int rawMetric = LapSolver.lapUpdate(dim, assigncost, rowsol, colsol, this.u, this.v, changedRowsParam);
-            this.currentDistance = 0.5 * rawMetric;
-        }
-
-        return true;
     }
 
     public void undoNniStep() {

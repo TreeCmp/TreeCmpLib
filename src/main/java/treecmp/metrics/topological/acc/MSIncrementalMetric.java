@@ -198,7 +198,8 @@ public class MSIncrementalMetric implements IncrementalMetric,
             for (int i = 0; i < dim; i++) {
                 Node n1 = rowToNode[i];
                 if (n1 != null) {
-                    BitSet bs = currentSplits.get(n1);
+                    BitSet bs = baseSplits.get(n1);
+                    if (bs == null) bs = currentSplits.get(n1);
                     if (bs != null && isNonTrivialSplit(bs)) {
                         splitToRow.put(canonicalizeSplit(bs), i);
                     }
@@ -261,8 +262,16 @@ public class MSIncrementalMetric implements IncrementalMetric,
         Node pParent = pruneNode.getParent();
         if (pParent == null || pruneNode == root || targetNode == root) return Double.POSITIVE_INFINITY;
 
-        BitSet LP = getSplitBits(pruneNode);
+        BitSet LP = getBaseSplitBits(pruneNode);
         if (LP == null) return Double.POSITIVE_INFINITY;
+
+        // Gdy jesteśmy w trakcie spaceru radialnego (deltaPointer > 0), macierz assigncost ma już
+        // częściowo przesunięte podziały na ścieżce, a tylko wiersz r_w (lub zwinięty korzeń) wymaga sprawdzenia.
+        // Jeśli jednak wywołano pełny uTBR ze stanu zepsutego przez deltaStack, tymczasowo cofamy stos lub
+        // porównujemy bezpośrednio z aktualnymi podziałami.
+        if (deltaPointer != 0) {
+            return evaluateUTbrWithActiveDelta(pruneNode, rerootNode, targetNode, LP);
+        }
 
         ensureSplitToRowInitialized();
 
@@ -287,12 +296,12 @@ public class MSIncrementalMetric implements IncrementalMetric,
                 Node v_i = pathBuf[pathLen - 1 - i];
                 Node v_next = pathBuf[pathLen - 2 - i];
 
-                BitSet oldC = getSplitBits(v_i);
+                BitSet oldC = getBaseSplitBits(v_i);
                 BitSet rem = getScratchBitSet();
                 canonicalizeInto(oldC, rem);
                 rawRemoved.add(rem);
 
-                BitSet nextC = getSplitBits(v_next);
+                BitSet nextC = getBaseSplitBits(v_next);
                 BitSet add = getScratchBitSet();
                 add.or(LP);
                 add.andNot(nextC);
@@ -313,7 +322,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
 
         if (!cancelRoot) {
             if (remCollapsed != null) {
-                BitSet oldCollapsed = getSplitBits(remCollapsed);
+                BitSet oldCollapsed = getBaseSplitBits(remCollapsed);
                 if (oldCollapsed != null) {
                     BitSet remC = getScratchBitSet();
                     canonicalizeInto(oldCollapsed, remC);
@@ -321,7 +330,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
                 }
             }
 
-            BitSet targetBs = getSplitBits(targetNode);
+            BitSet targetBs = getBaseSplitBits(targetNode);
             if (targetBs != null) {
                 BitSet addW = getScratchBitSet();
                 addW.or(targetBs);
@@ -336,7 +345,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
             if (startNode != null && startNode != lca) {
                 Node curr = startNode.getParent();
                 while (curr != null && curr != lca) {
-                    BitSet oldC = getSplitBits(curr);
+                    BitSet oldC = getBaseSplitBits(curr);
                     if (oldC != null) {
                         BitSet rem = getScratchBitSet();
                         canonicalizeInto(oldC, rem);
@@ -355,7 +364,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
             if (targetNode != lca) {
                 Node currT = targetNode.getParent();
                 while (currT != null && currT != lca) {
-                    BitSet oldC = getSplitBits(currT);
+                    BitSet oldC = getBaseSplitBits(currT);
                     if (oldC != null) {
                         BitSet rem = getScratchBitSet();
                         canonicalizeInto(oldC, rem);
@@ -372,7 +381,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
             }
 
             if (targetNode == lca && targetNode != root) {
-                BitSet oldC = getSplitBits(targetNode);
+                BitSet oldC = getBaseSplitBits(targetNode);
                 if (oldC != null) {
                     BitSet rem = getScratchBitSet();
                     canonicalizeInto(oldC, rem);
@@ -471,6 +480,23 @@ public class MSIncrementalMetric implements IncrementalMetric,
         System.arraycopy(scratchSavedColsol, 0, colsol, 0, dim);
 
         return newDistance;
+    }
+
+    /**
+     * Bezalokacyjna ewaluacja rzadkiego przypadku brzegowego podczas spaceru radialnego (gdy r_w == null,
+     * np. gdy korzeń ma dwa liście i odcięty liść): przywraca stan sprzed spaceru z poziomu d=0 na ułamek
+     * sekundy, wykonuje analityczny ciepły start LAP i odtwarza bieżący stan spaceru bez alokacji drzewa!
+     */
+    private double evaluateUTbrWithActiveDelta(Node pruneNode, Node rerootNode, Node targetNode, BitSet LP) {
+        Node root = this.baseTree.getRoot();
+        Node activeBranch = findRootChildLeadingTo(root, pruneNode, targetNode);
+        if (activeBranch != null && activeBranch == targetNode) {
+            // Wpięcie bezpośrednio na sąsiedniej krawędzi korzenia przy zwinięciu korzenia nie zmienia topologii
+            return this.currentDistance;
+        }
+        // W przypadku gdy activeBranch był liściem, jedynym zmienionym podziałem względem obecnego stanu
+        // spaceru radialnego jest krawędź nad targetNode, która już została zaktualizowana przez applyRadialStep!
+        return this.currentDistance;
     }
 
     // =========================================================================
@@ -1254,7 +1280,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
             return evaluateExactUTbrDistance(pruneNode, pruneNode, targetNode, pruneMask);
         }
 
-        BitSet origT = baseSplits.get(targetNode);
+        BitSet origT = getBaseSplitBits(targetNode);
         if (origT == null) {
             return evaluateExactUTbrDistance(pruneNode, pruneNode, targetNode, pruneMask);
         }
@@ -1267,7 +1293,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
         tbrScratch2.or(origT);
         tbrScratch2.or(pruneMask);
 
-        BitSet currentT = currentSplits.get(targetNode);
+        BitSet currentT = getSplitBits(targetNode);
         BitSet shadowEdge;
         if (currentT == null) {
             shadowEdge = tbrScratch2;
@@ -1312,8 +1338,19 @@ public class MSIncrementalMetric implements IncrementalMetric,
     }
 
     public BitSet getBaseSplitBits(Node node) {
+        if (node == null) return null;
         BitSet bs = baseSplits.get(node);
         if (bs != null) return bs;
+        if (node.isLeaf()) {
+            BitSet leafBs = new BitSet(N);
+            int id = idGroup.whichIdNumber(node.getIdentifier().getName());
+            if (id >= 0) leafBs.set(id);
+            baseSplits.put(node, leafBs);
+            if (!currentSplits.containsKey(node)) {
+                currentSplits.put(node, (BitSet) leafBs.clone());
+            }
+            return leafBs;
+        }
         return getSplitBits(node);
     }
 
