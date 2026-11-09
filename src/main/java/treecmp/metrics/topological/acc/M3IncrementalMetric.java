@@ -187,10 +187,11 @@ public class M3IncrementalMetric implements IncrementalMetric,
         Node uNode = vNode.getParent();
         Node floatingNode = (activePruneNode != null) ? activePruneNode.getParent() : null;
 
-        Integer rVIndex = (vNode != floatingNode) ? getRowForNode(vNode) : null;
-        Integer rUIndex = (uNode != floatingNode) ? getRowForNode(uNode) : null;
+        // Zmiana currentSplits[vNode] wpływa wyłącznie na trójpodział rodzica (uNode),
+        // ponieważ trójpodział węzła wyznaczany jest z currentSplits jego dzieci!
+        Integer rUIndex = (uNode != null && uNode != floatingNode) ? getRowForNode(uNode) : null;
 
-        if (rVIndex == null && rUIndex == null) {
+        if (rUIndex == null) {
             ensureDeltaCapacity(0);
             int d = deltaPointer;
             deltaRowsCount[d] = 0;
@@ -198,34 +199,22 @@ public class M3IncrementalMetric implements IncrementalMetric,
             BitSet oldSplitV = getSplitForNode(vNode);
             deltaOldSplitNode[d] = vNode;
             deltaOldSplitBits[d].clear();
-            if (oldSplitV != null) deltaOldSplitBits[d].or(oldSplitV);
+            if (oldSplitV != null) {
+                deltaOldSplitBits[d].or(oldSplitV);
+            }
             deltaPointer++;
+
             if (bitsOut != null) oldSplitV.andNot(bitsOut);
             if (bitsIn != null) oldSplitV.or(bitsIn);
             return true;
         }
 
-        int count = 0;
-        if (rVIndex != null) count++;
-        if (rUIndex != null && !rUIndex.equals(rVIndex)) count++;
-
-        ensureDeltaCapacity(count);
+        ensureDeltaCapacity(1);
         int d = deltaPointer;
-        deltaRowsCount[d] = count;
-
-        int idx = 0;
-        if (rVIndex != null) {
-            deltaRows[d][idx] = rVIndex;
-            System.arraycopy(assigncost[rVIndex], 0, deltaOldRows[d][idx], 0, dim);
-            deltaOldTripletCounts[d][idx] = currentT1TripletCount[rVIndex];
-            idx++;
-        }
-        if (rUIndex != null && !rUIndex.equals(rVIndex)) {
-            deltaRows[d][idx] = rUIndex;
-            System.arraycopy(assigncost[rUIndex], 0, deltaOldRows[d][idx], 0, dim);
-            deltaOldTripletCounts[d][idx] = currentT1TripletCount[rUIndex];
-            idx++;
-        }
+        deltaRowsCount[d] = 1;
+        deltaRows[d][0] = rUIndex;
+        System.arraycopy(assigncost[rUIndex], 0, deltaOldRows[d][0], 0, dim);
+        deltaOldTripletCounts[d][0] = currentT1TripletCount[rUIndex];
 
         System.arraycopy(this.u, 0, deltaOldU[d], 0, dim);
         System.arraycopy(this.v, 0, deltaOldV[d], 0, dim);
@@ -244,17 +233,12 @@ public class M3IncrementalMetric implements IncrementalMetric,
         if (bitsOut != null) oldSplitV.andNot(bitsOut);
         if (bitsIn != null) oldSplitV.or(bitsIn);
 
-        if (rVIndex != null) computeNodeRowCostInPlace(rVIndex, vNode);
-        if (rUIndex != null && !rUIndex.equals(rVIndex)) computeNodeRowCostInPlace(rUIndex, uNode);
+        computeNodeRowCostInPlace(rUIndex, uNode);
 
-        if (count > 0) {
-            int[] changedRowsParam = cachedKArrays[count];
-            for (int i = 0; i < count; i++) {
-                changedRowsParam[i] = deltaRows[d][i];
-            }
-            int rawMetric = LapSolver.lapUpdate(dim, assigncost, rowsol, colsol, this.u, this.v, changedRowsParam);
-            this.currentDistance = 0.5 * rawMetric;
-        }
+        int[] changedRowsParam = cachedKArrays[1];
+        changedRowsParam[0] = rUIndex;
+        int rawMetric = LapSolver.lapUpdate(dim, assigncost, rowsol, colsol, this.u, this.v, changedRowsParam);
+        this.currentDistance = 0.5 * rawMetric;
 
         return true;
     }

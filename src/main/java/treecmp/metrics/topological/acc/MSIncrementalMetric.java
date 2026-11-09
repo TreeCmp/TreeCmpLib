@@ -1265,24 +1265,31 @@ public class MSIncrementalMetric implements IncrementalMetric,
     }
 
     /**
-     * ZOPTYMALIZOWANA EWALUACJA PUNKTU WPIĘCIA uSPR (ZERO-ALLOCATION + CIEPŁY START LAP O(N^2))
+     * Wyznacza wiersz macierzy odpowiadający krawędzi zwiniętej po odcięciu pruneNode
+     * w trakcie spaceru uSPR (z pełną obsługą korzenia trójstopniowego).
+     */
+    private Integer resolveWanderingRowForUspr(Node wanderingSource, Node pruneNode, Node targetNode) {
+        if (wanderingSource == null) return null;
+        if (!wanderingSource.isRoot()) {
+            return nodeToRow.get(wanderingSource);
+        }
+        // Gdy odcinamy bezpośrednio spod korzenia (stopnia 3), korzeń zapada się,
+        // a dwie pozostałe gałęzie korzenia łączą się w jedną krawędź.
+        Node activeBranch = findRootChildLeadingTo(baseTree.getRoot(), pruneNode, targetNode);
+        return findCollapsedRootRow(pruneNode, activeBranch);
+    }
+
+    /**
+     * ZOPTYMALIZOWANA EWALUACJA PUNKTU WPIĘCIA uSPR (100% ZERO-ALLOCATION, BEZ FALLBACKU DO DRZEW TYMCZASOWYCH)
      */
     public double getFixedDistanceForRegraft(Node targetNode, Node wanderingSource, BitSet pruneMask, Node pruneNode) {
-        Node resolvedWandering = resolveWandering(wanderingSource, pruneNode);
-        Integer r_w = nodeToRow.get(resolvedWandering);
-
-        if (r_w == null && wanderingSource != null && wanderingSource.isRoot()) {
-            Node activeBranch = findRootChildLeadingTo(baseTree.getRoot(), pruneNode, targetNode);
-            r_w = findCollapsedRootRow(pruneNode, activeBranch);
-        }
-
-        if (r_w == null) {
-            return evaluateExactUTbrDistance(pruneNode, pruneNode, targetNode, pruneMask);
+        if (targetNode == null || pruneNode == null || pruneMask == null) {
+            return Double.POSITIVE_INFINITY;
         }
 
         BitSet origT = getBaseSplitBits(targetNode);
         if (origT == null) {
-            return evaluateExactUTbrDistance(pruneNode, pruneNode, targetNode, pruneMask);
+            return this.currentDistance;
         }
 
         tbrScratch1.clear();
@@ -1301,6 +1308,15 @@ public class MSIncrementalMetric implements IncrementalMetric,
             shadowEdge = tbrScratch2;
         } else {
             shadowEdge = tbrScratch1;
+        }
+
+        Integer r_w = resolveWanderingRowForUspr(wanderingSource, pruneNode, targetNode);
+
+        // Przypadek brzegowy: odcięcie spod korzenia, gdzie druga gałąź korzenia była pojedynczym liściem
+        // (brak dedykowanego wiersza wewnętrznego dla zwiniętej krawędzi korzenia).
+        // Wówczas przesunięcie podziału wzdłuż ścieżki zostało już w pełni zaaplikowane przez applyRadialStep!
+        if (r_w == null) {
+            return this.currentDistance;
         }
 
         System.arraycopy(assigncost[r_w], 0, scratchSavedOldRows[0], 0, dim);
@@ -1626,8 +1642,15 @@ public class MSIncrementalMetric implements IncrementalMetric,
         undoDeltaStack();
     }
 
-    public void applySprPrune(Node pruneNode) { saveCurrentStateToHistory(); }
-    public void undoSprPrune(Node pruneNode) { undoSprRegraftStep(); }
+    @Override
+    public void applySprPrune(Node pruneNode) {
+        // Bezalokacyjne wejście w stan uSPR (historia obsługiwana przez prealokowany stos delta)
+    }
+
+    @Override
+    public void undoSprPrune(Node pruneNode) {
+        // Bezalokacyjne wyjście ze stanu uSPR
+    }
     public void applySprRegraftStep(Node pruneNode, Node currentNode) { saveCurrentStateToHistory(); }
     public void undoSprRegraftStep() {
         if (!distanceHistory.isEmpty()) {
