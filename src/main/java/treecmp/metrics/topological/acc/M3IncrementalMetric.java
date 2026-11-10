@@ -167,59 +167,36 @@ public class M3IncrementalMetric implements IncrementalMetric,
     @Override
     public void applySprPrune(Node pruneNode) {
         this.activePruneNode = pruneNode;
-        Node pParent = (pruneNode != null) ? pruneNode.getParent() : null;
-        Integer rFloating = getRowForNode(pParent);
-        if (rFloating != null) {
-            updateSingleRowFast(rFloating, null);
-        } else {
-            pushEmptyDelta();
-        }
     }
 
     @Override
     public void undoSprPrune(Node pruneNode) {
-        undoDeltaStack();
         this.activePruneNode = null;
     }
 
     public boolean applyNniStep(Node nodeToUpdate, BitSet bitsOut, BitSet bitsIn) {
         Node vNode = nodeToUpdate;
         Node uNode = vNode.getParent();
-        Node floatingNode = (activePruneNode != null) ? activePruneNode.getParent() : null;
 
-        // Zmiana currentSplits[vNode] wpływa wyłącznie na trójpodział rodzica (uNode),
-        // ponieważ trójpodział węzła wyznaczany jest z currentSplits jego dzieci!
-        Integer rUIndex = (uNode != null && uNode != floatingNode) ? getRowForNode(uNode) : null;
+        // Zmiana podzbioru liści pod vNode nie zmienia trójpartycji samego vNode
+        // (wyznaczanej przez jego dzieci), lecz wyłącznie trójpartycję jego rodzica uNode (k = 1).
+        Integer rUIndex = getRowForNode(uNode);
 
-        if (rUIndex == null) {
-            ensureDeltaCapacity(0);
-            int d = deltaPointer;
-            deltaRowsCount[d] = 0;
-            deltaOldDistance[d] = currentDistance;
-            BitSet oldSplitV = getSplitForNode(vNode);
-            deltaOldSplitNode[d] = vNode;
-            deltaOldSplitBits[d].clear();
-            if (oldSplitV != null) {
-                deltaOldSplitBits[d].or(oldSplitV);
-            }
-            deltaPointer++;
-
-            if (bitsOut != null) oldSplitV.andNot(bitsOut);
-            if (bitsIn != null) oldSplitV.or(bitsIn);
-            return true;
-        }
-
-        ensureDeltaCapacity(1);
+        int count = (rUIndex != null) ? 1 : 0;
+        ensureDeltaCapacity(count);
         int d = deltaPointer;
-        deltaRowsCount[d] = 1;
-        deltaRows[d][0] = rUIndex;
-        System.arraycopy(assigncost[rUIndex], 0, deltaOldRows[d][0], 0, dim);
-        deltaOldTripletCounts[d][0] = currentT1TripletCount[rUIndex];
+        deltaRowsCount[d] = count;
 
-        System.arraycopy(this.u, 0, deltaOldU[d], 0, dim);
-        System.arraycopy(this.v, 0, deltaOldV[d], 0, dim);
-        System.arraycopy(this.rowsol, 0, deltaOldRowsol[d], 0, dim);
-        System.arraycopy(this.colsol, 0, deltaOldColsol[d], 0, dim);
+        if (rUIndex != null) {
+            deltaRows[d][0] = rUIndex;
+            System.arraycopy(assigncost[rUIndex], 0, deltaOldRows[d][0], 0, dim);
+            deltaOldTripletCounts[d][0] = currentT1TripletCount[rUIndex];
+
+            System.arraycopy(this.u, 0, deltaOldU[d], 0, dim);
+            System.arraycopy(this.v, 0, deltaOldV[d], 0, dim);
+            System.arraycopy(this.rowsol, 0, deltaOldRowsol[d], 0, dim);
+            System.arraycopy(this.colsol, 0, deltaOldColsol[d], 0, dim);
+        }
         deltaOldDistance[d] = currentDistance;
 
         BitSet oldSplitV = getSplitForNode(vNode);
@@ -233,12 +210,13 @@ public class M3IncrementalMetric implements IncrementalMetric,
         if (bitsOut != null) oldSplitV.andNot(bitsOut);
         if (bitsIn != null) oldSplitV.or(bitsIn);
 
-        computeNodeRowCostInPlace(rUIndex, uNode);
-
-        int[] changedRowsParam = cachedKArrays[1];
-        changedRowsParam[0] = rUIndex;
-        int rawMetric = LapSolver.lapUpdate(dim, assigncost, rowsol, colsol, this.u, this.v, changedRowsParam);
-        this.currentDistance = 0.5 * rawMetric;
+        if (rUIndex != null) {
+            computeNodeRowCostInPlace(rUIndex, uNode);
+            int[] changedRowsParam = cachedKArrays[1];
+            changedRowsParam[0] = rUIndex;
+            int rawMetric = LapSolver.lapUpdate(dim, assigncost, rowsol, colsol, this.u, this.v, changedRowsParam);
+            this.currentDistance = 0.5 * rawMetric;
+        }
 
         return true;
     }
@@ -1527,8 +1505,9 @@ public class M3IncrementalMetric implements IncrementalMetric,
             return Double.POSITIVE_INFINITY;
         }
 
-        long term1 = (long) cardA * cardB * (cardC + cardD);
-        long term2 = (long) cardC * cardD * (cardA + cardB);
+        // Zgodnie z Lematem 1 (pkt 5, równanie 18): d_MT(T1, T1') = min(|A||D|(|B|+|C|), |B||C|(|A|+|D|))
+        long term1 = (long) cardA * cardD * (cardB + cardC);
+        long term2 = (long) cardB * cardC * (cardA + cardD);
         return (double) Math.min(term1, term2);
     }
 
