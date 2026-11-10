@@ -736,8 +736,24 @@ public class LapSolver {
       int j = rowsol[i];
       if (j >= 0) {
         colsol[j] = -1;
+        rowsol[i] = -1;
+        free[numfree++] = i;
+      } else if (rowsol[i] != -1) {
+        rowsol[i] = -1;
+        free[numfree++] = i;
+      } else {
+        // Unikamy duplikatów w tablicy free, jeśli ten sam wiersz podano dwukrotnie
+        boolean alreadyFree = false;
+        for (int fIdx = 0; fIdx < numfree; fIdx++) {
+          if (free[fIdx] == i) {
+            alreadyFree = true;
+            break;
+          }
+        }
+        if (!alreadyFree) {
+          free[numfree++] = i;
+        }
       }
-      free[numfree++] = i;
 
       int minVal = BIG;
       int[] costRow = assigncost[i];
@@ -880,8 +896,23 @@ public class LapSolver {
       int j = rowsol[i];
       if (j >= 0) {
         colsol[j] = -1;
+        rowsol[i] = -1;
+        free[numfree++] = i;
+      } else if (rowsol[i] != -1) {
+        rowsol[i] = -1;
+        free[numfree++] = i;
+      } else {
+        boolean alreadyFree = false;
+        for (int fIdx = 0; fIdx < numfree; fIdx++) {
+          if (free[fIdx] == i) {
+            alreadyFree = true;
+            break;
+          }
+        }
+        if (!alreadyFree) {
+          free[numfree++] = i;
+        }
       }
-      free[numfree++] = i;
 
       int minVal = Integer.MAX_VALUE;
       short[] costRow = assigncost[i];
@@ -1026,8 +1057,23 @@ public class LapSolver {
       int j = rowsol[i];
       if (j >= 0) {
         colsol[j] = -1;
+        rowsol[i] = -1;
+        free[numfree++] = i;
+      } else if (rowsol[i] != -1) {
+        rowsol[i] = -1;
+        free[numfree++] = i;
+      } else {
+        boolean alreadyFree = false;
+        for (int fIdx = 0; fIdx < numfree; fIdx++) {
+          if (free[fIdx] == i) {
+            alreadyFree = true;
+            break;
+          }
+        }
+        if (!alreadyFree) {
+          free[numfree++] = i;
+        }
       }
-      free[numfree++] = i;
 
       int minVal = BIG;
       int[] costRow = assigncost[i];
