@@ -196,6 +196,10 @@ public class UsprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetr
                         }
                     }
 
+                    if (bestCandidateTree == null) {
+                        this.incMetric.initCalculationState(currentTree, targetTree);
+                    }
+
                     if (isPlateau) {
                         if (bestSecondaryDist >= currentSecDist - 1e-9) {
                             bestMove = null;
