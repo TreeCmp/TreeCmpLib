@@ -61,7 +61,9 @@ public class Ecr3IncrementalHeuristic extends EcrIncrementalHeuristic<Ecr3Increm
             if (template.isIsomorphic(originalSignature)) continue;
 
             double dist = activeMetric.evaluate3sEcrMove(cluster, boundarySubtrees, template);
-            checkImprovementWithTies(dist, new Ecr3Move(cluster, boundarySubtrees, originalSignature, template));
+            if (dist <= this.bestDist + 1e-9) {
+                checkImprovementWithTies(dist, new Ecr3Move(cluster, boundarySubtrees, originalSignature, template));
+            }
         }
     }
 
