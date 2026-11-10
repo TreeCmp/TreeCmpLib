@@ -667,53 +667,6 @@ public class MCIncrementalMetric implements IncrementalMetric,
         }
     }
 
-    /**
-     * Bezalokacyjna ewaluacja punktu wpięcia rSPR w czasie O(N^2) z ciepłym startem LAP.
-     */
-    public double getFixedDistanceForRegraft(Node targetNode, Node wanderingSource, BitSet pruneMask, Node pruneNode) {
-        Node resolvedWandering = resolveWandering(wanderingSource, pruneNode);
-        Integer r_w = nodeToRow.get(resolvedWandering);
-        if (r_w == null || targetNode == null) {
-            return evaluateSprRegraft(pruneNode, targetNode);
-        }
-
-        tbrScratch1.clear();
-        if (targetNode.isRoot()) {
-            tbrScratch1.or(fullTreeLeaves);
-            tbrScratch1.andNot(pruneMask);
-        } else {
-            BitSet origT = getBaseCluster(targetNode);
-            if (origT == null) {
-                return evaluateSprRegraft(pruneNode, targetNode);
-            }
-            tbrScratch1.or(origT);
-            tbrScratch1.or(pruneMask);
-        }
-        if (tbrScratch1.cardinality() == N) {
-            tbrScratch1.clear();
-        }
-
-        System.arraycopy(assigncost[r_w], 0, scratchSavedOldRows[0], 0, dim);
-        System.arraycopy(u, 0, scratchSavedU, 0, dim);
-        System.arraycopy(v, 0, scratchSavedV, 0, dim);
-        System.arraycopy(rowsol, 0, scratchSavedRowsol, 0, dim);
-        System.arraycopy(colsol, 0, scratchSavedColsol, 0, dim);
-
-        computeRowCostsFast(r_w, tbrScratch1);
-
-        int[] changedRowsParam = cachedKArrays[1];
-        changedRowsParam[0] = r_w;
-        double fixedDist = LapSolver.lapShortUpdate(dim, assigncost, rowsol, colsol, u, v, changedRowsParam);
-
-        System.arraycopy(scratchSavedOldRows[0], 0, assigncost[r_w], 0, dim);
-        System.arraycopy(scratchSavedU, 0, u, 0, dim);
-        System.arraycopy(scratchSavedV, 0, v, 0, dim);
-        System.arraycopy(scratchSavedRowsol, 0, rowsol, 0, dim);
-        System.arraycopy(scratchSavedColsol, 0, colsol, 0, dim);
-
-        return fixedDist;
-    }
-
     // =========================================================================
     // ZARZĄDZANIE STOSAMI DELTA
     // =========================================================================
@@ -1011,6 +964,16 @@ public class MCIncrementalMetric implements IncrementalMetric,
     public void moveTargetDown(Node parentTarget, Node childTarget, Node pruneNode, Node wanderingSource) {
         BitSet P = this.currentPrunedLeaves;
         Node resolvedWandering = resolveWandering(wanderingSource, pruneNode);
+
+        // Gdy odcinamy bezpośrednio spod korzenia (wanderingSource.isRoot()),
+        // wpięcie nad drugim dzieckiem korzenia (childTarget == resolvedWandering)
+        // odpowiada wpięciu w korzeniu drzewa szkieletowego T_B, które zostało już
+        // skonfigurowane przez setTargetRoot (węzeł resolvedWandering zachowuje klaster L \ P).
+        if (childTarget == resolvedWandering) {
+            pushEmptyDelta();
+            return;
+        }
+
         Integer r_p = nodeToRow.get(resolvedWandering);
 
         if (r_p != null) {
@@ -1211,33 +1174,6 @@ public class MCIncrementalMetric implements IncrementalMetric,
 
     public void undoNniStep() {
         undoDeltaStack();
-    }
-
-    public void applySprPrune(Node pruneNode) { saveCurrentStateToHistory(); }
-    public void undoSprPrune(Node pruneNode) { undoSprRegraftStep(); }
-    public void applySprRegraftStep(Node pruneNode, Node currentNode) { saveCurrentStateToHistory(); }
-    public void undoSprRegraftStep() {
-        if (!distanceHistory.isEmpty()) {
-            this.assigncost = costHistory.pop();
-            this.rowsol = rowsolHistory.pop();
-            this.colsol = colsolHistory.pop();
-            this.u = uHistory.pop();
-            this.v = vHistory.pop();
-            this.currentDistance = distanceHistory.pop();
-            this.currentClusters = clusterHistory.pop();
-        }
-    }
-
-    public double evaluateSprRegraft(Node pruneNode, Node targetNode) {
-        if (pruneNode == null || targetNode == null || this.baseTree == null || this.targetTree == null) {
-            return Double.POSITIVE_INFINITY;
-        }
-        try {
-            Tree tempTree = sprUtils.createSprTree(this.baseTree, pruneNode, targetNode);
-            return evaluateTempTreeDistance(tempTree);
-        } catch (Exception e) {
-            return Double.POSITIVE_INFINITY;
-        }
     }
 
     @Override
