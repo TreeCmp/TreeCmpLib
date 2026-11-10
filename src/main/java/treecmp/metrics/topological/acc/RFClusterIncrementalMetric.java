@@ -262,6 +262,16 @@ public class RFClusterIncrementalMetric extends BaseRFIncrementalMetric implemen
 
     @Override
     public void moveTargetDown(Node parentTarget, Node childTarget, Node pruneNode, Node wanderingSource) {
+        // Gdy odcinamy bezpośrednio spod korzenia (p == root), przejście z korzenia
+        // do korzenia drzewa szkieletowego (childTarget == rootOfT2) odpowiada stanowi
+        // zainicjalizowanemu już przez setTargetRoot (delta dT2 = 0).
+        if (childTarget == rootOfT2) {
+            deltaTargetStack[deltaTargetPtr++] = 0;
+            this.currentTargetNode = childTarget;
+            updateDistanceFromShared();
+            return;
+        }
+
         int dT2 = 0;
         if (parentTarget == rootOfT2) {
             if (isSharedFast(bsRootT2)) {
