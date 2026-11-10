@@ -9,6 +9,8 @@ import treecmp.heuristics.moves.SprMove;
 import treecmp.heuristics.moves.TreeMove;
 import treecmp.heuristics.spr.SprUtils;
 import treecmp.metrics.IncrementalMetric;
+import treecmp.metrics.topological.acc.MCIncrementalMetric;
+import treecmp.metrics.topological.acc.MPIncrementalMetric;
 
 import java.util.ArrayList;
 import java.util.Collections;
@@ -136,6 +138,7 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
             boolean isPlateau = Math.abs(this.bestDist - currentDist) <= 1e-9;
 
             if (primaryMetric == null) {
+                // Tryb podstawowy (czysta metryka): rozstrzyganie remisów wyłącznie kosztem NNI
                 if (this.bestDist < currentDist - 1e-9) {
                     if (this.tiedMoves.size() > 1) {
                         double lowestNniCost = Double.POSITIVE_INFINITY;
@@ -154,6 +157,7 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
                     break;
                 }
             } else {
+                // Tryb dwuetapowy: tie-breaker przez czysty polimorficzny kontrakt IncrementalMetric
                 if (!isPlateau && this.tiedMoves.size() == 1) {
                     bestMove = this.tiedMoves.get(0);
                 } else {
@@ -183,6 +187,11 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
                             bestNniCostForTie = moveCost;
                             bestCandidateTree = candidateTree;
                         }
+                    }
+
+                    // Przywrócenie stanu incMetric do currentTree, jeśli żaden ruch nie wygrał plateau
+                    if (bestCandidateTree == null) {
+                        this.incMetric.initCalculationState(currentTree, targetTree);
                     }
 
                     if (isPlateau) {
