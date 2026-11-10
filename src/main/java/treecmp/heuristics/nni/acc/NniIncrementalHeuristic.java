@@ -71,27 +71,44 @@ public class NniIncrementalHeuristic extends IncrementalHeuristicBaseMetric {
 
                     // --- SĄSIAD 1 (konwencja NniIncrementalMetric: wnuk jako pierwszy, brat jako drugi) ---
                     NniMove move1 = new NniMove(g1, sibling);
-                    double dist1 = activeMetric.applyNni(move1);
+                    double dist1;
                     if (primaryMetric == null) {
-                        if (dist1 < initialDist - 1e-9) {
+                        // Dynamiczny próg: bierzemy najmniejszą odległość znalezioną dotąd (this.bestDist)
+                        double threshold = this.bestDist;
+                        dist1 = activeMetric.applyNni(move1, threshold);
+                        if (dist1 < Double.POSITIVE_INFINITY) {
+                            if (dist1 < initialDist - 1e-9) {
+                                checkImprovementWithTies(dist1, move1);
+                            }
+                            activeMetric.undoNni(move1);
+                        }
+                    } else {
+                        dist1 = activeMetric.applyNni(move1);
+                        if (dist1 <= initialDist + 1e-9) {
                             checkImprovementWithTies(dist1, move1);
                         }
-                    } else if (dist1 <= initialDist + 1e-9) {
-                        checkImprovementWithTies(dist1, move1);
+                        activeMetric.undoNni(move1);
                     }
-                    activeMetric.undoNni(move1);
 
                     // --- SĄSIAD 2 ---
                     NniMove move2 = new NniMove(g2, sibling);
-                    double dist2 = activeMetric.applyNni(move2);
+                    double dist2;
                     if (primaryMetric == null) {
-                        if (dist2 < initialDist - 1e-9) {
+                        double threshold = this.bestDist;
+                        dist2 = activeMetric.applyNni(move2, threshold);
+                        if (dist2 < Double.POSITIVE_INFINITY) {
+                            if (dist2 < initialDist - 1e-9) {
+                                checkImprovementWithTies(dist2, move2);
+                            }
+                            activeMetric.undoNni(move2);
+                        }
+                    } else {
+                        dist2 = activeMetric.applyNni(move2);
+                        if (dist2 <= initialDist + 1e-9) {
                             checkImprovementWithTies(dist2, move2);
                         }
-                    } else if (dist2 <= initialDist + 1e-9) {
-                        checkImprovementWithTies(dist2, move2);
+                        activeMetric.undoNni(move2);
                     }
-                    activeMetric.undoNni(move2);
 
                     if (!this.rooted && parent.isRoot()) {
                         break;
