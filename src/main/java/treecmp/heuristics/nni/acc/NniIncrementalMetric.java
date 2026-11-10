@@ -6,4 +6,7 @@ import treecmp.metrics.IncrementalMetric;
 public interface NniIncrementalMetric extends IncrementalMetric {
     double applyNni(NniMove move);
     void undoNni(NniMove move);
+    default double applyNni(NniMove move, double bestThreshold) {
+        return applyNni(move);
+    }
 }
