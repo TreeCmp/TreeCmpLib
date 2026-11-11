@@ -94,6 +94,17 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
     private BitSet tbrScratch3;
     private BitSet[] tbrChildSetsPool;
     private int[] scratchPruneRows;
+    private Map<Signature, Integer> baseSigToRow;
+    private boolean baseSigToRowInitialized = false;
+    private int[][] scratchSavedRows;
+    private int[] scratchSavedPairCounts;
+    private int[] scratchChangedRows;
+    private Signature[] scratchNewSignatures;
+    private boolean[] scratchOldRowUsed;
+    private int[] scratchSavedU;
+    private int[] scratchSavedV;
+    private int[] scratchSavedRowsol;
+    private int[] scratchSavedColsol;
 
     // Bufory dla bezalokacyjnego 2s-ECR i 3s-ECR
     private final BitSet[] ecrBBits = new BitSet[5];
@@ -177,37 +188,12 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
         return (double) Math.min(opt1, opt2);
     }
 
-    public double evaluateExactTbrDistance(Node pruneNode, Node rerootNode, Node targetNode) {
-        if (pruneNode == null || targetNode == null || this.targetTree == null) {
-            return Double.POSITIVE_INFINITY;
-        }
-        try {
-            Node root = pruneNode;
-            while (root.getParent() != null) {
-                root = root.getParent();
-            }
-            SimpleTree tree = new SimpleTree(root);
-
-            Tree tempTree = tbrUtils.createTbrTree(tree, pruneNode, rerootNode, targetNode);
-            if (tempTree != null) {
-                if (tempTree instanceof SimpleTree) {
-                    pal.tree.TreeUtils.computeParentPointers(tempTree.getRoot());
-                    ((SimpleTree) tempTree).createNodeList();
-                }
-                double dist = mpMetricFull.getDistance(tempTree, this.targetTree);
-                tbrUtils.clearCosts();
-                return dist;
-            }
-        } catch (Exception ignored) {
-        }
-        return Double.POSITIVE_INFINITY;
-    }
-
     @Override
     public void initCalculationState(Tree baseTree, Tree targetTree) {
         deltaPointer = 0;
         activePruneNode = null;
         virtualTreeInitialized = false;
+        baseSigToRowInitialized = false;
 
         if (baseTree != null && targetTree != null) {
             this.originalBaseTree = baseTree;
@@ -287,6 +273,16 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
                     this.ecrRightSets[i] = new BitSet(N);
                     this.ecrUnionSets[i] = new BitSet(N);
                 }
+                this.baseSigToRow = new HashMap<>((intT1Num * 4) / 3 + 1);
+                this.scratchSavedRows = new int[dim][dim];
+                this.scratchSavedPairCounts = new int[dim];
+                this.scratchChangedRows = new int[dim];
+                this.scratchNewSignatures = new Signature[dim];
+                this.scratchOldRowUsed = new boolean[dim];
+                this.scratchSavedU = new int[dim];
+                this.scratchSavedV = new int[dim];
+                this.scratchSavedRowsol = new int[dim];
+                this.scratchSavedColsol = new int[dim];
 
                 this.assigncost = new int[dim][dim];
                 this.lapCostScratch = new int[dim][dim];
@@ -433,6 +429,7 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
 
             solveLap();
         } else {
+            this.baseSigToRow.clear();
             this.currentDistance = 0;
         }
     }
@@ -1275,50 +1272,125 @@ public class MPIncrementalMetric extends BaseMetric implements IncrementalMetric
         return false;
     }
 
+    private void ensureBaseSigToRowInitialized() {
+        if (!baseSigToRowInitialized && this.baseTree != null) {
+            this.baseSigToRow.clear();
+            for (int r = 0; r < intT1Num; r++) {
+                Node n = this.baseTree.getInternalNode(r);
+                this.baseSigToRow.put(new Signature(n, N, baseIdGroup), r);
+            }
+            baseSigToRowInitialized = true;
+        }
+    }
+
+    private double evaluateTempTreeDistance(Tree tempTree) {
+        if (tempTree == null) return Double.POSITIVE_INFINITY;
+        ensureBaseSigToRowInitialized();
+        if (tempTree instanceof SimpleTree) {
+            ((SimpleTree) tempTree).createNodeList();
+            pal.tree.TreeUtils.computeParentPointers(tempTree.getRoot());
+        }
+
+        int tempIntCount = tempTree.getInternalNodeCount();
+        if (tempIntCount != this.intT1Num || deltaPointer != 0) {
+            try {
+                return mpMetricFull.getDistance(tempTree, this.targetTree);
+            } catch (Exception ignored) {
+                return Double.POSITIVE_INFINITY;
+            }
+        }
+
+        Arrays.fill(scratchOldRowUsed, 0, dim, false);
+        int newSigCount = 0;
+
+        for (int i = 0; i < tempIntCount; i++) {
+            Node n = tempTree.getInternalNode(i);
+            Signature sig = new Signature(n, N, baseIdGroup);
+            Integer r = baseSigToRow.get(sig);
+            if (r != null && !scratchOldRowUsed[r]) {
+                scratchOldRowUsed[r] = true;
+            } else {
+                scratchNewSignatures[newSigCount++] = sig;
+            }
+        }
+
+        if (newSigCount == 0) {
+            return this.currentDistance;
+        }
+
+        int k = newSigCount;
+        int idx = 0;
+        for (int r = 0; r < intT1Num; r++) {
+            if (!scratchOldRowUsed[r]) {
+                scratchChangedRows[idx++] = r;
+            }
+        }
+
+        if (idx != k) {
+            try {
+                return mpMetricFull.getDistance(tempTree, this.targetTree);
+            } catch (Exception ignored) {
+                return Double.POSITIVE_INFINITY;
+            }
+        }
+
+        System.arraycopy(u, 0, scratchSavedU, 0, dim);
+        System.arraycopy(v, 0, scratchSavedV, 0, dim);
+        System.arraycopy(rowsol, 0, scratchSavedRowsol, 0, dim);
+        System.arraycopy(colsol, 0, scratchSavedColsol, 0, dim);
+
+        for (int i = 0; i < k; i++) {
+            int r = scratchChangedRows[i];
+            System.arraycopy(assigncost[r], 0, scratchSavedRows[i], 0, dim);
+            scratchSavedPairCounts[i] = currentT1PairCount[r];
+            BitSet[] parts = scratchNewSignatures[i].canonicalParts;
+            computeRowCostMulti(r, parts, parts.length);
+        }
+
+        int[] changedRowsParam = (k < cachedKArrays.length) ? cachedKArrays[k] : new int[k];
+        System.arraycopy(scratchChangedRows, 0, changedRowsParam, 0, k);
+
+        int rawMetric = LapSolver.lapUpdate(dim, assigncost, rowsol, colsol, u, v, changedRowsParam);
+        double dist = 0.5 * rawMetric;
+
+        for (int i = 0; i < k; i++) {
+            int r = scratchChangedRows[i];
+            System.arraycopy(scratchSavedRows[i], 0, assigncost[r], 0, dim);
+            currentT1PairCount[r] = scratchSavedPairCounts[i];
+        }
+        System.arraycopy(scratchSavedU, 0, u, 0, dim);
+        System.arraycopy(scratchSavedV, 0, v, 0, dim);
+        System.arraycopy(scratchSavedRowsol, 0, rowsol, 0, dim);
+        System.arraycopy(scratchSavedColsol, 0, colsol, 0, dim);
+
+        return dist;
+    }
+
+    public double evaluateExactTbrDistance(Node pruneNode, Node rerootNode, Node targetNode, BitSet movingBits) {
+        return evaluateExactTbrDistance(pruneNode, rerootNode, targetNode);
+    }
+
+    public double evaluateExactTbrDistance(Node pruneNode, Node rerootNode, Node targetNode) {
+        if (pruneNode == null || targetNode == null || this.targetTree == null) {
+            return Double.POSITIVE_INFINITY;
+        }
+        try {
+            Node root = pruneNode;
+            while (root.getParent() != null) {
+                root = root.getParent();
+            }
+            Tree tree = (this.baseTree != null && root == this.baseTree.getRoot())
+                    ? this.baseTree : new SimpleTree(root);
+
+            Tree tempTree = tbrUtils.createTbrTree(tree, pruneNode, rerootNode, targetNode);
+            return evaluateTempTreeDistance(tempTree);
+        } catch (Exception ignored) {
+            return Double.POSITIVE_INFINITY;
+        }
+    }
+
     public double evaluateSprRegraft(Node pruneNode, Node targetNode) {
-        ensureVirtualTreeInitialized();
-        SimpleTree tNew = (SimpleTree) createCleanCopy(currentVirtualTree);
-        Node P = getMappedNode(tNew, pruneNode);
-        Node T = getMappedNode(tNew, targetNode);
-
-        if (P == null || T == null) return Double.POSITIVE_INFINITY;
-        Node p = P.getParent();
-        if (p == null || p == T || p == T.getParent() || isDescendantOrSelf(T, P)) return Double.POSITIVE_INFINITY;
-
-        Node pp = p.getParent();
-        Node sibling = (p.getChild(0) == P) ? p.getChild(1) : p.getChild(0);
-
-        Node newRoot = tNew.getRoot();
-        if (pp != null) {
-            int pIdx = findChildPos(p, pp);
-            pp.setChild(pIdx, sibling);
-            sibling.setParent(pp);
-        } else {
-            newRoot = sibling;
-            sibling.setParent(null);
-        }
-
-        Node q = T.getParent();
-        if (q != null) {
-            int vIdx = findChildPos(T, q);
-            q.setChild(vIdx, p);
-            p.setParent(q);
-        } else {
-            newRoot = p;
-            p.setParent(null);
-        }
-
-        p.setChild(0, P);
-        P.setParent(p);
-        p.setChild(1, T);
-        T.setParent(p);
-
-        SimpleTree finalTree = new SimpleTree(newRoot);
-        finalTree.createNodeList();
-        pal.tree.TreeUtils.computeParentPointers(finalTree.getRoot());
-        pal.tree.TreeUtils.mapExternalIdentifiers(this.baseIdGroup, finalTree);
-
-        return mpMetricFull.getDistance(finalTree, this.targetTree);
+        return evaluateExactTbrDistance(pruneNode, pruneNode, targetNode);
     }
 
     public void applySprRegraftStep(Node pruneNode, Node currentNode) { throw new UnsupportedOperationException(); }
