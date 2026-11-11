@@ -1218,6 +1218,18 @@ public class MCIncrementalMetric implements IncrementalMetric,
         return this.currentDistance;
     }
 
+    public double evaluateSprRegraft(Node pruneNode, Node targetNode) {
+        if (pruneNode == null || targetNode == null || this.targetTree == null || this.baseTree == null) {
+            return Double.POSITIVE_INFINITY;
+        }
+        try {
+            Tree tempTree = sprUtils.createSprTree(this.baseTree, pruneNode, targetNode);
+            return evaluateTempTreeDistance(tempTree);
+        } catch (Exception e) {
+            return Double.POSITIVE_INFINITY;
+        }
+    }
+
     @Override
     public double evaluate3sEcrMove(List<Node> cluster, Node[] b, SubtreeEcr3Utils.TopologyTemplate3sECR template) {
         double dist = commit3sEcrMove(cluster, b, template);

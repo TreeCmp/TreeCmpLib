@@ -1463,7 +1463,7 @@ public class M3IncrementalMetric implements IncrementalMetric,
 
     /**
      * Wylicza w czasie O(1) dokładną odległość M3 pomiędzy bieżącym drzewem a drzewem
-     * po ruchu uNNI: min( |A|*|B|*(|C|+|D|), |C|*|D|*(|A|+|B|) ), co stanowi ścisłe
+     * po ruchu uNNI: min(|A||D|(|B|+|C|), |B||C|(|A|+|D|)), co stanowi ścisłe
      * górne ograniczenie zmiany odległości względem dowolnego drzewa docelowego T2.
      */
     public double getNniMaxDelta(NniMove move) {
