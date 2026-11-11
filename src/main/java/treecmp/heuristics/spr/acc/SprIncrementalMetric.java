@@ -9,4 +9,5 @@ public interface SprIncrementalMetric extends IncrementalMetric {
     void setTargetRoot(Node pruneNode, Node wanderingSource);
     void moveTargetDown(Node parentTarget, Node childTarget, Node pruneNode, Node wanderingSource);
     void moveTargetUp(Node parentTarget, Node childTarget, Node pruneNode, Node wanderingSource);
+    double evaluateSprRegraft(Node pruneNode, Node targetNode);
 }

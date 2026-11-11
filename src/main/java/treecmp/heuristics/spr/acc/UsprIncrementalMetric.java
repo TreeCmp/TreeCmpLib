@@ -11,5 +11,5 @@ public interface UsprIncrementalMetric extends IncrementalMetric {
     boolean applyRadialStep(Node currentNode, Node previousNode, BitSet pruneMask);
     void undoRadialStep();
     double evaluateCurrentRegraft(Node targetNode, Node pruneParent, BitSet pruneMask, Node pruneNode);
-
+    double evaluateSprRegraft(Node pruneNode, Node targetNode);
 }
