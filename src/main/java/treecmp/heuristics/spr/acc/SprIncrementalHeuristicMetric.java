@@ -157,47 +157,50 @@ public class SprIncrementalHeuristicMetric extends IncrementalHeuristicBaseMetri
                     break;
                 }
             } else {
-                // Tryb dwuetapowy: tie-breaker przez czysty polimorficzny kontrakt IncrementalMetric
+                // Tryb dwuetapowy: tie-breaker z ciepłym startem LAP (evaluateSprRegraft)
                 if (!isPlateau && this.tiedMoves.size() == 1) {
                     bestMove = this.tiedMoves.get(0);
                 } else {
                     double bestSecondaryDist = Double.POSITIVE_INFINITY;
                     double bestNniCostForTie = Double.POSITIVE_INFINITY;
+                    SprIncrementalMetric secSprMetric = (this.incMetric instanceof SprIncrementalMetric)
+                            ? (SprIncrementalMetric) this.incMetric : null;
 
                     for (int i = 0; i < this.tiedMoves.size(); i++) {
-                        TreeMove move = this.tiedMoves.get(i);
-                        Tree candidateTree = applyPhysicalMove(currentTree, move);
-                        if (candidateTree == null || candidateTree == currentTree) {
+                        SprMove move = (SprMove) this.tiedMoves.get(i);
+                        if (!sprUtils.isValidSprMove(move.sourceNode, move.targetNode)) {
                             continue;
                         }
 
-                        TreeUtils.computeParentPointers(candidateTree.getRoot());
-                        this.incMetric.initCalculationState(candidateTree, targetTree);
+                        double secDist;
+                        if (secSprMetric != null) {
+                            secDist = secSprMetric.evaluateSprRegraft(move.sourceNode, move.targetNode);
+                        } else {
+                            Tree candidateTree = applyPhysicalMove(currentTree, move);
+                            if (candidateTree == null || candidateTree == currentTree) continue;
+                            this.incMetric.initCalculationState(candidateTree, targetTree);
+                            secDist = this.incMetric.getCurrentDistance();
+                        }
 
-                        double secDist = this.incMetric.getCurrentDistance();
                         double moveCost = move.getNniEquivalentCost();
 
                         if (secDist < bestSecondaryDist - 1e-9) {
                             bestSecondaryDist = secDist;
                             bestMove = move;
                             bestNniCostForTie = moveCost;
-                            bestCandidateTree = candidateTree;
                         } else if (Math.abs(secDist - bestSecondaryDist) <= 1e-9 && moveCost < bestNniCostForTie) {
                             bestMove = move;
                             bestNniCostForTie = moveCost;
-                            bestCandidateTree = candidateTree;
                         }
                     }
 
-                    // Przywrócenie stanu incMetric do currentTree, jeśli żaden ruch nie wygrał plateau
-                    if (bestCandidateTree == null) {
+                    if (secSprMetric == null && bestMove == null) {
                         this.incMetric.initCalculationState(currentTree, targetTree);
                     }
 
                     if (isPlateau) {
                         if (bestSecondaryDist >= currentSecDist - 1e-9) {
                             bestMove = null;
-                            bestCandidateTree = null;
                         }
                     }
                     nextSecDist = bestSecondaryDist;
