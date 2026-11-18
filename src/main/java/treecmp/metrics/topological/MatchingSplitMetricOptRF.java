@@ -81,7 +81,7 @@ public class MatchingSplitMetricOptRF extends BaseMetric implements Metric {
             return 0;
 
 
-        short[][] assigncost = new short[size][size];
+        int[][] assigncost = new int[size][size];
         int[] rowsol = new int[size];
         int[] colsol = new int[size];
         int[] u = new int[size];
@@ -127,7 +127,7 @@ public class MatchingSplitMetricOptRF extends BaseMetric implements Metric {
         }
 
         //metric = LapSolver.lap(size, assigncost, rowsol, colsol, u, v);
-        metric = LapSolver.lapShort(size, assigncost, rowsol, colsol, u, v);
+        metric = LapSolver.lap(size, assigncost, rowsol, colsol, u, v);
         return metric;
     }
 }
