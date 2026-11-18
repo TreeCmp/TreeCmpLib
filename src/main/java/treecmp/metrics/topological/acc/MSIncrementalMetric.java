@@ -46,7 +46,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
     private int dim;
     private int allocatedDim = -1;
     private int allocatedN = -1;
-    private short[][] assigncost;
+    private int[][] assigncost;
     private int[] rowsol;
     private int[] colsol;
     private int[] u;
@@ -63,7 +63,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
     private BitSet currentPrunedLeaves;
     private Node currentRootBranch;
 
-    private final Stack< short[][] > costHistory = new Stack< >();
+    private final Stack< int[][] > costHistory = new Stack< >();
     private final Stack< int[] > rowsolHistory = new Stack< >();
     private final Stack< int[] > colsolHistory = new Stack< >();
     private final Stack< int[] > uHistory = new Stack< >();
@@ -78,7 +78,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
     private int deltaPointer = 0;
     private int[] deltaRowsCount;
     private int[][] deltaRows;
-    private short[][][] deltaOldRows;
+    private int[][][] deltaOldRows;
     private int[][] deltaOldU;
     private int[][] deltaOldV;
     private int[][] deltaOldRowsol;
@@ -102,7 +102,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
 
     private int numWords;
     private long[][] targetSplitWords;
-    private short[] targetNullRowCosts;
+    private int[] targetNullRowCosts;
     private int[] targetCladeSizes;
     private long[] scratchAddWords;
 
@@ -117,7 +117,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
     private int[] t2PostOrderCol;
     private int[] t2CountA;
 
-    private short[][] scratchSavedOldRows;
+    private int[][] scratchSavedOldRows;
     private int[] scratchSavedU;
     private int[] scratchSavedV;
     private int[] scratchSavedRowsol;
@@ -469,7 +469,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
         int[] changedRowsParam = (k < cachedKArrays.length) ? cachedKArrays[k] : new int[k];
         System.arraycopy(scratchChangedRows, 0, changedRowsParam, 0, k);
 
-        double newDistance = LapSolver.lapShortUpdate(dim, assigncost, rowsol, colsol, u, v, changedRowsParam);
+        double newDistance = LapSolver.lapUpdate(dim, assigncost, rowsol, colsol, u, v, changedRowsParam);
 
         for (int i = 0; i < k; i++) {
             System.arraycopy(scratchSavedOldRows[i], 0, assigncost[scratchChangedRows[i]], 0, dim);
@@ -603,7 +603,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
         int[] changedRowsParam = (k < cachedKArrays.length) ? cachedKArrays[k] : new int[k];
         System.arraycopy(scratchChangedRows, 0, changedRowsParam, 0, k);
 
-        double newDistance = LapSolver.lapShortUpdate(dim, assigncost, rowsol, colsol, u, v, changedRowsParam);
+        double newDistance = LapSolver.lapUpdate(dim, assigncost, rowsol, colsol, u, v, changedRowsParam);
 
         for (int i = 0; i < k; i++) {
             System.arraycopy(scratchSavedOldRows[i], 0, assigncost[scratchChangedRows[i]], 0, dim);
@@ -660,7 +660,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
 
             for (int d = deltaMaxDepth; d < newDepth; d++) {
                 deltaRows[d] = new int[dim];
-                deltaOldRows[d] = new short[4][dim];
+                deltaOldRows[d] = new int[4][dim];
                 deltaOldU[d] = new int[dim];
                 deltaOldV[d] = new int[dim];
                 deltaOldRowsol[d] = new int[dim];
@@ -676,7 +676,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
 
         if (deltaOldRows[deltaPointer].length < requiredRows) {
             int newSlots = Math.max(requiredRows, dim);
-            deltaOldRows[deltaPointer] = new short[newSlots][dim];
+            deltaOldRows[deltaPointer] = new int[newSlots][dim];
             deltaOldSplitsNode[deltaPointer] = new Node[newSlots];
             BitSet[] oldBits = deltaOldSplitsBits[deltaPointer];
             BitSet[] newBits = new BitSet[newSlots];
@@ -723,7 +723,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
                     || (this.assigncost == null);
 
             if (needRealloc) {
-                this.assigncost = new short[dim][dim];
+                this.assigncost = new int[dim][dim];
                 this.rowsol = new int[dim];
                 this.colsol = new int[dim];
                 this.u = new int[dim];
@@ -731,7 +731,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
 
                 this.scratchAddWords = new long[numWords];
                 this.targetSplitWords = new long[dim][numWords];
-                this.targetNullRowCosts = new short[dim];
+                this.targetNullRowCosts = new int[dim];
                 this.targetCladeSizes = new int[dim];
 
                 int maxK = Math.max(64, dim + 1);
@@ -740,7 +740,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
                     this.cachedKArrays[i] = new int[i];
                 }
 
-                this.scratchSavedOldRows = new short[dim][dim];
+                this.scratchSavedOldRows = new int[dim][dim];
                 this.scratchSavedU = new int[dim];
                 this.scratchSavedV = new int[dim];
                 this.scratchSavedRowsol = new int[dim];
@@ -751,7 +751,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
                 this.deltaMaxDepth = depth;
                 this.deltaRowsCount = new int[depth];
                 this.deltaRows = new int[depth][dim];
-                this.deltaOldRows = new short[depth][][];
+                this.deltaOldRows = new int[depth][][];
                 this.deltaOldU = new int[depth][dim];
                 this.deltaOldV = new int[depth][dim];
                 this.deltaOldRowsol = new int[depth][dim];
@@ -763,7 +763,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
                 int baseRowSlots = Math.max(4, dim);
                 for (int d = 0; d < depth; d++) {
                     int rowSlots = (d < 2) ? baseRowSlots : 4;
-                    this.deltaOldRows[d] = new short[rowSlots][dim];
+                    this.deltaOldRows[d] = new int[rowSlots][dim];
                     this.deltaOldSplitsNode[d] = new Node[rowSlots];
                     this.deltaOldSplitsBits[d] = new BitSet[rowSlots];
                     for (int r = 0; r < rowSlots; r++) {
@@ -933,7 +933,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
             }
 
             buildInitialCostMatrix();
-            this.currentDistance = LapSolver.lapShort(dim, assigncost, rowsol, colsol, u, v);
+            this.currentDistance = LapSolver.lap(dim, assigncost, rowsol, colsol, u, v);
         } else {
             this.currentDistance = 0;
             this.splitToRow.clear();
@@ -984,7 +984,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
     }
 
     private void computeRowCostsFast(int r, BitSet split) {
-        short[] costRow = assigncost[r];
+        int[] costRow = assigncost[r];
         if (split == null || split.isEmpty()) {
             System.arraycopy(targetNullRowCosts, 0, costRow, 0, dim);
             return;
@@ -1033,7 +1033,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
         }
 
         short nullCost = (short) Math.min(card, N - card);
-        short[] costRow = assigncost[r];
+        int[] costRow = assigncost[r];
 
         for (int i = 0; i < postOrderT2Count; i++) {
             int leafId = t2PostOrderLeafId[i];
@@ -1117,7 +1117,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
 
         int[] changedRowsParam = cachedKArrays[1];
         changedRowsParam[0] = r;
-        this.currentDistance = LapSolver.lapShortUpdate(dim, assigncost, rowsol, colsol, u, v, changedRowsParam);
+        this.currentDistance = LapSolver.lapUpdate(dim, assigncost, rowsol, colsol, u, v, changedRowsParam);
     }
 
     private void updateTwoRowsAndSave(int r1, BitSet s1, int r2, BitSet s2) {
@@ -1175,7 +1175,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
         int[] changedRowsParam = cachedKArrays[2];
         changedRowsParam[0] = r1;
         changedRowsParam[1] = r2;
-        this.currentDistance = LapSolver.lapShortUpdate(dim, assigncost, rowsol, colsol, u, v, changedRowsParam);
+        this.currentDistance = LapSolver.lapUpdate(dim, assigncost, rowsol, colsol, u, v, changedRowsParam);
     }
 
     private void updateMultipleRowsAndSave(int count, int[] rows, BitSet[] splits) {
@@ -1229,7 +1229,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
         if (dim > 0) {
             int[] changedRowsParam = (count < cachedKArrays.length) ? cachedKArrays[count] : new int[count];
             System.arraycopy(rows, 0, changedRowsParam, 0, count);
-            this.currentDistance = LapSolver.lapShortUpdate(dim, assigncost, rowsol, colsol, u, v, changedRowsParam);
+            this.currentDistance = LapSolver.lapUpdate(dim, assigncost, rowsol, colsol, u, v, changedRowsParam);
         }
     }
 
@@ -1329,7 +1329,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
 
         int[] changedRowsParam = cachedKArrays[1];
         changedRowsParam[0] = r_w;
-        double fixedDist = LapSolver.lapShortUpdate(dim, assigncost, rowsol, colsol, u, v, changedRowsParam);
+        double fixedDist = LapSolver.lapUpdate(dim, assigncost, rowsol, colsol, u, v, changedRowsParam);
 
         System.arraycopy(scratchSavedOldRows[0], 0, assigncost[r_w], 0, dim);
         System.arraycopy(scratchSavedU, 0, u, 0, dim);
@@ -1785,7 +1785,7 @@ public class MSIncrementalMetric implements IncrementalMetric,
     }
 
     private void saveCurrentStateToHistory() {
-        short[][] costCopy = new short[dim][dim];
+        int[][] costCopy = new int[dim][dim];
         for (int i = 0; i < dim; i++) {
             System.arraycopy(this.assigncost[i], 0, costCopy[i], 0, dim);
         }
