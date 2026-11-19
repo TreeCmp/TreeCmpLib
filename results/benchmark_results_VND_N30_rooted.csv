@@ -1,0 +1,232 @@
+Size,IsRooted,Metric,Variant,PairIndex,Success,Distance,TotalTimeMs,NniTimeNs,Ecr2TimeNs,Ecr3TimeNs,SprTimeNs,TbrTimeNs,AllocBytes,PeakRamBytes
+30,true,RFCluster,"1. NNI (Classic)",1,false,Infinity,1.5604,0,0,0,0,0,1557712,6961608
+30,true,RFCluster,"1. NNI (Classic)",2,false,Infinity,1.6300,0,0,0,0,0,1533768,6961608
+30,true,RFCluster,"1. NNI (Classic)",3,false,Infinity,1.7398,0,0,0,0,0,1578352,6961608
+30,true,RFCluster,"1. NNI (Classic)",4,false,Infinity,1.6653,0,0,0,0,0,1561944,6961608
+30,true,RFCluster,"1. NNI (Classic)",5,false,Infinity,1.6972,0,0,0,0,0,1559048,6961608
+30,true,RFCluster,"1. NNI (Classic)",6,false,Infinity,1.5086,0,0,0,0,0,1546008,6961608
+30,true,RFCluster,"1. NNI (Classic)",7,false,Infinity,1.6008,0,0,0,0,0,1549328,6961608
+30,true,RFCluster,"1. NNI (Classic)",8,false,Infinity,2.7290,0,0,0,0,0,2613240,6961608
+30,true,RFCluster,"1. NNI (Classic)",9,false,Infinity,2.9859,0,0,0,0,0,2574352,6961608
+30,true,RFCluster,"1. NNI (Classic)",10,false,Infinity,1.5402,0,0,0,0,0,1492208,23738824
+30,true,RFCluster,"1. NNI (Classic)",11,false,Infinity,1.4978,0,0,0,0,0,1569504,23738824
+30,true,RFCluster,"1. NNI (Classic)",12,false,Infinity,1.6084,0,0,0,0,0,1569400,23738824
+30,true,RFCluster,"1. NNI (Classic)",13,false,Infinity,2.6994,0,0,0,0,0,2605960,23738824
+30,true,RFCluster,"1. NNI (Classic)",14,false,Infinity,2.1226,0,0,0,0,0,1577568,23738824
+30,true,RFCluster,"1. NNI (Classic)",15,false,Infinity,1.8920,0,0,0,0,0,1525648,23738824
+30,true,RFCluster,"1. NNI (Classic)",16,false,Infinity,2.8638,0,0,0,0,0,2596656,23738824
+30,true,RFCluster,"1. NNI (Classic)",17,false,Infinity,2.0290,0,0,0,0,0,1572136,23738824
+30,true,RFCluster,"1. NNI (Classic)",18,false,Infinity,3.2597,0,0,0,0,0,2626272,40516040
+30,true,RFCluster,"1. NNI (Classic)",19,false,Infinity,1.7862,0,0,0,0,0,1588880,40516040
+30,true,RFCluster,"1. NNI (Classic)",20,false,Infinity,1.8551,0,0,0,0,0,1584568,40516040
+30,true,RFCluster,"1. NNI (Classic)",21,false,Infinity,2.8821,0,0,0,0,0,2595872,40516040
+30,true,RFCluster,"1. NNI (Classic)",22,false,Infinity,1.8842,0,0,0,0,0,1581992,40516040
+30,true,RFCluster,"1. NNI (Classic)",23,false,Infinity,1.7958,0,0,0,0,0,1577232,40516040
+30,true,RFCluster,"1. NNI (Classic)",24,false,Infinity,3.7544,0,0,0,0,0,3650760,40516040
+30,true,RFCluster,"1. NNI (Classic)",25,false,Infinity,2.8082,0,0,0,0,0,1554016,40516040
+30,true,RFCluster,"1. NNI (Classic)",26,false,Infinity,1.7616,0,0,0,0,0,1533208,40516040
+30,true,RFCluster,"1. NNI (Classic)",27,false,Infinity,1.7745,0,0,0,0,0,1557376,57293256
+30,true,RFCluster,"1. NNI (Classic)",28,false,Infinity,1.6846,0,0,0,0,0,1568384,57293256
+30,true,RFCluster,"1. NNI (Classic)",29,false,Infinity,2.9902,0,0,0,0,0,2619608,57293256
+30,true,RFCluster,"1. NNI (Classic)",30,false,Infinity,1.8008,0,0,0,0,0,1579808,57293256
+30,true,RFCluster,"1. NNI (Classic)",31,false,Infinity,1.6970,0,0,0,0,0,1547856,57293256
+30,true,RFCluster,"1. NNI (Classic)",32,false,Infinity,2.3340,0,0,0,0,0,1566976,57293256
+30,true,RFCluster,"1. NNI (Classic)",33,false,Infinity,1.9426,0,0,0,0,0,1562504,57293256
+30,true,RFCluster,"1. NNI (Classic)",34,false,Infinity,2.5021,0,0,0,0,0,2613784,57293256
+30,true,RFCluster,"1. NNI (Classic)",35,false,Infinity,1.6879,0,0,0,0,0,1566592,57293256
+30,true,RFCluster,"1. NNI (Classic)",36,false,Infinity,3.1010,0,0,0,0,0,2613592,74070472
+30,true,RFCluster,"1. NNI (Classic)",37,false,Infinity,1.8439,0,0,0,0,0,1578800,74070472
+30,true,RFCluster,"1. NNI (Classic)",38,false,Infinity,1.9697,0,0,0,0,0,1587872,74070472
+30,true,RFCluster,"1. NNI (Classic)",39,false,Infinity,1.4962,0,0,0,0,0,1566888,74070472
+30,true,RFCluster,"1. NNI (Classic)",40,false,Infinity,1.8577,0,0,0,0,0,1581768,74070472
+30,true,RFCluster,"1. NNI (Classic)",41,false,Infinity,2.0059,0,0,0,0,0,1523304,74070472
+30,true,RFCluster,"1. NNI (Classic)",42,false,Infinity,1.7684,0,0,0,0,0,1574432,74070472
+30,true,RFCluster,"1. NNI (Classic)",43,false,Infinity,2.5182,0,0,0,0,0,2611280,74070472
+30,true,RFCluster,"1. NNI (Classic)",44,false,Infinity,1.9002,0,0,0,0,0,1560440,74070472
+30,true,RFCluster,"1. NNI (Classic)",45,false,Infinity,1.8756,0,0,0,0,0,1565920,90847688
+30,true,RFCluster,"1. NNI (Classic)",46,false,Infinity,1.7919,0,0,0,0,0,1545232,90847688
+30,true,RFCluster,"1. NNI (Classic)",47,false,Infinity,1.8301,0,0,0,0,0,1599072,90847688
+30,true,RFCluster,"1. NNI (Classic)",48,false,Infinity,1.8466,0,0,0,0,0,1553400,90847688
+30,true,RFCluster,"1. NNI (Classic)",49,false,Infinity,2.0635,0,0,0,0,0,1572920,90847688
+30,true,RFCluster,"1. NNI (Classic)",50,false,Infinity,1.8457,0,0,0,0,0,1564184,90847688
+30,true,RFCluster,"1. NNI (Classic)",51,false,Infinity,1.9884,0,0,0,0,0,1571576,90847688
+30,true,RFCluster,"1. NNI (Classic)",52,false,Infinity,1.7030,0,0,0,0,0,1553736,90847688
+30,true,RFCluster,"1. NNI (Classic)",53,false,Infinity,2.1811,0,0,0,0,0,1577568,90847688
+30,true,RFCluster,"1. NNI (Classic)",54,false,Infinity,1.6374,0,0,0,0,0,1561160,90847688
+30,true,RFCluster,"1. NNI (Classic)",55,false,Infinity,2.4631,0,0,0,0,0,2594192,107624904
+30,true,RFCluster,"1. NNI (Classic)",56,false,Infinity,2.7672,0,0,0,0,0,2594304,107624904
+30,true,RFCluster,"1. NNI (Classic)",57,false,Infinity,1.5006,0,0,0,0,0,1590344,107624904
+30,true,RFCluster,"1. NNI (Classic)",58,false,Infinity,1.5983,0,0,0,0,0,1593976,107624904
+30,true,RFCluster,"1. NNI (Classic)",59,false,Infinity,1.6789,0,0,0,0,0,1560824,107624904
+30,true,RFCluster,"1. NNI (Classic)",60,false,Infinity,2.7385,0,0,0,0,0,2629752,107624904
+30,true,RFCluster,"1. NNI (Classic)",61,false,Infinity,1.6352,0,0,0,0,0,1575464,107624904
+30,true,RFCluster,"1. NNI (Classic)",62,false,Infinity,1.6039,0,0,0,0,0,1572584,107624904
+30,true,RFCluster,"1. NNI (Classic)",63,false,Infinity,1.8488,0,0,0,0,0,1524064,107624904
+30,true,RFCluster,"1. NNI (Classic)",64,false,Infinity,1.7373,0,0,0,0,0,1548192,124402120
+30,true,RFCluster,"1. NNI (Classic)",65,false,Infinity,1.9032,0,0,0,0,0,1587536,124402120
+30,true,RFCluster,"1. NNI (Classic)",66,false,Infinity,1.7883,0,0,0,0,0,1568720,124402120
+30,true,RFCluster,"1. NNI (Classic)",67,false,Infinity,2.7475,0,0,0,0,0,2596288,124402120
+30,true,RFCluster,"1. NNI (Classic)",68,false,Infinity,2.9377,0,0,0,0,0,2482208,124402120
+30,true,RFCluster,"1. NNI (Classic)",69,false,Infinity,1.7711,0,0,0,0,0,1563256,124402120
+30,true,RFCluster,"1. NNI (Classic)",70,false,Infinity,1.9606,0,0,0,0,0,1565920,124402120
+30,true,RFCluster,"1. NNI (Classic)",71,false,Infinity,1.9322,0,0,0,0,0,1576672,124402120
+30,true,RFCluster,"1. NNI (Classic)",72,false,Infinity,1.5937,0,0,0,0,0,1572696,124402120
+30,true,RFCluster,"1. NNI (Classic)",73,false,Infinity,1.5285,0,0,0,0,0,1544672,124402120
+30,true,RFCluster,"1. NNI (Classic)",74,false,Infinity,2.6750,0,0,0,0,0,2596248,141179336
+30,true,RFCluster,"1. NNI (Classic)",75,false,Infinity,2.3172,0,0,0,0,0,1582504,141179336
+30,true,RFCluster,"1. NNI (Classic)",76,false,Infinity,2.9721,0,0,0,0,0,2603392,141179336
+30,true,RFCluster,"1. NNI (Classic)",77,false,Infinity,1.7046,0,0,0,0,0,1566480,141179336
+30,true,RFCluster,"1. NNI (Classic)",78,false,Infinity,1.8316,0,0,0,0,0,1548864,141179336
+30,true,RFCluster,"1. NNI (Classic)",79,false,Infinity,2.8374,0,0,0,0,0,2607632,141179336
+30,true,RFCluster,"1. NNI (Classic)",80,false,Infinity,1.4657,0,0,0,0,0,1571640,141179336
+30,true,RFCluster,"1. NNI (Classic)",81,false,Infinity,2.1934,0,0,0,0,0,1568832,141179336
+30,true,RFCluster,"1. NNI (Classic)",82,false,Infinity,3.3980,0,0,0,0,0,2590536,157956552
+30,true,RFCluster,"1. NNI (Classic)",83,false,Infinity,1.7579,0,0,0,0,0,1566032,157956552
+30,true,RFCluster,"1. NNI (Classic)",84,false,Infinity,1.9809,0,0,0,0,0,1545472,157956552
+30,true,RFCluster,"1. NNI (Classic)",85,false,Infinity,1.9519,0,0,0,0,0,1566816,157956552
+30,true,RFCluster,"1. NNI (Classic)",86,false,Infinity,2.9428,0,0,0,0,0,1547520,157956552
+30,true,RFCluster,"1. NNI (Classic)",87,false,Infinity,2.9975,0,0,0,0,0,2607832,157956552
+30,true,RFCluster,"1. NNI (Classic)",88,false,Infinity,2.6731,0,0,0,0,0,1562584,157956552
+30,true,RFCluster,"1. NNI (Classic)",89,false,Infinity,2.0838,0,0,0,0,0,1558760,157956552
+30,true,RFCluster,"1. NNI (Classic)",90,false,Infinity,4.3761,0,0,0,0,0,2605496,157956552
+30,true,RFCluster,"1. NNI (Classic)",91,false,Infinity,3.3345,0,0,0,0,0,1564152,174733768
+30,true,RFCluster,"1. NNI (Classic)",92,false,Infinity,1.8384,0,0,0,0,0,1577568,174733768
+30,true,RFCluster,"1. NNI (Classic)",93,false,Infinity,1.8052,0,0,0,0,0,1583560,174733768
+30,true,RFCluster,"1. NNI (Classic)",94,false,Infinity,1.6102,0,0,0,0,0,1574712,174733768
+30,true,RFCluster,"1. NNI (Classic)",95,false,Infinity,1.9131,0,0,0,0,0,1571576,174733768
+30,true,RFCluster,"1. NNI (Classic)",96,false,Infinity,1.4504,0,0,0,0,0,1572584,174733768
+30,true,RFCluster,"1. NNI (Classic)",97,false,Infinity,1.5069,0,0,0,0,0,1578688,174733768
+30,true,RFCluster,"1. NNI (Classic)",98,false,Infinity,3.2364,0,0,0,0,0,2610008,174733768
+30,true,RFCluster,"1. NNI (Classic)",99,false,Infinity,2.8879,0,0,0,0,0,2611312,174733768
+30,true,RFCluster,"1. NNI (Classic)",100,false,Infinity,2.7826,0,0,0,0,0,1563144,191510984
+30,true,RFCluster,"2. NNI (Incremental)",1,false,Infinity,1.1442,0,0,0,0,0,48256,6967872
+30,true,RFCluster,"2. NNI (Incremental)",2,false,Infinity,0.1131,0,0,0,0,0,39128,6967872
+30,true,RFCluster,"2. NNI (Incremental)",3,false,Infinity,0.1131,0,0,0,0,0,40368,6967872
+30,true,RFCluster,"2. NNI (Incremental)",4,false,Infinity,0.1139,0,0,0,0,0,40144,6967872
+30,true,RFCluster,"2. NNI (Incremental)",5,false,Infinity,0.1158,0,0,0,0,0,38440,6967872
+30,true,RFCluster,"2. NNI (Incremental)",6,false,Infinity,0.1179,0,0,0,0,0,41080,6967872
+30,true,RFCluster,"2. NNI (Incremental)",7,false,Infinity,0.1288,0,0,0,0,0,40144,6967872
+30,true,RFCluster,"2. NNI (Incremental)",8,false,Infinity,0.3206,0,0,0,0,0,61328,6967872
+30,true,RFCluster,"2. NNI (Incremental)",9,false,Infinity,0.1788,0,0,0,0,0,62016,6967872
+30,true,RFCluster,"2. NNI (Incremental)",10,false,Infinity,0.1178,0,0,0,0,0,40592,6967872
+30,true,RFCluster,"2. NNI (Incremental)",11,false,Infinity,0.1184,0,0,0,0,0,41080,6967872
+30,true,RFCluster,"2. NNI (Incremental)",12,false,Infinity,0.1136,0,0,0,0,0,40256,6967872
+30,true,RFCluster,"2. NNI (Incremental)",13,false,Infinity,0.2047,0,0,0,0,0,62416,6967872
+30,true,RFCluster,"2. NNI (Incremental)",14,false,Infinity,0.1103,0,0,0,0,0,40144,6967872
+30,true,RFCluster,"2. NNI (Incremental)",15,false,Infinity,0.1126,0,0,0,0,0,40328,6967872
+30,true,RFCluster,"2. NNI (Incremental)",16,false,Infinity,0.2098,0,0,0,0,0,61808,6967872
+30,true,RFCluster,"2. NNI (Incremental)",17,false,Infinity,0.1746,0,0,0,0,0,39992,6967872
+30,true,RFCluster,"2. NNI (Incremental)",18,false,Infinity,0.2070,0,0,0,0,0,61680,6967872
+30,true,RFCluster,"2. NNI (Incremental)",19,false,Infinity,0.1152,0,0,0,0,0,40480,6967872
+30,true,RFCluster,"2. NNI (Incremental)",20,false,Infinity,0.1125,0,0,0,0,0,40216,6967872
+30,true,RFCluster,"2. NNI (Incremental)",21,false,Infinity,0.2013,0,0,0,0,0,62016,6967872
+30,true,RFCluster,"2. NNI (Incremental)",22,false,Infinity,0.1095,0,0,0,0,0,38264,6967872
+30,true,RFCluster,"2. NNI (Incremental)",23,false,Infinity,0.1147,0,0,0,0,0,40256,6967872
+30,true,RFCluster,"2. NNI (Incremental)",24,false,Infinity,0.2519,0,0,0,0,0,82168,6967872
+30,true,RFCluster,"2. NNI (Incremental)",25,false,Infinity,0.1160,0,0,0,0,0,41176,6967872
+30,true,RFCluster,"2. NNI (Incremental)",26,false,Infinity,0.1151,0,0,0,0,0,40368,6967872
+30,true,RFCluster,"2. NNI (Incremental)",27,false,Infinity,0.1141,0,0,0,0,0,40368,6967872
+30,true,RFCluster,"2. NNI (Incremental)",28,false,Infinity,0.2505,0,0,0,0,0,40440,6967872
+30,true,RFCluster,"2. NNI (Incremental)",29,false,Infinity,0.1858,0,0,0,0,0,61136,6967872
+30,true,RFCluster,"2. NNI (Incremental)",30,false,Infinity,0.1211,0,0,0,0,0,40104,6967872
+30,true,RFCluster,"2. NNI (Incremental)",31,false,Infinity,0.1101,0,0,0,0,0,40144,6967872
+30,true,RFCluster,"2. NNI (Incremental)",32,false,Infinity,0.1159,0,0,0,0,0,40632,6967872
+30,true,RFCluster,"2. NNI (Incremental)",33,false,Infinity,0.1563,0,0,0,0,0,40104,6967872
+30,true,RFCluster,"2. NNI (Incremental)",34,false,Infinity,0.1850,0,0,0,0,0,60104,6967872
+30,true,RFCluster,"2. NNI (Incremental)",35,false,Infinity,0.1163,0,0,0,0,0,40328,6967872
+30,true,RFCluster,"2. NNI (Incremental)",36,false,Infinity,0.2226,0,0,0,0,0,61416,6967872
+30,true,RFCluster,"2. NNI (Incremental)",37,false,Infinity,0.1355,0,0,0,0,0,40256,6967872
+30,true,RFCluster,"2. NNI (Incremental)",38,false,Infinity,0.1155,0,0,0,0,0,40368,6967872
+30,true,RFCluster,"2. NNI (Incremental)",39,false,Infinity,0.1140,0,0,0,0,0,40216,6967872
+30,true,RFCluster,"2. NNI (Incremental)",40,false,Infinity,0.1161,0,0,0,0,0,40856,6967872
+30,true,RFCluster,"2. NNI (Incremental)",41,false,Infinity,0.1158,0,0,0,0,0,40480,6967872
+30,true,RFCluster,"2. NNI (Incremental)",42,false,Infinity,0.1130,0,0,0,0,0,40328,6967872
+30,true,RFCluster,"2. NNI (Incremental)",43,false,Infinity,0.1902,0,0,0,0,0,62208,6967872
+30,true,RFCluster,"2. NNI (Incremental)",44,false,Infinity,0.1076,0,0,0,0,0,38264,6967872
+30,true,RFCluster,"2. NNI (Incremental)",45,false,Infinity,0.1134,0,0,0,0,0,40520,6967872
+30,true,RFCluster,"2. NNI (Incremental)",46,false,Infinity,0.1142,0,0,0,0,0,40368,6967872
+30,true,RFCluster,"2. NNI (Incremental)",47,false,Infinity,0.1164,0,0,0,0,0,40256,6967872
+30,true,RFCluster,"2. NNI (Incremental)",48,false,Infinity,0.1152,0,0,0,0,0,40480,6967872
+30,true,RFCluster,"2. NNI (Incremental)",49,false,Infinity,0.0648,0,0,0,0,0,40480,6967872
+30,true,RFCluster,"2. NNI (Incremental)",50,false,Infinity,0.0669,0,0,0,0,0,40592,6967872
+30,true,RFCluster,"2. NNI (Incremental)",51,false,Infinity,0.0676,0,0,0,0,0,40144,6967872
+30,true,RFCluster,"2. NNI (Incremental)",52,false,Infinity,0.0673,0,0,0,0,0,40368,6967872
+30,true,RFCluster,"2. NNI (Incremental)",53,false,Infinity,0.0691,0,0,0,0,0,41192,6967872
+30,true,RFCluster,"2. NNI (Incremental)",54,false,Infinity,0.0710,0,0,0,0,0,40104,6967872
+30,true,RFCluster,"2. NNI (Incremental)",55,false,Infinity,0.1110,0,0,0,0,0,61680,6967872
+30,true,RFCluster,"2. NNI (Incremental)",56,false,Infinity,0.1056,0,0,0,0,0,61624,6967872
+30,true,RFCluster,"2. NNI (Incremental)",57,false,Infinity,0.0664,0,0,0,0,0,40104,6967872
+30,true,RFCluster,"2. NNI (Incremental)",58,false,Infinity,0.0654,0,0,0,0,0,40256,6967872
+30,true,RFCluster,"2. NNI (Incremental)",59,false,Infinity,0.0676,0,0,0,0,0,40440,6967872
+30,true,RFCluster,"2. NNI (Incremental)",60,false,Infinity,0.1054,0,0,0,0,0,61304,6967872
+30,true,RFCluster,"2. NNI (Incremental)",61,false,Infinity,0.0670,0,0,0,0,0,40328,6967872
+30,true,RFCluster,"2. NNI (Incremental)",62,false,Infinity,0.0716,0,0,0,0,0,40592,6967872
+30,true,RFCluster,"2. NNI (Incremental)",63,false,Infinity,0.0702,0,0,0,0,0,40480,6967872
+30,true,RFCluster,"2. NNI (Incremental)",64,false,Infinity,0.0685,0,0,0,0,0,40256,6967872
+30,true,RFCluster,"2. NNI (Incremental)",65,false,Infinity,0.0668,0,0,0,0,0,40592,6967872
+30,true,RFCluster,"2. NNI (Incremental)",66,false,Infinity,0.0840,0,0,0,0,0,40328,6967872
+30,true,RFCluster,"2. NNI (Incremental)",67,false,Infinity,0.1120,0,0,0,0,0,61344,6967872
+30,true,RFCluster,"2. NNI (Incremental)",68,false,Infinity,0.1556,0,0,0,0,0,61344,6967872
+30,true,RFCluster,"2. NNI (Incremental)",69,false,Infinity,0.0714,0,0,0,0,0,40704,6967872
+30,true,RFCluster,"2. NNI (Incremental)",70,false,Infinity,0.0683,0,0,0,0,0,40256,6967872
+30,true,RFCluster,"2. NNI (Incremental)",71,false,Infinity,0.0660,0,0,0,0,0,39128,6967872
+30,true,RFCluster,"2. NNI (Incremental)",72,false,Infinity,0.0717,0,0,0,0,0,40328,6967872
+30,true,RFCluster,"2. NNI (Incremental)",73,false,Infinity,0.0649,0,0,0,0,0,38264,6967872
+30,true,RFCluster,"2. NNI (Incremental)",74,false,Infinity,0.1097,0,0,0,0,0,61680,6967872
+30,true,RFCluster,"2. NNI (Incremental)",75,false,Infinity,0.0900,0,0,0,0,0,38264,6967872
+30,true,RFCluster,"2. NNI (Incremental)",76,false,Infinity,0.1112,0,0,0,0,0,61136,6967872
+30,true,RFCluster,"2. NNI (Incremental)",77,false,Infinity,0.0668,0,0,0,0,0,40104,6967872
+30,true,RFCluster,"2. NNI (Incremental)",78,false,Infinity,0.0672,0,0,0,0,0,40104,6967872
+30,true,RFCluster,"2. NNI (Incremental)",79,false,Infinity,0.1097,0,0,0,0,0,61680,6967872
+30,true,RFCluster,"2. NNI (Incremental)",80,false,Infinity,0.0747,0,0,0,0,0,40592,6967872
+30,true,RFCluster,"2. NNI (Incremental)",81,false,Infinity,0.0709,0,0,0,0,0,41416,6967872
+30,true,RFCluster,"2. NNI (Incremental)",82,false,Infinity,0.1101,0,0,0,0,0,61136,6967872
+30,true,RFCluster,"2. NNI (Incremental)",83,false,Infinity,0.0835,0,0,0,0,0,40480,6967872
+30,true,RFCluster,"2. NNI (Incremental)",84,false,Infinity,0.0776,0,0,0,0,0,40256,6967872
+30,true,RFCluster,"2. NNI (Incremental)",85,false,Infinity,0.0657,0,0,0,0,0,39992,6967872
+30,true,RFCluster,"2. NNI (Incremental)",86,false,Infinity,0.0676,0,0,0,0,0,40144,6967872
+30,true,RFCluster,"2. NNI (Incremental)",87,false,Infinity,0.1090,0,0,0,0,0,61512,6967872
+30,true,RFCluster,"2. NNI (Incremental)",88,false,Infinity,0.0622,0,0,0,0,0,39992,6967872
+30,true,RFCluster,"2. NNI (Incremental)",89,false,Infinity,0.0628,0,0,0,0,0,40104,6967872
+30,true,RFCluster,"2. NNI (Incremental)",90,false,Infinity,0.1075,0,0,0,0,0,60968,6967872
+30,true,RFCluster,"2. NNI (Incremental)",91,false,Infinity,0.0672,0,0,0,0,0,40144,6967872
+30,true,RFCluster,"2. NNI (Incremental)",92,false,Infinity,0.0674,0,0,0,0,0,40856,6967872
+30,true,RFCluster,"2. NNI (Incremental)",93,false,Infinity,0.0650,0,0,0,0,0,39128,6967872
+30,true,RFCluster,"2. NNI (Incremental)",94,false,Infinity,0.0664,0,0,0,0,0,40744,6967872
+30,true,RFCluster,"2. NNI (Incremental)",95,false,Infinity,0.1021,0,0,0,0,0,41288,6967872
+30,true,RFCluster,"2. NNI (Incremental)",96,false,Infinity,0.1225,0,0,0,0,0,41400,6967872
+30,true,RFCluster,"2. NNI (Incremental)",97,false,Infinity,0.0732,0,0,0,0,0,40480,6967872
+30,true,RFCluster,"2. NNI (Incremental)",98,false,Infinity,0.1373,0,0,0,0,0,61344,6967872
+30,true,RFCluster,"2. NNI (Incremental)",99,false,Infinity,0.1092,0,0,0,0,0,61344,6967872
+30,true,RFCluster,"2. NNI (Incremental)",100,false,Infinity,0.1105,0,0,0,0,0,38264,6967872
+30,true,RFCluster,"3. VND NNI->ECR->SPR->TBR (Classic)",1,true,111.0000,34894.5433,3943800,148493500,6616963800,28121939400,0,9518961616,9519675632
+30,true,RFCluster,"3. VND NNI->ECR->SPR->TBR (Classic)",2,true,88.0000,42907.0112,8920700,308034100,15626905600,26962120200,0,10663945336,10330954968
+30,true,RFCluster,"3. VND NNI->ECR->SPR->TBR (Classic)",3,true,113.0000,15354.2917,3231900,108080100,3156537800,12086194600,0,6753795696,10297400536
+30,true,RFCluster,"3. VND NNI->ECR->SPR->TBR (Classic)",4,true,119.0000,19819.5752,3854600,167097100,11528120400,8120300200,0,9748638048,10313623536
+30,true,RFCluster,"3. VND NNI->ECR->SPR->TBR (Classic)",5,true,93.0000,15674.7011,3424900,232957300,2161496100,13276729700,0,6365432392,10792055360
+30,true,RFCluster,"3. VND NNI->ECR->SPR->TBR (Classic)",6,true,101.0000,12993.1967,1989400,81470700,4327522200,8582109200,0,6384711768,2070582944
+30,true,RFCluster,"3. VND NNI->ECR->SPR->TBR (Classic)",7,true,129.0000,11116.8559,2191600,68424900,1974312900,9071812700,0,6640495504,2533629680
+30,true,RFCluster,"3. VND NNI->ECR->SPR->TBR (Classic)",8,true,88.0000,12150.8297,8724300,283431000,2739928100,9118314100,0,6761810912,4059279672
+30,true,RFCluster,"3. VND NNI->ECR->SPR->TBR (Classic)",9,true,93.0000,63810.6772,7733600,148773600,7183913500,56469437900,0,8629371824,5239837360
+30,true,RFCluster,"3. VND NNI->ECR->SPR->TBR (Classic)",10,true,114.0000,11847.9386,3937900,120847200,2974640600,8747717700,0,7064445016,4080374928
+30,true,RFCluster,"3. VND NNI->ECR->SPR->TBR (Classic)",11,true,123.0000,11301.2384,1790600,56191000,1956806400,9286375700,0,6593470696,4697722808
+30,true,RFCluster,"3. VND NNI->ECR->SPR->TBR (Classic)",12,true,105.0000,9768.7175,1533500,64004900,2173228700,7529890400,0,6193790112,5147354352
+30,true,RFCluster,"3. VND NNI->ECR->SPR->TBR (Classic)",13,true,95.0000,17626.8225,7930900,394356600,9005758600,8218643600,0,11333136592,7496782064
+30,true,RFCluster,"3. VND NNI->ECR->SPR->TBR (Classic)",14,true,114.0000,9963.2766,1790300,79524900,1672485000,8209401300,0,6576862808,8236215024
+30,true,RFCluster,"3. VND NNI->ECR->SPR->TBR (Classic)",15,true,116.0000,10662.0850,3304900,290155300,2477253600,7891250300,0,6488110872,9436591176
+30,true,RFCluster,"3. VND NNI->ECR->SPR->TBR (Classic)",16,true,107.0000,15804.1804,7852500,153235800,6931729900,8711180900,0,10500924608,10420694600
+30,true,RFCluster,"3. VND NNI->ECR->SPR->TBR (Classic)",17,true,98.0000,17088.5859,3299800,146797300,7785654500,9152707800,0,10454368352,12273783536
+30,true,RFCluster,"3. VND NNI->ECR->SPR->TBR (Classic)",18,true,111.0000,16294.9148,6823800,90524100,4041343800,12155133400,0,7048381232,14088330568
+30,true,RFCluster,"3. VND NNI->ECR->SPR->TBR (Classic)",19,true,118.0000,14067.3723,1981100,57534400,1682406700,12325149500,0,6048928280,14605332656
+30,true,RFCluster,"3. VND NNI->ECR->SPR->TBR (Classic)",20,true,125.0000,9912.2851,3798500,249074600,1911346300,7747913600,0,6487870704,10613007536
+30,true,RFCluster,"3. VND NNI->ECR->SPR->TBR (Classic)",21,true,103.0000,9437.6350,6196800,60180600,2179947200,7191053700,0,6154816624,12017990656
+30,true,RFCluster,"3. VND NNI->ECR->SPR->TBR (Classic)",22,true,93.0000,35471.7190,6504800,341524100,6317788000,28802522500,0,9408244976,18294745520
+30,true,RFCluster,"3. VND NNI->ECR->SPR->TBR (Classic)",23,true,103.0000,29792.0179,10998400,346731800,11464914500,17849850400,0,6833714304,21021428976
+30,true,RFCluster,"3. VND NNI->ECR->SPR->TBR (Classic)",24,true,91.0000,13685.8415,163623000,506334300,6445654400,6500886500,0,8549335040,6613936368
+30,true,RFCluster,"3. VND NNI->ECR->SPR->TBR (Classic)",25,true,108.0000,10779.2641,2991800,184555300,2484554400,8107051000,0,6606464112,8410675456
+30,true,RFCluster,"3. VND NNI->ECR->SPR->TBR (Classic)",26,true,104.0000,10642.7906,1626000,64477000,2089244700,8487369700,0,6515108672,8854812912
+30,true,RFCluster,"3. VND NNI->ECR->SPR->TBR (Classic)",27,true,104.0000,11651.9051,3510800,217624700,2248837700,9181826100,0,6793371840,9059499360
+30,true,RFCluster,"3. VND NNI->ECR->SPR->TBR (Classic)",28,true,93.0000,12506.0414,3522500,300898300,3054281100,9147228200,0,6485252328,10296950896
+30,true,RFCluster,"3. VND NNI->ECR->SPR->TBR (Classic)",29,true,105.0000,11245.4012,4075900,57437800,2234080700,8949726700,0,6832501072,9646973592
+30,true,RFCluster,"3. VND NNI->ECR->SPR->TBR (Classic)",30,true,108.0000,15375.9908,1723000,63375600,4724408700,10586415900,0,6684765712,9657065056
+30,true,RFCluster,"3. VND NNI->ECR->SPR->TBR (Classic)",31,true,109.0000,9623.6778,1520600,56318400,1758374300,7807384100,0,6130701896,10005764848
