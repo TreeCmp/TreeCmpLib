@@ -1,0 +1,27 @@
+========================================================
+HEURISTIC TRAJECTORY: VND Incremental (MS)
+========================================================
+STEP 0 [START] - Distance: 11.0000
+(5,(7,(9,6)),((3,(1,(10,4))),(2,8)));
+
+STEP 1 [NNI_IncrementalHeuristic_MS -> NNI_Substep_1] - Distance: 8.0000
+((9,6),(7,5),((3,(1,(10,4))),(2,8)));
+
+STEP 2 [NNI_IncrementalHeuristic_MS -> NNI_Substep_2] - Distance: 7.0000
+((9,6),(7,5),(((2,8),(1,(10,4))),3));
+
+STEP 3 [2sECR_IncrementalHeuristic_MS -> NNI_Substep_1] - Distance: 8.0000
+((9,6),(7,5),((1,((2,8),(10,4))),3));
+
+STEP 4 [2sECR_IncrementalHeuristic_MS -> NNI_Substep_2] - Distance: 3.0000
+((9,6),(7,5),(((2,8),(10,4)),(3,1)));
+
+STEP 5 [2sECR_IncrementalHeuristic_MS -> NNI_Substep_3] - Distance: 2.0000
+((9,6),(7,5),((4,(10,(2,8))),(3,1)));
+
+STEP 6 [2sECR_IncrementalHeuristic_MS -> NNI_Substep_4] - Distance: 0.0000
+((9,6),(7,5),((4,(8,(2,10))),(3,1)));
+
+========================================================
+[FINAL] Total Steps: 6 | Final Distance: 0.0000
+========================================================

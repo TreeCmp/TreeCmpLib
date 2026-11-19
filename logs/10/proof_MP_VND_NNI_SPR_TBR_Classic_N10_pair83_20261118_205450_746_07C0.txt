@@ -1,0 +1,27 @@
+========================================================
+HEURISTIC TRAJECTORY: VND Classic (MP)
+========================================================
+STEP 0 [START] - Distance: 20.0000
+((7,(8,(5,1))),((6,4),(2,(9,(3,10)))));
+
+STEP 1 [NNI_ClassicHeuristic_MP -> NNI_Substep_1] - Distance: 14.0000
+(((2,(9,(3,10))),((6,4),7)),(8,(5,1)));
+
+STEP 2 [NNI_ClassicHeuristic_MP -> NNI_Substep_2] - Distance: 13.0000
+(((9,(2,(3,10))),((6,4),7)),(8,(5,1)));
+
+STEP 3 [NNI_ClassicHeuristic_MP -> NNI_Substep_3] - Distance: 10.0000
+(((((6,4),7),(2,(3,10))),9),(8,(5,1)));
+
+STEP 4 [NNI_ClassicHeuristic_MP -> NNI_Substep_4] - Distance: 9.0000
+(((((7,4),6),(2,(3,10))),9),(8,(5,1)));
+
+STEP 5 [SPR_ClassicHeuristic_MP -> NNI_Substep_1] - Distance: 9.0000
+(((((7,4),6),(2,(3,10))),9),((8,5),1));
+
+STEP 6 [SPR_ClassicHeuristic_MP -> NNI_Substep_2] - Distance: 0.0000
+(((((7,4),6),(2,(3,10))),(9,1)),(8,5));
+
+========================================================
+[FINAL] Total Steps: 6 | Final Distance: 0.0000
+========================================================

@@ -1,0 +1,51 @@
+========================================================
+HEURISTIC TRAJECTORY: VND Incremental (MS)
+========================================================
+STEP 0 [START] - Distance: 17.0000
+(6,5,(((2,10),(8,(1,9))),(4,(7,3))));
+
+STEP 1 [NNI_IncrementalHeuristic_MS -> NNI_Substep_1] - Distance: 16.0000
+(6,5,((8,((2,10),(1,9))),(4,(7,3))));
+
+STEP 2 [NNI_IncrementalHeuristic_MS -> NNI_Substep_2] - Distance: 14.0000
+(6,5,(((4,(7,3)),((2,10),(1,9))),8));
+
+STEP 3 [NNI_IncrementalHeuristic_MS -> NNI_Substep_3] - Distance: 12.0000
+(8,5,(((4,(7,3)),((2,10),(1,9))),6));
+
+STEP 4 [NNI_IncrementalHeuristic_MS -> NNI_Substep_4] - Distance: 11.0000
+(8,5,(((((2,10),(1,9)),(7,3)),4),6));
+
+STEP 5 [NNI_IncrementalHeuristic_MS -> NNI_Substep_5] - Distance: 10.0000
+(8,5,((((((1,9),10),2),(7,3)),4),6));
+
+STEP 6 [NNI_IncrementalHeuristic_MS -> NNI_Substep_6] - Distance: 9.0000
+(8,5,(((((7,3),2),((1,9),10)),4),6));
+
+STEP 7 [2sECR_IncrementalHeuristic_MS -> NNI_Substep_1] - Distance: 9.0000
+(8,5,(((((7,3),2),(1,(10,9))),4),6));
+
+STEP 8 [2sECR_IncrementalHeuristic_MS -> NNI_Substep_2] - Distance: 8.0000
+(8,5,((((((7,3),2),1),(10,9)),4),6));
+
+STEP 9 [2sECR_IncrementalHeuristic_MS -> NNI_Substep_3] - Distance: 8.0000
+(8,5,(((((3,(2,7)),1),(10,9)),4),6));
+
+STEP 10 [2sECR_IncrementalHeuristic_MS -> NNI_Substep_4] - Distance: 5.0000
+(8,5,(((((2,7),(1,3)),(10,9)),4),6));
+
+STEP 11 [3sECR_IncrementalHeuristic_MS -> NNI_Substep_1] - Distance: 6.0000
+(8,5,((4,((10,9),(((1,3),2),7))),6));
+
+STEP 12 [3sECR_IncrementalHeuristic_MS -> NNI_Substep_2] - Distance: 5.0000
+(8,5,((4,(((10,9),((1,3),2)),7)),6));
+
+STEP 13 [3sECR_IncrementalHeuristic_MS -> NNI_Substep_3] - Distance: 3.0000
+(8,5,(((4,((10,9),((1,3),2))),7),6));
+
+STEP 14 [3sECR_IncrementalHeuristic_MS -> NNI_Substep_4] - Distance: 0.0000
+(8,5,((6,7),(4,((10,9),((1,3),2)))));
+
+========================================================
+[FINAL] Total Steps: 14 | Final Distance: 0.0000
+========================================================
