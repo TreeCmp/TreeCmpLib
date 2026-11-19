@@ -1,0 +1,1001 @@
+Size,IsRooted,Metric,Variant,PairIndex,Success,Distance,TotalTimeMs,AllocBytes,PeakRamBytes
+80,true,RFCluster,"Classic (Pure)",1,false,Infinity,7.8144,11690488,6933744
+80,true,RFCluster,"Classic (Pure)",2,false,Infinity,7.0491,11432136,6933744
+80,true,RFCluster,"Classic (Pure)",3,false,Infinity,7.0545,11727152,40488176
+80,true,RFCluster,"Classic (Pure)",4,false,Infinity,6.3167,11803104,40488176
+80,true,RFCluster,"Classic (Pure)",5,false,Infinity,9.8950,18854600,40488176
+80,true,RFCluster,"Classic (Pure)",6,false,Infinity,10.4773,18862784,74042608
+80,true,RFCluster,"Classic (Pure)",7,false,Infinity,6.7015,11468928,74042608
+80,true,RFCluster,"Classic (Pure)",8,false,Infinity,6.2233,11460072,107597040
+80,true,RFCluster,"Classic (Pure)",9,false,Infinity,7.5235,11437032,107597040
+80,true,RFCluster,"Classic (Pure)",10,false,Infinity,13.6598,26239984,141151472
+80,true,RFCluster,"Classic (Pure)",11,false,Infinity,10.7594,18830328,141151472
+80,true,RFCluster,"Classic (Pure)",12,false,Infinity,6.5835,11485360,174705904
+80,true,RFCluster,"Classic (Pure)",13,false,Infinity,6.3813,11505184,174705904
+80,true,RFCluster,"Classic (Pure)",14,false,Infinity,9.9094,18952712,208260336
+80,true,RFCluster,"Classic (Pure)",15,false,Infinity,9.9945,18937672,208260336
+80,true,RFCluster,"Classic (Pure)",16,false,Infinity,13.8174,26410792,241814768
+80,true,RFCluster,"Classic (Pure)",17,false,Infinity,10.7215,18781912,275369200
+80,true,RFCluster,"Classic (Pure)",18,false,Infinity,6.4692,11501248,275369200
+80,true,RFCluster,"Classic (Pure)",19,false,Infinity,6.8897,11447824,275369200
+80,true,RFCluster,"Classic (Pure)",20,false,Infinity,6.3799,11461640,308923632
+80,true,RFCluster,"Classic (Pure)",21,false,Infinity,6.3368,11799096,308923632
+80,true,RFCluster,"Classic (Pure)",22,false,Infinity,6.3645,11788400,308923632
+80,true,RFCluster,"Classic (Pure)",23,false,Infinity,10.0165,18886336,342478064
+80,true,RFCluster,"Classic (Pure)",24,false,Infinity,6.5094,11410616,342478064
+80,true,RFCluster,"Classic (Pure)",25,false,Infinity,6.8180,11626176,376032496
+80,true,RFCluster,"Classic (Pure)",26,false,Infinity,13.7350,26371696,376032496
+80,true,RFCluster,"Classic (Pure)",27,false,Infinity,6.6127,11498864,409586928
+80,true,RFCluster,"Classic (Pure)",28,false,Infinity,6.9416,11449552,409586928
+80,true,RFCluster,"Classic (Pure)",29,false,Infinity,6.9407,11493896,409586928
+80,true,RFCluster,"Classic (Pure)",30,false,Infinity,6.5188,11371240,443141360
+80,true,RFCluster,"Classic (Pure)",31,false,Infinity,10.9335,19517768,443141360
+80,true,RFCluster,"Classic (Pure)",32,false,Infinity,6.4611,11510328,476695792
+80,true,RFCluster,"Classic (Pure)",33,false,Infinity,6.2071,11797192,476695792
+80,true,RFCluster,"Classic (Pure)",34,false,Infinity,6.7697,11487872,476695792
+80,true,RFCluster,"Classic (Pure)",35,false,Infinity,6.2753,11493544,510250224
+80,true,RFCluster,"Classic (Pure)",36,false,Infinity,6.1524,11516728,510250224
+80,true,RFCluster,"Classic (Pure)",37,false,Infinity,6.6948,11621464,510250224
+80,true,RFCluster,"Classic (Pure)",38,false,Infinity,6.2015,11668248,543804656
+80,true,RFCluster,"Classic (Pure)",39,false,Infinity,6.7690,11474704,543804656
+80,true,RFCluster,"Classic (Pure)",40,false,Infinity,6.5954,11696536,543804656
+80,true,RFCluster,"Classic (Pure)",41,false,Infinity,6.7653,11457288,577359088
+80,true,RFCluster,"Classic (Pure)",42,false,Infinity,6.6949,11463432,577359088
+80,true,RFCluster,"Classic (Pure)",43,false,Infinity,9.8155,18938168,610913520
+80,true,RFCluster,"Classic (Pure)",44,false,Infinity,6.7527,11381832,610913520
+80,true,RFCluster,"Classic (Pure)",45,false,Infinity,6.3633,11485960,610913520
+80,true,RFCluster,"Classic (Pure)",46,false,Infinity,6.9366,11457208,644467952
+80,true,RFCluster,"Classic (Pure)",47,false,Infinity,9.9948,19495760,644467952
+80,true,RFCluster,"Classic (Pure)",48,false,Infinity,9.9677,19236088,678022384
+80,true,RFCluster,"Classic (Pure)",49,false,Infinity,6.3140,11493216,678022384
+80,true,RFCluster,"Classic (Pure)",50,false,Infinity,6.7512,11532880,711576816
+80,true,RFCluster,"Classic (Pure)",51,false,Infinity,13.6048,26203456,711576816
+80,true,RFCluster,"Classic (Pure)",52,false,Infinity,13.7058,26673664,745131248
+80,true,RFCluster,"Classic (Pure)",53,false,Infinity,6.2955,11426936,745131248
+80,true,RFCluster,"Classic (Pure)",54,false,Infinity,6.5883,11481624,778685680
+80,true,RFCluster,"Classic (Pure)",55,false,Infinity,13.9075,26320992,812240112
+80,true,RFCluster,"Classic (Pure)",56,false,Infinity,6.1001,11671072,812240112
+80,true,RFCluster,"Classic (Pure)",57,false,Infinity,6.7433,11679936,812240112
+80,true,RFCluster,"Classic (Pure)",58,false,Infinity,6.7247,11514056,845794544
+80,true,RFCluster,"Classic (Pure)",59,false,Infinity,6.9212,11691288,845794544
+80,true,RFCluster,"Classic (Pure)",60,false,Infinity,10.0889,18838040,879348976
+80,true,RFCluster,"Classic (Pure)",61,false,Infinity,6.4213,11467928,879348976
+80,true,RFCluster,"Classic (Pure)",62,false,Infinity,6.6318,11423440,879348976
+80,true,RFCluster,"Classic (Pure)",63,false,Infinity,6.5362,11775728,912903408
+80,true,RFCluster,"Classic (Pure)",64,false,Infinity,10.4231,18886280,912903408
+80,true,RFCluster,"Classic (Pure)",65,false,Infinity,10.2640,18936520,946457840
+80,true,RFCluster,"Classic (Pure)",66,false,Infinity,6.7097,11508344,946457840
+80,true,RFCluster,"Classic (Pure)",67,false,Infinity,9.6542,19072464,980012272
+80,true,RFCluster,"Classic (Pure)",68,false,Infinity,6.0226,11466512,980012272
+80,true,RFCluster,"Classic (Pure)",69,false,Infinity,9.7855,18729024,1013566704
+80,true,RFCluster,"Classic (Pure)",70,false,Infinity,9.9306,18874856,1013566704
+80,true,RFCluster,"Classic (Pure)",71,false,Infinity,6.4222,11538328,1013566704
+80,true,RFCluster,"Classic (Pure)",72,false,Infinity,9.3911,18873336,1047121136
+80,true,RFCluster,"Classic (Pure)",73,false,Infinity,9.8381,18915416,1080675568
+80,true,RFCluster,"Classic (Pure)",74,false,Infinity,6.3432,11477328,1080675568
+80,true,RFCluster,"Classic (Pure)",75,false,Infinity,10.1468,19305264,1114230000
+80,true,RFCluster,"Classic (Pure)",76,false,Infinity,10.1018,19056088,1114230000
+80,true,RFCluster,"Classic (Pure)",77,false,Infinity,6.7391,11618256,1114230000
+80,true,RFCluster,"Classic (Pure)",78,false,Infinity,6.4121,11831384,1147784432
+80,true,RFCluster,"Classic (Pure)",79,false,Infinity,10.0805,19117024,1147784432
+80,true,RFCluster,"Classic (Pure)",80,false,Infinity,9.8358,18766392,1181338864
+80,true,RFCluster,"Classic (Pure)",81,false,Infinity,6.7162,11392504,1181338864
+80,true,RFCluster,"Classic (Pure)",82,false,Infinity,6.5805,11501488,1214893296
+80,true,RFCluster,"Classic (Pure)",83,false,Infinity,6.8558,11743848,1214893296
+80,true,RFCluster,"Classic (Pure)",84,false,Infinity,6.5687,11563936,1214893296
+80,true,RFCluster,"Classic (Pure)",85,false,Infinity,6.5400,11482232,1248447728
+80,true,RFCluster,"Classic (Pure)",86,false,Infinity,6.3802,11703632,1248447728
+80,true,RFCluster,"Classic (Pure)",87,false,Infinity,6.2325,11537856,1248447728
+80,true,RFCluster,"Classic (Pure)",88,false,Infinity,6.0525,11501152,1282002160
+80,true,RFCluster,"Classic (Pure)",89,false,Infinity,6.4734,11764752,1282002160
+80,true,RFCluster,"Classic (Pure)",90,false,Infinity,9.6782,18927432,1315556592
+80,true,RFCluster,"Classic (Pure)",91,false,Infinity,6.2107,11463752,1315556592
+80,true,RFCluster,"Classic (Pure)",92,false,Infinity,6.5413,11492840,1315556592
+80,true,RFCluster,"Classic (Pure)",93,false,Infinity,6.5434,11584176,1349111024
+80,true,RFCluster,"Classic (Pure)",94,false,Infinity,6.6478,11650296,1349111024
+80,true,RFCluster,"Classic (Pure)",95,false,Infinity,6.6198,11486272,1349111024
+80,true,RFCluster,"Classic (Pure)",96,false,Infinity,6.3284,11484960,1382665456
+80,true,RFCluster,"Classic (Pure)",97,false,Infinity,6.0237,11548760,1382665456
+80,true,RFCluster,"Classic (Pure)",98,false,Infinity,6.4671,11793056,1382665456
+80,true,RFCluster,"Classic (Pure)",99,false,Infinity,13.3782,26197784,1416219888
+80,true,RFCluster,"Classic (Pure)",100,false,Infinity,6.6380,11401368,1416219888
+80,true,RFCluster,"Increm. (Pure)",1,false,Infinity,0.7195,141968,6950568
+80,true,RFCluster,"Increm. (Pure)",2,false,Infinity,0.4339,119928,6950568
+80,true,RFCluster,"Increm. (Pure)",3,false,Infinity,0.3299,119832,6950568
+80,true,RFCluster,"Increm. (Pure)",4,false,Infinity,0.3207,119752,6950568
+80,true,RFCluster,"Increm. (Pure)",5,false,Infinity,0.5235,242304,6950568
+80,true,RFCluster,"Increm. (Pure)",6,false,Infinity,0.3199,243680,6950568
+80,true,RFCluster,"Increm. (Pure)",7,false,Infinity,0.1278,120952,6950568
+80,true,RFCluster,"Increm. (Pure)",8,false,Infinity,0.1237,119408,6950568
+80,true,RFCluster,"Increm. (Pure)",9,false,Infinity,0.1254,120128,6950568
+80,true,RFCluster,"Increm. (Pure)",10,false,Infinity,0.4068,363472,6950568
+80,true,RFCluster,"Increm. (Pure)",11,false,Infinity,0.2458,241408,6950568
+80,true,RFCluster,"Increm. (Pure)",12,false,Infinity,0.1404,118840,6950568
+80,true,RFCluster,"Increm. (Pure)",13,false,Infinity,0.1310,119512,6950568
+80,true,RFCluster,"Increm. (Pure)",14,false,Infinity,0.1777,242944,6950568
+80,true,RFCluster,"Increm. (Pure)",15,false,Infinity,0.1702,241600,6950568
+80,true,RFCluster,"Increm. (Pure)",16,false,Infinity,0.1945,366176,6950568
+80,true,RFCluster,"Increm. (Pure)",17,false,Infinity,0.1347,241984,6950568
+80,true,RFCluster,"Increm. (Pure)",18,false,Infinity,0.0694,119768,6950568
+80,true,RFCluster,"Increm. (Pure)",19,false,Infinity,0.0675,120016,6950568
+80,true,RFCluster,"Increm. (Pure)",20,false,Infinity,0.0679,119600,6950568
+80,true,RFCluster,"Increm. (Pure)",21,false,Infinity,0.0689,120192,6950568
+80,true,RFCluster,"Increm. (Pure)",22,false,Infinity,0.0655,118992,6950568
+80,true,RFCluster,"Increm. (Pure)",23,false,Infinity,0.1297,242048,6950568
+80,true,RFCluster,"Increm. (Pure)",24,false,Infinity,0.0726,117976,6950568
+80,true,RFCluster,"Increm. (Pure)",25,false,Infinity,0.0679,120032,6950568
+80,true,RFCluster,"Increm. (Pure)",26,false,Infinity,0.1981,368896,6950568
+80,true,RFCluster,"Increm. (Pure)",27,false,Infinity,0.0691,119232,6950568
+80,true,RFCluster,"Increm. (Pure)",28,false,Infinity,0.0691,120432,6950568
+80,true,RFCluster,"Increm. (Pure)",29,false,Infinity,0.0677,120000,6950568
+80,true,RFCluster,"Increm. (Pure)",30,false,Infinity,0.0680,120480,6950568
+80,true,RFCluster,"Increm. (Pure)",31,false,Infinity,0.1373,245264,6950568
+80,true,RFCluster,"Increm. (Pure)",32,false,Infinity,0.0683,120008,6950568
+80,true,RFCluster,"Increm. (Pure)",33,false,Infinity,0.0674,119384,6950568
+80,true,RFCluster,"Increm. (Pure)",34,false,Infinity,0.0675,120112,6950568
+80,true,RFCluster,"Increm. (Pure)",35,false,Infinity,0.0655,119168,6950568
+80,true,RFCluster,"Increm. (Pure)",36,false,Infinity,0.0671,120696,6950568
+80,true,RFCluster,"Increm. (Pure)",37,false,Infinity,0.0682,119576,6950568
+80,true,RFCluster,"Increm. (Pure)",38,false,Infinity,0.0695,119048,6950568
+80,true,RFCluster,"Increm. (Pure)",39,false,Infinity,0.0718,119888,6950568
+80,true,RFCluster,"Increm. (Pure)",40,false,Infinity,0.0837,118712,6950568
+80,true,RFCluster,"Increm. (Pure)",41,false,Infinity,0.0678,120320,6950568
+80,true,RFCluster,"Increm. (Pure)",42,false,Infinity,0.0691,120152,6950568
+80,true,RFCluster,"Increm. (Pure)",43,false,Infinity,0.1341,241584,6950568
+80,true,RFCluster,"Increm. (Pure)",44,false,Infinity,0.0661,119040,6950568
+80,true,RFCluster,"Increm. (Pure)",45,false,Infinity,0.0673,119248,6950568
+80,true,RFCluster,"Increm. (Pure)",46,false,Infinity,0.0672,121784,6950568
+80,true,RFCluster,"Increm. (Pure)",47,false,Infinity,0.1339,245984,6950568
+80,true,RFCluster,"Increm. (Pure)",48,false,Infinity,0.1291,242848,6950568
+80,true,RFCluster,"Increm. (Pure)",49,false,Infinity,0.0722,118856,6950568
+80,true,RFCluster,"Increm. (Pure)",50,false,Infinity,0.0672,120832,6950568
+80,true,RFCluster,"Increm. (Pure)",51,false,Infinity,0.1965,362880,6950568
+80,true,RFCluster,"Increm. (Pure)",52,false,Infinity,0.1945,363680,6950568
+80,true,RFCluster,"Increm. (Pure)",53,false,Infinity,0.0672,119064,6950568
+80,true,RFCluster,"Increm. (Pure)",54,false,Infinity,0.0678,119712,6950568
+80,true,RFCluster,"Increm. (Pure)",55,false,Infinity,0.1862,363728,6950568
+80,true,RFCluster,"Increm. (Pure)",56,false,Infinity,0.0707,119616,6950568
+80,true,RFCluster,"Increm. (Pure)",57,false,Infinity,0.0672,119296,6950568
+80,true,RFCluster,"Increm. (Pure)",58,false,Infinity,0.0666,119584,6950568
+80,true,RFCluster,"Increm. (Pure)",59,false,Infinity,0.0681,119704,6950568
+80,true,RFCluster,"Increm. (Pure)",60,false,Infinity,0.1341,241304,6950568
+80,true,RFCluster,"Increm. (Pure)",61,false,Infinity,0.0667,119824,6950568
+80,true,RFCluster,"Increm. (Pure)",62,false,Infinity,0.0684,120712,6950568
+80,true,RFCluster,"Increm. (Pure)",63,false,Infinity,0.0684,118408,6950568
+80,true,RFCluster,"Increm. (Pure)",64,false,Infinity,0.1362,242912,6950568
+80,true,RFCluster,"Increm. (Pure)",65,false,Infinity,0.1352,242656,6950568
+80,true,RFCluster,"Increm. (Pure)",66,false,Infinity,0.0693,120680,6950568
+80,true,RFCluster,"Increm. (Pure)",67,false,Infinity,0.1377,240432,6950568
+80,true,RFCluster,"Increm. (Pure)",68,false,Infinity,0.0692,118992,6950568
+80,true,RFCluster,"Increm. (Pure)",69,false,Infinity,0.1311,242320,6950568
+80,true,RFCluster,"Increm. (Pure)",70,false,Infinity,0.1276,241088,6950568
+80,true,RFCluster,"Increm. (Pure)",71,false,Infinity,0.0672,118728,6950568
+80,true,RFCluster,"Increm. (Pure)",72,false,Infinity,0.1410,240752,6950568
+80,true,RFCluster,"Increm. (Pure)",73,false,Infinity,0.1336,242104,6950568
+80,true,RFCluster,"Increm. (Pure)",74,false,Infinity,0.0700,118152,6950568
+80,true,RFCluster,"Increm. (Pure)",75,false,Infinity,0.1527,243520,6950568
+80,true,RFCluster,"Increm. (Pure)",76,false,Infinity,0.1281,243968,6950568
+80,true,RFCluster,"Increm. (Pure)",77,false,Infinity,0.0678,120552,6950568
+80,true,RFCluster,"Increm. (Pure)",78,false,Infinity,0.0745,119176,6950568
+80,true,RFCluster,"Increm. (Pure)",79,false,Infinity,0.1297,242320,6950568
+80,true,RFCluster,"Increm. (Pure)",80,false,Infinity,0.1398,241832,6950568
+80,true,RFCluster,"Increm. (Pure)",81,false,Infinity,0.0660,118928,6950568
+80,true,RFCluster,"Increm. (Pure)",82,false,Infinity,0.0640,120136,6950568
+80,true,RFCluster,"Increm. (Pure)",83,false,Infinity,0.0628,118664,6950568
+80,true,RFCluster,"Increm. (Pure)",84,false,Infinity,0.0629,119240,6950568
+80,true,RFCluster,"Increm. (Pure)",85,false,Infinity,0.0641,119904,6950568
+80,true,RFCluster,"Increm. (Pure)",86,false,Infinity,0.0644,120304,6950568
+80,true,RFCluster,"Increm. (Pure)",87,false,Infinity,0.0687,120112,6950568
+80,true,RFCluster,"Increm. (Pure)",88,false,Infinity,0.0642,119944,6950568
+80,true,RFCluster,"Increm. (Pure)",89,false,Infinity,0.0633,119784,6950568
+80,true,RFCluster,"Increm. (Pure)",90,false,Infinity,0.1216,243488,6950568
+80,true,RFCluster,"Increm. (Pure)",91,false,Infinity,0.0648,121144,6950568
+80,true,RFCluster,"Increm. (Pure)",92,false,Infinity,0.0638,121336,6950568
+80,true,RFCluster,"Increm. (Pure)",93,false,Infinity,0.0631,119176,6950568
+80,true,RFCluster,"Increm. (Pure)",94,false,Infinity,0.0669,120024,6950568
+80,true,RFCluster,"Increm. (Pure)",95,false,Infinity,0.0608,120480,6950568
+80,true,RFCluster,"Increm. (Pure)",96,false,Infinity,0.0637,120928,6950568
+80,true,RFCluster,"Increm. (Pure)",97,false,Infinity,0.0645,120272,6950568
+80,true,RFCluster,"Increm. (Pure)",98,false,Infinity,0.0622,119528,6950568
+80,true,RFCluster,"Increm. (Pure)",99,false,Infinity,0.1786,365248,6950568
+80,true,RFCluster,"Increm. (Pure)",100,false,Infinity,0.0617,119456,6950568
+80,true,MC,"Classic (Pure)",1,false,Infinity,639.8044,386226080,376134808
+80,true,MC,"Classic (Pure)",2,false,Infinity,975.2397,600577480,980114584
+80,true,MC,"Classic (Pure)",3,false,Infinity,941.7920,570025768,1550539928
+80,true,MC,"Classic (Pure)",4,false,Infinity,1226.5351,737519056,2288737432
+80,true,MC,"Classic (Pure)",5,false,Infinity,895.8181,535414576,2825608344
+80,true,MC,"Classic (Pure)",6,false,Infinity,641.1405,384707888,3194707096
+80,true,MC,"Classic (Pure)",7,false,Infinity,779.5774,472109592,3664469144
+80,true,MC,"Classic (Pure)",8,false,Infinity,712.7507,435673264,4100676760
+80,true,MC,"Classic (Pure)",9,false,Infinity,1053.2519,633854824,4738210968
+80,true,MC,"Classic (Pure)",10,false,Infinity,681.9963,417151768,5174418584
+80,true,MC,"Classic (Pure)",11,false,Infinity,553.1818,334920208,5509962904
+80,true,MC,"Classic (Pure)",12,false,Infinity,555.6648,333251824,5845507224
+80,true,MC,"Classic (Pure)",13,false,Infinity,1005.5515,602492800,6449487000
+80,true,MC,"Classic (Pure)",14,false,Infinity,519.7468,316904464,6751476888
+80,true,MC,"Classic (Pure)",15,false,Infinity,575.5426,351848352,7120575640
+80,true,MC,"Classic (Pure)",16,false,Infinity,989.2837,554595696,7657446552
+80,true,MC,"Classic (Pure)",17,false,Infinity,731.5152,437249088,8093654168
+80,true,MC,"Classic (Pure)",18,false,Infinity,1047.8049,640186848,8731188376
+80,true,MC,"Classic (Pure)",19,false,Infinity,663.0025,401055832,9133841560
+80,true,MC,"Classic (Pure)",20,false,Infinity,836.0943,503052552,9637158040
+80,true,MC,"Classic (Pure)",21,false,Infinity,768.0839,467192920,10106920088
+80,true,MC,"Classic (Pure)",22,false,Infinity,1078.4724,635270528,10338003752
+80,true,MC,"Classic (Pure)",23,false,Infinity,930.6670,568273912,1043426088
+80,true,MC,"Classic (Pure)",24,false,Infinity,969.2338,586539408,1613851432
+80,true,MC,"Classic (Pure)",25,false,Infinity,765.7522,470029872,2083613480
+80,true,MC,"Classic (Pure)",26,false,Infinity,804.7881,484122664,2586929960
+80,true,MC,"Classic (Pure)",27,false,Infinity,868.9957,518316632,3090246440
+80,true,MC,"Classic (Pure)",28,false,Infinity,653.7954,403058712,3492899624
+80,true,MC,"Classic (Pure)",29,false,Infinity,608.5710,367280120,3861998376
+80,true,MC,"Classic (Pure)",30,false,Infinity,826.3101,503136584,4365314856
+80,true,MC,"Classic (Pure)",31,false,Infinity,754.8437,450685400,4835076904
+80,true,MC,"Classic (Pure)",32,false,Infinity,687.6906,418901560,5237730088
+80,true,MC,"Classic (Pure)",33,false,Infinity,566.6687,336504384,5573274408
+80,true,MC,"Classic (Pure)",34,false,Infinity,698.4043,421320424,6009482024
+80,true,MC,"Classic (Pure)",35,false,Infinity,1105.9470,657030344,6647016232
+80,true,MC,"Classic (Pure)",36,false,Infinity,684.5668,419487568,7083223848
+80,true,MC,"Classic (Pure)",37,false,Infinity,811.6430,485956128,7552985896
+80,true,MC,"Classic (Pure)",38,false,Infinity,850.8116,504640216,8056302376
+80,true,MC,"Classic (Pure)",39,false,Infinity,850.9132,500138544,8559618856
+80,true,MC,"Classic (Pure)",40,false,Infinity,895.8887,533745328,9096489768
+80,true,MC,"Classic (Pure)",41,false,Infinity,1038.9910,619180064,9734023976
+80,true,MC,"Classic (Pure)",42,false,Infinity,1018.8501,610077064,10365411528
+80,true,MC,"Classic (Pure)",43,false,Infinity,847.7434,519397400,634626248
+80,true,MC,"Classic (Pure)",44,false,Infinity,1106.2015,667963208,1305714888
+80,true,MC,"Classic (Pure)",45,false,Infinity,876.8108,523484232,1842585800
+80,true,MC,"Classic (Pure)",46,false,Infinity,795.5998,471859504,2312347848
+80,true,MC,"Classic (Pure)",47,false,Infinity,839.3802,505468808,2815664328
+80,true,MC,"Classic (Pure)",48,false,Infinity,577.9894,350184064,3151208648
+80,true,MC,"Classic (Pure)",49,false,Infinity,960.0982,558348216,3721633992
+80,true,MC,"Classic (Pure)",50,false,Infinity,913.0238,550010312,4258504904
+80,true,MC,"Classic (Pure)",51,false,Infinity,744.4085,451599328,4728266952
+80,true,MC,"Classic (Pure)",52,false,Infinity,856.2964,516817208,5231583432
+80,true,MC,"Classic (Pure)",53,false,Infinity,650.0989,385793920,5634236616
+80,true,MC,"Classic (Pure)",54,false,Infinity,1118.2981,666303056,6305325256
+80,true,MC,"Classic (Pure)",55,false,Infinity,1462.8086,872127960,7177740488
+80,true,MC,"Classic (Pure)",56,false,Infinity,610.8509,368028632,7546839240
+80,true,MC,"Classic (Pure)",57,false,Infinity,1085.6807,641350200,8184373448
+80,true,MC,"Classic (Pure)",58,false,Infinity,521.5507,317656160,8486363336
+80,true,MC,"Classic (Pure)",59,false,Infinity,1318.7643,756779504,9258115272
+80,true,MC,"Classic (Pure)",60,false,Infinity,837.1821,500554256,9761431752
+80,true,MC,"Classic (Pure)",61,false,Infinity,839.6084,502139072,10264748232
+80,true,MC,"Classic (Pure)",62,false,Infinity,733.9718,435584344,10298302664
+80,true,MC,"Classic (Pure)",63,false,Infinity,817.4607,484873272,893830888
+80,true,MC,"Classic (Pure)",64,false,Infinity,657.8544,403062432,1296484072
+80,true,MC,"Classic (Pure)",65,false,Infinity,913.1437,553091552,1866909416
+80,true,MC,"Classic (Pure)",66,false,Infinity,794.7552,486038504,2336671464
+80,true,MC,"Classic (Pure)",67,false,Infinity,918.1210,553179600,2907096808
+80,true,MC,"Classic (Pure)",68,false,Infinity,650.5686,400222656,3276195560
+80,true,MC,"Classic (Pure)",69,false,Infinity,773.1755,469192536,3745957608
+80,true,MC,"Classic (Pure)",70,false,Infinity,884.7378,502972912,4249274088
+80,true,MC,"Classic (Pure)",71,false,Infinity,861.5791,517400208,4786145000
+80,true,MC,"Classic (Pure)",72,false,Infinity,591.0936,350930888,5121689320
+80,true,MC,"Classic (Pure)",73,false,Infinity,535.5845,320490696,5457233640
+80,true,MC,"Classic (Pure)",74,false,Infinity,788.3597,470193944,5926995688
+80,true,MC,"Classic (Pure)",75,false,Infinity,887.4790,538413344,6463866600
+80,true,MC,"Classic (Pure)",76,false,Infinity,1011.0587,600906576,7067846376
+80,true,MC,"Classic (Pure)",77,false,Infinity,817.3918,484709968,7537608424
+80,true,MC,"Classic (Pure)",78,false,Infinity,1053.5960,639601824,8175142632
+80,true,MC,"Classic (Pure)",79,false,Infinity,665.6403,400807344,8577795816
+80,true,MC,"Classic (Pure)",80,false,Infinity,915.9510,557177296,9148221160
+80,true,MC,"Classic (Pure)",81,false,Infinity,1205.8890,720167472,9852864232
+80,true,MC,"Classic (Pure)",82,false,Infinity,814.0104,484208040,10341988752
+80,true,MC,"Classic (Pure)",83,false,Infinity,1078.9296,650867768,778975632
+80,true,MC,"Classic (Pure)",84,false,Infinity,897.7545,551761912,1349400976
+80,true,MC,"Classic (Pure)",85,false,Infinity,1067.6831,640272448,1986935184
+80,true,MC,"Classic (Pure)",86,false,Infinity,794.2366,487877712,2456697232
+80,true,MC,"Classic (Pure)",87,false,Infinity,881.9650,537165888,2993568144
+80,true,MC,"Classic (Pure)",88,false,Infinity,897.3706,539330664,3530439056
+80,true,MC,"Classic (Pure)",89,false,Infinity,1084.2102,654535504,4201527696
+80,true,MC,"Classic (Pure)",90,false,Infinity,947.0199,554349504,4738398608
+80,true,MC,"Classic (Pure)",91,false,Infinity,1004.9321,605325824,5342378384
+80,true,MC,"Classic (Pure)",92,false,Infinity,1244.4191,722585848,6080575888
+80,true,MC,"Classic (Pure)",93,false,Infinity,836.0079,500639040,6583892368
+80,true,MC,"Classic (Pure)",94,false,Infinity,831.7064,501635872,7087208848
+80,true,MC,"Classic (Pure)",95,false,Infinity,1070.3942,632103024,7724743056
+80,true,MC,"Classic (Pure)",96,false,Infinity,944.7389,571944360,8295168400
+80,true,MC,"Classic (Pure)",97,false,Infinity,755.8145,450932984,8731376016
+80,true,MC,"Classic (Pure)",98,false,Infinity,834.4979,499801952,9234692496
+80,true,MC,"Classic (Pure)",99,false,Infinity,818.6793,468608856,9704454544
+80,true,MC,"Classic (Pure)",100,false,Infinity,1200.4080,718681616,10301449416
+80,true,MC,"Increm. (Pure)",1,false,Infinity,11.3430,8139376,8548248
+80,true,MC,"Increm. (Pure)",2,false,Infinity,8.2106,1370048,8548248
+80,true,MC,"Increm. (Pure)",3,false,Infinity,8.2966,1444264,8548248
+80,true,MC,"Increm. (Pure)",4,false,Infinity,10.3403,1519432,8548248
+80,true,MC,"Increm. (Pure)",5,false,Infinity,8.5678,1369096,8548248
+80,true,MC,"Increm. (Pure)",6,false,Infinity,5.4375,805336,8548248
+80,true,MC,"Increm. (Pure)",7,false,Infinity,5.2270,880504,8548248
+80,true,MC,"Increm. (Pure)",8,false,Infinity,6.5917,1030840,8548248
+80,true,MC,"Increm. (Pure)",9,false,Infinity,9.5047,1519432,8548248
+80,true,MC,"Increm. (Pure)",10,false,Infinity,5.7930,955672,8548248
+80,true,MC,"Increm. (Pure)",11,false,Infinity,4.2191,767752,8548248
+80,true,MC,"Increm. (Pure)",12,false,Infinity,4.9612,767752,8548248
+80,true,MC,"Increm. (Pure)",13,false,Infinity,7.9849,1406680,8548248
+80,true,MC,"Increm. (Pure)",14,false,Infinity,3.8249,730168,8548248
+80,true,MC,"Increm. (Pure)",15,false,Infinity,4.8035,767752,8548248
+80,true,MC,"Increm. (Pure)",16,false,Infinity,8.4112,1369096,8548248
+80,true,MC,"Increm. (Pure)",17,false,Infinity,7.1006,993256,8548248
+80,true,MC,"Increm. (Pure)",18,false,Infinity,7.3158,1294120,8548248
+80,true,MC,"Increm. (Pure)",19,false,Infinity,5.7613,993256,8548248
+80,true,MC,"Increm. (Pure)",20,false,Infinity,6.2148,1106008,8548248
+80,true,MC,"Increm. (Pure)",21,false,Infinity,7.4547,1106008,8548248
+80,true,MC,"Increm. (Pure)",22,false,Infinity,8.8224,1369096,8548248
+80,true,MC,"Increm. (Pure)",23,false,Infinity,7.9084,1218760,42102680
+80,true,MC,"Increm. (Pure)",24,false,Infinity,7.8515,1331512,42102680
+80,true,MC,"Increm. (Pure)",25,false,Infinity,6.7979,1030840,42102680
+80,true,MC,"Increm. (Pure)",26,false,Infinity,8.3048,1218760,42102680
+80,true,MC,"Increm. (Pure)",27,false,Infinity,6.0412,1181176,42102680
+80,true,MC,"Increm. (Pure)",28,false,Infinity,6.4258,1030840,42102680
+80,true,MC,"Increm. (Pure)",29,false,Infinity,5.6962,993256,42102680
+80,true,MC,"Increm. (Pure)",30,false,Infinity,7.3284,1106008,42102680
+80,true,MC,"Increm. (Pure)",31,false,Infinity,6.1312,993256,42102680
+80,true,MC,"Increm. (Pure)",32,false,Infinity,6.2258,993256,42102680
+80,true,MC,"Increm. (Pure)",33,false,Infinity,5.8998,842920,42102680
+80,true,MC,"Increm. (Pure)",34,false,Infinity,7.1024,1106008,42102680
+80,true,MC,"Increm. (Pure)",35,false,Infinity,7.0809,1181176,42102680
+80,true,MC,"Increm. (Pure)",36,false,Infinity,4.9213,880504,42102680
+80,true,MC,"Increm. (Pure)",37,false,Infinity,6.1181,880504,42102680
+80,true,MC,"Increm. (Pure)",38,false,Infinity,7.0338,1181176,42102680
+80,true,MC,"Increm. (Pure)",39,false,Infinity,5.6602,955672,42102680
+80,true,MC,"Increm. (Pure)",40,false,Infinity,7.3845,1218760,42102680
+80,true,MC,"Increm. (Pure)",41,false,Infinity,9.6669,1594600,42102680
+80,true,MC,"Increm. (Pure)",42,false,Infinity,7.7340,1293928,42102680
+80,true,MC,"Increm. (Pure)",43,false,Infinity,6.7028,1143592,42102680
+80,true,MC,"Increm. (Pure)",44,false,Infinity,9.2338,1444264,42102680
+80,true,MC,"Increm. (Pure)",45,false,Infinity,9.4979,1481848,42102680
+80,true,MC,"Increm. (Pure)",46,false,Infinity,6.4575,993256,42102680
+80,true,MC,"Increm. (Pure)",47,false,Infinity,7.9058,1256344,42102680
+80,true,MC,"Increm. (Pure)",48,false,Infinity,5.3983,880504,42102680
+80,true,MC,"Increm. (Pure)",49,false,Infinity,6.2722,1030840,42102680
+80,true,MC,"Increm. (Pure)",50,false,Infinity,8.8243,1406680,42102680
+80,true,MC,"Increm. (Pure)",51,false,Infinity,4.9212,805336,75657112
+80,true,MC,"Increm. (Pure)",52,false,Infinity,6.4879,1030840,75657112
+80,true,MC,"Increm. (Pure)",53,false,Infinity,5.0415,918088,75657112
+80,true,MC,"Increm. (Pure)",54,false,Infinity,9.2076,1369096,75657112
+80,true,MC,"Increm. (Pure)",55,false,Infinity,12.4165,1744936,75657112
+80,true,MC,"Increm. (Pure)",56,false,Infinity,6.6195,918088,75657112
+80,true,MC,"Increm. (Pure)",57,false,Infinity,13.2563,2084392,75657112
+80,true,MC,"Increm. (Pure)",58,false,Infinity,4.3791,730168,75657112
+80,true,MC,"Increm. (Pure)",59,false,Infinity,9.0921,1481848,75657112
+80,true,MC,"Increm. (Pure)",60,false,Infinity,8.6601,1369096,75657112
+80,true,MC,"Increm. (Pure)",61,false,Infinity,6.8088,1143592,75657112
+80,true,MC,"Increm. (Pure)",62,false,Infinity,7.1788,1143592,75657112
+80,true,MC,"Increm. (Pure)",63,false,Infinity,9.2717,1331512,75657112
+80,true,MC,"Increm. (Pure)",64,false,Infinity,5.6354,918088,75657112
+80,true,MC,"Increm. (Pure)",65,false,Infinity,8.7403,1406680,75657112
+80,true,MC,"Increm. (Pure)",66,false,Infinity,6.3148,1030840,75657112
+80,true,MC,"Increm. (Pure)",67,false,Infinity,8.3478,1293928,75657112
+80,true,MC,"Increm. (Pure)",68,false,Infinity,4.9008,880504,75657112
+80,true,MC,"Increm. (Pure)",69,false,Infinity,5.0115,880504,75657112
+80,true,MC,"Increm. (Pure)",70,false,Infinity,7.5649,1143592,75657112
+80,true,MC,"Increm. (Pure)",71,false,Infinity,6.6215,1030840,75657112
+80,true,MC,"Increm. (Pure)",72,false,Infinity,6.4451,880504,75657112
+80,true,MC,"Increm. (Pure)",73,false,Infinity,4.3592,730168,75657112
+80,true,MC,"Increm. (Pure)",74,false,Infinity,6.9753,1218760,75657112
+80,true,MC,"Increm. (Pure)",75,false,Infinity,8.6770,1369096,75657112
+80,true,MC,"Increm. (Pure)",76,false,Infinity,9.7473,1444264,75657112
+80,true,MC,"Increm. (Pure)",77,false,Infinity,6.2796,1030840,75657112
+80,true,MC,"Increm. (Pure)",78,false,Infinity,7.8488,1369096,75657112
+80,true,MC,"Increm. (Pure)",79,false,Infinity,7.8036,1143592,109211544
+80,true,MC,"Increm. (Pure)",80,false,Infinity,6.6279,1068424,109211544
+80,true,MC,"Increm. (Pure)",81,false,Infinity,12.7935,1970440,109211544
+80,true,MC,"Increm. (Pure)",82,false,Infinity,9.0435,1331512,109211544
+80,true,MC,"Increm. (Pure)",83,false,Infinity,12.5535,1857688,109211544
+80,true,MC,"Increm. (Pure)",84,false,Infinity,8.6664,1444264,109211544
+80,true,MC,"Increm. (Pure)",85,false,Infinity,6.9678,1181176,109211544
+80,true,MC,"Increm. (Pure)",86,false,Infinity,5.7282,1030840,109211544
+80,true,MC,"Increm. (Pure)",87,false,Infinity,6.8539,1218760,109211544
+80,true,MC,"Increm. (Pure)",88,false,Infinity,6.8331,1218760,109211544
+80,true,MC,"Increm. (Pure)",89,false,Infinity,7.0989,1331512,109211544
+80,true,MC,"Increm. (Pure)",90,false,Infinity,6.3069,1143592,109211544
+80,true,MC,"Increm. (Pure)",91,false,Infinity,9.5042,1594600,109211544
+80,true,MC,"Increm. (Pure)",92,false,Infinity,9.0955,1444264,109211544
+80,true,MC,"Increm. (Pure)",93,false,Infinity,6.3964,1068424,109211544
+80,true,MC,"Increm. (Pure)",94,false,Infinity,8.7308,1143592,109211544
+80,true,MC,"Increm. (Pure)",95,false,Infinity,9.3854,1557016,109211544
+80,true,MC,"Increm. (Pure)",96,false,Infinity,6.7434,1218760,109211544
+80,true,MC,"Increm. (Pure)",97,false,Infinity,6.7856,993256,109211544
+80,true,MC,"Increm. (Pure)",98,false,Infinity,7.4918,1143592,109211544
+80,true,MC,"Increm. (Pure)",99,false,Infinity,7.2810,1068424,109211544
+80,true,MC,"Increm. (Pure)",100,false,Infinity,7.4917,1331512,109211544
+80,true,MC,"Classic + RF (Tie)",1,false,Infinity,699.7649,473935352,486156312
+80,true,MC,"Classic + RF (Tie)",2,false,Infinity,1073.3665,742612344,1224353816
+80,true,MC,"Classic + RF (Tie)",3,false,Infinity,1031.3673,701523384,1928996888
+80,true,MC,"Classic + RF (Tie)",4,false,Infinity,1287.8315,889853904,2801412120
+80,true,MC,"Classic + RF (Tie)",5,false,Infinity,911.3977,625672160,3438946328
+80,true,MC,"Classic + RF (Tie)",6,false,Infinity,687.1556,456678656,3875153944
+80,true,MC,"Classic + RF (Tie)",7,false,Infinity,829.6586,560285112,4445579288
+80,true,MC,"Classic + RF (Tie)",8,false,Infinity,800.9681,569826232,5016004632
+80,true,MC,"Classic + RF (Tie)",9,false,Infinity,1166.8917,767515592,5787756568
+80,true,MC,"Classic + RF (Tie)",10,false,Infinity,775.1086,542129760,6324627480
+80,true,MC,"Classic + RF (Tie)",11,false,Infinity,600.4229,417769320,6760835096
+80,true,MC,"Classic + RF (Tie)",12,false,Infinity,617.0364,411500056,7163488280
+80,true,MC,"Classic + RF (Tie)",13,false,Infinity,1031.5112,710651312,7868131352
+80,true,MC,"Classic + RF (Tie)",14,false,Infinity,631.8197,425939824,8304338968
+80,true,MC,"Classic + RF (Tie)",15,false,Infinity,595.1649,415913416,8706992152
+80,true,MC,"Classic + RF (Tie)",16,false,Infinity,1042.0693,704276544,9411635224
+80,true,MC,"Classic + RF (Tie)",17,false,Infinity,762.0269,513468424,9914951704
+80,true,MC,"Classic + RF (Tie)",18,false,Infinity,1146.4863,784581768,10374569272
+80,true,MC,"Classic + RF (Tie)",19,false,Infinity,692.5161,479524928,945773880
+80,true,MC,"Classic + RF (Tie)",20,false,Infinity,896.9766,618969152,1583308088
+80,true,MC,"Classic + RF (Tie)",21,false,Infinity,830.7608,576728400,2153733432
+80,true,MC,"Classic + RF (Tie)",22,false,Infinity,1162.0703,783955272,2925485368
+80,true,MC,"Classic + RF (Tie)",23,false,Infinity,1005.8257,679252704,3596574008
+80,true,MC,"Classic + RF (Tie)",24,false,Infinity,1026.7298,706355528,4301217080
+80,true,MC,"Classic + RF (Tie)",25,false,Infinity,871.0131,595678160,4905196856
+80,true,MC,"Classic + RF (Tie)",26,false,Infinity,1011.8853,706390264,5609839928
+80,true,MC,"Classic + RF (Tie)",27,false,Infinity,932.7587,638532520,6247374136
+80,true,MC,"Classic + RF (Tie)",28,false,Infinity,690.4728,476262880,6717136184
+80,true,MC,"Classic + RF (Tie)",29,false,Infinity,712.6105,481993608,7220452664
+80,true,MC,"Classic + RF (Tie)",30,false,Infinity,886.7229,607850824,7824432440
+80,true,MC,"Classic + RF (Tie)",31,false,Infinity,804.4622,539544848,8361303352
+80,true,MC,"Classic + RF (Tie)",32,false,Infinity,715.5826,498903888,8864619832
+80,true,MC,"Classic + RF (Tie)",33,false,Infinity,757.5434,511356936,9367936312
+80,true,MC,"Classic + RF (Tie)",34,false,Infinity,758.6853,514942408,9904807224
+80,true,MC,"Classic + RF (Tie)",35,false,Infinity,1068.5960,725467080,10310172632
+80,true,MC,"Classic + RF (Tie)",36,false,Infinity,733.0049,520646000,914931672
+80,true,MC,"Classic + RF (Tie)",37,false,Infinity,910.0358,625543528,1518911448
+80,true,MC,"Classic + RF (Tie)",38,false,Infinity,909.4934,618232352,2156445656
+80,true,MC,"Classic + RF (Tie)",39,false,Infinity,983.4914,670155312,2827534296
+80,true,MC,"Classic + RF (Tie)",40,false,Infinity,929.8491,628757832,3431514072
+80,true,MC,"Classic + RF (Tie)",41,false,Infinity,1119.3102,750648544,4203266008
+80,true,MC,"Classic + RF (Tie)",42,false,Infinity,1124.3487,743445232,4941463512
+80,true,MC,"Classic + RF (Tie)",43,false,Infinity,883.5616,615279280,5545443288
+80,true,MC,"Classic + RF (Tie)",44,false,Infinity,1150.5850,792241400,6350749656
+80,true,MC,"Classic + RF (Tie)",45,false,Infinity,970.4244,650517968,6988283864
+80,true,MC,"Classic + RF (Tie)",46,false,Infinity,878.9894,576550440,7592263640
+80,true,MC,"Classic + RF (Tie)",47,false,Infinity,863.1976,600352664,8162688984
+80,true,MC,"Classic + RF (Tie)",48,false,Infinity,550.3089,381308416,8565342168
+80,true,MC,"Classic + RF (Tie)",49,false,Infinity,997.0948,679036424,9236430808
+80,true,MC,"Classic + RF (Tie)",50,false,Infinity,1103.8337,727970864,9974628312
+80,true,MC,"Classic + RF (Tie)",51,false,Infinity,766.2971,543086952,10310172632
+80,true,MC,"Classic + RF (Tie)",52,false,Infinity,853.3971,603144240,876635824
+80,true,MC,"Classic + RF (Tie)",53,false,Infinity,846.2514,588748512,1447061168
+80,true,MC,"Classic + RF (Tie)",54,false,Infinity,1254.1630,853584552,2319476400
+80,true,MC,"Classic + RF (Tie)",55,false,Infinity,1213.9962,845925376,3158337200
+80,true,MC,"Classic + RF (Tie)",56,false,Infinity,656.2564,451600584,3628099248
+80,true,MC,"Classic + RF (Tie)",57,false,Infinity,1177.1404,783820632,4399851184
+80,true,MC,"Classic + RF (Tie)",58,false,Infinity,574.7197,391372208,4802504368
+80,true,MC,"Classic + RF (Tie)",59,false,Infinity,1461.0998,964975744,5742028464
+80,true,MC,"Classic + RF (Tie)",60,false,Infinity,1054.0231,736154112,6480225968
+80,true,MC,"Classic + RF (Tie)",61,false,Infinity,882.0513,603980400,7084205744
+80,true,MC,"Classic + RF (Tie)",62,false,Infinity,785.8091,531831064,7621076656
+80,true,MC,"Classic + RF (Tie)",63,false,Infinity,896.5208,597657120,8225056432
+80,true,MC,"Classic + RF (Tie)",64,false,Infinity,711.2204,493837632,8728372912
+80,true,MC,"Classic + RF (Tie)",65,false,Infinity,1023.2547,710218904,9433015984
+80,true,MC,"Classic + RF (Tie)",66,false,Infinity,872.6592,597769664,10036995760
+80,true,MC,"Classic + RF (Tie)",67,false,Infinity,1041.3654,702698608,10305431216
+80,true,MC,"Classic + RF (Tie)",68,false,Infinity,673.6324,475586200,964301616
+80,true,MC,"Classic + RF (Tie)",69,false,Infinity,793.3621,559054320,1501172528
+80,true,MC,"Classic + RF (Tie)",70,false,Infinity,845.3850,586651776,2105152304
+80,true,MC,"Classic + RF (Tie)",71,false,Infinity,942.7864,640114416,2742686512
+80,true,MC,"Classic + RF (Tie)",72,false,Infinity,598.2173,431939552,3178894128
+80,true,MC,"Classic + RF (Tie)",73,false,Infinity,539.5498,382798192,3547992880
+80,true,MC,"Classic + RF (Tie)",74,false,Infinity,805.5762,559506536,4118418224
+80,true,MC,"Classic + RF (Tie)",75,false,Infinity,1087.2738,775588216,4890170160
+80,true,MC,"Classic + RF (Tie)",76,false,Infinity,880.3707,606704376,5494149936
+80,true,MC,"Classic + RF (Tie)",77,false,Infinity,895.1714,592425944,6098129712
+80,true,MC,"Classic + RF (Tie)",78,false,Infinity,1211.7869,833406184,6936990512
+80,true,MC,"Classic + RF (Tie)",79,false,Infinity,929.9052,641873488,7574524720
+80,true,MC,"Classic + RF (Tie)",80,false,Infinity,950.5133,662149792,8245613360
+80,true,MC,"Classic + RF (Tie)",81,false,Infinity,1563.6610,1072614792,9285800752
+80,true,MC,"Classic + RF (Tie)",82,false,Infinity,845.6884,569294480,9856226096
+80,true,MC,"Classic + RF (Tie)",83,false,Infinity,1238.1794,831123656,10311200656
+80,true,MC,"Classic + RF (Tie)",84,false,Infinity,988.9451,688206584,1184395152
+80,true,MC,"Classic + RF (Tie)",85,false,Infinity,1130.9292,769739688,1956147088
+80,true,MC,"Classic + RF (Tie)",86,false,Infinity,1000.1202,691251816,2627235728
+80,true,MC,"Classic + RF (Tie)",87,false,Infinity,949.8595,656503304,3298324368
+80,true,MC,"Classic + RF (Tie)",88,false,Infinity,933.7197,645782672,3935858576
+80,true,MC,"Classic + RF (Tie)",89,false,Infinity,1195.6305,804911376,4741164944
+80,true,MC,"Classic + RF (Tie)",90,false,Infinity,987.8590,688061840,5445808016
+80,true,MC,"Classic + RF (Tie)",91,false,Infinity,1068.4289,745014584,6184005520
+80,true,MC,"Classic + RF (Tie)",92,false,Infinity,1349.2349,913422728,7089975184
+80,true,MC,"Classic + RF (Tie)",93,false,Infinity,939.6387,642338304,7727509392
+80,true,MC,"Classic + RF (Tie)",94,false,Infinity,884.6610,601069936,8331489168
+80,true,MC,"Classic + RF (Tie)",95,false,Infinity,1177.2381,785111736,9103241104
+80,true,MC,"Classic + RF (Tie)",96,false,Infinity,993.7201,697168440,9807884176
+80,true,MC,"Classic + RF (Tie)",97,false,Infinity,843.2997,557137912,10318506968
+80,true,MC,"Classic + RF (Tie)",98,false,Infinity,902.1940,619197192,755493848
+80,true,MC,"Classic + RF (Tie)",99,false,Infinity,765.6125,542147832,1292364760
+80,true,MC,"Classic + RF (Tie)",100,false,Infinity,1290.7384,903517928,2198334424
+80,true,MC,"Increm. + RF (Tie)",1,false,Infinity,7.3901,10434880,17972888
+80,true,MC,"Increm. + RF (Tie)",2,false,Infinity,9.3831,4791128,17972888
+80,true,MC,"Increm. + RF (Tie)",3,false,Infinity,10.0939,5457168,17972888
+80,true,MC,"Increm. + RF (Tie)",4,false,Infinity,11.5801,5305456,17972888
+80,true,MC,"Increm. + RF (Tie)",5,false,Infinity,9.4768,4766368,17972888
+80,true,MC,"Increm. + RF (Tie)",6,false,Infinity,6.1057,2812152,51527320
+80,true,MC,"Increm. + RF (Tie)",7,false,Infinity,6.0324,3065352,51527320
+80,true,MC,"Increm. + RF (Tie)",8,false,Infinity,8.2509,4217392,51527320
+80,true,MC,"Increm. + RF (Tie)",9,false,Infinity,10.9249,5312160,51527320
+80,true,MC,"Increm. + RF (Tie)",10,false,Infinity,7.1936,3729136,51527320
+80,true,MC,"Increm. + RF (Tie)",11,false,Infinity,4.8536,2793192,51527320
+80,true,MC,"Increm. + RF (Tie)",12,false,Infinity,5.8421,2675432,51527320
+80,true,MC,"Increm. + RF (Tie)",13,false,Infinity,9.0770,4907664,51527320
+80,true,MC,"Increm. + RF (Tie)",14,false,Infinity,4.3686,2526712,51527320
+80,true,MC,"Increm. + RF (Tie)",15,false,Infinity,5.4255,2659264,51527320
+80,true,MC,"Increm. + RF (Tie)",16,false,Infinity,8.5044,4401696,85081752
+80,true,MC,"Increm. + RF (Tie)",17,false,Infinity,7.8815,3463264,85081752
+80,true,MC,"Increm. + RF (Tie)",18,false,Infinity,8.7837,4527936,85081752
+80,true,MC,"Increm. + RF (Tie)",19,false,Infinity,6.6490,3463080,85081752
+80,true,MC,"Increm. + RF (Tie)",20,false,Infinity,7.4341,3835296,85081752
+80,true,MC,"Increm. + RF (Tie)",21,false,Infinity,8.6729,3872992,85081752
+80,true,MC,"Increm. + RF (Tie)",22,false,Infinity,10.3573,4773520,85081752
+80,true,MC,"Increm. + RF (Tie)",23,false,Infinity,8.5804,4388032,85081752
+80,true,MC,"Increm. + RF (Tie)",24,false,Infinity,9.1893,4637848,118636184
+80,true,MC,"Increm. + RF (Tie)",25,false,Infinity,8.2866,3867408,118636184
+80,true,MC,"Increm. + RF (Tie)",26,false,Infinity,8.3662,4136312,118636184
+80,true,MC,"Increm. + RF (Tie)",27,false,Infinity,7.3200,4111048,118636184
+80,true,MC,"Increm. + RF (Tie)",28,false,Infinity,7.2533,3599488,118636184
+80,true,MC,"Increm. + RF (Tie)",29,false,Infinity,6.2201,3481616,118636184
+80,true,MC,"Increm. + RF (Tie)",30,false,Infinity,8.2882,3842448,118636184
+80,true,MC,"Increm. + RF (Tie)",31,false,Infinity,7.2829,3709968,118636184
+80,true,MC,"Increm. + RF (Tie)",32,false,Infinity,6.9880,3449672,152190616
+80,true,MC,"Increm. + RF (Tie)",33,false,Infinity,7.9239,3868672,152190616
+80,true,MC,"Increm. + RF (Tie)",34,false,Infinity,8.2950,3876520,152190616
+80,true,MC,"Increm. + RF (Tie)",35,false,Infinity,8.3259,4097864,152190616
+80,true,MC,"Increm. + RF (Tie)",36,false,Infinity,6.0685,3311304,152190616
+80,true,MC,"Increm. + RF (Tie)",37,false,Infinity,7.4968,3328904,152190616
+80,true,MC,"Increm. + RF (Tie)",38,false,Infinity,8.2604,4116648,152190616
+80,true,MC,"Increm. + RF (Tie)",39,false,Infinity,6.8433,3594184,152190616
+80,true,MC,"Increm. + RF (Tie)",40,false,Infinity,8.2597,4247504,152190616
+80,true,MC,"Increm. + RF (Tie)",41,false,Infinity,11.4829,5568800,185745048
+80,true,MC,"Increm. + RF (Tie)",42,false,Infinity,9.2139,4505408,185745048
+80,true,MC,"Increm. + RF (Tie)",43,false,Infinity,7.6260,3988000,185745048
+80,true,MC,"Increm. + RF (Tie)",44,false,Infinity,10.4498,5043112,185745048
+80,true,MC,"Increm. + RF (Tie)",45,false,Infinity,11.1654,5705616,185745048
+80,true,MC,"Increm. + RF (Tie)",46,false,Infinity,7.5205,3475624,185745048
+80,true,MC,"Increm. + RF (Tie)",47,false,Infinity,9.0171,4387000,185745048
+80,true,MC,"Increm. + RF (Tie)",48,false,Infinity,5.3952,2797840,219299480
+80,true,MC,"Increm. + RF (Tie)",49,false,Infinity,7.4018,3589912,219299480
+80,true,MC,"Increm. + RF (Tie)",50,false,Infinity,10.8318,5193256,219299480
+80,true,MC,"Increm. + RF (Tie)",51,false,Infinity,5.4630,2923392,219299480
+80,true,MC,"Increm. + RF (Tie)",52,false,Infinity,7.2082,3590608,219299480
+80,true,MC,"Increm. + RF (Tie)",53,false,Infinity,6.0757,3187008,219299480
+80,true,MC,"Increm. + RF (Tie)",54,false,Infinity,11.0953,5062288,219299480
+80,true,MC,"Increm. + RF (Tie)",55,false,Infinity,13.1508,6098872,219299480
+80,true,MC,"Increm. + RF (Tie)",56,false,Infinity,7.5104,3189616,219299480
+80,true,MC,"Increm. + RF (Tie)",57,false,Infinity,15.1657,7274752,252853912
+80,true,MC,"Increm. + RF (Tie)",58,false,Infinity,5.1911,2526976,252853912
+80,true,MC,"Increm. + RF (Tie)",59,false,Infinity,11.2082,5680896,252853912
+80,true,MC,"Increm. + RF (Tie)",60,false,Infinity,9.9612,4918488,252853912
+80,true,MC,"Increm. + RF (Tie)",61,false,Infinity,7.8780,3989912,252853912
+80,true,MC,"Increm. + RF (Tie)",62,false,Infinity,8.4198,3985712,252853912
+80,true,MC,"Increm. + RF (Tie)",63,false,Infinity,10.7609,4639416,252853912
+80,true,MC,"Increm. + RF (Tie)",64,false,Infinity,6.4889,3321488,286408344
+80,true,MC,"Increm. + RF (Tie)",65,false,Infinity,10.5332,5465720,286408344
+80,true,MC,"Increm. + RF (Tie)",66,false,Infinity,7.4503,3586824,286408344
+80,true,MC,"Increm. + RF (Tie)",67,false,Infinity,9.7868,4776568,286408344
+80,true,MC,"Increm. + RF (Tie)",68,false,Infinity,5.5450,3062544,286408344
+80,true,MC,"Increm. + RF (Tie)",69,false,Infinity,5.7506,3055976,286408344
+80,true,MC,"Increm. + RF (Tie)",70,false,Infinity,8.7481,4239216,286408344
+80,true,MC,"Increm. + RF (Tie)",71,false,Infinity,7.7394,3701792,286408344
+80,true,MC,"Increm. + RF (Tie)",72,false,Infinity,6.9941,3578920,319962776
+80,true,MC,"Increm. + RF (Tie)",73,false,Infinity,4.8444,2660808,319962776
+80,true,MC,"Increm. + RF (Tie)",74,false,Infinity,8.5797,4480744,319962776
+80,true,MC,"Increm. + RF (Tie)",75,false,Infinity,10.3169,5312856,319962776
+80,true,MC,"Increm. + RF (Tie)",76,false,Infinity,10.2259,4925456,319962776
+80,true,MC,"Increm. + RF (Tie)",77,false,Infinity,7.1910,3580080,319962776
+80,true,MC,"Increm. + RF (Tie)",78,false,Infinity,9.3315,4772728,319962776
+80,true,MC,"Increm. + RF (Tie)",79,false,Infinity,6.9838,3202464,319962776
+80,true,MC,"Increm. + RF (Tie)",80,false,Infinity,7.6081,3832008,353517208
+80,true,MC,"Increm. + RF (Tie)",81,false,Infinity,15.2313,7443304,353517208
+80,true,MC,"Increm. + RF (Tie)",82,false,Infinity,10.2922,4633616,353517208
+80,true,MC,"Increm. + RF (Tie)",83,false,Infinity,14.5463,6770448,353517208
+80,true,MC,"Increm. + RF (Tie)",84,false,Infinity,9.7757,5182968,353517208
+80,true,MC,"Increm. + RF (Tie)",85,false,Infinity,8.2730,4118224,353517208
+80,true,MC,"Increm. + RF (Tie)",86,false,Infinity,6.8634,3580152,353517208
+80,true,MC,"Increm. + RF (Tie)",87,false,Infinity,8.1806,4249648,387071640
+80,true,MC,"Increm. + RF (Tie)",88,false,Infinity,7.9517,4244392,387071640
+80,true,MC,"Increm. + RF (Tie)",89,false,Infinity,8.5120,4793024,387071640
+80,true,MC,"Increm. + RF (Tie)",90,false,Infinity,8.3243,4416480,387071640
+80,true,MC,"Increm. + RF (Tie)",91,false,Infinity,11.5715,5841160,387071640
+80,true,MC,"Increm. + RF (Tie)",92,false,Infinity,11.4631,5420680,387071640
+80,true,MC,"Increm. + RF (Tie)",93,false,Infinity,7.3685,3710744,387071640
+80,true,MC,"Increm. + RF (Tie)",94,false,Infinity,9.6247,3984976,420626072
+80,true,MC,"Increm. + RF (Tie)",95,false,Infinity,11.1017,5435936,420626072
+80,true,MC,"Increm. + RF (Tie)",96,false,Infinity,7.6312,4235848,420626072
+80,true,MC,"Increm. + RF (Tie)",97,false,Infinity,7.8743,3453248,420626072
+80,true,MC,"Increm. + RF (Tie)",98,false,Infinity,8.7959,3994376,420626072
+80,true,MC,"Increm. + RF (Tie)",99,false,Infinity,7.4357,3711424,420626072
+80,true,MC,"Increm. + RF (Tie)",100,false,Infinity,8.7472,4637912,420626072
+80,true,MP,"Classic (Pure)",1,false,Infinity,241.5084,622910032,629840000
+80,true,MP,"Classic (Pure)",2,false,Infinity,215.4985,559176024,1200265344
+80,true,MP,"Classic (Pure)",3,false,Infinity,109.6316,284501824,1468700800
+80,true,MP,"Classic (Pure)",4,false,Infinity,154.9656,409992944,1871353984
+80,true,MP,"Classic (Pure)",5,false,Infinity,216.7534,556630992,2441779328
+80,true,MP,"Classic (Pure)",6,false,Infinity,134.2361,342789528,2777323648
+80,true,MP,"Classic (Pure)",7,false,Infinity,287.8651,746211488,3515521152
+80,true,MP,"Classic (Pure)",8,false,Infinity,152.1280,391953152,3918174336
+80,true,MP,"Classic (Pure)",9,false,Infinity,381.0949,938610240,4857698432
+80,true,MP,"Classic (Pure)",10,false,Infinity,102.8799,263066752,5126133888
+80,true,MP,"Classic (Pure)",11,false,Infinity,217.2645,556625120,5696559232
+80,true,MP,"Classic (Pure)",12,false,Infinity,338.3102,867518616,6535420032
+80,true,MP,"Classic (Pure)",13,false,Infinity,162.9569,336338920,6870964352
+80,true,MP,"Classic (Pure)",14,false,Infinity,153.8317,393956360,7273617536
+80,true,MP,"Classic (Pure)",15,false,Infinity,138.3826,353642088,7642716288
+80,true,MP,"Classic (Pure)",16,false,Infinity,150.1800,388952960,8011815040
+80,true,MP,"Classic (Pure)",17,false,Infinity,301.7835,790460840,8817121408
+80,true,MP,"Classic (Pure)",18,false,Infinity,236.1163,611036216,9421101184
+80,true,MP,"Classic (Pure)",19,false,Infinity,124.9207,318003216,9756645504
+80,true,MP,"Classic (Pure)",20,false,Infinity,145.6302,373404648,10125744256
+80,true,MP,"Classic (Pure)",21,false,Infinity,142.0986,351982576,10361658032
+80,true,MP,"Classic (Pure)",22,false,Infinity,124.9456,318510672,530209456
+80,true,MP,"Classic (Pure)",23,false,Infinity,187.1825,486008144,999971504
+80,true,MP,"Classic (Pure)",24,false,Infinity,164.3333,431271232,1436179120
+80,true,MP,"Classic (Pure)",25,false,Infinity,205.7570,543456040,1973050032
+80,true,MP,"Classic (Pure)",26,false,Infinity,157.3244,409888008,2375703216
+80,true,MP,"Classic (Pure)",27,false,Infinity,189.9013,486605144,2879019696
+80,true,MP,"Classic (Pure)",28,false,Infinity,271.9748,686183816,3550108336
+80,true,MP,"Classic (Pure)",29,false,Infinity,162.8014,415394536,3986315952
+80,true,MP,"Classic (Pure)",30,false,Infinity,217.1086,558915184,4523186864
+80,true,MP,"Classic (Pure)",31,false,Infinity,181.6273,467440360,4992948912
+80,true,MP,"Classic (Pure)",32,false,Infinity,177.1208,460109376,5462710960
+80,true,MP,"Classic (Pure)",33,false,Infinity,139.3401,351545472,5831809712
+80,true,MP,"Classic (Pure)",34,false,Infinity,152.4716,389906192,6200908464
+80,true,MP,"Classic (Pure)",35,false,Infinity,262.5946,677459472,6871997104
+80,true,MP,"Classic (Pure)",36,false,Infinity,148.7194,379815056,7274650288
+80,true,MP,"Classic (Pure)",37,false,Infinity,274.1352,710363176,7979293360
+80,true,MP,"Classic (Pure)",38,false,Infinity,152.4803,387935040,8348392112
+80,true,MP,"Classic (Pure)",39,false,Infinity,375.6700,957632648,9321470640
+80,true,MP,"Classic (Pure)",40,false,Infinity,157.6222,408714192,9724123824
+80,true,MP,"Classic (Pure)",41,false,Infinity,312.4391,776017032,10341916080
+80,true,MP,"Classic (Pure)",42,false,Infinity,165.7300,425309064,745348528
+80,true,MP,"Classic (Pure)",43,false,Infinity,220.9038,570343872,1315773872
+80,true,MP,"Classic (Pure)",44,false,Infinity,170.6980,441791920,1751981488
+80,true,MP,"Classic (Pure)",45,false,Infinity,136.6150,352964288,2121080240
+80,true,MP,"Classic (Pure)",46,false,Infinity,281.4656,725054744,2825723312
+80,true,MP,"Classic (Pure)",47,false,Infinity,173.2432,444371584,3295485360
+80,true,MP,"Classic (Pure)",48,false,Infinity,195.3374,504574912,3798801840
+80,true,MP,"Classic (Pure)",49,false,Infinity,137.6458,353744368,4134346160
+80,true,MP,"Classic (Pure)",50,false,Infinity,152.2010,392878248,4536999344
+80,true,MP,"Classic (Pure)",51,false,Infinity,219.7137,568520368,5107424688
+80,true,MP,"Classic (Pure)",52,false,Infinity,301.3720,681425432,5778513328
+80,true,MP,"Classic (Pure)",53,false,Infinity,188.0138,481437672,6248275376
+80,true,MP,"Classic (Pure)",54,false,Infinity,227.8979,587984176,6852255152
+80,true,MP,"Classic (Pure)",55,false,Infinity,234.0053,613480232,7456234928
+80,true,MP,"Classic (Pure)",56,false,Infinity,156.2803,408723872,7858888112
+80,true,MP,"Classic (Pure)",57,false,Infinity,194.7244,507218472,8395759024
+80,true,MP,"Classic (Pure)",58,false,Infinity,289.9608,735266288,9100402096
+80,true,MP,"Classic (Pure)",59,false,Infinity,291.3108,758453112,9872154032
+80,true,MP,"Classic (Pure)",60,false,Infinity,214.5353,532879312,10308361648
+80,true,MP,"Classic (Pure)",61,false,Infinity,256.4101,664486376,864721024
+80,true,MP,"Classic (Pure)",62,false,Infinity,159.8390,411782936,1267374208
+80,true,MP,"Classic (Pure)",63,false,Infinity,128.0858,336304360,1602918528
+80,true,MP,"Classic (Pure)",64,false,Infinity,195.1486,507512248,2106235008
+80,true,MP,"Classic (Pure)",65,false,Infinity,180.4631,466983264,2575997056
+80,true,MP,"Classic (Pure)",66,false,Infinity,208.0892,535776144,3112867968
+80,true,MP,"Classic (Pure)",67,false,Infinity,110.0912,280765880,3381303424
+80,true,MP,"Classic (Pure)",68,false,Infinity,141.1914,358664504,3750402176
+80,true,MP,"Classic (Pure)",69,false,Infinity,143.5895,370819104,4119500928
+80,true,MP,"Classic (Pure)",70,false,Infinity,151.1142,386909640,4522154112
+80,true,MP,"Classic (Pure)",71,false,Infinity,187.0260,487138456,4991916160
+80,true,MP,"Classic (Pure)",72,false,Infinity,191.2065,495997576,5495232640
+80,true,MP,"Classic (Pure)",73,false,Infinity,153.9934,389325936,5897885824
+80,true,MP,"Classic (Pure)",74,false,Infinity,188.9450,480877000,6367647872
+80,true,MP,"Classic (Pure)",75,false,Infinity,184.8460,477038176,6837409920
+80,true,MP,"Classic (Pure)",76,false,Infinity,144.6607,374384176,7206508672
+80,true,MP,"Classic (Pure)",77,false,Infinity,289.6493,757108336,7978260608
+80,true,MP,"Classic (Pure)",78,false,Infinity,208.6826,533439256,8515131520
+80,true,MP,"Classic (Pure)",79,false,Infinity,168.0880,428329616,8951339136
+80,true,MP,"Classic (Pure)",80,false,Infinity,182.4484,461130216,9387546752
+80,true,MP,"Classic (Pure)",81,false,Infinity,197.0129,498916896,9890863232
+80,true,MP,"Classic (Pure)",82,false,Infinity,145.2201,370213288,10259961984
+80,true,MP,"Classic (Pure)",83,false,Infinity,262.2617,664856040,10327070848
+80,true,MP,"Classic (Pure)",84,false,Infinity,143.6220,320533936,979099520
+80,true,MP,"Classic (Pure)",85,false,Infinity,283.7897,740689064,1717297024
+80,true,MP,"Classic (Pure)",86,false,Infinity,263.2796,680907488,2388385664
+80,true,MP,"Classic (Pure)",87,false,Infinity,146.6589,371761736,2757484416
+80,true,MP,"Classic (Pure)",88,false,Infinity,266.9541,680438976,3428573056
+80,true,MP,"Classic (Pure)",89,false,Infinity,162.3093,417905680,3864780672
+80,true,MP,"Classic (Pure)",90,false,Infinity,175.2273,443742344,4300988288
+80,true,MP,"Classic (Pure)",91,false,Infinity,137.8807,353961184,4670087040
+80,true,MP,"Classic (Pure)",92,false,Infinity,136.5533,350708672,5005631360
+80,true,MP,"Classic (Pure)",93,false,Infinity,125.2807,320237552,5341175680
+80,true,MP,"Classic (Pure)",94,false,Infinity,242.3462,628685768,5945155456
+80,true,MP,"Classic (Pure)",95,false,Infinity,143.8597,371405504,6314254208
+80,true,MP,"Classic (Pure)",96,false,Infinity,225.4536,577570856,6918233984
+80,true,MP,"Classic (Pure)",97,false,Infinity,165.6629,423778368,7320887168
+80,true,MP,"Classic (Pure)",98,false,Infinity,150.9796,388749672,7723540352
+80,true,MP,"Classic (Pure)",99,false,Infinity,221.9562,573740656,8293965696
+80,true,MP,"Classic (Pure)",100,false,Infinity,201.0541,521335456,8797282176
+80,true,MP,"Increm. (Pure)",1,false,Infinity,203.3196,566916488,563658880
+80,true,MP,"Increm. (Pure)",2,false,Infinity,158.3881,477922440,1066975360
+80,true,MP,"Increm. (Pure)",3,false,Infinity,74.3654,222490048,1268301952
+80,true,MP,"Increm. (Pure)",4,false,Infinity,124.2230,379412224,1670955136
+80,true,MP,"Increm. (Pure)",5,false,Infinity,157.4317,473301592,2140717184
+80,true,MP,"Increm. (Pure)",6,false,Infinity,106.4465,318681936,2442707072
+80,true,MP,"Increm. (Pure)",7,false,Infinity,163.0132,474878832,2912469120
+80,true,MP,"Increm. (Pure)",8,false,Infinity,108.4727,333903008,3248013440
+80,true,MP,"Increm. (Pure)",9,false,Infinity,200.6545,587236320,3851993216
+80,true,MP,"Increm. (Pure)",10,false,Infinity,74.0275,222884072,4053319808
+80,true,MP,"Increm. (Pure)",11,false,Infinity,170.5526,509172800,4590190720
+80,true,MP,"Increm. (Pure)",12,false,Infinity,234.7280,705713568,5294833792
+80,true,MP,"Increm. (Pure)",13,false,Infinity,95.2513,285347168,5563269248
+80,true,MP,"Increm. (Pure)",14,false,Infinity,107.9495,319997016,5898813568
+80,true,MP,"Increm. (Pure)",15,false,Infinity,111.5733,332819864,6234357888
+80,true,MP,"Increm. (Pure)",16,false,Infinity,133.0501,394779160,6603456640
+80,true,MP,"Increm. (Pure)",17,false,Infinity,227.3195,684800144,7308099712
+80,true,MP,"Increm. (Pure)",18,false,Infinity,153.7005,460019968,7777861760
+80,true,MP,"Increm. (Pure)",19,false,Infinity,113.2738,332670528,8079851648
+80,true,MP,"Increm. (Pure)",20,false,Infinity,126.8723,378866992,8482504832
+80,true,MP,"Increm. (Pure)",21,false,Infinity,145.3678,348186688,8818049152
+80,true,MP,"Increm. (Pure)",22,false,Infinity,106.2784,316309888,9153593472
+80,true,MP,"Increm. (Pure)",23,false,Infinity,143.3784,426521960,9556246656
+80,true,MP,"Increm. (Pure)",24,false,Infinity,141.6428,425610576,9992454272
+80,true,MP,"Increm. (Pure)",25,false,Infinity,178.7515,523548448,10340693392
+80,true,MP,"Increm. (Pure)",26,false,Infinity,118.2113,347867656,576353680
+80,true,MP,"Increm. (Pure)",27,false,Infinity,138.9126,413840664,979006864
+80,true,MP,"Increm. (Pure)",28,false,Infinity,201.4607,574392184,1549432208
+80,true,MP,"Increm. (Pure)",29,false,Infinity,117.4704,348608376,1918530960
+80,true,MP,"Increm. (Pure)",30,false,Infinity,173.2398,508258912,2421847440
+80,true,MP,"Increm. (Pure)",31,false,Infinity,102.2288,302178720,2723837328
+80,true,MP,"Increm. (Pure)",32,false,Infinity,128.0964,380867960,3092936080
+80,true,MP,"Increm. (Pure)",33,false,Infinity,116.3364,350870504,3462034832
+80,true,MP,"Increm. (Pure)",34,false,Infinity,112.4077,333840608,3797579152
+80,true,MP,"Increm. (Pure)",35,false,Infinity,206.3216,617335872,4401558928
+80,true,MP,"Increm. (Pure)",36,false,Infinity,101.3587,301163248,4703548816
+80,true,MP,"Increm. (Pure)",37,false,Infinity,266.2892,787948760,5508855184
+80,true,MP,"Increm. (Pure)",38,false,Infinity,95.3868,286746632,5777290640
+80,true,MP,"Increm. (Pure)",39,false,Infinity,270.2728,779816304,6549042576
+80,true,MP,"Increm. (Pure)",40,false,Infinity,119.0295,364990184,6918141328
+80,true,MP,"Increm. (Pure)",41,false,Infinity,222.4598,648879584,7589229968
+80,true,MP,"Increm. (Pure)",42,false,Infinity,122.8044,363716128,7924774288
+80,true,MP,"Increm. (Pure)",43,false,Infinity,128.4639,381473872,8327427472
+80,true,MP,"Increm. (Pure)",44,false,Infinity,129.7139,380817760,8696526224
+80,true,MP,"Increm. (Pure)",45,false,Infinity,101.5949,300543456,8998516112
+80,true,MP,"Increm. (Pure)",46,false,Infinity,332.5130,977761352,9971594640
+80,true,MP,"Increm. (Pure)",47,false,Infinity,137.2267,395722608,10307138960
+80,true,MP,"Increm. (Pure)",48,false,Infinity,131.1602,396219192,507682640
+80,true,MP,"Increm. (Pure)",49,false,Infinity,98.4759,300313024,809672528
+80,true,MP,"Increm. (Pure)",50,false,Infinity,113.1950,331951480,1145216848
+80,true,MP,"Increm. (Pure)",51,false,Infinity,162.0440,494316520,1614978896
+80,true,MP,"Increm. (Pure)",52,false,Infinity,193.0097,590997872,2218958672
+80,true,MP,"Increm. (Pure)",53,false,Infinity,160.1264,477129360,2688720720
+80,true,MP,"Increm. (Pure)",54,false,Infinity,131.9962,396885336,3091373904
+80,true,MP,"Increm. (Pure)",55,false,Infinity,172.8223,523829384,3628244816
+80,true,MP,"Increm. (Pure)",56,false,Infinity,122.0513,367669216,3997343568
+80,true,MP,"Increm. (Pure)",57,false,Infinity,148.6141,442675064,4433551184
+80,true,MP,"Increm. (Pure)",58,false,Infinity,168.2880,496013496,4936867664
+80,true,MP,"Increm. (Pure)",59,false,Infinity,190.6837,571238248,5507293008
+80,true,MP,"Increm. (Pure)",60,false,Infinity,208.4766,625812216,6111272784
+80,true,MP,"Increm. (Pure)",61,false,Infinity,181.3760,542103752,6681698128
+80,true,MP,"Increm. (Pure)",62,false,Infinity,136.5806,398412320,7050796880
+80,true,MP,"Increm. (Pure)",63,false,Infinity,94.6829,287517032,7352786768
+80,true,MP,"Increm. (Pure)",64,false,Infinity,151.2386,442987232,7788994384
+80,true,MP,"Increm. (Pure)",65,false,Infinity,149.0302,448163104,8258756432
+80,true,MP,"Increm. (Pure)",66,false,Infinity,144.7203,427099320,8661409616
+80,true,MP,"Increm. (Pure)",67,false,Infinity,69.5632,205244248,8862736208
+80,true,MP,"Increm. (Pure)",68,false,Infinity,138.8028,302573848,9164726096
+80,true,MP,"Increm. (Pure)",69,false,Infinity,98.8994,301731824,9466715984
+80,true,MP,"Increm. (Pure)",70,false,Infinity,111.0255,332829944,9802260304
+80,true,MP,"Increm. (Pure)",71,false,Infinity,138.6867,429844672,10238467920
+80,true,MP,"Increm. (Pure)",72,false,Infinity,100.5951,299335584,10305576784
+80,true,MP,"Increm. (Pure)",73,false,Infinity,139.9715,413653800,674993256
+80,true,MP,"Increm. (Pure)",74,false,Infinity,138.0486,412280360,1111200872
+80,true,MP,"Increm. (Pure)",75,false,Infinity,133.9735,411706064,1513854056
+80,true,MP,"Increm. (Pure)",76,false,Infinity,142.5013,428181416,1950061672
+80,true,MP,"Increm. (Pure)",77,false,Infinity,214.1873,649575000,2587595880
+80,true,MP,"Increm. (Pure)",78,false,Infinity,153.2986,459553072,3057357928
+80,true,MP,"Increm. (Pure)",79,false,Infinity,209.2431,619048688,3661337704
+80,true,MP,"Increm. (Pure)",80,false,Infinity,120.4765,366913544,4030436456
+80,true,MP,"Increm. (Pure)",81,false,Infinity,146.6439,428631272,4466644072
+80,true,MP,"Increm. (Pure)",82,false,Infinity,100.5256,303053648,4768633960
+80,true,MP,"Increm. (Pure)",83,false,Infinity,185.8672,556215488,5339059304
+80,true,MP,"Increm. (Pure)",84,false,Infinity,91.0761,270489560,5607494760
+80,true,MP,"Increm. (Pure)",85,false,Infinity,161.7296,473166384,6077256808
+80,true,MP,"Increm. (Pure)",86,false,Infinity,177.2867,524524512,6580573288
+80,true,MP,"Increm. (Pure)",87,false,Infinity,128.1829,382512824,6983226472
+80,true,MP,"Increm. (Pure)",88,false,Infinity,162.5161,476786736,7452988520
+80,true,MP,"Increm. (Pure)",89,false,Infinity,107.8542,316647048,7754978408
+80,true,MP,"Increm. (Pure)",90,false,Infinity,122.8882,362706392,8124077160
+80,true,MP,"Increm. (Pure)",91,false,Infinity,105.6675,317729432,8459621480
+80,true,MP,"Increm. (Pure)",92,false,Infinity,101.2608,302594304,8761611368
+80,true,MP,"Increm. (Pure)",93,false,Infinity,91.9639,271349320,9030046824
+80,true,MP,"Increm. (Pure)",94,false,Infinity,244.6538,745115544,9768244328
+80,true,MP,"Increm. (Pure)",95,false,Infinity,100.9851,300605784,10070234216
+80,true,MP,"Increm. (Pure)",96,false,Infinity,157.7811,462566168,10305356768
+80,true,MP,"Increm. (Pure)",97,false,Infinity,143.8799,440808976,708789216
+80,true,MP,"Increm. (Pure)",98,false,Infinity,192.9787,587886320,1279214560
+80,true,MP,"Increm. (Pure)",99,false,Infinity,154.2621,462726736,1748976608
+80,true,MP,"Increm. (Pure)",100,false,Infinity,174.4902,524296224,2285847520
+80,true,MP,"Classic + RF (Tie)",1,false,Infinity,323.7061,718294552,741597336
+80,true,MP,"Classic + RF (Tie)",2,false,Infinity,293.9779,661166080,1412685976
+80,true,MP,"Classic + RF (Tie)",3,false,Infinity,147.3750,330497408,1714675864
+80,true,MP,"Classic + RF (Tie)",4,false,Infinity,209.8281,483514704,2217992344
+80,true,MP,"Classic + RF (Tie)",5,false,Infinity,301.0359,664870832,2889080984
+80,true,MP,"Classic + RF (Tie)",6,false,Infinity,229.6415,510344792,3392397464
+80,true,MP,"Classic + RF (Tie)",7,false,Infinity,398.1565,883192104,4264812696
+80,true,MP,"Classic + RF (Tie)",8,false,Infinity,201.8502,462007320,4734574744
+80,true,MP,"Classic + RF (Tie)",9,false,Infinity,571.9430,1120475144,5841871000
+80,true,MP,"Classic + RF (Tie)",10,false,Infinity,143.0106,317715216,6177415320
+80,true,MP,"Classic + RF (Tie)",11,false,Infinity,295.9782,645078016,6814949528
+80,true,MP,"Classic + RF (Tie)",12,false,Infinity,466.2734,1035890120,7855136920
+80,true,MP,"Classic + RF (Tie)",13,false,Infinity,174.8394,396227064,8257790104
+80,true,MP,"Classic + RF (Tie)",14,false,Infinity,209.1092,465971096,8727552152
+80,true,MP,"Classic + RF (Tie)",15,false,Infinity,188.8177,422822432,9130205336
+80,true,MP,"Classic + RF (Tie)",16,false,Infinity,208.4002,469883688,9599967384
+80,true,MP,"Classic + RF (Tie)",17,false,Infinity,441.5055,942525064,10429109112
+80,true,MP,"Classic + RF (Tie)",18,false,Infinity,326.0928,729163752,1067422584
+80,true,MP,"Classic + RF (Tie)",19,false,Infinity,165.3531,375053360,1436521336
+80,true,MP,"Classic + RF (Tie)",20,false,Infinity,190.3232,439560400,1872728952
+80,true,MP,"Classic + RF (Tie)",21,false,Infinity,184.9976,418388704,2308936568
+80,true,MP,"Classic + RF (Tie)",22,false,Infinity,165.3370,374108368,2678035320
+80,true,MP,"Classic + RF (Tie)",23,false,Infinity,253.7377,571661608,3248460664
+80,true,MP,"Classic + RF (Tie)",24,false,Infinity,229.4430,506492784,3751777144
+80,true,MP,"Classic + RF (Tie)",25,false,Infinity,280.1218,617802648,4389311352
+80,true,MP,"Classic + RF (Tie)",26,false,Infinity,220.4362,492248424,4859073400
+80,true,MP,"Classic + RF (Tie)",27,false,Infinity,302.2345,574567672,5429498744
+80,true,MP,"Classic + RF (Tie)",28,false,Infinity,385.9534,819233256,6268359544
+80,true,MP,"Classic + RF (Tie)",29,false,Infinity,224.5985,487237280,6738121592
+80,true,MP,"Classic + RF (Tie)",30,false,Infinity,305.5886,654979864,7409210232
+80,true,MP,"Classic + RF (Tie)",31,false,Infinity,258.6363,556319152,7946081144
+80,true,MP,"Classic + RF (Tie)",32,false,Infinity,244.6871,551430224,8516506488
+80,true,MP,"Classic + RF (Tie)",33,false,Infinity,187.8442,422548096,8919159672
+80,true,MP,"Classic + RF (Tie)",34,false,Infinity,207.7138,462207992,9388921720
+80,true,MP,"Classic + RF (Tie)",35,false,Infinity,361.5497,817387704,10227782520
+80,true,MP,"Classic + RF (Tie)",36,false,Infinity,199.8168,446551176,10328445816
+80,true,MP,"Classic + RF (Tie)",37,false,Infinity,380.1267,845669160,1229531944
+80,true,MP,"Classic + RF (Tie)",38,false,Infinity,202.4333,461936288,1699293992
+80,true,MP,"Classic + RF (Tie)",39,false,Infinity,541.9932,1150888568,2840144680
+80,true,MP,"Classic + RF (Tie)",40,false,Infinity,222.3091,485424544,3343461160
+80,true,MP,"Classic + RF (Tie)",41,false,Infinity,412.9135,906356888,4249430824
+80,true,MP,"Classic + RF (Tie)",42,false,Infinity,230.3273,507950080,4752747304
+80,true,MP,"Classic + RF (Tie)",43,false,Infinity,305.6479,678616448,5423835944
+80,true,MP,"Classic + RF (Tie)",44,false,Infinity,237.3306,511969472,5927152424
+80,true,MP,"Classic + RF (Tie)",45,false,Infinity,188.4119,419191760,6363360040
+80,true,MP,"Classic + RF (Tie)",46,false,Infinity,400.1942,866085224,7235775272
+80,true,MP,"Classic + RF (Tie)",47,false,Infinity,237.5298,531256400,7739091752
+80,true,MP,"Classic + RF (Tie)",48,false,Infinity,265.2149,602409160,8343071528
+80,true,MP,"Classic + RF (Tie)",49,false,Infinity,188.7351,424185008,8779279144
+80,true,MP,"Classic + RF (Tie)",50,false,Infinity,212.8235,466339152,9249041192
+80,true,MP,"Classic + RF (Tie)",51,false,Infinity,299.8633,680382672,9920129832
+80,true,MP,"Classic + RF (Tie)",52,false,Infinity,424.5230,861713760,10357460384
+80,true,MP,"Classic + RF (Tie)",53,false,Infinity,246.8375,557366704,1096437152
+80,true,MP,"Classic + RF (Tie)",54,false,Infinity,315.8589,707721576,1834634656
+80,true,MP,"Classic + RF (Tie)",55,false,Infinity,328.1551,726222160,2539277728
+80,true,MP,"Classic + RF (Tie)",56,false,Infinity,214.5139,488824424,3042594208
+80,true,MP,"Classic + RF (Tie)",57,false,Infinity,267.6900,596309720,3646573984
+80,true,MP,"Classic + RF (Tie)",58,false,Infinity,410.8203,889361984,4518989216
+80,true,MP,"Classic + RF (Tie)",59,false,Infinity,420.8787,911321088,5424958880
+80,true,MP,"Classic + RF (Tie)",60,false,Infinity,287.9534,640581808,6062493088
+80,true,MP,"Classic + RF (Tie)",61,false,Infinity,362.8986,800324888,6867799456
+80,true,MP,"Classic + RF (Tie)",62,false,Infinity,217.4610,480476672,7371115936
+80,true,MP,"Classic + RF (Tie)",63,false,Infinity,175.8841,396405512,7740214688
+80,true,MP,"Classic + RF (Tie)",64,false,Infinity,261.8049,572145696,8310640032
+80,true,MP,"Classic + RF (Tie)",65,false,Infinity,247.9204,553304752,8881065376
+80,true,MP,"Classic + RF (Tie)",66,false,Infinity,285.6905,639106904,9518599584
+80,true,MP,"Classic + RF (Tie)",67,false,Infinity,148.9966,334816304,9854143904
+80,true,MP,"Classic + RF (Tie)",68,false,Infinity,201.2982,449951144,10290351520
+80,true,MP,"Classic + RF (Tie)",69,false,Infinity,197.1468,443189264,10323905952
+80,true,MP,"Classic + RF (Tie)",70,false,Infinity,204.8893,465767072,912085496
+80,true,MP,"Classic + RF (Tie)",71,false,Infinity,247.1800,571654792,1482510840
+80,true,MP,"Classic + RF (Tie)",72,false,Infinity,299.6115,686714808,2187153912
+80,true,MP,"Classic + RF (Tie)",73,false,Infinity,199.6710,443461016,2623361528
+80,true,MP,"Classic + RF (Tie)",74,false,Infinity,260.8414,576341968,3193786872
+80,true,MP,"Classic + RF (Tie)",75,false,Infinity,270.6484,598463112,3797766648
+80,true,MP,"Classic + RF (Tie)",76,false,Infinity,197.6496,445141736,4233974264
+80,true,MP,"Classic + RF (Tie)",77,false,Infinity,423.4438,883324168,5139943928
+80,true,MP,"Classic + RF (Tie)",78,false,Infinity,285.9257,639533760,5777478136
+80,true,MP,"Classic + RF (Tie)",79,false,Infinity,229.3027,510024440,6280794616
+80,true,MP,"Classic + RF (Tie)",80,false,Infinity,264.4571,595588952,6884774392
+80,true,MP,"Classic + RF (Tie)",81,false,Infinity,269.7965,595661296,7488754168
+80,true,MP,"Classic + RF (Tie)",82,false,Infinity,200.7871,441022152,7924961784
+80,true,MP,"Classic + RF (Tie)",83,false,Infinity,375.0183,802719096,8730268152
+80,true,MP,"Classic + RF (Tie)",84,false,Infinity,180.6378,402487896,9132921336
+80,true,MP,"Classic + RF (Tie)",85,false,Infinity,395.9725,883467224,10005336568
+80,true,MP,"Classic + RF (Tie)",86,false,Infinity,372.7051,818974400,10340498408
+80,true,MP,"Classic + RF (Tie)",87,false,Infinity,192.2483,443090048,1045920744
+80,true,MP,"Classic + RF (Tie)",88,false,Infinity,354.6643,814724696,1851227112
+80,true,MP,"Classic + RF (Tie)",89,false,Infinity,219.3962,487558224,2320989160
+80,true,MP,"Classic + RF (Tie)",90,false,Infinity,224.4312,509080984,2857860072
+80,true,MP,"Classic + RF (Tie)",91,false,Infinity,182.5759,417304520,3260513256
+80,true,MP,"Classic + RF (Tie)",92,false,Infinity,183.8395,418040528,3663166440
+80,true,MP,"Classic + RF (Tie)",93,false,Infinity,167.9071,374599472,4065819624
+80,true,MP,"Classic + RF (Tie)",94,false,Infinity,348.1471,758247112,4804017128
+80,true,MP,"Classic + RF (Tie)",95,false,Infinity,196.1740,441337624,5240224744
+80,true,MP,"Classic + RF (Tie)",96,false,Infinity,304.9928,682493320,5944867816
+80,true,MP,"Classic + RF (Tie)",97,false,Infinity,221.1794,505201528,6448184296
+80,true,MP,"Classic + RF (Tie)",98,false,Infinity,207.2395,462916072,6917946344
+80,true,MP,"Classic + RF (Tie)",99,false,Infinity,298.5916,663312896,7555480552
+80,true,MP,"Classic + RF (Tie)",100,false,Infinity,294.1978,613296184,8193014760
+80,true,MP,"Increm. + RF (Tie)",1,false,Infinity,187.0003,552499552,574752920
+80,true,MP,"Increm. + RF (Tie)",2,false,Infinity,162.3190,480771888,1044514968
+80,true,MP,"Increm. + RF (Tie)",3,false,Infinity,75.6861,223820160,1279395992
+80,true,MP,"Increm. + RF (Tie)",4,false,Infinity,126.0549,381679512,1648494744
+80,true,MP,"Increm. + RF (Tie)",5,false,Infinity,158.7844,471079256,2118256792
+80,true,MP,"Increm. + RF (Tie)",6,false,Infinity,127.9455,380413792,2520909976
+80,true,MP,"Increm. + RF (Tie)",7,false,Infinity,161.8931,477731960,2990672024
+80,true,MP,"Increm. + RF (Tie)",8,false,Infinity,110.2410,335881200,3326216344
+80,true,MP,"Increm. + RF (Tie)",9,false,Infinity,203.3757,589786256,3930196120
+80,true,MP,"Increm. + RF (Tie)",10,false,Infinity,73.8893,219791384,4131522712
+80,true,MP,"Increm. + RF (Tie)",11,false,Infinity,164.6772,485501816,4634839192
+80,true,MP,"Increm. + RF (Tie)",12,false,Infinity,236.6883,709876624,5339482264
+80,true,MP,"Increm. + RF (Tie)",13,false,Infinity,96.2609,287056624,5607917720
+80,true,MP,"Increm. + RF (Tie)",14,false,Infinity,108.1513,318478912,5943462040
+80,true,MP,"Increm. + RF (Tie)",15,false,Infinity,112.1761,331749264,6279006360
+80,true,MP,"Increm. + RF (Tie)",16,false,Infinity,132.6020,388591048,6648105112
+80,true,MP,"Increm. + RF (Tie)",17,false,Infinity,224.2032,673747672,7319193752
+80,true,MP,"Increm. + RF (Tie)",18,false,Infinity,155.0385,462777272,7788955800
+80,true,MP,"Increm. + RF (Tie)",19,false,Infinity,113.8523,334659720,8124500120
+80,true,MP,"Increm. + RF (Tie)",20,false,Infinity,127.4208,381146648,8527153304
+80,true,MP,"Increm. + RF (Tie)",21,false,Infinity,119.0943,350268752,8862697624
+80,true,MP,"Increm. + RF (Tie)",22,false,Infinity,107.4388,318196000,9164687512
+80,true,MP,"Increm. + RF (Tie)",23,false,Infinity,139.2559,417449784,9600895128
+80,true,MP,"Increm. + RF (Tie)",24,false,Infinity,142.4256,428170064,10037102744
+80,true,MP,"Increm. + RF (Tie)",25,false,Infinity,170.3564,499457736,10352495272
+80,true,MP,"Increm. + RF (Tie)",26,false,Infinity,116.4561,342770400,588155560
+80,true,MP,"Increm. + RF (Tie)",27,false,Infinity,140.1479,416301104,990808744
+80,true,MP,"Increm. + RF (Tie)",28,false,Infinity,200.2065,570323288,1561234088
+80,true,MP,"Increm. + RF (Tie)",29,false,Infinity,118.2310,350703112,1930332840
+80,true,MP,"Increm. + RF (Tie)",30,false,Infinity,171.4101,499418216,2433649320
+80,true,MP,"Increm. + RF (Tie)",31,false,Infinity,101.8413,300758136,2702084776
+80,true,MP,"Increm. + RF (Tie)",32,false,Infinity,126.9998,376745776,3104737960
+80,true,MP,"Increm. + RF (Tie)",33,false,Infinity,116.6666,347663384,3440282280
+80,true,MP,"Increm. + RF (Tie)",34,false,Infinity,112.7071,335818416,3775826600
+80,true,MP,"Increm. + RF (Tie)",35,false,Infinity,206.0734,621025128,4413360808
+80,true,MP,"Increm. + RF (Tie)",36,false,Infinity,123.4604,302952152,4715350696
+80,true,MP,"Increm. + RF (Tie)",37,false,Infinity,260.7135,772252600,5487102632
+80,true,MP,"Increm. + RF (Tie)",38,false,Infinity,95.4774,288454632,5755538088
+80,true,MP,"Increm. + RF (Tie)",39,false,Infinity,268.0086,784464456,6560844456
+80,true,MP,"Increm. + RF (Tie)",40,false,Infinity,119.0004,367171144,6929943208
+80,true,MP,"Increm. + RF (Tie)",41,false,Infinity,212.7163,630479320,7533922984
+80,true,MP,"Increm. + RF (Tie)",42,false,Infinity,122.9459,365893784,7903021736
+80,true,MP,"Increm. + RF (Tie)",43,false,Infinity,152.0372,452846320,8372783784
+80,true,MP,"Increm. + RF (Tie)",44,false,Infinity,121.2673,356931712,8708328104
+80,true,MP,"Increm. + RF (Tie)",45,false,Infinity,101.3158,302345376,9010317992
+80,true,MP,"Increm. + RF (Tie)",46,false,Infinity,330.2144,983655120,10016950952
+80,true,MP,"Increm. + RF (Tie)",47,false,Infinity,136.7345,394260024,10318940840
+80,true,MP,"Increm. + RF (Tie)",48,false,Infinity,133.4349,394358688,519369224
+80,true,MP,"Increm. + RF (Tie)",49,false,Infinity,101.4645,302047528,821359112
+80,true,MP,"Increm. + RF (Tie)",50,false,Infinity,115.6283,333955600,1156903432
+80,true,MP,"Increm. + RF (Tie)",51,false,Infinity,160.6519,480407008,1660219912
+80,true,MP,"Increm. + RF (Tie)",52,false,Infinity,204.4192,613455064,2264199688
+80,true,MP,"Increm. + RF (Tie)",53,false,Infinity,158.8383,462750920,2733961736
+80,true,MP,"Increm. + RF (Tie)",54,false,Infinity,136.3278,399262784,3136614920
+80,true,MP,"Increm. + RF (Tie)",55,false,Infinity,172.4219,508811704,3639931400
+80,true,MP,"Increm. + RF (Tie)",56,false,Infinity,123.9672,365619216,4009030152
+80,true,MP,"Increm. + RF (Tie)",57,false,Infinity,152.7669,445327872,4445237768
+80,true,MP,"Increm. + RF (Tie)",58,false,Infinity,172.4802,498776344,4948554248
+80,true,MP,"Increm. + RF (Tie)",59,false,Infinity,194.6997,570927248,5518979592
+80,true,MP,"Increm. + RF (Tie)",60,false,Infinity,214.6105,622117920,6122959368
+80,true,MP,"Increm. + RF (Tie)",61,false,Infinity,186.4560,544698328,6693384712
+80,true,MP,"Increm. + RF (Tie)",62,false,Infinity,138.5662,396149456,7062483464
+80,true,MP,"Increm. + RF (Tie)",63,false,Infinity,97.5674,289224776,7364473352
+80,true,MP,"Increm. + RF (Tie)",64,false,Infinity,157.0661,450643440,7800680968
+80,true,MP,"Increm. + RF (Tie)",65,false,Infinity,150.4985,445919744,8270443016
+80,true,MP,"Increm. + RF (Tie)",66,false,Infinity,148.3237,429668224,8706650632
+80,true,MP,"Increm. + RF (Tie)",67,false,Infinity,70.5424,204367632,8907977224
+80,true,MP,"Increm. + RF (Tie)",68,false,Infinity,107.6144,315193000,9209967112
+80,true,MP,"Increm. + RF (Tie)",69,false,Infinity,100.4310,300583552,9511957000
+80,true,MP,"Increm. + RF (Tie)",70,false,Infinity,112.5717,331219864,9847501320
+80,true,MP,"Increm. + RF (Tie)",71,false,Infinity,142.0403,432399368,10283708936
+80,true,MP,"Increm. + RF (Tie)",72,false,Infinity,105.7530,313525160,10317263368
+80,true,MP,"Increm. + RF (Tie)",73,false,Infinity,134.5197,396162928,719741848
+80,true,MP,"Increm. + RF (Tie)",74,false,Infinity,122.3484,363530296,1088840600
+80,true,MP,"Increm. + RF (Tie)",75,false,Infinity,139.3552,425249368,1491493784
+80,true,MP,"Increm. + RF (Tie)",76,false,Infinity,139.1982,426034984,1927701400
+80,true,MP,"Increm. + RF (Tie)",77,false,Infinity,207.1296,626844856,2565235608
+80,true,MP,"Increm. + RF (Tie)",78,false,Infinity,154.6626,462300392,3034997656
+80,true,MP,"Increm. + RF (Tie)",79,false,Infinity,249.3398,647327168,3672531864
+80,true,MP,"Increm. + RF (Tie)",80,false,Infinity,115.2255,349116600,4008076184
+80,true,MP,"Increm. + RF (Tie)",81,false,Infinity,147.5741,431186616,4444283800
+80,true,MP,"Increm. + RF (Tie)",82,false,Infinity,100.7993,304855824,4746273688
+80,true,MP,"Increm. + RF (Tie)",83,false,Infinity,187.0518,557406304,5316699032
+80,true,MP,"Increm. + RF (Tie)",84,false,Infinity,96.7213,286035760,5585134488
+80,true,MP,"Increm. + RF (Tie)",85,false,Infinity,163.0104,476003920,6088450968
+80,true,MP,"Increm. + RF (Tie)",86,false,Infinity,178.6441,527655152,6591767448
+80,true,MP,"Increm. + RF (Tie)",87,false,Infinity,128.0719,380331312,6994420632
+80,true,MP,"Increm. + RF (Tie)",88,false,Infinity,163.2811,479621832,7464182680
+80,true,MP,"Increm. + RF (Tie)",89,false,Infinity,108.6326,318565096,7766172568
+80,true,MP,"Increm. + RF (Tie)",90,false,Infinity,117.0580,345376128,8135271320
+80,true,MP,"Increm. + RF (Tie)",91,false,Infinity,106.5317,319626056,8437261208
+80,true,MP,"Increm. + RF (Tie)",92,false,Infinity,101.8427,304390296,8739251096
+80,true,MP,"Increm. + RF (Tie)",93,false,Infinity,91.7581,272967336,9007686552
+80,true,MP,"Increm. + RF (Tie)",94,false,Infinity,247.5246,746892392,9779438488
+80,true,MP,"Increm. + RF (Tie)",95,false,Infinity,101.6598,302397880,10081428376
+80,true,MP,"Increm. + RF (Tie)",96,false,Infinity,157.5078,465303064,10316734520
+80,true,MP,"Increm. + RF (Tie)",97,false,Infinity,143.6246,443453864,720166968
+80,true,MP,"Increm. + RF (Tie)",98,false,Infinity,194.6872,591393360,1290592312
+80,true,MP,"Increm. + RF (Tie)",99,false,Infinity,145.6078,440289904,1760354360
+80,true,MP,"Increm. + RF (Tie)",100,false,Infinity,172.8053,520840760,2263670840
