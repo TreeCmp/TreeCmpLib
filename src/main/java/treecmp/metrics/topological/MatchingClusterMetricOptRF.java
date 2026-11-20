@@ -30,7 +30,7 @@ public class MatchingClusterMetricOptRF extends BaseMetric implements Metric {
 
     // PREALOKOWANE BUFORY ROBOCZE (Scratchpad Buffers)
     private int currentLapCapacity = 0;
-    private int[][] assigncost;
+    private short[][] assigncost;
     private int[] rowsol;
     private int[] colsol;
     private int[] u;
@@ -39,7 +39,7 @@ public class MatchingClusterMetricOptRF extends BaseMetric implements Metric {
     private void ensureCapacity(int lapSize) {
         if (assigncost == null || currentLapCapacity < lapSize) {
             int newLap = Math.max(lapSize, (currentLapCapacity == 0 ? 32 : currentLapCapacity * 2));
-            assigncost = new int[newLap][newLap];
+            assigncost = new short[newLap][newLap];
             rowsol = new int[newLap];
             colsol = new int[newLap];
             u = new int[newLap];
@@ -99,7 +99,7 @@ public class MatchingClusterMetricOptRF extends BaseMetric implements Metric {
 
         for (int r = 0; r < rowCount; r++) {
             BitSet bsRow = rowBits[r];
-            int[] row = assigncost[r];
+            short[] row = assigncost[r];
             for (int c = 0; c < colCount; c++) {
                 row[c] = (short) ClusterDist.getDistXorBit(bsRow, colBits[c]);
             }
@@ -109,6 +109,6 @@ public class MatchingClusterMetricOptRF extends BaseMetric implements Metric {
             }
         }
 
-        return LapSolver.lap(size, assigncost, rowsol, colsol, u, v);
+        return LapSolver.lapShort(size, assigncost, rowsol, colsol, u, v);
     }
 }

@@ -1,0 +1,54 @@
+========================================================
+HEURISTIC TRAJECTORY: VND Incremental (MP_RF)
+========================================================
+STEP 0 [START] - Distance: 32.0000
+(8,((3,(4,(2,((6,7),(9,5))))),(1,10)));
+
+STEP 1 [NNI_IncrementalHeuristic_MP_RF -> NNI_Substep_1] - Distance: 29.0000
+(8,((3,(1,10)),(4,(2,((6,7),(9,5))))));
+
+STEP 2 [NNI_IncrementalHeuristic_MP_RF -> NNI_Substep_2] - Distance: 26.0000
+((((6,7),(9,5)),(2,4)),((3,(1,10)),8));
+
+STEP 3 [NNI_IncrementalHeuristic_MP_RF -> NNI_Substep_3] - Distance: 20.0000
+(((3,(1,10)),(((6,7),(9,5)),8)),(2,4));
+
+STEP 4 [NNI_IncrementalHeuristic_MP_RF -> NNI_Substep_4] - Distance: 19.0000
+(((3,(1,10)),(((6,7),8),(9,5))),(2,4));
+
+STEP 5 [TBR_IncrementalHeuristic_MP_RF -> NNI_Substep_1] - Distance: 19.0000
+(((3,(1,10)),(((7,8),6),(9,5))),(2,4));
+
+STEP 6 [TBR_IncrementalHeuristic_MP_RF -> NNI_Substep_2] - Distance: 19.0000
+(((3,(1,10)),(((7,8),(9,5)),6)),(2,4));
+
+STEP 7 [TBR_IncrementalHeuristic_MP_RF -> NNI_Substep_3] - Distance: 19.0000
+((((3,(1,10)),((7,8),(9,5))),6),(2,4));
+
+STEP 8 [TBR_IncrementalHeuristic_MP_RF -> NNI_Substep_4] - Distance: 10.0000
+(((3,(1,10)),(((7,8),9),5)),((2,4),6));
+
+STEP 9 [TBR_IncrementalHeuristic_MP_RF -> NNI_Substep_5] - Distance: 10.0000
+((((3,(1,10)),((7,8),9)),5),((2,4),6));
+
+STEP 10 [TBR_IncrementalHeuristic_MP_RF -> NNI_Substep_6] - Distance: 7.0000
+((((3,(1,10)),5),((7,8),9)),((2,4),6));
+
+STEP 11 [TBR_IncrementalHeuristic_MP_RF -> NNI_Substep_7] - Distance: 6.0000
+((((3,5),(1,10)),((7,8),9)),((2,4),6));
+
+STEP 12 [TBR_IncrementalHeuristic_MP_RF -> NNI_Substep_8] - Distance: 6.0000
+(((((3,5),1),10),((7,8),9)),((2,4),6));
+
+STEP 13 [TBR_IncrementalHeuristic_MP_RF -> NNI_Substep_9] - Distance: 5.0000
+(((((3,5),1),((7,8),9)),10),((2,4),6));
+
+STEP 14 [TBR_IncrementalHeuristic_MP_RF -> NNI_Substep_10] - Distance: 2.0000
+((((3,5),1),(((7,8),9),10)),((2,4),6));
+
+STEP 15 [TBR_IncrementalHeuristic_MP_RF -> NNI_Substep_11] - Distance: 0.0000
+((((3,5),1),((7,8),(9,10))),((2,4),6));
+
+========================================================
+[FINAL] Total Steps: 15 | Final Distance: 0.0000
+========================================================

@@ -1,0 +1,39 @@
+========================================================
+HEURISTIC TRAJECTORY: VND Incremental (RFC)
+========================================================
+STEP 0 [START] - Distance: 8.0000
+((8,((4,(1,(9,5))),(6,3))),(2,(7,10)));
+
+STEP 1 [NNI_IncrementalHeuristic_RFC] - Distance: 7.0000
+((8,((4,(5,(9,1))),(6,3))),(2,(7,10)));
+
+STEP 2 [TBR_IncrementalHeuristic_RFC -> NNI_Substep_1] - Distance: 7.0000
+(((4,(5,(9,1))),(6,3)),(2,((7,10),8)));
+
+STEP 3 [TBR_IncrementalHeuristic_RFC -> NNI_Substep_2] - Distance: 6.0000
+(((4,(5,(9,1))),(6,3)),(2,((7,8),10)));
+
+STEP 4 [TBR_IncrementalHeuristic_RFC -> NNI_Substep_3] - Distance: 5.0000
+(((4,(5,(9,1))),(6,3)),((2,(7,8)),10));
+
+STEP 5 [TBR_IncrementalHeuristic_RFC -> NNI_Substep_4] - Distance: 5.0000
+(((4,(5,(9,1))),((6,3),10)),(2,(7,8)));
+
+STEP 6 [TBR_IncrementalHeuristic_RFC -> NNI_Substep_5] - Distance: 4.0000
+(((4,(5,(9,1))),((6,10),3)),(2,(7,8)));
+
+STEP 7 [TBR_IncrementalHeuristic_RFC -> NNI_Substep_6] - Distance: 3.0000
+((((4,(5,(9,1))),(6,10)),3),(2,(7,8)));
+
+STEP 8 [TBR_IncrementalHeuristic_RFC -> NNI_Substep_7] - Distance: 2.0000
+((((4,(9,1)),5),(6,10)),((2,(7,8)),3));
+
+STEP 9 [TBR_IncrementalHeuristic_RFC -> NNI_Substep_8] - Distance: 1.0000
+((((4,(9,1)),(6,10)),5),((2,(7,8)),3));
+
+STEP 10 [TBR_IncrementalHeuristic_RFC -> NNI_Substep_9] - Distance: 0.0000
+(((((9,1),(6,10)),4),5),((2,(7,8)),3));
+
+========================================================
+[FINAL] Total Steps: 10 | Final Distance: 0.0000
+========================================================

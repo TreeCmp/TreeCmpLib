@@ -1,0 +1,45 @@
+========================================================
+HEURISTIC TRAJECTORY: 1. NNI (Classic) (M3)
+========================================================
+STEP 0 [START] - Distance: 78.0000
+(1,(6,(3,7)),(((9,8),(4,10)),(2,5)));
+
+STEP 1 [NNI_ClassicHeuristic_M3 -> NNI_Substep_1] - Distance: 72.0000
+(1,(6,(3,7)),(((9,8),(2,5)),(4,10)));
+
+STEP 2 [NNI_ClassicHeuristic_M3 -> NNI_Substep_2] - Distance: 67.0000
+(1,(6,(3,7)),(10,(4,((9,8),(2,5)))));
+
+STEP 3 [NNI_ClassicHeuristic_M3 -> NNI_Substep_3] - Distance: 63.0000
+(1,(6,(3,7)),(10,(4,(5,(2,(9,8))))));
+
+STEP 4 [NNI_ClassicHeuristic_M3 -> NNI_Substep_4] - Distance: 55.0000
+(1,(6,(3,7)),(10,((2,(9,8)),(5,4))));
+
+STEP 5 [NNI_ClassicHeuristic_M3 -> NNI_Substep_5] - Distance: 53.0000
+(6,(1,(3,7)),(10,((2,(9,8)),(5,4))));
+
+STEP 6 [NNI_ClassicHeuristic_M3 -> NNI_Substep_6] - Distance: 50.0000
+(10,(1,(3,7)),(6,((2,(9,8)),(5,4))));
+
+STEP 7 [NNI_ClassicHeuristic_M3 -> NNI_Substep_7] - Distance: 38.0000
+(10,(1,(3,7)),((2,(9,8)),(6,(5,4))));
+
+STEP 8 [NNI_ClassicHeuristic_M3 -> NNI_Substep_8] - Distance: 31.0000
+(10,(1,(3,7)),((2,(9,8)),(4,(5,6))));
+
+STEP 9 [NNI_ClassicHeuristic_M3 -> NNI_Substep_9] - Distance: 29.0000
+(10,(7,(3,1)),((2,(9,8)),(4,(5,6))));
+
+STEP 10 [NNI_ClassicHeuristic_M3 -> NNI_Substep_10] - Distance: 26.0000
+(7,(10,(3,1)),((2,(9,8)),(4,(5,6))));
+
+STEP 11 [NNI_ClassicHeuristic_M3 -> NNI_Substep_11] - Distance: 14.0000
+((2,(9,8)),(10,(3,1)),(7,(4,(5,6))));
+
+STEP 12 [NNI_ClassicHeuristic_M3 -> NNI_Substep_12] - Distance: 0.0000
+((2,(9,8)),(10,(3,1)),((5,6),(4,7)));
+
+========================================================
+[FINAL] Total Steps: 12 | Final Distance: 0.0000
+========================================================

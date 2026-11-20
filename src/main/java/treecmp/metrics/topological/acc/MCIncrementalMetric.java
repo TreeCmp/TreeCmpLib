@@ -46,7 +46,7 @@ public class MCIncrementalMetric implements IncrementalMetric,
     private int dim;
     private int allocatedDim = -1;
     private int allocatedN = -1;
-    private int[][] assigncost;
+    private short[][] assigncost;
     private int[] rowsol;
     private int[] colsol;
     private int[] u;
@@ -63,7 +63,7 @@ public class MCIncrementalMetric implements IncrementalMetric,
     // Prealokowane reprezentacje słów 64-bitowych dla błyskawicznego XOR bez alokacji
     private int numWords;
     private long[][] targetClusterWords;
-    private int[] targetNullRowCosts;
+    private short[] targetNullRowCosts;
     private long[] scratchWords;
 
     // Struktury do szybkiego przejścia O(N) po T2 (Tree DP indeksowane pozycją post-order)
@@ -77,7 +77,7 @@ public class MCIncrementalMetric implements IncrementalMetric,
     private int[] t2PostOrderCol;
     private int[] t2CountA;
 
-    private final Stack<int[][]> costHistory = new Stack<>();
+    private final Stack<short[][]> costHistory = new Stack<>();
     private final Stack<int[]> rowsolHistory = new Stack<>();
     private final Stack<int[]> colsolHistory = new Stack<>();
     private final Stack<int[]> uHistory = new Stack<>();
@@ -95,7 +95,7 @@ public class MCIncrementalMetric implements IncrementalMetric,
     private int deltaPointer = 0;
     private int[] deltaRowsCount;
     private int[][] deltaRows;
-    private int[][][] deltaOldRows;
+    private short[][][] deltaOldRows;
     private int[][] deltaOldU;
     private int[][] deltaOldV;
     private int[][] deltaOldRowsol;
@@ -120,7 +120,7 @@ public class MCIncrementalMetric implements IncrementalMetric,
     // Prealokowane bufory dla ciepłego startu LAP (SPR / TBR fallback & getFixedDistanceForRegraft)
     private final Map<BitSet, Integer> clusterToRow = new HashMap<>();
     private boolean clusterToRowInitialized = false;
-    private int[][] scratchSavedOldRows;
+    private short[][] scratchSavedOldRows;
     private int[] scratchSavedU;
     private int[] scratchSavedV;
     private int[] scratchSavedRowsol;
@@ -188,7 +188,7 @@ public class MCIncrementalMetric implements IncrementalMetric,
                     || (this.assigncost == null);
 
             if (needRealloc) {
-                this.assigncost = new int[dim][dim];
+                this.assigncost = new short[dim][dim];
                 this.rowsol = new int[dim];
                 this.colsol = new int[dim];
                 this.u = new int[dim];
@@ -196,7 +196,7 @@ public class MCIncrementalMetric implements IncrementalMetric,
 
                 this.scratchWords = new long[numWords];
                 this.targetClusterWords = new long[dim][numWords];
-                this.targetNullRowCosts = new int[dim];
+                this.targetNullRowCosts = new short[dim];
 
                 int maxK = Math.max(64, dim + 1);
                 this.cachedKArrays = new int[maxK][];
@@ -204,7 +204,7 @@ public class MCIncrementalMetric implements IncrementalMetric,
                     this.cachedKArrays[i] = new int[i];
                 }
 
-                this.scratchSavedOldRows = new int[dim][dim];
+                this.scratchSavedOldRows = new short[dim][dim];
                 this.scratchSavedU = new int[dim];
                 this.scratchSavedV = new int[dim];
                 this.scratchSavedRowsol = new int[dim];
@@ -215,7 +215,7 @@ public class MCIncrementalMetric implements IncrementalMetric,
                 this.deltaMaxDepth = depth;
                 this.deltaRowsCount = new int[depth];
                 this.deltaRows = new int[depth][dim];
-                this.deltaOldRows = new int[depth][][];
+                this.deltaOldRows = new short[depth][][];
                 this.deltaOldU = new int[depth][dim];
                 this.deltaOldV = new int[depth][dim];
                 this.deltaOldRowsol = new int[depth][dim];
@@ -227,7 +227,7 @@ public class MCIncrementalMetric implements IncrementalMetric,
                 int baseRowSlots = Math.max(4, dim);
                 for (int d = 0; d < depth; d++) {
                     int rowSlots = (d < 2) ? baseRowSlots : 4;
-                    this.deltaOldRows[d] = new int[rowSlots][dim];
+                    this.deltaOldRows[d] = new short[rowSlots][dim];
                     this.deltaOldClustNode[d] = new Node[rowSlots];
                     this.deltaOldClustBits[d] = new BitSet[rowSlots];
                     for (int r = 0; r < rowSlots; r++) {
@@ -388,7 +388,7 @@ public class MCIncrementalMetric implements IncrementalMetric,
             }
 
             buildInitialCostMatrix();
-            this.currentDistance = LapSolver.lap(dim, assigncost, rowsol, colsol, u, v);
+            this.currentDistance = LapSolver.lapShort(dim, assigncost, rowsol, colsol, u, v);
         } else {
             this.currentDistance = 0;
         }
@@ -435,7 +435,7 @@ public class MCIncrementalMetric implements IncrementalMetric,
     }
 
     private void computeRowCostsFast(int r, BitSet cluster) {
-        int[] costRow = assigncost[r];
+        short[] costRow = assigncost[r];
         if (cluster == null || cluster.isEmpty()) {
             System.arraycopy(targetNullRowCosts, 0, costRow, 0, dim);
             return;
@@ -486,7 +486,7 @@ public class MCIncrementalMetric implements IncrementalMetric,
     private void computeRowCostsTreeDp(int r, BitSet cluster) {
         int card = cluster.cardinality();
         short shortCard = (short) card;
-        int[] costRow = assigncost[r];
+        short[] costRow = assigncost[r];
 
         for (int i = 0; i < postOrderT2Count; i++) {
             int leafId = t2PostOrderLeafId[i];
@@ -642,7 +642,7 @@ public class MCIncrementalMetric implements IncrementalMetric,
         int[] changedRowsParam = (k < cachedKArrays.length) ? cachedKArrays[k] : new int[k];
         System.arraycopy(scratchChangedRows, 0, changedRowsParam, 0, k);
 
-        double newDistance = LapSolver.lapUpdate(dim, assigncost, rowsol, colsol, u, v, changedRowsParam);
+        double newDistance = LapSolver.lapShortUpdate(dim, assigncost, rowsol, colsol, u, v, changedRowsParam);
 
         for (int i = 0; i < k; i++) {
             System.arraycopy(scratchSavedOldRows[i], 0, assigncost[scratchChangedRows[i]], 0, dim);
@@ -687,7 +687,7 @@ public class MCIncrementalMetric implements IncrementalMetric,
 
             for (int d = deltaMaxDepth; d < newDepth; d++) {
                 deltaRows[d] = new int[dim];
-                deltaOldRows[d] = new int[4][dim];
+                deltaOldRows[d] = new short[4][dim];
                 deltaOldU[d] = new int[dim];
                 deltaOldV[d] = new int[dim];
                 deltaOldRowsol[d] = new int[dim];
@@ -703,7 +703,7 @@ public class MCIncrementalMetric implements IncrementalMetric,
 
         if (deltaOldRows[deltaPointer].length < requiredRows) {
             int newSlots = Math.max(requiredRows, dim);
-            deltaOldRows[deltaPointer] = new int[newSlots][dim];
+            deltaOldRows[deltaPointer] = new short[newSlots][dim];
             deltaOldClustNode[deltaPointer] = new Node[newSlots];
             BitSet[] oldBits = deltaOldClustBits[deltaPointer];
             BitSet[] newBits = new BitSet[newSlots];
@@ -758,7 +758,7 @@ public class MCIncrementalMetric implements IncrementalMetric,
 
         int[] changedRowsParam = cachedKArrays[1];
         changedRowsParam[0] = r;
-        this.currentDistance = LapSolver.lapUpdate(dim, assigncost, rowsol, colsol, u, v, changedRowsParam);
+        this.currentDistance = LapSolver.lapShortUpdate(dim, assigncost, rowsol, colsol, u, v, changedRowsParam);
     }
 
     private void updateTwoRowsAndSave(int r1, BitSet c1, int r2, BitSet c2) {
@@ -815,7 +815,7 @@ public class MCIncrementalMetric implements IncrementalMetric,
         int[] changedRowsParam = cachedKArrays[2];
         changedRowsParam[0] = r1;
         changedRowsParam[1] = r2;
-        this.currentDistance = LapSolver.lapUpdate(dim, assigncost, rowsol, colsol, u, v, changedRowsParam);
+        this.currentDistance = LapSolver.lapShortUpdate(dim, assigncost, rowsol, colsol, u, v, changedRowsParam);
     }
 
     private void updateMultipleRowsAndSave(int count, int[] rows, BitSet[] clusters) {
@@ -868,7 +868,7 @@ public class MCIncrementalMetric implements IncrementalMetric,
 
         int[] changedRowsParam = (count < cachedKArrays.length) ? cachedKArrays[count] : new int[count];
         System.arraycopy(rows, 0, changedRowsParam, 0, count);
-        this.currentDistance = LapSolver.lapUpdate(dim, assigncost, rowsol, colsol, u, v, changedRowsParam);
+        this.currentDistance = LapSolver.lapShortUpdate(dim, assigncost, rowsol, colsol, u, v, changedRowsParam);
     }
 
     private void undoDeltaStack() {
@@ -1317,7 +1317,7 @@ public class MCIncrementalMetric implements IncrementalMetric,
     }
 
     private void saveCurrentStateToHistory() {
-        int[][] costCopy = new int[dim][dim];
+        short[][] costCopy = new short[dim][dim];
         for (int i = 0; i < dim; i++) {
             System.arraycopy(this.assigncost[i], 0, costCopy[i], 0, dim);
         }

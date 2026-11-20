@@ -35,7 +35,7 @@ public class MatchingClusterMetricO3 extends BaseMetric implements Metric {
     protected int[] costId2NumT2;
     protected int[] rowsol;
     protected int[] colsol;
-    protected int[][] assigncost;
+    protected short[][] assigncost;
     protected ClustIntersectInfoMatrix cIntM;
 
     // PREALOKOWANE BUFORY ROBOCZE (Scratchpad Buffers) - eliminacja alokacji w gorących ścieżkach
@@ -52,7 +52,7 @@ public class MatchingClusterMetricO3 extends BaseMetric implements Metric {
     private void ensureCapacity(int lapSize, int itSize) {
         if (assigncost == null || currentLapCapacity < lapSize) {
             int newLap = Math.max(lapSize, (currentLapCapacity == 0 ? 32 : currentLapCapacity * 2));
-            assigncost = new int[newLap][newLap];
+            assigncost = new short[newLap][newLap];
             rowsol = new int[newLap];
             colsol = new int[newLap];
             u = new int[newLap];
@@ -130,7 +130,7 @@ public class MatchingClusterMetricO3 extends BaseMetric implements Metric {
         for (int r = 0; r < n1; r++) {
             int id1 = t1Ids[r];
             int s1 = t1Sizes[r];
-            int[] row = assigncost[r];
+            short[] row = assigncost[r];
             short[] interRow = cIntM.intCladeSize[id1];
             for (int c = 0; c < n2; c++) {
                 int id2 = t2Ids[c];
@@ -140,7 +140,7 @@ public class MatchingClusterMetricO3 extends BaseMetric implements Metric {
 
         // Kwadrant 2: Widmowe T1 / koszt klastrów T2 [n1..size-1][0..n2-1]
         for (int r = n1; r < size; r++) {
-            int[] row = assigncost[r];
+            short[] row = assigncost[r];
             for (int c = 0; c < n2; c++) {
                 row[c] = (short) t2Sizes[c];
             }
@@ -148,7 +148,7 @@ public class MatchingClusterMetricO3 extends BaseMetric implements Metric {
 
         // Kwadrant 3: Widmowe T2 / koszt klastrów T1 [0..n1-1][n2..size-1]
         for (int r = 0; r < n1; r++) {
-            int[] row = assigncost[r];
+            short[] row = assigncost[r];
             short s1 = (short) t1Sizes[r];
             for (int c = n2; c < size; c++) {
                 row[c] = s1;
@@ -157,13 +157,13 @@ public class MatchingClusterMetricO3 extends BaseMetric implements Metric {
 
         // Kwadrant 4: Zera [n1..size-1][n2..size-1]
         for (int r = n1; r < size; r++) {
-            int[] row = assigncost[r];
+            short[] row = assigncost[r];
             for (int c = n2; c < size; c++) {
                 row[c] = 0;
             }
         }
 
-        return LapSolver.lap(size, assigncost, rowsol, colsol, u, v);
+        return LapSolver.lapShort(size, assigncost, rowsol, colsol, u, v);
     }
 
     @Override

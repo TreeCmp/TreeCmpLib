@@ -1,4 +1,4 @@
-    package treecmp.benchmarks.singleStep;
+package treecmp.benchmarks.singleStep;
 
 import org.openjdk.jmh.annotations.Level;
 import org.openjdk.jmh.annotations.Setup;

@@ -15,7 +15,7 @@ public class MatchingSpliMetricFree extends BaseMetric implements Metric {
     protected int[] costId2NumT2;
     protected int[] rowsol;
     protected int[] colsol;
-    protected int[][] assigncost;
+    protected short[][] assigncost;
     protected ClustIntersectInfoMatrix cIntM;
 
     // PREALOKOWANE BUFORY ROBOCZE (Scratchpad Buffers) - eliminacja alokacji w gorących ścieżkach
@@ -35,7 +35,7 @@ public class MatchingSpliMetricFree extends BaseMetric implements Metric {
     private void ensureCapacity(int lapSize, int nodeSize) {
         if (assigncost == null || currentLapCapacity < lapSize) {
             int newLap = Math.max(lapSize, (currentLapCapacity == 0 ? 32 : currentLapCapacity * 2));
-            assigncost = new int[newLap][newLap];
+            assigncost = new short[newLap][newLap];
             rowsol = new int[newLap];
             colsol = new int[newLap];
             u = new int[newLap];
@@ -116,7 +116,7 @@ public class MatchingSpliMetricFree extends BaseMetric implements Metric {
         for (int r = 0; r < n1; r++) {
             Node node1 = scratchNodesT1[r];
             int ar2 = t1_ar2[r];
-            int[] row = assigncost[r];
+            short[] row = assigncost[r];
             for (int c = 0; c < n2; c++) {
                 int ac = cIntM.getInterSize(node1, scratchNodesT2[c]);
                 int bc = t2_r1c[c] - ac;
@@ -129,7 +129,7 @@ public class MatchingSpliMetricFree extends BaseMetric implements Metric {
 
         // Kwadrant 2: Widmowe T1 / koszt węzłów T2 [n1..size-1][0..n2-1]
         for (int r = n1; r < size; r++) {
-            int[] row = assigncost[r];
+            short[] row = assigncost[r];
             for (int c = 0; c < n2; c++) {
                 int cC = t2_cCsize[c];
                 int dC = t2_dCsize[c];
@@ -139,7 +139,7 @@ public class MatchingSpliMetricFree extends BaseMetric implements Metric {
 
         // Kwadrant 3: Widmowe T2 / koszt węzłów T1 [0..n1-1][n2..size-1]
         for (int r = 0; r < n1; r++) {
-            int[] row = assigncost[r];
+            short[] row = assigncost[r];
             int aC = t1_aCsize[r];
             int bC = t1_bCsize[r];
             short cost = (short) Math.min(extSum + aC - bC, extSum + bC - aC);
@@ -150,13 +150,13 @@ public class MatchingSpliMetricFree extends BaseMetric implements Metric {
 
         // Kwadrant 4: Zera [n1..size-1][n2..size-1]
         for (int r = n1; r < size; r++) {
-            int[] row = assigncost[r];
+            short[] row = assigncost[r];
             for (int c = n2; c < size; c++) {
                 row[c] = 0;
             }
         }
 
-        int metric = LapSolver.lap(size, assigncost, rowsol, colsol, u, v);
+        int metric = LapSolver.lapShort(size, assigncost, rowsol, colsol, u, v);
         return metric / 2.0;
     }
 }

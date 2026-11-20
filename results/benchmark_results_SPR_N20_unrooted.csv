@@ -1,8 +1,0 @@
-Size,IsRooted,Metric,Variant,PairIndex,Success,Distance,TotalTimeMs,AllocBytes,PeakRamBytes
-20,false,RF,"Classic (Pure)",1,true,15.0000,2697.6771,946078296,194885632
-20,false,RF,"Classic (Pure)",2,true,16.0000,1579.4382,999938152,355148240
-20,false,RF,"Classic (Pure)",3,true,11.0000,1004.2621,690551512,537751336
-20,false,RF,"Classic (Pure)",4,true,17.0000,1531.0463,1061519976,576724192
-20,false,RF,"Classic (Pure)",5,true,14.0000,1236.1147,874663720,680825128
-20,false,RF,"Classic (Pure)",6,true,15.0000,1267.6592,931362256,697572136
-20,false,RF,"Classic (Pure)",7,true,14.0000,1271.4122,868933840,758389544
